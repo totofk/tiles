@@ -15,7 +15,7 @@ export default defineConfig([
   },
   {
     // core is pure TS: no React, no DOM, no wall clock (time enters only as ticks)
-    files: ['src/core/**/*.ts'],
+    files: ['src/core/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
