@@ -36,7 +36,7 @@ docs/              # PRD.md, DECISIONS.md, PLAN.md
 3. `core/step.ts` — tick logic, with tests (grow only while moist, regen caps at max, rot after grace).
 4. `core/actions.ts` — 4 manual actions + sell + buy upgrade/license/tile; one test file per action group; errors are values, not throws.
 5. `tests/sim.test.ts` — greedy bot plays 600 ticks: cash never negative, crop-2 license affordable within ~300 ticks (target, tune `balance.ts` until it passes and report the final numbers).
-6. React UI: 6-tile grid (colour/emoji per state), click tile → next sensible action, HUD, Shop. Mobile-width friendly.
+6. [x] React UI: 6-tile grid (colour/emoji per state), click tile → next sensible action, HUD, Shop. Mobile-width friendly.
 7. Save/load (localStorage, versioned) + offline catch-up (step missed seconds, cap 8 h), tested with a fake clock.
 8. Deploy to GitHub Pages (Vite `base`, `gh-pages` or Actions workflow).
 9. Playtest together in the Discord thread → record verdict + tuned numbers in `docs/PLAYTEST.md`.
@@ -91,4 +91,10 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   radish cycle). All 6 tiles are then replanted with radish until tick 400, so the first pumpkin matures at
   640, past the 600-tick target. At 100 it is affordable after the 2nd cycle (tick 200). DECISIONS.md values
   (energy, regen, moisture, rot factor) are unchanged.
+- **UI lives in `src/app/`; `src/App.tsx` moved there.** Tap logic (`nextTileAction` / `tapTile`) and display helpers
+  (`isMature`, `isDry`, `growthProgress`, `ticksUntilRot`) are pure functions in `src/core/tile.ts` with tests.
+  "Dry" = moisture exactly 0, same as the sim bot: tapping a planted tile that is still moist and growing does nothing
+  (toast "Growing — water it when dry"), so the player cannot top up early. Revisit in playtest.
+- **Rot warning threshold (last 25 % of grace) is a display constant in `FarmGrid.tsx`**, not in `balance.ts`: it
+  changes colour only, never game state.
 - **Upgrade max level 10** added in `balance.ts` so `buyUpgrade` can return `MAX_LEVEL`; no cap was specified before.
