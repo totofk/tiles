@@ -8,6 +8,8 @@ export const START_TILES = 6
 export const TILE_CAP = 24
 export const ACTION_ENERGY_COST = 1
 export const STARTING_CASH = 20
+/** float residue below this is snapped away (energy to the nearest integer, moisture to 0) */
+export const FLOAT_EPSILON = 1e-9
 
 const CROP_BASE: Record<CropId, { growTicks: number; seedCost: number; sellPrice: number; licenseCost: number }> = {
   // 100 ticks with a 60 s moisture bar = water at plant + once more
