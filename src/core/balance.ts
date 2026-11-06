@@ -14,7 +14,8 @@ export const FLOAT_EPSILON = 1e-9
 const CROP_BASE: Record<CropId, { growTicks: number; seedCost: number; sellPrice: number; licenseCost: number }> = {
   // 100 ticks with a 60 s moisture bar = water at plant + once more
   radish: { growTicks: 100, seedCost: 2, sellPrice: 10, licenseCost: 0 },
-  pumpkin: { growTicks: 240, seedCost: 10, sellPrice: 60, licenseCost: 150 },
+  // license 100 (was 150): affordable after the 2nd radish cycle, so pumpkins planted at ~300 mature by 600
+  pumpkin: { growTicks: 240, seedCost: 10, sellPrice: 60, licenseCost: 100 },
 }
 const ROT_GRACE_FACTOR = 2
 

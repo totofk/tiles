@@ -50,6 +50,45 @@ no branch ceremony yet).
 - Do not start a dev server in headless runs; `pnpm test` and `pnpm build` are the proof.
 - Keep `docs/DECISIONS.md` authoritative; if you must deviate, write the deviation and reason into `docs/PLAN.md` under "Deviations".
 
+## Batch 1 results
+Final starting balance (`src/core/balance.ts`), 1 tick = 1 s:
+
+| Crop | License | Seed | Sell | Grow (ticks) | Rot grace (ticks) |
+|---|---|---|---|---|---|
+| radish | 0 (owned at start) | 2 | 10 | 100 | 200 |
+| pumpkin | **100** (was 150) | 10 | 60 | 240 | 480 |
+
+- Energy: max 20, regen 1/3 per tick, each farm action costs 1, shop actions cost 0.
+- Moisture: watering sets 1, drains 1/60 per tick (empty in 60 s); from a dry tile radish needs 2 waterings,
+  pumpkin 4. Harvest and rot keep the soil's moisture, so a quick replant may need one fewer.
+- Upgrades: `energyMax` cost 50 × 1.6^level, +5 max per level; `energyRegen` cost 75 × 1.7^level,
+  +25 % of base regen per level; both cap at level 10. Buying `energyMax` does not refill energy.
+- Tiles: start 6, cap 24, next tile costs 100 × 1.5^(owned − 6); new tiles are untilled.
+- Starting cash: 20.
+
+Step semantics: growth checks moisture **before** that tick's drain, so a full bar buys exactly 60 growth
+ticks. A crop's `ticksSinceMature` starts counting on the tick after it matures; it rots on the tick that
+count exceeds the grace window.
+
+Greedy bot (`tests/sim.test.ts`, no upgrades or tiles bought; "dry" = moisture exactly 0), milestone ticks:
+
+| Milestone | Tick |
+|---|---|
+| first radish harvest | 100 |
+| pumpkin license affordable | 200 |
+| pumpkin license bought | 201 |
+| first pumpkin planted | 300 |
+| first pumpkin harvest | 540 |
+
+Lowest cash in the run: 4. Cash at tick 600: 304.
+
 ## Deviations
 - **Harvest sells instantly; there is no `sell` action.** With no inventory in Phase 1, `harvest` credits the
   crop's sell price straight to cash and leaves the tile tilled. A separate sell step would only cost a click.
+- **ESLint instead of oxlint; TypeScript pinned `~6.0.3`.** typescript-eslint does not support TS 7 yet.
+  ESLint rules enforce the pure core (no React/DOM imports, no `window`/`document`, no `Date.now()` / `new Date`).
+- **Pumpkin license 150 → 100.** At 150 the license becomes affordable only at tick 300 (after the 3rd
+  radish cycle). All 6 tiles are then replanted with radish until tick 400, so the first pumpkin matures at
+  640, past the 600-tick target. At 100 it is affordable after the 2nd cycle (tick 200). DECISIONS.md values
+  (energy, regen, moisture, rot factor) are unchanged.
+- **Upgrade max level 10** added in `balance.ts` so `buyUpgrade` can return `MAX_LEVEL`; no cap was specified before.
