@@ -8,6 +8,8 @@ export const START_TILES = 6
 export const TILE_CAP = 24
 export const ACTION_ENERGY_COST = 1
 export const STARTING_CASH = 20
+/** offline catch-up simulates at most 8 hours */
+export const OFFLINE_CAP_TICKS = 8 * 3600
 /** float residue below this is snapped away (energy to the nearest integer, moisture to 0) */
 export const FLOAT_EPSILON = 1e-9
 

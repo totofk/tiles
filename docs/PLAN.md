@@ -37,7 +37,7 @@ docs/              # PRD.md, DECISIONS.md, PLAN.md
 4. `core/actions.ts` — 4 manual actions + sell + buy upgrade/license/tile; one test file per action group; errors are values, not throws.
 5. `tests/sim.test.ts` — greedy bot plays 600 ticks: cash never negative, crop-2 license affordable within ~300 ticks (target, tune `balance.ts` until it passes and report the final numbers).
 6. [x] React UI: 6-tile grid (colour/emoji per state), click tile → next sensible action, HUD, Shop. Mobile-width friendly.
-7. Save/load (localStorage, versioned) + offline catch-up (step missed seconds, cap 8 h), tested with a fake clock.
+7. [x] Save/load (localStorage, versioned) + offline catch-up (step missed seconds, cap 8 h), tested with a fake clock.
 8. Deploy to GitHub Pages (Vite `base`, `gh-pages` or Actions workflow).
 9. Playtest together in the Discord thread → record verdict + tuned numbers in `docs/PLAYTEST.md`.
 
@@ -97,4 +97,15 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   (toast "Growing — water it when dry"), so the player cannot top up early. Revisit in playtest.
 - **Rot warning threshold (last 25 % of grace) is a display constant in `FarmGrid.tsx`**, not in `balance.ts`: it
   changes colour only, never game state.
+- **`serialize(state, savedAtMs)` takes the wall time as an argument** (brief said `serialize(state)`), so
+  `src/save/serialize.ts` stays pure and lint-checked like core; `Date.now()` lives only in `wallClock` in
+  `src/save/storage.ts`, injected into `loadGame` / `saveGame`.
+- **Save is throttled, not debounced:** the first change schedules a save 1 s later. A resetting debounce never fires,
+  because ticks change state every second. Saves also run on `visibilitychange`→hidden and `pagehide`.
+- **Returning to a hidden tab catches up by wall clock** through the same `catchUp()` and 8 h cap as a reload, and
+  shows the same "Away for …" banner. The rAF/interval timer only pauses: `performance.now()` may not advance
+  during device sleep.
+- **Unreadable saves (corrupt JSON, unknown or future version) are copied to `tiles.save.bad`** and the game starts
+  fresh, so a newer build's save is not silently overwritten.
+- **`OFFLINE_CAP_TICKS = 8 * 3600` added to `balance.ts`**; no existing number changed.
 - **Upgrade max level 10** added in `balance.ts` so `buyUpgrade` can return `MAX_LEVEL`; no cap was specified before.

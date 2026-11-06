@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
+import { awayText, catchUp, offlineTicks } from '../save/serialize'
+import { loadGame, saveGame, wallClock } from '../save/storage'
 
 const ERROR_TEXT: Record<ActionError, string> = {
   NO_ENERGY: 'Not enough energy',
@@ -19,15 +21,20 @@ const ERROR_TEXT: Record<ActionError, string> = {
 
 const TOAST_MS = 2000
 const LOOP_MS = 250
+const SAVE_DEBOUNCE_MS = 1000
 
 export type Act = (fn: (s: GameState) => ActionResult | null, idleText?: string) => void
 
 export function useGame() {
-  const [state, setState] = useState<GameState>(createInitialState)
+  const [boot] = useState(() => loadGame(localStorage))
+  const [state, setState] = useState<GameState>(boot.state)
   // single source of truth for ticks, taps and saves, so a tap never overwrites a queued tick
   const stateRef = useRef(state)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
+  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? awayText(boot.awayMs) : null)
+  const loop = useRef({ last: 0, acc: 0 })
+  const saveTimer = useRef<number | undefined>(undefined)
 
   const commit = useCallback((s: GameState) => {
     stateRef.current = s
@@ -51,27 +58,69 @@ export function useGame() {
     [commit, showToast],
   )
 
-  const reset = useCallback(() => commit(createInitialState()), [commit])
+  const reset = useCallback(() => {
+    const fresh = createInitialState()
+    commit(fresh)
+    saveGame(localStorage, fresh)
+    setBanner(null)
+  }, [commit])
 
   // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden.
   useEffect(() => {
-    let last = performance.now()
-    let acc = 0
+    loop.current = { last: performance.now(), acc: 0 }
     const id = window.setInterval(() => {
+      const l = loop.current
       const now = performance.now()
       if (document.hidden) {
-        last = now
+        l.last = now
         return
       }
-      acc += now - last
-      last = now
-      const ticks = Math.floor(acc / 1000)
+      l.acc += now - l.last
+      l.last = now
+      const ticks = Math.floor(l.acc / 1000)
       if (ticks < 1) return
-      acc -= ticks * 1000
+      l.acc -= ticks * 1000
       commit(step(stateRef.current, ticks))
     }, LOOP_MS)
     return () => window.clearInterval(id)
   }, [commit])
 
-  return { state, act, reset, toast }
+  // save at most once per second after a change (ticks change state every second, so a resetting debounce would never fire)
+  useEffect(() => {
+    if (saveTimer.current !== undefined) return
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = undefined
+      saveGame(localStorage, stateRef.current)
+    }, SAVE_DEBOUNCE_MS)
+  }, [state])
+
+  // save on hide/close; on return, catch up the hidden time by wall clock (same path and cap as a reload)
+  useEffect(() => {
+    let hiddenAt: number | null = null
+    const onVisibility = () => {
+      if (document.hidden) {
+        saveGame(localStorage, stateRef.current)
+        hiddenAt = wallClock()
+        return
+      }
+      if (hiddenAt === null) return
+      const awayMs = wallClock() - hiddenAt
+      hiddenAt = null
+      loop.current = { last: performance.now(), acc: 0 }
+      if (offlineTicks(awayMs) < 1) return
+      commit(catchUp(stateRef.current, awayMs))
+      setBanner(awayText(awayMs))
+    }
+    const onPageHide = () => saveGame(localStorage, stateRef.current)
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', onPageHide)
+      window.clearTimeout(saveTimer.current)
+      saveTimer.current = undefined
+    }
+  }, [commit])
+
+  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null) }
 }
