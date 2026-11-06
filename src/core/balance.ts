@@ -25,9 +25,9 @@ const ENERGY_MAX_PER_LEVEL = 5
 const ENERGY_REGEN_BASE = 1 / 3
 const ENERGY_REGEN_PER_LEVEL = 0.25 // +25% of base per level
 
-const UPGRADE_BASE: Record<UpgradeId, { cost: number; growth: number }> = {
-  energyMax: { cost: 50, growth: 1.6 },
-  energyRegen: { cost: 75, growth: 1.7 },
+const UPGRADE_BASE: Record<UpgradeId, { cost: number; growth: number; maxLevel: number }> = {
+  energyMax: { cost: 50, growth: 1.6, maxLevel: 10 },
+  energyRegen: { cost: 75, growth: 1.7, maxLevel: 10 },
 }
 
 const TILE_BASE_COST = 100
@@ -74,6 +74,10 @@ export function energyRegenPerTick(level: number, meta: MetaState): number {
 export function upgradeCost(upgradeId: UpgradeId, level: number, meta: MetaState): number {
   const { cost, growth } = UPGRADE_BASE[upgradeId]
   return Math.round(cost * growth ** level * multiplier(meta, 'cost'))
+}
+
+export function upgradeMaxLevel(upgradeId: UpgradeId): number {
+  return UPGRADE_BASE[upgradeId].maxLevel
 }
 
 /** cost of the next tile; Infinity once TILE_CAP tiles are owned */

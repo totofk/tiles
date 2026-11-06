@@ -49,3 +49,7 @@ no branch ceremony yet).
 - All numbers in `balance.ts`. If you need a number elsewhere, add it there first.
 - Do not start a dev server in headless runs; `pnpm test` and `pnpm build` are the proof.
 - Keep `docs/DECISIONS.md` authoritative; if you must deviate, write the deviation and reason into `docs/PLAN.md` under "Deviations".
+
+## Deviations
+- **Harvest sells instantly; there is no `sell` action.** With no inventory in Phase 1, `harvest` credits the
+  crop's sell price straight to cash and leaves the tile tilled. A separate sell step would only cost a click.
