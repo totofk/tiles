@@ -188,3 +188,12 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   at every level and fits 375 px; found on the live 6.2 build (one stepper overflowed ~30 px).
 - **The UI fixes ride in 7.1 instead of a separate 6.3** (Toon): the copper work touches the same tool bar, so it is
   laid out once.
+
+## Farm tab (batch 7.2, 2026-11-07, Toon)
+- **Desktop: farm actions move into a first side-panel tab "🌾 Farm"** (tool buttons, crop picker, seed pouch, dig
+  for seeds); 🛒 Shop is only for buying. Supersedes the 6.2 rule "tool buttons on the right edge of the Farm column"
+  for the desktop layout. Why: Toon wants everything he presses while farming in one place, and picking a crop is
+  not a purchase.
+- **Mobile keeps the bar above the tab bar:** farm and side panel are separate tabs there, so putting the buttons in
+  a tab would mean switching tabs on every water/harvest.
+- **Wood icon is one constant** (🪵 is missing on some fonts; it showed as ▯ on Toon's device).

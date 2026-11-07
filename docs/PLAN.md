@@ -964,3 +964,22 @@ Cash per energy, one crop on the 9 starting tiles, 1200 ticks (`runCropBot`, sam
 - Mining stays below farming as in batch 7: every copper-pickaxe bench (vein Lv1 / Lv2, mastery Lv0 / Lv10) < 0.9 ×
   pumpkin without copper tools (7.36; benches 2.18–2.38), so with copper tools the gap only grows.
 - Prices vs storage: a copper farm tool is 4 bars ≤ 40 (storage Lv2 when buyable, after the copper pickaxe).
+
+## Batch 7.2 — 🌾 Farm tab in the side panel (tasks 47–48)
+Question: on desktop, is everything the player presses while farming in one place (Toon's 2026-11-07 feedback)?
+UI only — no core numbers, no save-shape change (tab choice lives in `tiles.ui`). Decision: DECISIONS.md "Farm tab
+(batch 7.2)".
+
+47. [ ] New first side-panel tab **🌾 Farm**, the default tab, in the layout where the side panel sits next to the
+    farm (desktop). It holds, top to bottom: the tool buttons Water / Harvest / Plant (with the 7.1 n-step popover
+    and copper marks), the crop picker (owned crops only; picking sets the crop to plant, replacing the "Planting:"
+    selection in 🛒 Shop), the seed pouch rows + auto-buy toggle, and 🪏 Dig for seeds. The right-edge tool bar on
+    the Farm column is removed there, so the grid gets that width back. 🛒 Shop keeps only things you buy: crop
+    licenses (and seed price), Supplies, Farm tools, copper tools. In the mobile layout (farm is its own bottom tab)
+    nothing moves: the bar above the tab bar stays and the side-panel tabs do not gain a 🌾 Farm tab (the bottom
+    🌱 Farm tab already is it). Badge rules unchanged; the side-panel tab row must show every tab without the ›
+    overflow at ≥ 1024 px.
+48. [ ] Wood icon: 🪵 renders as an empty box on Toon's device. Replace it everywhere (UI, tips, prices, Stats) with
+    one shared icon constant using an older, widely supported emoji (e.g. 🌲 or 🪓 — pick one and say why), so a
+    later change is one line. Tests for 47: the Farm tab renders the three tool buttons and the crop picker; picking
+    a crop changes what Plant plants; Shop no longer has a crop picker.
