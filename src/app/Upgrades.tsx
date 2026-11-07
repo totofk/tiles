@@ -16,7 +16,9 @@ import {
 import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
 import { buyStorage, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
+import { Item } from './Info'
 import { dropText } from './Mine'
+import { TIPS, UPGRADE_TIPS } from './tips'
 import type { Act } from './useGame'
 
 const pct = (f: number) => `${Math.round(f * 100)} %`
@@ -55,18 +57,22 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
     <>
       <h2>⛏ Mine</h2>
       <div className="shop-row one-col">
-        <button disabled={!buyStorage(state).ok} onClick={() => act(buyStorage)}>
-          📦 Storage Lv {run.storageLevel}/{storageMaxLevel()}
-          <small>
-            {storageMaxed
-              ? `Storage ${cap} slots · max`
-              : `Storage ${cap} → ${cap + storageSlotsPerLevel()} slots · ${price(storageCost(run.storageLevel, meta))}`}
-          </small>
-        </button>
-        <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
-          ⛏️ Vein Lv {vein}/{veinMaxLevel()}
-          <small>{veinCost ? `${dropText(vein)} → ${dropText(vein + 1)} · ${price(veinCost)}` : `${dropText(vein)} · max`}</small>
-        </button>
+        <Item tip={TIPS.storage}>
+          <button disabled={!buyStorage(state).ok} onClick={() => act(buyStorage)}>
+            📦 Storage Lv {run.storageLevel}/{storageMaxLevel()}
+            <small>
+              {storageMaxed
+                ? `Storage ${cap} slots · max`
+                : `Storage ${cap} → ${cap + storageSlotsPerLevel()} slots · ${price(storageCost(run.storageLevel, meta))}`}
+            </small>
+          </button>
+        </Item>
+        <Item tip={TIPS.vein}>
+          <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
+            ⛏️ Vein Lv {vein}/{veinMaxLevel()}
+            <small>{veinCost ? `${dropText(vein)} → ${dropText(vein + 1)} · ${price(veinCost)}` : `${dropText(vein)} · max`}</small>
+          </button>
+        </Item>
       </div>
     </>
   )
@@ -89,10 +95,12 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
                 const cost = upgradeCost(id, level, meta)
                 const maxed = level >= max
                 return (
-                  <button key={id} disabled={maxed || run.cash < cost} onClick={() => act((s) => buyUpgrade(s, id))}>
-                    {UPGRADES[id].name} Lv {level}/{max}
-                    <small>{`${effect(id, level, meta, maxed)} · ${maxed ? 'max' : `💰${cost}`}`}</small>
-                  </button>
+                  <Item key={id} tip={UPGRADE_TIPS[id]}>
+                    <button disabled={maxed || run.cash < cost} onClick={() => act((s) => buyUpgrade(s, id))}>
+                      {UPGRADES[id].name} Lv {level}/{max}
+                      <small>{`${effect(id, level, meta, maxed)} · ${maxed ? 'max' : `💰${cost}`}`}</small>
+                    </button>
+                  </Item>
                 )
               })}
             </div>

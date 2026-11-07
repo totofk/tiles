@@ -662,7 +662,7 @@ reach? UI only — no core numbers, no save-shape change (badge "seen" state liv
     milestone progress, wood, tiles); ⬆️ Upgrades = numbers that go up, grouped ⚡ Energy / 🌱 Farm / ⛏ Mine (energy
     max + regen; sell price, fertilizer; storage, vein). Every row shows its effect as "now → next" (e.g. "Energy max
     15 → 20", "Sell price +10 % → +20 %"); maxed rows say "max".
-35. [ ] ⓘ info button on every Shop and Upgrades row: hover shows it on desktop, tap toggles it on touch; one shared
+35. [x] ⓘ info button on every Shop and Upgrades row: hover shows it on desktop, tap toggles it on touch; one shared
     component; texts in one UI data file (one or two plain sentences each: what it does, what it costs over time).
 36. [ ] Farm tool buttons: ≥ 768 px a vertical tool bar on the right edge of the Farm column; < 768 px a bar fixed
     above the bottom tab bar (thumb reach), not scrolling with the grid. Badge dot on the Shop / Upgrades tabs (and

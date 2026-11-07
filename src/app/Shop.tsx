@@ -6,6 +6,8 @@ import { buyMineLicense, buyWood } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyTool } from '../core/tools'
 import { CROP_EMOJI } from './FarmGrid'
+import { Info, Item } from './Info'
+import { CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
 import type { Act } from './useGame'
 
 /** per press, by level (index 0 = level 1) */
@@ -23,19 +25,21 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
       <h2>Seeds</h2>
       <div className="shop-row">
         {CROP_IDS.map((id) => {
-          if (run.licenses.includes(id))
-            return (
-              <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
-                {CROP_EMOJI[id]} {CROPS[id].name}
-                <small>seed 💰{cropSeedCost(id, meta)}</small>
-              </button>
-            )
           const cost = licenseCost(id, meta)
           return (
-            <button key={id} className="locked" disabled={run.cash < cost} onClick={() => act((s) => buyLicense(s, id))}>
-              🔒 {CROPS[id].name}
-              <small>license 💰{cost}</small>
-            </button>
+            <Item key={id} tip={CROP_TIPS[id]}>
+              {run.licenses.includes(id) ? (
+                <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
+                  {CROP_EMOJI[id]} {CROPS[id].name}
+                  <small>seed 💰{cropSeedCost(id, meta)}</small>
+                </button>
+              ) : (
+                <button className="locked" disabled={run.cash < cost} onClick={() => act((s) => buyLicense(s, id))}>
+                  🔒 {CROPS[id].name}
+                  <small>license 💰{cost}</small>
+                </button>
+              )}
+            </Item>
           )
         })}
       </div>
@@ -51,30 +55,40 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
               Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
             </button>
           ))}
+          <Info text={TIPS.pouch} />
         </div>
       ))}
-      <label className="pouch-auto">
-        <input type="checkbox" checked={run.autoBuySeeds} onChange={(e) => act((s) => setAutoBuySeeds(s, e.target.checked))} />
-        Auto-buy a seed when the pouch is empty
-      </label>
+      <div className="pouch-auto">
+        <label>
+          <input type="checkbox" checked={run.autoBuySeeds} onChange={(e) => act((s) => setAutoBuySeeds(s, e.target.checked))} />
+          Auto-buy a seed when the pouch is empty
+        </label>
+        <Info text={TIPS.autoBuy} />
+      </div>
 
       <h2>Supplies</h2>
       <div className="shop-row">
         {run.mineLicense ? (
-          <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
-            🪵 Wood
-            <small>💰{woodCost(meta)}</small>
-          </button>
+          <Item tip={TIPS.wood}>
+            <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
+              🪵 Wood
+              <small>💰{woodCost(meta)}</small>
+            </button>
+          </Item>
         ) : (
-          <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
-            ⛏️ Mine license
-            <small>💰{mineLicenseCost(meta)}</small>
-          </button>
+          <Item tip={TIPS.mineLicense}>
+            <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
+              ⛏️ Mine license
+              <small>💰{mineLicenseCost(meta)}</small>
+            </button>
+          </Item>
         )}
-        <button disabled={tiles >= TILE_CAP || run.cash < nextTile} onClick={() => act(buyTile)}>
-          Buy tile ({tiles}/{TILE_CAP})
-          <small>{tiles >= TILE_CAP ? 'max tiles' : `💰${nextTile}`}</small>
-        </button>
+        <Item tip={TIPS.tile}>
+          <button disabled={tiles >= TILE_CAP || run.cash < nextTile} onClick={() => act(buyTile)}>
+            Buy tile ({tiles}/{TILE_CAP})
+            <small>{tiles >= TILE_CAP ? 'max tiles' : `💰${nextTile}`}</small>
+          </button>
+        </Item>
       </div>
 
       <h2>Farm tools</h2>
@@ -94,10 +108,12 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
                     : `${TOOL_EFFECT[level - 1](tiles)} · 💰${toolCost(job, level, meta)}`
             const next = owned === level - 1
             return (
-              <button key={`${job}${level}`} disabled={!next || !buyTool(state, job).ok} onClick={() => act((s) => buyTool(s, job))}>
-                {TOOLS[job].names[level - 1]}
-                <small>{status}</small>
-              </button>
+              <Item key={`${job}${level}`} tip={TOOL_TIPS[job][level - 1]}>
+                <button disabled={!next || !buyTool(state, job).ok} onClick={() => act((s) => buyTool(s, job))}>
+                  {TOOLS[job].names[level - 1]}
+                  <small>{status}</small>
+                </button>
+              </Item>
             )
           }),
         )}

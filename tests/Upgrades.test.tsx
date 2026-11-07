@@ -9,9 +9,11 @@ import { createInitialState, type GameState } from '../src/core/state'
 afterEach(cleanup)
 
 const noop = () => {}
-/** the buttons in the row under a heading */
+/** the buy buttons in the row under a heading (not the ⓘ buttons) */
 const row = (heading: string) =>
-  within(screen.getByRole('heading', { name: heading }).nextElementSibling as HTMLElement).getAllByRole('button') as HTMLButtonElement[]
+  (within(screen.getByRole('heading', { name: heading }).nextElementSibling as HTMLElement).getAllByRole('button') as HTMLButtonElement[]).filter(
+    (b) => !b.classList.contains('info-btn'),
+  )
 const names = (heading: string) => row(heading).map((b) => b.firstChild?.textContent)
 const headings = () => screen.getAllByRole('heading').map((h) => h.textContent)
 const withRun = (run: Partial<GameState['run']>): GameState => {

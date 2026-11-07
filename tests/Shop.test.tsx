@@ -24,8 +24,8 @@ const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButton
 describe('Shop seeds', () => {
   it('lists every crop in license order: owned ones as seed buttons, the rest as 🔒 license cards', () => {
     setup({ cash: 60, licenses: ['radish', 'pumpkin'] })
-    const row = btn(/Carrot/).parentElement!
-    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+    const row = btn(/Carrot/).closest('.shop-row')!
+    expect([...row.querySelectorAll('button:not(.info-btn)')].map((b) => b.textContent)).toEqual([
       '🥕 Carrotseed 💰2',
       '🔒 Chillilicense 💰50',
       '🎃 Pumpkinseed 💰10',
@@ -45,7 +45,7 @@ describe('Shop seeds', () => {
 })
 
 describe('Farm tools in the Shop', () => {
-  const toolRow = () => [...screen.getByRole('heading', { name: 'Farm tools' }).nextElementSibling!.querySelectorAll('button')]
+  const toolRow = () => [...screen.getByRole('heading', { name: 'Farm tools' }).nextElementSibling!.querySelectorAll<HTMLButtonElement>('button:not(.info-btn)')]
   const tool = (name: string) => btn(new RegExp(`^${name}`))
 
   it('lists all 9 tool levels, locked ones with their milestone progress', () => {
