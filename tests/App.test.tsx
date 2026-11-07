@@ -3,6 +3,9 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
+import { createInitialState } from '../src/core/state'
+import { serialize } from '../src/save/serialize'
+import { SAVE_KEY } from '../src/save/storage'
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -170,6 +173,14 @@ describe('loan debt with a fake clock', () => {
 
     act(() => void vi.advanceTimersByTime(10_000))
     expect(badge()).toBe('🏦 −💰35') // live again: 34.2
+  })
+
+  it('the welcome-back banner says how many bars the furnace finished while away', () => {
+    const s = createInitialState()
+    const furnace = { built: true, queue: 3, progress: 0, ready: 0 }
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, furnace } }, Date.now() - 150_000))
+    render(<App />)
+    expect(screen.getByRole('status').textContent).toMatch(/ticks simulated · 🔥 2 bars ready/)
   })
 })
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buyLicense, digForSeeds, harvest, plant, till, water, type ActionResult } from '../src/core/actions'
 import type { CropId } from '../src/core/data/crops'
+import type { PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
@@ -11,12 +12,19 @@ import {
   isSellable,
   itemSellPrice,
   licenseCost,
+  furnaceCost,
   mineLicenseCost,
   pickaxeCraftCost,
   pickaxeRepairCost,
+  smeltFuel,
+  smeltOre,
+  storageCost,
+  veinUpgradeCost,
+  type Price,
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
+import { buildFurnace, collectBars, enqueueSmelt } from '../src/core/furnace'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -59,9 +67,38 @@ function bestFarmAction(s: GameState, crops: CropId[] = ['pumpkin', 'radish']): 
   return null
 }
 
-/** the smallest number in the run a bug could push below 0: cash, energy, storage, pouch, durability */
+/** the smallest number in the run a bug could push below 0: cash, energy, storage, pouch, durability, furnace */
 const lowestValue = ({ run }: GameState) =>
-  Math.min(run.cash, run.energy, ...Object.values(run.inventory), ...Object.values(run.seeds), run.pickaxe?.durability ?? 0)
+  Math.min(
+    run.cash,
+    run.energy,
+    ...Object.values(run.inventory),
+    ...Object.values(run.seeds),
+    run.pickaxe?.durability ?? 0,
+    run.furnace.queue,
+    run.furnace.ready,
+    run.furnace.progress,
+  )
+
+/** batch 7 ladder goals, in order; `keep` = items mining must not sell while this goal is next */
+type LadderStep = 'storageLv1' | 'veinLv1' | 'furnace' | 'storageLv2' | 'veinLv2' | 'copperPickaxe'
+const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
+const LADDER: { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }[] = [
+  { name: 'storageLv1', done: (s) => s.run.storageLevel >= 1, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
+  { name: 'veinLv1', done: (s) => s.run.vein.level >= 1, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
+  { name: 'furnace', done: (s) => s.run.furnace.built, buy: buildFurnace, keep: (s) => furnaceCost(s.meta) },
+  { name: 'storageLv2', done: (s) => s.run.storageLevel >= 2, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
+  { name: 'veinLv2', done: (s) => s.run.vein.level >= 2, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
+  {
+    name: 'copperPickaxe',
+    done: (s) => s.run.pickaxe?.tier === 'copper',
+    buy: (s) => craftPickaxe(s, 'copper'),
+    keep: ({ run }) => {
+      const toSmelt = Math.max(0, COPPER_PICKAXE_BARS - (run.inventory.copperBar ?? 0) - run.furnace.queue - run.furnace.ready)
+      return { cash: 0, copperBar: COPPER_PICKAXE_BARS, copperOre: smeltOre() * toSmelt, coal: smeltFuel('coal') * toSmelt }
+    },
+  },
+]
 
 /** mineEarly: buy the mine license as soon as it is affordable while energy is idle;
  *  otherwise only once the pumpkin license is owned (the main crop is never delayed).
@@ -73,8 +110,10 @@ function runBot(
     licenses = ['pumpkin'],
     crops = ['pumpkin', 'radish'],
     saveForStorage = false,
-  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean } = {},
+    ladder = false,
+  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean; ladder?: boolean } = {},
 ) {
+  const ladderTicks: Partial<Record<LadderStep | 'firstBar', number>> = {}
   let s = createInitialState()
   const m: Milestones = {}
   let minCash = s.run.cash
@@ -121,7 +160,25 @@ function runBot(
     // the pinned runs only check storage; saveForStorage keeps its stone (and stops mining when storage is full)
     // until it buys storage level 1, then vein level 1
     if (buyStorage(s).ok) storageAffordable ??= tick
-    if (saveForStorage && s.run.storageLevel === 0) {
+    if (ladder) {
+      // batch 7: buy the next goal as soon as it can be paid; smelt (coal fuel) and collect while the copper pickaxe
+      // is the goal; when storage is full sell only what the goal does not need, else stop mining
+      const goal = LADDER.find((g) => !g.done(s))
+      if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
+      const next = LADDER.find((g) => !g.done(s))
+      if (next?.name === 'copperPickaxe') {
+        while (tryAct(enqueueSmelt(s, 'coal'), null));
+        tryAct(collectBars(s), null)
+      }
+      if (bagCount(s.run) >= s.run.bagCapacity) {
+        const keep = next?.keep(s) ?? { cash: 0 }
+        for (const id of ['stone', 'coal', 'copperOre'] as const) {
+          const extra = (s.run.inventory[id] ?? 0) - (keep[id] ?? 0)
+          if (extra > 0) tryAct(sellItem(s, id, extra), mine)
+        }
+        if (bagCount(s.run) >= s.run.bagCapacity) return false
+      }
+    } else if (saveForStorage && s.run.storageLevel === 0) {
       if (tryAct(buyStorage(s), null)) storageBought = tick
       else if (bagCount(s.run) >= s.run.bagCapacity) return false
     } else if (saveForStorage && s.run.vein.level === 0) {
@@ -133,6 +190,8 @@ function runBot(
       const need = pickaxeCraftCost('wooden', s.meta).wood! - (s.run.inventory.wood ?? 0)
       if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
       if (!tryAct(craftPickaxe(s), mine)) return false
+    } else if (s.run.pickaxe.durability === 0 && s.run.pickaxe.tier !== 'wooden') {
+      tryAct(repairPickaxe(s), null) // bars; mines by hand until it can
     } else if (s.run.pickaxe.durability === 0) {
       const need = pickaxeRepairCost('wooden', s.meta).wood! - (s.run.inventory.wood ?? 0)
       if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
@@ -169,6 +228,7 @@ function runBot(
     milestones()
     s = step(s, 1)
     seen()
+    if (s.run.furnace.ready > 0) ladderTicks.firstBar ??= s.run.tick
   }
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
@@ -189,6 +249,7 @@ function runBot(
     storageAffordable,
     storageBought,
     veinBought,
+    ladderTicks,
     lowest,
     masteryXp: s.run.mastery.wooden ?? 0,
     minCash,
@@ -509,12 +570,24 @@ function runCropBot(crop: CropId, ticks = SESSION) {
 // Steady-state mining at a fixed mastery level: energy is refilled before every mine action and the mastery xp put back
 // after it, so the level never moves. Sells stone and coal before storage runs out of room, crafts the first pickaxe
 // and repairs it when blunt (buying the wood; both count against mining), and values what is left in storage at the end.
-function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000 }: { pickaxe: boolean; xp?: number; mastered?: boolean; vein?: number; actions?: number }) {
+// Copper bars cannot be bought or sold, so the copper bench charges them at their inputs' sell value (2 ore + 1 coal).
+function mineBench({
+  pickaxe,
+  tier = 'wooden',
+  xp = 0,
+  mastered = false,
+  vein = 0,
+  actions = 5000,
+}: { pickaxe: boolean; tier?: PickaxeTier; xp?: number; mastered?: boolean; vein?: number; actions?: number }) {
   const init = createInitialState()
-  const fixed = { mastery: { wooden: xp }, masteredTiers: mastered ? (['wooden'] as const).slice() : [] }
+  const fixed = { mastery: { [tier]: xp }, masteredTiers: mastered ? [tier] : [] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0, rock: 'stone' }, ...fixed } }
   const start = s.run.cash
   const recipe = { wood: pickaxeCraftCost('wooden', init.meta).wood!, repairWood: pickaxeRepairCost('wooden', init.meta).wood! }
+  const barValue = smeltOre() * itemSellPrice('copperOre', init.meta, 0) + smeltFuel('coal') * itemSellPrice('coal', init.meta, 0)
+  const giveBars = (n: number) => {
+    s = { ...s, run: { ...s.run, cash: s.run.cash - n * barValue, inventory: { ...s.run.inventory, copperBar: (s.run.inventory.copperBar ?? 0) + n } } }
+  }
   let repairs = 0
   const act = (r: ActionResult) => {
     if (!r.ok) throw new Error(r.error)
@@ -522,12 +595,16 @@ function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000
   }
   for (let i = 0; i < actions; i++) {
     if (bagCount(s.run) + recipe.wood >= s.run.bagCapacity)
-      for (const id of ['stone', 'coal'] as const) if (s.run.inventory[id]) act(sellItem(s, id, s.run.inventory[id]!))
-    if (pickaxe && !s.run.pickaxe) {
+      for (const id of ['stone', 'coal', 'copperOre'] as const) if (s.run.inventory[id]) act(sellItem(s, id, s.run.inventory[id]!))
+    if (pickaxe && !s.run.pickaxe && tier === 'copper') {
+      giveBars(pickaxeCraftCost('copper', s.meta).copperBar!)
+      act(craftPickaxe(s, 'copper'))
+    } else if (pickaxe && !s.run.pickaxe) {
       act(buyWood(s, recipe.wood))
       act(craftPickaxe(s))
     } else if (pickaxe && s.run.pickaxe!.durability === 0) {
-      act(buyWood(s, recipe.repairWood))
+      if (tier === 'copper') giveBars(pickaxeRepairCost('copper', s.meta).copperBar!)
+      else act(buyWood(s, recipe.repairWood))
       act(repairPickaxe(s))
       repairs++
     }
@@ -616,5 +693,60 @@ describe('batch 6.1: stone-keeping mine-early bot buys storage Lv1, then vein Lv
     expect(summary.veinBought).toBeGreaterThan(summary.storageBought!)
     expect(summary.veinBought).toBeLessThanOrEqual(1200)
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
+  })
+})
+
+// ---- Batch 7: furnace, copper ore, copper pickaxe ----
+
+const HOUR_TICKS = 3600
+
+describe('batch 7: copper pickaxe cash/energy (repairs at input value) < 0.9 × pumpkin farming', () => {
+  const pumpkin = runCropBot('pumpkin').cashPerEnergy
+  const bench = (tier: PickaxeTier, lv10: boolean, vein: number) =>
+    mineBench({ pickaxe: true, tier, vein, xp: lv10 ? 400 * (tier === 'copper' ? 2 : 1) : 0, mastered: lv10 }).cashPerEnergy
+  const mining = {
+    woodLv10Vein1: bench('wooden', true, 1),
+    woodLv10Vein2: bench('wooden', true, 2),
+    copperLv0Vein1: bench('copper', false, 1),
+    copperLv0Vein2: bench('copper', false, 2),
+    copperLv10Vein1: bench('copper', true, 1),
+    copperLv10Vein2: bench('copper', true, 2),
+  }
+  console.log('batch 7 mining', JSON.stringify({ pumpkin, mining }, null, 1))
+
+  it('every pickaxe on vein Lv1 and Lv2 stays below 0.9 × pumpkin', () => {
+    for (const v of Object.values(mining)) expect(v).toBeLessThan(0.9 * pumpkin)
+  })
+})
+
+describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal needs), 3600 ticks', () => {
+  const summary = runBot(true, { ticks: HOUR_TICKS, licenses: LICENSE_ORDER, crops: PLANT_ORDER, ladder: true })
+  console.log('ladder summary', JSON.stringify(summary, null, 1))
+  const t = summary.ladderTicks
+
+  it('reaches vein Lv1 → furnace → storage Lv2 → vein Lv2 → first bar → copper pickaxe, in order, within the hour', () => {
+    const order = [t.veinLv1, t.furnace, t.storageLv2, t.veinLv2, t.firstBar, t.copperPickaxe]
+    for (const tick of order) expect(tick).toBeLessThanOrEqual(HOUR_TICKS)
+    expect([...order].sort((a, b) => a! - b!)).toEqual(order)
+  })
+
+  it('nothing goes negative and it never borrows', () => {
+    expect(summary.lowest).toBeGreaterThanOrEqual(0)
+    expect(summary.borrowed).toBe(false)
+    expect(summary.finalTick).toBe(HOUR_TICKS)
+  })
+})
+
+describe('batch 7: every multi-item price fits the storage the player has when it becomes buyable', () => {
+  const meta = createInitialState().meta
+  const items = (p: Price) => Object.entries(p).reduce((sum, [k, n]) => (k === 'cash' ? sum : sum + n), 0)
+  // capacity when buyable: furnace right after vein Lv1 (storage Lv1 = 30); vein Lv2 and the copper pickaxe after
+  // storage Lv2 (40)
+  it.each([
+    ['furnace', furnaceCost(meta), 30],
+    ['vein Lv2', veinUpgradeCost(1, meta)!, 40],
+    ['copper pickaxe', pickaxeCraftCost('copper', meta), 40],
+  ] as const)('%s', (_, price, capacity) => {
+    expect(items(price)).toBeLessThanOrEqual(capacity)
   })
 })

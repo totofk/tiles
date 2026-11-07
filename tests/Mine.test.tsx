@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
@@ -104,6 +104,27 @@ describe('Mine panel', () => {
     expect(text()).toContain('Copper pickaxe 200 / 200 · lasts ~200 uses')
     expect(text()).toContain('Mastery Lv 0/10 · 0/20 xp')
     expect(screen.queryByRole('button', { name: /^Craft copper pickaxe/ })).toBeNull()
+  })
+
+  it('furnace: a pointer to the Shop until built, then a collapsible section that smelts and collects', () => {
+    setup({ vein: { level: 1, progress: 0, rock: 'stone' } })
+    expect(text()).toContain('🔥 Furnace — buy it in the 🛒 Shop')
+    cleanup()
+    const t = setup({ furnace: { built: true, queue: 0, progress: 0, ready: 1 }, inventory: { copperOre: 3, coal: 1, wood: 1 } })
+    const summary = () => document.querySelector('.mine-furnace summary')!.textContent
+    expect(summary()).toBe('🔥 Furnace · 0 queued · 1 ready')
+    const smelt = (fuel: RegExp) => screen.getByRole('button', { name: fuel }) as HTMLButtonElement
+    expect(smelt(/^Smelt with 🪵2/).textContent).toBe('Smelt with 🪵2 — Not enough fuel')
+    fireEvent.click(smelt(/^Smelt with ⚫1/))
+    t.rerender()
+    expect(t.get().run.furnace.queue).toBe(1)
+    expect(summary()).toBe('🔥 Furnace · 1 queued · 1 ready · next bar 60s')
+    expect(smelt(/^Smelt with ⚫1/).textContent).toBe('Smelt with ⚫1 — Not enough ore')
+    fireEvent.click(screen.getByRole('button', { name: /^Collect 1/ }))
+    expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
+    // bars have no sell buttons
+    t.rerender()
+    expect(within(screen.getByText(/Copper bar ×1/).parentElement!).queryByRole('button')).toBeNull()
   })
 
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {

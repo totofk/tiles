@@ -38,6 +38,12 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NOT_ENOUGH_FUEL: 'Not enough fuel',
 }
 
+/** the welcome-back banner: the catch-up summary, plus the furnace tray when bars wait in it */
+function bannerText(awayMs: number, s: GameState): string {
+  const n = s.run.furnace.ready
+  return awayText(awayMs) + (n > 0 ? ` · 🔥 ${n} bar${n === 1 ? '' : 's'} ready` : '')
+}
+
 const TOAST_MS = 2000
 const LOOP_MS = 250
 const SAVE_DEBOUNCE_MS = 1000
@@ -52,7 +58,7 @@ export function useGame() {
   const stateRef = useRef(state)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
-  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? awayText(boot.awayMs) : null)
+  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.state) : null)
   const loop = useRef({ last: 0, acc: 0 })
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -136,8 +142,9 @@ export function useGame() {
       hiddenAt = null
       loop.current = { last: performance.now(), acc: 0 }
       if (offlineTicks(awayMs) < 1) return
-      commit(catchUp(stateRef.current, awayMs))
-      setBanner(awayText(awayMs))
+      const caught = catchUp(stateRef.current, awayMs)
+      commit(caught)
+      setBanner(bannerText(awayMs, caught))
     }
     const onPageHide = () => saveGame(localStorage, stateRef.current)
     document.addEventListener('visibilitychange', onVisibility)

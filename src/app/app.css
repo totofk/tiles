@@ -453,6 +453,28 @@ button:disabled {
   border-radius: 8px;
   background: #fff3c4;
 }
+.mine-furnace {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.mine-furnace summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.mine-furnace-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.mine-furnace-actions button {
+  padding: 0 4px;
+  font-size: 13px;
+}
 .mine-item {
   display: flex;
   flex-wrap: wrap;

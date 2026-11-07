@@ -1,5 +1,11 @@
 import type { ActionResult } from '../core/actions'
 import {
+  FUEL_IDS,
+  barTicks,
+  furnaceQueueCap,
+  furnaceVeinLevel,
+  smeltFuel,
+  smeltOre,
   isSellable,
   itemSellPrice,
   masteredPreserveBonus,
@@ -18,7 +24,8 @@ import {
   woodCost,
   type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS, PICKAXE_NAMES } from '../core/data/items'
+import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
+import { collectBars, enqueueSmelt } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -59,6 +66,41 @@ function sellAll(s: GameState): ActionResult {
     const n = r.ok ? (r.state.run.inventory[id] ?? 0) : 0
     return r.ok && n > 0 ? sellItem(r.state, id, n) : r
   }, { ok: true, state: s })
+}
+
+/** collapsible so the Mine panel stays short at 375 px; the summary line alone says what the furnace is doing */
+function Furnace({ state, act }: { state: GameState; act: Act }) {
+  const { run } = state
+  const f = run.furnace
+  const collect = collectBars(state)
+  const have = (id: ItemId) => run.inventory[id] ?? 0
+  return (
+    <details className="mine-furnace">
+      <summary>
+        🔥 Furnace · {f.queue} queued · {f.ready} ready
+        {f.queue > 0 && <small> · next bar {barTicks() - f.progress}s</small>}
+      </summary>
+      {f.queue > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
+      <small>
+        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or 🪵{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} · ore {have('copperOre')} ·
+        coal {have('coal')} · wood {have('wood')}
+      </small>
+      <div className="mine-furnace-actions">
+        {FUEL_IDS.map((fuel) => {
+          const r = enqueueSmelt(state, fuel)
+          return (
+            <button key={fuel} disabled={!r.ok} onClick={() => act((s) => enqueueSmelt(s, fuel))}>
+              Smelt with {fuel === 'coal' ? `⚫${smeltFuel(fuel)}` : `🪵${smeltFuel(fuel)}`}
+              {!r.ok && <small> — {ERROR_TEXT[r.error]}</small>}
+            </button>
+          )
+        })}
+        <button disabled={!collect.ok} onClick={() => act(collectBars)}>
+          Collect {f.ready} 🟧{!collect.ok && f.ready > 0 && <small> — {ERROR_TEXT[collect.error]}</small>}
+        </button>
+      </div>
+    </details>
+  )
 }
 
 export function Mine({ state, act }: { state: GameState; act: Act }) {
@@ -135,6 +177,11 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
         )}
         <span className="mine-vein-next">{LOCKED_VEIN_TEXT}</span>
       </div>
+      {run.furnace.built ? (
+        <Furnace state={state} act={act} />
+      ) : (
+        run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">🔥 Furnace — buy it in the 🛒 Shop</span>
+      )}
       {run.pickaxe?.durability === 0 ? (
         <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
           Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})

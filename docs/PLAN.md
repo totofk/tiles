@@ -354,6 +354,49 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   browser checks). Button widths in them are estimates.
 - **Batch 6.2: commits carry no AI co-author trailer**, unlike the batch 6.1 commits: the user-level delivery rules
   say no AI attribution in commits, and user rules take precedence over the session default.
+- **Batch 7 (task 37): the v6 shape holds everything batch 7 needs, so one bump.** New: `run.furnace`
+  {built, queue, progress, ready}, `run.vein.rock`, `run.lifetime` {cashEarned, energySpent, bars, harvests per
+  crop}, items `copperOre` / `copperBar`. "Equipped pickaxe tier" needed no field: `run.pickaxe.tier` already is it;
+  the `PickaxeTier` union widens to `copper` (like `CropId` in batch 6). Lifetime totals live in their own object,
+  not in `counters`, because counters drive unlocks and the frozen v4 save type shares their shape. Time played =
+  `run.tick` (already a lifetime tick count), so no new counter.
+- **Batch 7 (task 37): migrated lifetime totals are lower bounds from the counters that map.** Energy spent =
+  harvests + waters + plants + soil digs + mines (1 energy each; tills were never counted). Harvests per crop are
+  seeded only when the save holds exactly one license (then every harvest was that crop); otherwise `{}` while the
+  total `harvests` counter still shows the real number. Cash earned was never tracked: 0. Cash earned counts harvest
+  and item-sale income only, never loans.
+- **Batch 7 (task 37): copper bars have no price at all** (`SellableItemId` excludes them, `sellItem` fails
+  `NOT_SELLABLE`), rather than a 0 price, which would still be a sell path. Sell-all and the per-item sell buttons
+  skip them. Copper ore sells for 1 and is included in "Sell all" when storage is full.
+- **Batch 7 (task 38): "full" counts the output tray**: `QUEUE_FULL` when queued jobs + bars waiting ≥ 5, so the tray
+  can never outgrow the cap (research: "tray cap = queue cap"). A player with a full tray collects, then smelts.
+  `collectBars` moves as many bars as storage has room for and fails `BAG_FULL` only when none fit. `lifetime.bars`
+  counts bars collected, not finished, because only actions change counters.
+- **Batch 7 (task 38): fuel is the player's choice per job** (two buttons: ⚫1 coal or 🪵2 wood), never automatic, so
+  repair wood is never eaten silently. No "Smelt max" (research open question 4); `advanceFurnace` runs inside
+  `stepOnce` with 1 tick and is closed form for any tick count.
+- **Batch 7 (task 39): the rock's type is rolled when the previous rock breaks and stored in `vein.rock`** (a copper
+  rock needs 3 hits, so its type must be known before it breaks). The roll count and order per break are unchanged,
+  so every vein-0 run replays exactly (batch-3 pins unchanged); on vein Lv1 the drops shift by one rock. A v5
+  half-mined rock migrates as stone. The Mine panel shows the current rock's emoji and hits ("🟤 cracked 2/3").
+- **Batch 7 (task 39): extra hits on a break are lost** (was: carried into the next stone). With a 3-hit pickaxe on
+  a 2-hit stone, carry-over would bank progress without bound. Wood (2 hits) and hand (1) never had extra hits on
+  stone, so nothing changes for them; wood on copper rock takes 2 actions (research's ⌈hits / hits per action⌉).
+- **Batch 7 (task 39): vein Lv2 without a furnace fails `NO_FURNACE`** (after `MAX_LEVEL`, before items/cash), shown as
+  the Upgrade button's reason. The greyed teaser is "🔒 Lv3: iron ore — coming".
+- **Batch 7 (task 40): the copper pickaxe replaces the pickaxe in hand** (one pickaxe slot); crafting a tier at or
+  below the one in hand fails `ALREADY_OWNED`. Wooden xp and the mastered reward stay in `run.mastery` /
+  `run.masteredTiers`. Pickaxe prices are item records (`pickaxeCraftCost` / `pickaxeRepairCost`), so repair of any
+  tier fails `NOT_ENOUGH_ITEMS`; `NOT_ENOUGH_WOOD` was removed.
+- **Batch 7 (task 41): the furnace is built from the 🛒 Shop** (Supplies, a thing you own, with ⓘ and a badge key) and
+  run from a collapsed `<details>` section in the Mine panel; before it is built, vein Lv1+ shows "🔥 Furnace — buy
+  it in the 🛒 Shop". The research's cash-per-node preview for vein Lv1 → Lv2 is not added (not in task 39/41).
+- **Batch 7 (task 41): the copper bench charges bars at their inputs' sell value** (2 ore × 1 + 1 coal × 4 = 6 per
+  bar; craft 5 bars + 💰50 = 80, repair 2 bars = 12), because bars cannot be bought. The ladder bot is the four-crop
+  mine-early session plus a goal list; when storage is full it sells only what the next goal does not need (else
+  stops mining), smelts with coal and collects while the copper pickaxe is the goal.
+- **Batch 7: 375 px numbers are computed from the CSS, not measured in a browser** (no dev server, same reason as
+  batch 6.2).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -736,7 +779,7 @@ real v5 fixture first; chain v1–v5 → v6; backup key).
     "🔒 Lv3: iron ore — coming" with no numbers.
 40. [x] Copper pickaxe: 5 copper bars + 💰50, durability 200, 3 hits per energy, repair 2 copper bars; it becomes
     the equipped pickaxe (the wooden one's mastery and mastered reward persist). Copper mastery thresholds ×2.
-41. [ ] Furnace UI in the Mine panel (queue of 5 with progress, fuel choice, collect, compact at 375 px) + sim:
+41. [x] Furnace UI in the Mine panel (queue of 5 with progress, fuel choice, collect, compact at 375 px) + sim:
     report ticks for vein Lv1 → furnace → storage Lv2 → vein Lv2 → first bar → copper pickaxe; copper-pickaxe
     cash/energy < 0.9 × pumpkin; every multi-item price fits the storage capacity when it becomes buyable (sum of
     stone + coal + ore); nothing negative over 3600 ticks; batch-3 greedy numbers pinned. "## Batch 7 results".
@@ -744,3 +787,50 @@ real v5 fixture first; chain v1–v5 → v6; backup key).
     crop, energy spent, time played; (b) current multipliers with their source, e.g. "Sell price ×1.5 (Better
     prices Lv5)", grow time, energy max/regen, pickaxe preserve % (mastery Lv + mastered bonus), storage, tool
     levels, drop table. Values come from the same balance functions the game uses (pure selector, one test).
+
+## Batch 7 results
+Save v6 (one bump; fixture `tests/fixtures/save-v5.json` captured from the batch-6.2 code first, chain v1–v5 → v6
+tested). Numbers are the DECISIONS.md round-5 values, unchanged: no `balance.ts` number was retuned. Every batch-3
+greedy pin (final cash 394 / 132, counters, milestones) and the batch-5/6/6.1 checks pass unchanged.
+
+**Ladder (task 41)** — `tests/sim.test.ts` "batch 7: ladder bot", 3600 ticks: the four-crop mine-early session bot
+(licenses chilli → pumpkin → lemon) plus the goal list storage Lv1 → vein Lv1 → furnace → storage Lv2 → vein Lv2 →
+copper pickaxe, each bought as soon as it can be paid; when storage is full it sells only what the next goal does
+not need. It smelts with coal while the copper pickaxe is the goal.
+
+| Step | tick | min |
+|---|---|---|
+| storage Lv1 bought | 477 | 8 |
+| vein Lv1 bought | 684 | 11 |
+| furnace built | 936 | 16 |
+| storage Lv2 bought | 1110 | 19 |
+| vein Lv2 bought | 1350 | 23 |
+| first bar finished | 1776 | 30 |
+| copper pickaxe crafted | 2172 | 36 |
+
+- Furnace 4.2 min after vein Lv1, storage Lv2 +2.9 min, vein Lv2 +4 min, first bar +7.1 min, copper pickaxe
+  +6.6 min: goals every 3–7 min. The research model expected the pickaxe at 1800–3300 (30–55 min); measured 2172.
+- Lowest of any value (cash, energy, storage, pouch, durability, furnace queue / tray / progress) 0, minimum cash 0,
+  never borrows, final cash 5980. Mines 447 (1.42 cash/energy incl. storage at the cut-off), harvests 107,
+  wooden mastery 247 xp.
+
+**Cash per energy** — `mineBench`, 5000 mine actions, energy refilled, repairs included; bars charged at their
+inputs' sell value (6 per bar, see Deviations). Pumpkin farming 8.18 → cap 0.9 × pumpkin = **7.36**.
+
+| Pickaxe | vein Lv1 | vein Lv2 |
+|---|---|---|
+| wooden Lv10 | 2.34 | 1.89 |
+| copper Lv0 | 2.33 | 2.18 |
+| copper Lv10 | 2.38 | 2.22 |
+
+Every value < 7.36. Vein Lv2 trades cash for ore (wood Lv10: 2.34 → 1.89), as the research predicted (2.34 → 1.96).
+
+**Prices vs storage** (sum of items when it becomes buyable): furnace 20 stone + 5 coal = 25 ≤ 30 (storage Lv1);
+vein Lv2 30 stone + 10 coal = 40 ≤ 40 (storage Lv2, an exact fit: no wood can sit in storage while saving for it);
+copper pickaxe 5 bars ≤ 40. Smelting determinism: `step(s, 300)` deep-equals 300 × `step(s, 1)` and the closed form
+equals n single ticks for 0 … 1000; 8 h offline with a full queue = 5 bars ready, progress 0.
+
+**Furnace UI at 375 px (computed from `app.css`, not measured):** one collapsed row, the 44 px `<summary>`
+"🔥 Furnace · 3 queued · 2 ready · next bar 42s". Open, it adds a progress bar, one recipe/stock line and a 3-column
+row of buttons (Smelt with ⚫1 · Smelt with 🪵2 · Collect N 🟧), ≈ 111 px each in the 359 px panel; a disabled
+reason wraps under the label. The banner says "… ticks simulated · 🔥 N bars ready" when bars wait after catch-up.
