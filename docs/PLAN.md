@@ -577,10 +577,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   state exists. App reads and writes it through the game state (taps, the plant tool, Farm tab and Shop pickers); it
   survives a reload now instead of resetting to Carrot, and a reset goes back to Carrot through `createInitialState`.
   v9 saves migrate to Carrot, which is what the UI showed after every load before.
-- **Batch 10 (task 62): `plant` is first in `WORKER_JOBS`** (action order plant → water → harvest), which gives the
-  Workers card the plan's Plant / Water / Harvest rows with no second list. A tile harvested in a round is replanted on
-  the next round (5 s later), not the same one; harvest → plant in one round would have meant reordering water /
-  harvest too and moving every batch-8 / 9 worker pin.
+- **Batch 10 (task 62): `plant` is first in `WORKER_JOBS`** (action order plant → water → harvest): the Workers card
+  gets the plan's Plant / Water / Harvest rows with no second display list, and a seed planted on dry soil is watered in
+  the same round. The cost: a tile harvested in a round is replanted on the next round (5 s later). `water, harvest,
+  plant` would replant in the same round but needs a separate row order for the card. Either order leaves every
+  batch-8 / 9 pin unchanged (no planter in them).
 - **Batch 10 (task 62): a planter whose first tile cannot be planted idles instead of tilling another tile.** The plan
   pins "auto-buy off → workers idle when the pouch is empty"; tilling ahead with no seed would charge wages for soil
   nobody can plant.
@@ -1607,7 +1608,8 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
 - **Never below 0:** `workRound` checked `cash ≥ wage` before the action only; an auto-bought seed could then leave less
   than the wage (cash 2, seed 2, wage 1 → −1). The shared rule is now "the wage must be left after the action"
   (`paidAction`), for every job (water / harvest / loaders never lower cash, so nothing else changes); `workerUnpaid`
-  uses it too, so a planter short of seed + wage shows "unpaid".
+  uses it too, and also flags a planter that cannot buy the seed at all (NO_CASH), so any planter short of seed + wage
+  shows "unpaid"; no seed with auto-buy off is plain idle.
 - **Certificate:** 🥉10 + 💰300, visible / buyable at 60 plants (`counters.plants`). **Lifetime:** `workerPlants` (plants
   only, a worker's till does not count) for Stats and the away banner.
 - **workerTargets** covers the planter (one rule: `workRound`); the planter acts first, so a seed planted on dry soil is

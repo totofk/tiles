@@ -167,10 +167,16 @@ export function workerTargets(state: GameState): WorkerTarget[] {
   return workRound(step(state, ticksUntilWorkers(state.run))).touched
 }
 
-/** a worker on this job would act now but cannot pay its wage, before or (a bought seed) after it (the "unpaid" badge) */
+/**
+ * A worker on this job has work but no money for it (the "unpaid" badge): its wage, before or (a bought seed) after
+ * the action, or the seed itself (NO_CASH). No seed with auto-buy off is plain idle, not unpaid.
+ */
 export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
+  if (state.run.workers.assigned[job] < 1) return false
   const a = workerAction(state, job)
-  return state.run.workers.assigned[job] > 0 && !!a?.result.ok && (state.run.cash < workerWage(state.meta) || !paidAction(state, job))
+  if (!a) return false
+  if (!a.result.ok) return a.result.error === 'NO_CASH'
+  return state.run.cash < workerWage(state.meta) || !paidAction(state, job)
 }
 
 /**

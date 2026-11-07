@@ -516,6 +516,10 @@ describe('plant worker: workersAct', () => {
     const exact = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta) })
     expect(workersAct(exact).run.cash).toBe(0)
     expect(workerUnpaid(exact, 'plant')).toBe(false)
+    // poorer still (cannot buy the seed): idle and still flagged unpaid
+    const poorer = planterFarm([empty], { cash: SEED('pumpkin') - 1 })
+    expect(workersAct(poorer)).toBe(poorer)
+    expect(workerUnpaid(poorer, 'plant')).toBe(true)
   })
 
   it('acts only when a tile is empty: a fully planted farm costs nothing', () => {
