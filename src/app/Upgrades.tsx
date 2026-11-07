@@ -14,10 +14,10 @@ import {
   veinUpgradeCost,
 } from '../core/balance'
 import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
-import { buyStorage, upgradeVein } from '../core/mining'
+import { buyStorage, dropText, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
 import { Item } from './Info'
-import { dropText, priceText as price } from './Mine'
+import { priceText as price } from './Mine'
 import { TIPS, UPGRADE_TIPS } from './tips'
 import type { Act } from './useGame'
 

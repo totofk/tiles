@@ -783,7 +783,7 @@ real v5 fixture first; chain v1–v5 → v6; backup key).
     report ticks for vein Lv1 → furnace → storage Lv2 → vein Lv2 → first bar → copper pickaxe; copper-pickaxe
     cash/energy < 0.9 × pumpkin; every multi-item price fits the storage capacity when it becomes buyable (sum of
     stone + coal + ore); nothing negative over 3600 ticks; batch-3 greedy numbers pinned. "## Batch 7 results".
-42. [ ] 📊 Stats tab (side panel + mobile tab bar): (a) lifetime totals — every counter, cash earned, harvests per
+42. [x] 📊 Stats tab (side panel + mobile tab bar): (a) lifetime totals — every counter, cash earned, harvests per
     crop, energy spent, time played; (b) current multipliers with their source, e.g. "Sell price ×1.5 (Better
     prices Lv5)", grow time, energy max/regen, pickaxe preserve % (mastery Lv + mastered bonus), storage, tool
     levels, drop table. Values come from the same balance functions the game uses (pure selector, one test).
@@ -834,3 +834,11 @@ equals n single ticks for 0 … 1000; 8 h offline with a full queue = 5 bars rea
 "🔥 Furnace · 3 queued · 2 ready · next bar 42s". Open, it adds a progress bar, one recipe/stock line and a 3-column
 row of buttons (Smelt with ⚫1 · Smelt with 🪵2 · Collect N 🟧), ≈ 111 px each in the 359 px panel; a disabled
 reason wraps under the label. The banner says "… ticks simulated · 🔥 N bars ready" when bars wait after catch-up.
+
+**📊 Stats tab (task 42):** `stats(state)` in `src/core/stats.ts` (pure, `tests/stats.test.ts`); `src/app/Stats.tsx`
+only renders its rows. Lifetime: time played (`run.tick`), cash earned, energy spent, the six counters, harvests per
+licensed crop, copper bars smelted. Now: sell price ×, grow time × (with their upgrade level), energy max / regen,
+the pickaxe in hand's preserve % and "lasts ~N uses" (source "mastery LvL + N mastered × 5 %"), storage slots,
+tools per press (with the tool name), drop table (vein level). Prestige multipliers are all 1 until prestige exists
+and fold into the values above (`multiplier(meta, …)`), so they get no row of their own. The side panel and the
+mobile tab bar gain "📊 Stats" (six tabs; at 375 px the content-sized labels total ≈ 330 px of 375, estimated).

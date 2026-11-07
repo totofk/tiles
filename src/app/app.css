@@ -453,6 +453,24 @@ button:disabled {
   border-radius: 8px;
   background: #fff3c4;
 }
+.stats {
+  margin: 0;
+  font-size: 14px;
+}
+.stats > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid #eee;
+}
+.stats dd {
+  margin: 0;
+  text-align: right;
+}
+.stats small {
+  color: #555;
+}
 .mine-furnace {
   display: flex;
   flex-direction: column;

@@ -21,7 +21,7 @@ import {
   woodCost,
   type Price,
 } from './balance'
-import { ITEM_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
+import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -32,6 +32,15 @@ export function bagCount(run: RunState): number {
 
 function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
+}
+
+/** "🪨 Stone 80 % · ⚫ Coal 20 %" for a vein level */
+export function dropText(level: number): string {
+  const drops = veinDrops(level)
+  const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
+  return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
+    .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
+    .join(' · ')
 }
 
 /** weighted pick; r in [0, 1) */

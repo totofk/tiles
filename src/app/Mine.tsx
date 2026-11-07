@@ -18,7 +18,6 @@ import {
   pickaxeDurability,
   pickaxeRepairCost,
   rockHits,
-  veinDrops,
   veinMaxLevel,
   veinUpgradeCost,
   woodCost,
@@ -33,6 +32,7 @@ import {
   buyWood,
   craftPickaxe,
   dig,
+  dropText,
   expectedUses,
   repairPickaxe,
   sellItem,
@@ -46,14 +46,6 @@ import { ERROR_TEXT, type Act } from './useGame'
 const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
-
-export function dropText(level: number): string {
-  const drops = veinDrops(level)
-  const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
-  return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
-    .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
-    .join(' · ')
-}
 
 /** "🪨20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
