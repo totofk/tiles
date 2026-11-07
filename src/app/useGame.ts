@@ -36,7 +36,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NOT_SELLABLE: 'Cannot be sold',
   NO_FURNACE: 'Build the furnace first',
   FULL: 'Furnace is full',
-  NO_ORE: 'No copper ore in storage',
+  NO_ORE: 'No ore of the picked kind in storage',
   NO_FUEL: 'No fuel in storage',
   NOT_EMPTY: 'Empty the ore slot and tray first',
   NO_CERTIFICATE: 'Buy the certificate first',
@@ -47,12 +47,13 @@ export const ERROR_TEXT: Record<ActionError, string> = {
 export const FIRE_EMOJI = '🔥'
 /** the plant worker's icon (Workers row, tile pop, away banner) */
 export const PLANT_EMOJI = '🌱'
-/** the mine worker's icon (Workers row; Unicode 5.2) */
+/** the mine worker's icon (Workers row, Mine button pop, away banner; Unicode 5.2) */
 export const MINE_EMOJI = '⛏️'
 
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the
- * planters planted, fire burnt, bars smelted, workers' wages; each only when non-zero) and the bars waiting in the tray.
+ * planters planted, miners' presses, fire burnt, copper and iron bars smelted, workers' wages; each only when non-zero)
+ * and the bars waiting in the tray.
  */
 export function bannerText(awayMs: number, before: GameState, after: GameState): string {
   const was = before.run.lifetime
@@ -60,13 +61,17 @@ export function bannerText(awayMs: number, before: GameState, after: GameState):
   const planted = now.workerPlants - was.workerPlants
   const burnt = Math.ceil((now.fireBurnt - was.fireBurnt) / fireUnitTicks())
   const smelted = now.barsSmelted - was.barsSmelted
+  const ironSmelted = now.ironBarsSmelted - was.ironBarsSmelted
+  const mined = now.workerMines - was.workerMines
   const ready = after.run.furnace.ready
   const wages = now.wagesPaid - was.wagesPaid
   return [
     awayText(awayMs),
     planted > 0 && `${PLANT_EMOJI} ${planted} planted`,
+    mined > 0 && `${MINE_EMOJI} ${mined} mined`,
     burnt > 0 && `${FIRE_EMOJI} fire burnt ${burnt}`,
     smelted > 0 && `${ITEMS.copperBar.emoji} ${smelted} smelted`,
+    ironSmelted > 0 && `${ITEMS.ironBar.emoji} ${ironSmelted} smelted`,
     ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,
     wages > 0 && `wages paid 💰${wages}`,
   ]
@@ -91,6 +96,7 @@ export function useGame() {
   const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.before, boot.state) : null)
   const loop = useRef({ last: 0, acc: 0 })
   const [acted, setActed] = useState<WorkerTarget[]>([])
+  const [minerActed, setMinerActed] = useState(false)
   const saveTimer = useRef<number | undefined>(undefined)
 
   const showToast = useCallback((text: string) => {
@@ -146,10 +152,13 @@ export function useGame() {
       if (ticks < 1) return
       l.acc -= ticks * 1000
       const before = stateRef.current
-      // the ringed tiles flash when this step runs the workers' action tick; a longer jump (a stalled timer) just moves on
+      const after = step(before, ticks)
+      // the ringed tiles (and the Mine button, when a miner pressed it) flash when this step runs the workers' action
+      // tick; a longer jump (a stalled timer) just moves on
       const crossed = ticks > ticksUntilWorkers(before.run) && ticks <= workerActionTicks()
       setActed(crossed ? workerTargets(before) : [])
-      commit(step(before, ticks))
+      setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
+      commit(after)
     }, LOOP_MS)
     return () => window.clearInterval(id)
   }, [commit])
@@ -180,6 +189,7 @@ export function useGame() {
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
       setActed([])
+      setMinerActed(false)
       commit(caught)
       setBanner(bannerText(awayMs, before, caught))
     }
@@ -194,5 +204,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null), acted }
+  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null), acted, minerActed }
 }

@@ -614,6 +614,21 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 11 (task 67): the mine row, its ⓘ tip (`WORKER_TIPS.mine`) and ⛏️ (`MINE_EMOJI` in `useGame.ts`,
   `WORKER_JOB_EMOJI.mine`) ship with the core**, because those tables are `Record<WorkerJob, …>` (as in batch 10). The
   locked row shows only "mines n/200", not the vein Lv3 gate; task 68 lays out the rest.
+- **Batch 11 (task 68): the ore picker and the iron pickaxe craft show only from vein Lv3** (the first vein that drops
+  iron), or once iron is picked; a copper-only player's furnace and Mine panel stay as they were at 375 px.
+- **Batch 11 (task 68): Stats show iron bars smelted and collected, no "iron ore" row.** No lifetime counter of mined
+  iron ore exists, and adding one is a save change, out of scope for a UI task; the iron ore in storage is already in
+  the Mine panel's item list.
+- **Batch 11 (task 68): a vein price with more items than storage holds says "Needs 📦 N storage"** on the Upgrade button,
+  for every level, so vein Lv3 (45 items) tells a storage Lv2 (40) player what to buy.
+- **Batch 11 (task 68): the craft button offers the tier above the one in hand** instead of "copper unless copper is in
+  hand", which would have shown "Craft copper pickaxe — Already owned" with an iron pickaxe.
+- **Batch 11 (task 68): the miner flash reads the real step** (`lifetime.workerMines` grew on a live worker tick), not a
+  lookahead like `workerTargets`: the Mine button has no ring to predict, and `WorkerTarget` stays tile-only. Its wash is
+  amber, not white, because the button is white, and its pop is 14 px in the corner, not the tiles' 18 px, to stay
+  above the button's second line.
+- **Batch 11 (task 68): the locked mine row puts each missing gate on its own line** (both on one line ≈ 287 px, past the
+  284 px Farm tab at 1024). The away banner also gained "🥈 N smelted" (iron bars), which it lacked.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1708,7 +1723,7 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
     active pickaxe's durability and preserve chance, gives mastery xp like a press, no energy). Idles when storage
     is full or the pickaxe is blunt — repair stays manual. Certificate 5 iron bars + 💰500, visible once vein Lv3 is
     owned and after 200 mines. step(s, n) = n × step(s, 1) with the mine and furnace workers on together.
-- [ ] 68. **UI.** Vein Lv3 row, ore-kind picker on the furnace, iron pickaxe craft/repair, mine row in the Workers
+- [x] 68. **UI.** Vein Lv3 row, ore-kind picker on the furnace, iron pickaxe craft/repair, mine row in the Workers
     card (below the furnace jobs), worker flash on the Mine button / rock when the mine worker acts. Stats: iron
     ore/bars, mines by workers. Compact at 375 px; no 7th tab.
 - [ ] 69. **Sim + balance.** Time to vein Lv3, first iron bar, iron pickaxe and the mine worker; bars/hour with mine +
@@ -1769,3 +1784,45 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
   player's press minus energy (hits, durability, mastery, PRNG), two miners, every idle case, step(s, 900) = 900 ×
   step(s, 1) with mine + ore + fuel workers on an iron furnace (mined iron ore loaded, iron bars smelted and collected,
   the miner stops when storage fills).
+
+### UI (task 68)
+- **⛏️ Mine panel, vein Lv3 row:** the generic next-level line reads "Lv3: ⛰️ Stone 55 % · ⚫ Coal 20 % · 🔶 Copper ore 15 % ·
+  🔷 Iron ore 10 % — ⛰️40 🥉5 💰400". When a vein price holds more items than storage, the Upgrade button's reason is
+  "Needs 📦 45 storage" instead of a never-ending "Not enough items" (any level; Lv1's 25 stone vs the starting 20 slots
+  too). While the pickaxe in hand is weaker than a rock of this or the next level needs, a 12 px line says "🔷 Iron ore
+  needs a copper pickaxe or better, else it is mined as ⛰️ stone"; the Dig button shows such a rock as "🔷 as ⛰️ 0/2"
+  (`minedRock`, stone's hits), and an iron rock with a copper pickaxe as "🔷 0/4".
+- **🔥 Furnace:** from vein Lv3 (or once iron is picked) an "Ore to smelt" group of two buttons, **🔶 Copper ore / 🔷 Iron
+  ore**, in the furnace action grid: the picked kind is `aria-pressed` + disabled with "smelting", the other "switch",
+  or disabled with "empty first" (`NOT_EMPTY`, short form in `SMELT_SHORT`). The ore line, cycle bar (120 s for iron),
+  recipe line ("🔷2 + ⚫2 or 🌲4 → 🥈1 · 120 s"), "ore n" stock, Load button and Collect emoji follow `furnace.oreKind`;
+  the summary line is unchanged. `ERROR_TEXT.NO_ORE` = "No ore of the picked kind in storage".
+- **Pickaxes:** one craft button for the tier above the one in hand: copper once the furnace is built, **iron (🥈5 💰200)
+  once the vein drops iron**; repair was already per tier ("Blunt iron pickaxe — repair (🥈2)").
+- **👷 Workers:** the ⛏️ Mine row (last, below Ore / Fuel) lists only the gates still missing, one 12 px line each:
+  "mines n/200" and / or "vein Lv3"; certificate "🥈5 💰500".
+- **Miner flash:** `useGame` steps once, and when a live step of ≤ 5 ticks crosses the worker tick and
+  `lifetime.workerMines` grew, `minerActed` is true for that tick: the Dig button gets `.mine-flash` (0.5 s amber inset
+  wash, as the white button would not show the tiles' white one) and the `.cell-pop` ⛏️ in its top-right corner
+  (`.mine-dig` is now `position: relative`). Reduced motion: no wash, still pop. Off on the next tick and after a catch-up.
+- **📊 Stats:** "Iron bars smelted" and "Iron bars collected" after "Copper bars smelted"; "Mines by workers" after
+  "Plants by workers". **Away banner:** "· ⛏️ N mined" after the planted part and "· 🥈 N smelted" after the copper one,
+  each only when non-zero.
+- **Layout, computed from `app.css`, not measured** (13 px ≈ 6.5 px/char, 14 px ≈ 7, 12 px ≈ 6.5, emoji ≈ 17). Mine column
+  **209.3 / 300.8 / 343 px** at 1024 / 1440 / 375; Farm-tab / below-grid Workers **284 / 358 / 359 px**.
+  - Ore picker: `repeat(auto-fit, minmax(96px, 1fr))` with 2 items: **2 × 101.6** at 1024, and since auto-fit collapses
+    the empty track, **2 × 147.4** at 1440 and **2 × 168.5** at 375. Text room at 1024 = 91.6: "🔶 Copper ore" ≈ 88.5,
+    "🔷 Iron ore" ≈ 75.5, second lines ≤ "empty first" ≈ 72: one line each, the 44 px min height. Grid cells cannot
+    overlap; the open card grows by 44 + 4 px.
+  - Dig line worst case "⚡1 → 1 hit · 🔷 as ⛰️ cracked 1/2" ≈ 233: two lines at 1024 (content 195), one at 1440 / 375;
+    the button grows, the column scrolls. Second line's top: 23 px (one line, 32 px of content centred in 44) or 19 px
+    (wrapped, 51 px button). The tile pop (18 px at top 4 / right 6) would reach 22–24 px and, at 1024, cover the end
+    of "… cracked" (its first row ends ≈ 20 px from the right edge), so on the button it is **14 px at top 2 / right 2**
+    (`.mine-dig > .cell-pop`): 3–17 px down, 16.8 px at the 1.2 start scale (1.6–18.4), above 19 at every width; the
+    centred "⛏️ Dig" ≈ 45 px spans 82–127 of 209, far from the 3–17 px right corner.
+  - Pickaxe hint ≈ 489 px of 12 px text in a block span: 3 lines at 1024, 2 at 1440 and 375; it pushes the column down.
+  - Mine row, locked, worst case: label span = max("⛏️ Mine" ≈ 49, "mines 199/200" ≈ 85) + certificate button (max
+    "Certificate" ≈ 77, "🥈5 💰500" ≈ 67) + 16 + 2 ≈ 95 + ⓘ 28 + 2 gaps of 4 ≈ **216 px** ≤ 284 / 358 / 359 (the two gates
+    on one line would be ≈ 287, past 284, hence one line each); the label column is 3 lines ≈ 47 px tall, so that row is
+    3 px over the 44 px row height. Staffed row = the Fuel row's width (label ≈ 49 ≤ 52).
+  - Flash wash and pop take no layout (box-shadow, absolute); banner and Stats rows only lengthen wrapping text.

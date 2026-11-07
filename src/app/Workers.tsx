@@ -2,7 +2,7 @@ import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } fro
 import { ITEMS } from '../core/data/items'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
-import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
+import { assignWorker, buyCertificate, freeWorkers,hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
 import { Info } from './Info'
 import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
@@ -30,16 +30,14 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
 function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {
   const { run, meta } = state
   if (!run.workers.certificates.includes(job)) {
-    const { counter, at } = certificateUnlock(job)
+    const { counter, at, vein = 0 } = certificateUnlock(job)
+    // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
+    const missing = [run.counters[counter] < at && `${counter} ${run.counters[counter]}/${at}`, run.vein.level < vein && `vein Lv${vein}`]
     return (
       <div className="worker-row">
         <span>
           {WORKER_JOB_LABEL[job]}
-          {!certificateUnlocked(run, job) && (
-            <small>
-              {counter} {run.counters[counter]}/{at}
-            </small>
-          )}
+          {missing.map((gate) => gate && <small key={gate}>{gate}</small>)}
         </span>
         <button disabled={!buyCertificate(state, job).ok} onClick={() => act((s) => buyCertificate(s, job))}>
           Certificate <small>{priceText(certificateCost(job, meta))}</small>

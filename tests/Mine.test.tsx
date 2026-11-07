@@ -13,6 +13,8 @@ const WOOD = ITEMS.wood.emoji
 const STONE = ITEMS.stone.emoji
 const ORE = ITEMS.copperOre.emoji
 const BAR = ITEMS.copperBar.emoji
+const IRON_ORE = ITEMS.ironOre.emoji
+const IRON_BAR = ITEMS.ironBar.emoji
 
 function setup(run: Partial<GameState['run']>) {
   const s = createInitialState()
@@ -42,6 +44,10 @@ describe('Mine panel', () => {
     setup({ cash: 100, inventory: { stone: 24 } })
     const upgrade = () => screen.getByRole('button', { name: /^Upgrade vein to Lv1/ }) as HTMLButtonElement
     expect(upgrade().disabled).toBe(true)
+    // 25 stone cannot fit the starting 20 slots: the reason names the storage to buy
+    expect(upgrade().textContent).toBe('Upgrade vein to Lv1 — Needs 📦 25 storage')
+    cleanup()
+    setup({ cash: 100, inventory: { stone: 24 }, bagCapacity: 30 })
     expect(upgrade().textContent).toBe('Upgrade vein to Lv1 — Not enough items')
     cleanup()
     const affordable = setup({ cash: 100, inventory: { stone: 25 } })
@@ -181,6 +187,92 @@ describe('Mine panel', () => {
     expect(t.get().run.furnace.levels.fireCap).toBe(0)
     // the recipe line follows the batch level: 6 ore → 3 bars per cycle
     expect(text()).toContain(`${ORE}6 + ⚫1 or ${WOOD}2 → ${BAR}3 · 60 s`)
+  })
+
+  it('vein Lv3 row: iron ore 10 %, priced for storage Lv3, and a hint while the pickaxe is too weak for iron', () => {
+    const lv2 = { cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' as const } }
+    setup({ ...lv2, bagCapacity: 40, inventory: { stone: 35, copperBar: 5 }, pickaxe: wooden() })
+    expect(screen.getByText(/^Lv3: /).textContent).toBe(
+      `Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${IRON_ORE} Iron ore 10 % — ${STONE}40 ${BAR}5 💰400`,
+    )
+    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ }).textContent).toBe('Upgrade vein to Lv3 — Needs 📦 45 storage')
+    expect(screen.getByText(/needs a copper pickaxe/).textContent).toBe(`${IRON_ORE} Iron ore needs a copper pickaxe or better, else it is mined as ${STONE} stone`)
+    cleanup()
+    const t = setup({ ...lv2, bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: { tier: 'copper', durability: 200 } })
+    expect(screen.queryByText(/needs a copper pickaxe/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ }))
+    expect(t.get().run.vein.level).toBe(3)
+  })
+
+  it('an iron rock shows "as stone" with stone hits below a copper pickaxe, its own 4 hits with one', () => {
+    const rock = { level: 3, progress: 0, rock: 'ironOre' as const }
+    setup({ vein: rock, pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
+    expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
+    cleanup()
+    setup({ vein: { ...rock, progress: 3 }, pickaxe: { tier: 'copper', durability: 200 } })
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
+  })
+
+  it('ore picker: from vein Lv3, copper or iron; switching needs an empty slot and tray; the furnace follows the kind', () => {
+    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' } })
+    expect(screen.queryByRole('group', { name: 'Ore to smelt' })).toBeNull()
+    cleanup()
+    const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
+    const t = setup({ furnace: built, vein: lv3, inventory: { ironOre: 3, coal: 4 } })
+    const kind = (name: RegExp) => within(screen.getByRole('group', { name: 'Ore to smelt' })).getByRole('button', { name }) as HTMLButtonElement
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oresmelting`)
+    expect([kind(/Copper ore/).getAttribute('aria-pressed'), kind(/Copper ore/).disabled]).toEqual(['true', true])
+    expect(kind(/Iron ore/).textContent).toBe(`${IRON_ORE} Iron oreswitch`)
+    fireEvent.click(kind(/Iron ore/))
+    t.rerender()
+    expect(t.get().run.furnace.oreKind).toBe('ironOre')
+    expect(kind(/Iron ore/).getAttribute('aria-pressed')).toBe('true')
+    expect(text()).toContain(`${IRON_ORE}2 + ⚫2 or ${WOOD}4 → ${IRON_BAR}1 · 120 s`)
+    expect(text()).toContain(`${IRON_ORE} ore 0 / 12`)
+    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 4', 'wood 0'])
+    fireEvent.click(screen.getByRole('button', { name: /^Load/ }))
+    t.rerender()
+    expect(screen.getByRole('button', { name: /^Load/ }).textContent).toBe(`Load ${IRON_ORE} oreno ore`)
+    expect(t.get().run.furnace.ore).toBe(3)
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreempty first`)
+    expect(kind(/Copper ore/).disabled).toBe(true)
+    cleanup()
+    setup({ furnace: { ...built, oreKind: 'ironOre', ready: 2, progress: 30 }, vein: lv3 })
+    expect(screen.getByRole('button', { name: /^Collect 2/ }).textContent).toBe(`Collect 2 ${IRON_BAR}tray 2/5`)
+    expect(text()).toContain(`${IRON_ORE} ore 0 / 12 · 30/120 s`)
+  })
+
+  it('iron pickaxe: offered from vein Lv3 over a copper one, crafted from iron bars, repaired with iron bars', () => {
+    const copper = { tier: 'copper' as const, durability: 200 }
+    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, pickaxe: copper })
+    expect(screen.queryByRole('button', { name: /^Craft/ })).toBeNull()
+    cleanup()
+    const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
+    setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 4 } })
+    expect(screen.getByRole('button', { name: /^Craft/ }).textContent).toBe(`Craft iron pickaxe (${IRON_BAR}5 💰200) — Not enough items`)
+    cleanup()
+    const t = setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 5 } })
+    fireEvent.click(screen.getByRole('button', { name: /^Craft iron pickaxe/ }))
+    t.rerender()
+    expect(text()).toContain('Iron pickaxe 1200 / 1200')
+    // nothing above iron yet, and no copper offer with a better pickaxe in hand
+    expect(screen.queryByRole('button', { name: /^Craft/ })).toBeNull()
+    cleanup()
+    setup({ furnace: built, vein: lv3, pickaxe: { tier: 'iron', durability: 0 }, inventory: { ironBar: 2 } })
+    expect((screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}2)` }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
+  it('a mine worker press flashes the Mine button and pops ⛏️; nothing otherwise', () => {
+    const s = createInitialState()
+    const state: GameState = { ...s, run: { ...s.run, mineLicense: true } }
+    const { rerender } = render(<Mine state={state} act={() => {}} />)
+    const dig = () => screen.getByRole('button', { name: /Dig/ })
+    expect(dig().classList.contains('mine-flash')).toBe(false)
+    expect(dig().querySelector('.cell-pop')).toBeNull()
+    rerender(<Mine state={state} act={() => {}} minerActed />)
+    expect(dig().classList.contains('mine-flash')).toBe(true)
+    expect(dig().querySelector('.cell-pop')!.textContent).toBe('⛏️')
   })
 
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {

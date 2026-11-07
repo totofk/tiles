@@ -21,18 +21,21 @@ import {
   masteryThresholds,
   mineHits,
   mineLicenseCost,
+  oreBar,
   pickaxeCraftCost,
   pickaxeDurability,
   pickaxeRepairCost,
   rockHits,
+  rockPickaxe,
+  veinDrops,
   veinMaxLevel,
   veinUpgradeCost,
   woodCost,
   type FurnaceUpgradeId,
   type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
-import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre } from '../core/furnace'
+import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId } from '../core/data/items'
+import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, setOreKind } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -42,6 +45,7 @@ import {
   dig,
   dropText,
   expectedUses,
+  minedRock,
   repairPickaxe,
   sellItem,
   upgradeVein,
@@ -50,7 +54,7 @@ import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 import { Info, Item } from './Info'
 import { FURNACE_TIPS } from './tips'
-import { ERROR_TEXT, FIRE_EMOJI, type Act } from './useGame'
+import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
 const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: gold ore — coming`
@@ -58,8 +62,13 @@ const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: gold ore — coming`
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
 /** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
-const SMELT_SHORT: Partial<Record<ActionError, string>> = { NO_ORE: 'no ore', NO_FUEL: 'no fuel', FULL: 'full', BAG_FULL: 'storage full' }
-const STOCK_LABEL = { copperOre: 'ore', coal: 'coal', wood: 'wood' }
+const SMELT_SHORT: Partial<Record<ActionError, string>> = {
+  NO_ORE: 'no ore',
+  NO_FUEL: 'no fuel',
+  FULL: 'full',
+  BAG_FULL: 'storage full',
+  NOT_EMPTY: 'empty first',
+}
 
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
@@ -73,6 +82,9 @@ function sellAll(s: GameState): ActionResult {
     return r.ok && n > 0 ? sellItem(r.state, id, n) : r
   }, { ok: true, state: s })
 }
+
+/** the vein at this level drops iron ore: the ore-kind picker and the iron pickaxe show from here */
+const ironVein = (level: number) => (veinDrops(level).ironOre ?? 0) > 0
 
 /** a disabled furnace button's short reason */
 function shortReason(r: ActionResult) {
@@ -105,6 +117,12 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
   const fire = Math.ceil(f.fire / fireUnitTicks())
   const cap = fireCapUnits(f.levels.fireCap)
   const bars = batchBars(f.levels.batch)
+  const oreEmoji = ITEMS[f.oreKind].emoji
+  const barEmoji = ITEMS[oreBar(f.oreKind)].emoji
+  const ticks = barTicks(f.oreKind)
+  const stock = { ore: f.oreKind, coal: 'coal', wood: 'wood' } as const
+  // the kind picker appears with the first vein that drops iron (or once iron is picked), so copper players see no change
+  const picker = ironVein(run.vein.level) || f.oreKind !== 'copperOre'
   return (
     <details className="mine-furnace">
       <summary>
@@ -119,30 +137,44 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       </div>
       <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
       {f.fire > 0 && !f.smart && f.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
+      {picker && (
+        <div className="mine-furnace-actions" role="group" aria-label="Ore to smelt">
+          {ORE_IDS.map((id) => {
+            const r = setOreKind(state, id)
+            const picked = f.oreKind === id
+            return (
+              <button key={id} aria-pressed={picked} disabled={picked || !r.ok} onClick={() => act((s) => setOreKind(s, id))}>
+                {ITEMS[id].emoji} {ITEMS[id].name}
+                <small>{picked ? 'smelting' : r.ok ? 'switch' : shortReason(r)}</small>
+              </button>
+            )
+          })}
+        </div>
+      )}
       <span>
-        {ITEMS.copperOre.emoji} ore {f.ore} / {oreSlotCap()}
-        {f.progress > 0 && ` · ${f.progress}/${barTicks()} s`}
+        {oreEmoji} ore {f.ore} / {oreSlotCap()}
+        {f.progress > 0 && ` · ${f.progress}/${ticks} s`}
       </span>
-      {f.progress > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
+      {f.progress > 0 && <Bar value={f.progress / ticks} kind="grow" />}
       <small>
-        {ITEMS.copperOre.emoji}
+        {oreEmoji}
         {cycleOre(f)} + {ITEMS.coal.emoji}
-        {smeltFuel('coal')} or {ITEMS.wood.emoji}
-        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}
-        {bars} · {barTicks()} s ·{' '}
-        {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
-          <Fragment key={id}>
+        {smeltFuel('coal', f.oreKind)} or {ITEMS.wood.emoji}
+        {smeltFuel('wood', f.oreKind)} → {barEmoji}
+        {bars} · {ticks} s ·{' '}
+        {(['ore', 'coal', 'wood'] as const).map((key, i) => (
+          <Fragment key={key}>
             {i > 0 && ' · '}
             <span className="nowrap">
-              {STOCK_LABEL[id]} {have(id)}
+              {key} {have(stock[key])}
             </span>
           </Fragment>
         ))}
       </small>
       <div className="mine-furnace-actions">
         <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
-          Load {ITEMS.copperOre.emoji} ore
-          {uses(ore, state, 'copperOre')}
+          Load {oreEmoji} ore
+          {uses(ore, state, f.oreKind)}
         </button>
         {FUEL_IDS.map((fuel) => {
           const r = addFuel(state, fuel)
@@ -154,7 +186,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           )
         })}
         <button disabled={!collect.ok} onClick={() => act(collectBars)}>
-          Collect {f.ready} {ITEMS.copperBar.emoji}
+          Collect {f.ready} {barEmoji}
           <small>{f.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${f.ready}/${furnaceTrayCap()}`}</small>
         </button>
       </div>
@@ -179,7 +211,8 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
   )
 }
 
-export function Mine({ state, act }: { state: GameState; act: Act }) {
+/** minerActed: a mine worker pressed Mine on this tick, so the Mine button flashes and pops ⛏️ (as a farm worker's tile does) */
+export function Mine({ state, act, minerActed = false }: { state: GameState; act: Act; minerActed?: boolean }) {
   const { run, meta } = state
   if (!run.mineLicense) {
     const cost = mineLicenseCost(meta)
@@ -195,18 +228,33 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
   }
   // the core actions double as "can I?" checks, so the disabled reason is the action's own error
   const digCheck = dig(state)
-  const hits = mineHits(activePickaxe(run)?.tier ?? null)
+  const active = activePickaxe(run)?.tier ?? null
+  const hits = mineHits(active)
   const repair = repairPickaxe(state)
   const cracked = run.vein.progress > 0
-  const rock = ITEMS[run.vein.rock].emoji
+  // a rock the pickaxe in hand is too weak for is mined as stone: show it as "🔷 as ⛰️" with stone's hits
+  const minedAs = minedRock(run.vein.rock, active)
+  const rock = ITEMS[run.vein.rock].emoji + (minedAs === run.vein.rock ? '' : ` as ${ITEMS[minedAs].emoji}`)
   const nextVein = veinUpgradeCost(run.vein.level, meta)
   const veinCheck = upgradeVein(state)
+  const veinItems = nextVein ? ITEM_IDS.reduce((n, id) => n + (nextVein[id] ?? 0), 0) : 0
+  // items the next level costs beyond what storage holds can never be gathered, so say what to buy instead
+  const veinReason = veinCheck.ok
+    ? ''
+    : veinCheck.error === 'NOT_ENOUGH_ITEMS' && veinItems > run.bagCapacity
+      ? `Needs 📦 ${veinItems} storage`
+      : ERROR_TEXT[veinCheck.error]
+  // rocks of this level or the next that the pickaxe in hand mines as stone (iron ore below a copper pickaxe)
+  const tooHard = ITEM_IDS.filter((id) => (veinDrops(run.vein.level + 1)[id] ?? 0) > 0 && minedRock(id, active) !== id)
   const fullValue = SELL_WHEN_FULL.reduce(
     (sum, id) => sum + (run.inventory[id] ?? 0) * itemSellPrice(id, meta, run.upgrades.sellPrice),
     0,
   )
   const tier = run.pickaxe?.tier
-  const copperCraft = craftPickaxe(state, 'copper')
+  // the tier above the one in hand (none or wooden → copper): copper once the furnace is built, iron once the vein drops iron
+  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(tier ?? 'wooden') + 1]
+  const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || ironVein(run.vein.level)) ? nextTier : null
+  const nextCraft = offerTier && craftPickaxe(state, offerTier)
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
   const level = tier ? masteryLevel(tier, xp) : 0
@@ -222,13 +270,18 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
           📦 Storage {bagCount(run)} / {run.bagCapacity}
         </small>
       </h2>
-      <button className="mine-dig" disabled={!digCheck.ok} onClick={() => act(dig)}>
+      <button className={minerActed ? 'mine-dig mine-flash' : 'mine-dig'} disabled={!digCheck.ok} onClick={() => act(dig)}>
         ⛏️ Dig
         <small>
           {digCheck.ok
-            ? `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${cracked ? `${rock} cracked` : rock} ${run.vein.progress}/${rockHits(run.vein.rock)}`
+            ? `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${cracked ? `${rock} cracked` : rock} ${run.vein.progress}/${rockHits(minedAs)}`
             : ERROR_TEXT[digCheck.error]}
         </small>
+        {minerActed && (
+          <span className="cell-pop" aria-hidden="true">
+            {MINE_EMOJI}
+          </span>
+        )}
       </button>
       {!digCheck.ok && digCheck.error === 'BAG_FULL' && fullValue > 0 && (
         <button onClick={() => act(sellAll)}>
@@ -247,10 +300,16 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
             </span>
             <button disabled={!veinCheck.ok} onClick={() => act(upgradeVein)}>
               Upgrade vein to Lv{run.vein.level + 1}
-              {!veinCheck.ok && <small> — {ERROR_TEXT[veinCheck.error]}</small>}
+              {!veinCheck.ok && <small> — {veinReason}</small>}
             </button>
           </>
         )}
+        {tooHard.map((id) => (
+          <span key={id} className="mine-vein-next">
+            {ITEMS[id].emoji} {ITEMS[id].name} needs a {PICKAXE_NAMES[rockPickaxe(id)!].toLowerCase()} or better, else it is mined as{' '}
+            {ITEMS.stone.emoji} stone
+          </span>
+        ))}
         <span className="mine-vein-next">{LOCKED_VEIN_TEXT}</span>
       </div>
       {run.furnace.built ? (
@@ -276,10 +335,10 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
           No pickaxe — craft ({priceText(pickaxeCraftCost('wooden', meta))})
         </button>
       )}
-      {run.furnace.built && tier !== 'copper' && (
-        <button disabled={!copperCraft.ok} onClick={() => act((s) => craftPickaxe(s, 'copper'))}>
-          Craft copper pickaxe ({priceText(pickaxeCraftCost('copper', meta))})
-          {!copperCraft.ok && <small> — {ERROR_TEXT[copperCraft.error]}</small>}
+      {offerTier && nextCraft && (
+        <button disabled={!nextCraft.ok} onClick={() => act((s) => craftPickaxe(s, offerTier))}>
+          Craft {PICKAXE_NAMES[offerTier].toLowerCase()} ({priceText(pickaxeCraftCost(offerTier, meta))})
+          {!nextCraft.ok && <small> — {ERROR_TEXT[nextCraft.error]}</small>}
         </button>
       )}
       {tier && (

@@ -97,6 +97,24 @@ describe('👷 Workers card', () => {
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
   })
 
+  it('the mine row shows only the gates still missing, one line each: mines n/200, vein Lv3; its certificate is in iron bars', () => {
+    const mineRow = () => screen.getByText('⛏️ Mine').closest('.worker-row') as HTMLElement
+    const gates = () => [...mineRow().querySelectorAll('span:first-child > small')].map((e) => e.textContent)
+    setup({ vein: { level: 1, progress: 0, rock: 'stone' } }, { mines: 10 })
+    expect(gates()).toEqual(['mines 10/200', 'vein Lv3'])
+    expect(within(mineRow()).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.ironBar.emoji}5 💰500`)
+    cleanup()
+    setup({ vein: { level: 2, progress: 0, rock: 'stone' } }, { mines: 682 })
+    expect(gates()).toEqual(['vein Lv3'])
+    cleanup()
+    setup({ vein: { level: 3, progress: 0, rock: 'stone' } }, { mines: 150 })
+    expect(gates()).toEqual(['mines 150/200'])
+    cleanup()
+    setup({ vein: { level: 3, progress: 0, rock: 'stone' }, cash: 500, inventory: { ironBar: 5 } }, { mines: 200 })
+    expect(gates()).toEqual([])
+    expect((within(mineRow()).getByRole('button', { name: /Certificate/ }) as HTMLButtonElement).disabled).toBe(false)
+  })
+
   it('a certified planter gets [−] n [+] like the other jobs', () => {
     const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant'] } })
     fireEvent.click(btn(/One more on Plant/))
@@ -164,6 +182,30 @@ describe('worker targets on the grid (task 60)', () => {
     act(() => void vi.advanceTimersByTime(1000))
     expect(where('cell-flash')).toEqual([])
   })
+
+  it('in the app the Mine button flashes on the tick a mine worker presses it, and stops a tick later', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] })
+    const miner: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        cash: 10,
+        mineLicense: true,
+        pickaxe: { tier: 'wooden', durability: 25 },
+        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1 }, certificates: ['mine'] },
+      },
+    }
+    localStorage.setItem(SAVE_KEY, serialize(miner, Date.now()))
+    render(<App />)
+    const dig = () => document.querySelector('.mine-dig')!
+    expect(dig().classList.contains('mine-flash')).toBe(false)
+    // tick 0 is a worker tick: the first step presses Mine
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(dig().classList.contains('mine-flash')).toBe(true)
+    expect(dig().querySelector('.cell-pop')!.textContent).toBe('⛏️')
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(dig().classList.contains('mine-flash')).toBe(false)
+  })
 })
 
 describe('HUD and away banner', () => {
@@ -187,5 +229,12 @@ describe('HUD and away banner', () => {
     const at = (workerPlants: number, wagesPaid: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, workerPlants, wagesPaid } } })
     expect(bannerText(60_000, at(4, 0), at(4, 0))).toBe('Away for 1m — 60 ticks simulated')
     expect(bannerText(60_000, at(4, 0), at(13, 20))).toBe('Away for 1m — 60 ticks simulated · 🌱 9 planted · wages paid 💰20')
+  })
+
+  it('the away banner counts the miners\' presses and the iron bars smelted, only when non-zero', () => {
+    const s = createInitialState()
+    const at = (workerMines: number, ironBarsSmelted: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, workerMines, ironBarsSmelted } } })
+    expect(bannerText(60_000, at(5, 1), at(5, 1))).toBe('Away for 1m — 60 ticks simulated')
+    expect(bannerText(60_000, at(5, 1), at(17, 4))).toBe(`Away for 1m — 60 ticks simulated · ⛏️ 12 mined · ${ITEMS.ironBar.emoji} 3 smelted`)
   })
 })

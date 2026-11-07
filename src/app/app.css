@@ -448,9 +448,23 @@ button:disabled {
     transform: translateY(-10px) scale(1);
   }
 }
+/* mine worker (task 68): the Mine button is white, so its flash is an amber wash; the ⛏️ pop reuses .cell-pop in the
+   (relative) button's top-right corner. Neither takes layout space. */
+.mine-flash {
+  animation: mine-flash 0.5s ease-out;
+}
+@keyframes mine-flash {
+  from {
+    box-shadow: inset 0 0 0 999px rgba(255, 179, 0, 0.45);
+  }
+  to {
+    box-shadow: inset 0 0 0 999px rgba(255, 179, 0, 0);
+  }
+}
 /* reduced motion: no flash, the pop shows still until the next tick */
 @media (prefers-reduced-motion: reduce) {
   .cell-flash,
+  .mine-flash,
   .cell-pop {
     animation: none;
   }
@@ -525,10 +539,17 @@ button:disabled {
   color: #555;
 }
 .mine-dig {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   font-weight: 600;
+}
+/* smaller and tighter to the corner than on a tile, so the ⛏️ pop ends above the button's second line (≥ 19 px down) */
+.mine-dig > .cell-pop {
+  top: 2px;
+  right: 2px;
+  font-size: 14px;
 }
 .mine-pickaxe {
   display: flex;

@@ -24,9 +24,12 @@ describe('stats(state)', () => {
       { label: 'Copper bars collected', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Copper bars smelted', value: '0' },
+      { label: 'Iron bars smelted', value: '0' },
+      { label: 'Iron bars collected', value: '0' },
       { label: 'Fire wasted', value: '0 units' },
       { label: 'Wages paid', value: '💰0' },
       { label: 'Plants by workers', value: '0' },
+      { label: 'Mines by workers', value: '0' },
     ])
     const meta = createInitialState().meta
     expect(multipliers).toEqual([
@@ -85,7 +88,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 31, ironBars: 4, ironBarsSmelted: 5 },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row
@@ -99,6 +102,8 @@ describe('stats(state)', () => {
     expect(row(totals, 'Pumpkin harvests')).toMatchObject({ value: '1' })
     expect(row(totals, 'Carrot harvests')).toMatchObject({ value: '40' })
     expect(row(totals, 'Copper bars smelted')).toMatchObject({ value: '6' })
+    const iron = ['Iron bars smelted', 'Iron bars collected', 'Mines by workers']
+    expect(totals.filter((r) => iron.includes(r.label)).map((r) => r.value)).toEqual(['5', '4', '31'])
     // 75 burn ticks = 2.5 units; a part-burnt unit counts as wasted
     expect(row(totals, 'Fire wasted')).toMatchObject({ value: `${Math.ceil(75 / fireUnitTicks())} units` })
     expect(row(multipliers, 'Sell price')).toEqual({ label: 'Sell price', value: '×1.5', source: 'Better prices Lv5' })

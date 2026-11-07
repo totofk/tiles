@@ -17,7 +17,7 @@ import { Workers } from './Workers'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, toast, banner, dismissBanner, acted } = useGame()
+  const { state, act, reset, toast, banner, dismissBanner, acted, minerActed } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -117,7 +117,7 @@ export default function App() {
           </div>
         )}
       </div>
-      <Mine state={state} act={act} />
+      <Mine state={state} act={act} minerActed={minerActed} />
       <section className="farm">
         {!farmTab && (
           <>
