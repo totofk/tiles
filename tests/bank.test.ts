@@ -81,6 +81,25 @@ describe('debt growth in step', () => {
   })
 })
 
+describe('exploit check: borrow → repay always loses cash', () => {
+  it.each([0.5, 1, 2])('cost multiplier %s: the fee makes repaying at any tick cost more than was borrowed', (cost) => {
+    const start = withRun({ cash: 100 })
+    const s0 = { ...start, meta: { ...start.meta, multipliers: { ...start.meta.multipliers, cost } } }
+    const principal = loanPrincipal(s0.meta)
+    expect(loanStartDebt(principal)).toBeGreaterThan(principal)
+    let s = okState(takeLoan(s0))
+    for (let t = 0; t <= 600; t++) {
+      expect(okState(repayAll(s)).run.cash).toBeLessThan(100)
+      s = step(s, 1)
+    }
+  })
+
+  it('repaying immediately loses exactly the fee', () => {
+    const s = okState(repayAll(okState(takeLoan(withRun({ cash: 100 })))))
+    expect(s.run.cash).toBe(97)
+  })
+})
+
 describe('repay', () => {
   const borrowed = okState(takeLoan(withRun({ cash: 50 })))
 

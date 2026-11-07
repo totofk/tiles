@@ -3,12 +3,14 @@ import { buyLicense, harvest, plant, till, water, type ActionResult } from '../s
 import {
   ACTION_ENERGY_COST,
   cropGrowTicks,
+  cropSeedCost,
   cropSellPrice,
   itemSellPrice,
   licenseCost,
   mineLicenseCost,
   pickaxeRecipe,
 } from '../src/core/balance'
+import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
 import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
@@ -98,7 +100,9 @@ function runBot(mineEarly: boolean) {
     return true
   }
 
+  let borrowed = false
   for (let t = 0; t < TICKS; t++) {
+    borrowed ||= s.run.loan !== null
     const tick = s.run.tick
     const milestones = () => {
       if (!s.run.licenses.includes('pumpkin') && s.run.cash >= pumpkinLicense) m.pumpkinLicenseAffordable ??= tick
@@ -129,7 +133,9 @@ function runBot(mineEarly: boolean) {
     (sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, s.run.upgrades.sellPrice) * growthProgress(t, s) : 0),
     0,
   )
+  borrowed ||= s.run.loan !== null
   return {
+    borrowed,
     milestones: m,
     minCash,
     finalCash: s.run.cash,
@@ -146,11 +152,54 @@ function runBot(mineEarly: boolean) {
 
 describe.each([
   // pumpkin license by ~250 holds only when the mine license waits for it; see PLAN.md "Batch 3 results"
-  { name: 'pumpkin-first', mineEarly: false, pumpkinBy: 250 },
-  { name: 'mine-early', mineEarly: true, pumpkinBy: 350 },
-])('greedy bot $name (farm first, dig with idle energy), 600 ticks', ({ name, mineEarly, pumpkinBy }) => {
+  {
+    name: 'pumpkin-first',
+    mineEarly: false,
+    pumpkinBy: 250,
+    batch3: {
+      milestones: {
+        firstRadishHarvest: 100,
+        mineLicenseAffordable: 124,
+        pumpkinLicenseAffordable: 200,
+        pumpkinLicenseBought: 207,
+        firstPumpkinPlanted: 215,
+        firstPumpkinHarvest: 455,
+        mineLicenseBought: 455,
+        firstDig: 464,
+      },
+      minCash: 2,
+      finalCash: 394,
+      counters: { harvests: 31, sales: 31, digs: 19 },
+    },
+  },
+  {
+    name: 'mine-early',
+    mineEarly: true,
+    pumpkinBy: 350,
+    batch3: {
+      milestones: {
+        firstRadishHarvest: 100,
+        mineLicenseAffordable: 124,
+        mineLicenseBought: 129,
+        firstDig: 147,
+        pumpkinLicenseAffordable: 336,
+        pumpkinLicenseBought: 337,
+        firstPumpkinPlanted: 354,
+        firstPumpkinHarvest: 594,
+      },
+      minCash: 0,
+      finalCash: 116,
+      counters: { harvests: 30, sales: 70, digs: 43 },
+    },
+  },
+])('greedy bot $name (farm first, dig with idle energy), 600 ticks', ({ name, mineEarly, pumpkinBy, batch3 }) => {
   const summary = runBot(mineEarly)
   console.log(`sim summary ${name}`, JSON.stringify(summary, null, 1))
+
+  it('never borrows, and its batch-3 numbers are unchanged', () => {
+    expect(summary.borrowed).toBe(false)
+    expect(summary).toMatchObject(batch3)
+  })
 
   it('never goes negative on cash', () => {
     expect(summary.minCash).toBeGreaterThanOrEqual(0)
@@ -170,5 +219,65 @@ describe.each([
     expect(summary.mine.energy).toBeGreaterThan(0)
     expect(summary.farm.energy).toBeGreaterThan(0)
     expect(summary.miningCashPerEnergy).toBeLessThan(summary.farmingCashPerEnergy)
+  })
+})
+
+/** the round-2 playtest soft-lock: cash 1 (< radish seed 2), all 9 tiles tilled, empty bag, no pickaxe */
+function softLockState(): GameState {
+  const s = createInitialState()
+  const tiles = s.run.tiles.map((t) => ({ ...t, status: 'tilled' as const }))
+  return { ...s, run: { ...s.run, cash: 1, tiles, mineLicense: true, pickaxe: null, inventory: {} } }
+}
+
+// Borrows only when stuck (no loan, no crop in the ground, cash below a radish seed), farms greedily, and
+// repays in full once that still leaves a seed's worth of cash, so repaying never soft-locks it again.
+function runRecovery() {
+  let s = softLockState()
+  const startCash = s.run.cash
+  const seed = cropSeedCost('radish', s.meta)
+  const r: { loans: number; borrowedAt?: number; repaidAt?: number; paid?: number } = { loans: 0 }
+  for (let t = 0; t < TICKS; t++) {
+    const stuck = !s.run.loan && s.run.cash < seed && s.run.tiles.every((tile) => tile.status !== 'planted')
+    if (stuck) {
+      const loan = takeLoan(s)
+      if (loan.ok) {
+        s = loan.state
+        r.loans++
+        r.borrowedAt ??= s.run.tick
+      }
+    }
+    while (s.run.energy >= ACTION_ENERGY_COST) {
+      const next = bestFarmAction(s)
+      if (!next) break
+      s = next.state
+    }
+    if (s.run.loan && s.run.cash - debtDue(s.run.loan) >= seed) {
+      const due = debtDue(s.run.loan)
+      const paid = repayAll(s)
+      if (paid.ok) {
+        s = paid.state
+        r.repaidAt ??= s.run.tick
+        r.paid ??= due
+      }
+    }
+    s = step(s, 1)
+  }
+  return { ...r, startCash, finalCash: s.run.cash, loan: s.run.loan, ticksToRepay: r.repaidAt! - r.borrowedAt! }
+}
+
+describe('soft-lock recovery through a loan (round-2 state), 600 ticks', () => {
+  const summary = runRecovery()
+  console.log('recovery summary', JSON.stringify(summary, null, 1))
+
+  it('is stuck without a loan: no farm action is possible', () => {
+    expect(bestFarmAction(softLockState())).toBeNull()
+  })
+
+  it('takes one loan, repays it in full, and ends with more cash than it started with', () => {
+    expect(summary.loans).toBe(1)
+    expect(summary.borrowedAt).toBe(0)
+    expect(summary.repaidAt).toBeDefined()
+    expect(summary.loan).toBeNull()
+    expect(summary.finalCash).toBeGreaterThan(summary.startCash)
   })
 })

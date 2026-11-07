@@ -267,10 +267,37 @@ Numbers are placeholders, retuned after docs/research/round2-mining.md.
 19. [x] Bank tab in the side panel (and the mobile tab bar): borrow button with principal + fee + growth explained
     in one line, current debt with its cap, a "time until cap" hint, repay 💰N / repay all. HUD shows a small debt
     badge while a loan is active.
-20. [ ] Tests: the round-2 soft-lock state (cash 1, 9 tilled tiles, empty bag, no pickaxe) recovers via a loan —
+20. [x] Tests: the round-2 soft-lock state (cash 1, 9 tilled tiles, empty bag, no pickaxe) recovers via a loan —
     the bot takes the loan, farms, repays in full, and ends with more cash than it started. Exploit check: borrow →
     repay immediately always loses cash (fee > 0). Existing sim: the greedy bot never borrows and its batch-3
     numbers do not change. Record the placeholder numbers under "Batch 4.5 results".
 
 Starting numbers (placeholders): LOAN_PRINCIPAL 30, LOAN_FEE 0.1, LOAN_RATE_PER_TICK 0.002 (debt reaches the 200 %
 cap after ~450 ticks ≈ 7.5 min), LOAN_DEBT_CAP 2.0.
+
+## Batch 4.5 results
+The placeholder numbers are in `balance.ts` **unchanged**: principal 30, fee 0.1, rate 0.002 per tick, cap 2.0, plus
+`LOAN_REPAY_STEP` 10 for the Bank tab's partial-repay button. Borrowing gives 💰30 and a debt of 33 that grows by
+0.06 per tick and stops at 60 after 450 ticks (7 m 30 s).
+
+Soft-lock recovery (`tests/sim.test.ts`). Start: cash 1, 9 tilled tiles, mine license but no pickaxe, empty bag,
+energy full at max 10, no upgrades, tick 0. The bot borrows only when stuck (no loan, nothing planted, cash below a
+radish seed). It farms with the greedy bot's `bestFarmAction`, radish only (it buys no licenses and does not mine).
+It repays in full once the payment still leaves a radish seed's worth of cash.
+
+| Measure | Value |
+|---|---|
+| loans taken | 1, at tick 0 |
+| repaid in full | tick 100 (first radish harvest), so **100 ticks to repay** |
+| amount repaid | 💰39 (debt 33 + 100 × 0.06) |
+| cash at tick 600 | **💰334** (started with 💰1), no loan left |
+
+- **Exploit check** (`tests/bank.test.ts`): borrow, then repay all at any tick from 0 to 600, with the `cost`
+  multiplier at 0.5, 1 and 2. Every case ends with less cash than before the loan. Repaying at once loses exactly the
+  fee (💰3).
+- **Greedy bot**: it never borrows. Its batch-3 milestones, lowest cash, final cash and counters are now pinned in
+  `sim.test.ts` for both policies (394 / 116 final cash), and they are unchanged.
+- **Finding:** at these numbers, one radish cycle on 9 tiles (9 × 💰10 = 💰90) pays back the loan. The 💰6 of interest
+  over those 100 ticks is small against the harvest, so the loan is a cheap way out. It is still no free-money loop:
+  the fee alone makes borrow → repay a loss. A player who never repays keeps the 💰30, because v0 has no forced
+  collection, but one loan at a time limits that to a single +30.
