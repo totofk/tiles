@@ -846,3 +846,36 @@ the pickaxe in hand's preserve % and "lasts ~N uses" (source "mastery LvL + N ma
 tools per press (with the tool name), drop table (vein level). Prestige multipliers are all 1 until prestige exists
 and fold into the values above (`multiplier(meta, …)`), so they get no row of their own. The side panel and the
 mobile tab bar gain "📊 Stats" (six tabs; at 375 px the content-sized labels total ≈ 330 px of 375, estimated).
+
+## Batch 7.1 — tool bar fixes + copper farm tools (tasks 43–46)
+Question: do ingots give the farm a reason to smelt (fewer presses per crop), and does the farm tool bar fit a phone?
+Decisions: DECISIONS.md "Round-4 research outcome (progression)", "Round-5 research outcome (furnace)", "Copper farm
+tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → v7; backup key).
+
+43. [ ] Tool bar + shop fixes found on the live 6.2 build (UI only, first so the copper work lands on the final bar):
+    (a) < 768 px the bar overflowed ~30 px right with one level-2 stepper (Plant clipped). The level-2 button shows
+    only "Water 3" with a small ⋯ mark; tap = the action; long-press (touch, ~450 ms) or right-click / the ⋯ (mouse)
+    opens one shared popover with − / count / +. Three level-2 buttons must fit 375 px with no sideways scroll (same
+    popover on the ≥ 768 px vertical bar). (b) Owned farm tools in 🛒 Shop: solid card with "✓ Owned", not the dashed
+    grey that reads as disabled. (c) Seed pouch rows: "Carrot × 0" never wraps the count onto its own line; the same for item rows ("🟤 Copper
+    ore ×3" wrapped "×3" in the 316 px desktop Mine column). (d) Found on the live batch-7 build: the disabled
+    "Smelt with 🪵2 — Not enough fuel" wraps to 4 lines in the desktop Mine column (show the reason under the row or
+    as a short "no fuel"); the furnace recipe line orphans "wood 0"; the pickaxe line "187 / 200 · lasts ~200 uses"
+    reads as a contradiction (say "~N more uses" from the current durability); Stats shows "Carrot/Pumpkin harvests
+    0" next to "Harvests 38" for a migrated save (show per-crop rows as "since v6" or hide zeros when untracked).
+44. [ ] Save v7 + copper farm tool core (`src/core/tools.ts`): `run.toolTier[job]` 0 = basic, 1 = copper (a number so
+    iron/gold extend it). `buyCopperTool(job)` = 4 copper bars + 💰100, requires that job's tool Lv1; typed errors.
+    Applies to every action of the job (tile tap and tool press):
+    - water: sets moisture to `waterMoisture(tier)` = 2 instead of 1 (a copper-watered tile grows 120 ticks).
+    - harvest: 10 % chance (seeded PRNG) to harvest 2 of the crop.
+    - plant: 20 % chance (seeded PRNG) to keep the seed (auto-buy does not fire for a kept seed).
+    All numbers in balance.ts through functions keyed by tier. Tool press = the same manual actions in sequence
+    (same state and PRNG position after) must still hold — extend the existing test to tier 1.
+45. [ ] Copper tool UI: 🛒 Shop "Farm tools" gets one row per job ("Copper Can / Copper Sickle / Copper Dibber",
+    🟧4 💰100, ⓘ tip, locked until the job's tool Lv1); the tool bar button shows a copper mark when tier 1; the tile
+    moisture bar shows values above 1 (e.g. a second, darker band); toast for a double harvest / kept seed only in
+    the tool-press summary ("Harvested 6 (+1 bonus)"). 📊 Stats: tiers and their effects from the same functions.
+46. [ ] Sim + results: ticks to the first and the third copper farm tool (after the copper pickaxe, same bot as
+    batch 7); carrot and pumpkin cash/energy with all three copper tools vs none (water presses per crop must drop);
+    mining stays below farming as in batch 7; every bar + cash price fits storage when buyable; nothing negative over
+    3600 ticks; batch-3 greedy numbers pinned. Write "## Batch 7.1 results".

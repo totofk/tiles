@@ -176,3 +176,15 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - Open: the tier-durability rule breaks at iron (copper Lv10 = 1000 uses > iron 500) — revisit at iron. Auto-smelt
   toggle comes with workers (batch 8).
 - **Stats tab (Toon, 2026-11-07):** lifetime totals and every current multiplier with its source, computed by the same balance functions; new lifetime counters ride the v6 migration.
+
+## Copper farm tools (batch 7.1, 2026-11-07, Toon go)
+- **Material tier is an axis of the job, not a new tool:** `toolTier[job]` (0 basic, 1 copper) sits beside the tool
+  level (1 tile / n / all). It changes what each action does, so it applies to tile taps and tool presses alike and
+  adds no button. Requires that job's tool Lv1 so the copper row has an obvious place in the Shop.
+- **Effects (starting numbers, from Round-4/5):** copper watering fills moisture to 2 (one water per 120 growth ticks
+  instead of 60); copper sickle 10 % double harvest; copper dibber 20 % seed kept. Cost 4 copper bars + 💰100 each
+  (cash number is a Hermes pick, tune via the sim). Iron/gold later: moisture 4/8, 20/30 %, 35/50 %.
+- **Tool bar n-step control moves into a popover** (long-press / right-click / ⋯) so the bar is one button per job
+  at every level and fits 375 px; found on the live 6.2 build (one stepper overflowed ~30 px).
+- **The UI fixes ride in 7.1 instead of a separate 6.3** (Toon): the copper work touches the same tool bar, so it is
+  laid out once.
