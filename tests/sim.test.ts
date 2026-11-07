@@ -15,7 +15,7 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
+import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
@@ -35,7 +35,8 @@ type Milestones = {
 
 // Greedy farmer: one best farm action at a time, by priority, across all tiles (lowest index first).
 // "Dry" = moisture exactly 0 (step snaps float residue to 0); mature crops are never watered.
-function bestFarmAction(s: GameState): { state: GameState; kind: string } | null {
+// `crops` = what to plant, best first (each tried on every tile before the next).
+function bestFarmAction(s: GameState, crops: CropId[] = ['pumpkin', 'radish']): { state: GameState; kind: string } | null {
   const tiles = s.run.tiles
   const growing = (i: number) => {
     const { cropId, growth } = tiles[i]
@@ -44,8 +45,7 @@ function bestFarmAction(s: GameState): { state: GameState; kind: string } | null
   const tries: Array<[string, (i: number) => ActionResult | null]> = [
     ['harvest', (i) => harvest(s, i)],
     ['water', (i) => (tiles[i].moisture === 0 && growing(i) ? water(s, i) : null)],
-    ['plant:pumpkin', (i) => plant(s, i, 'pumpkin')],
-    ['plant:radish', (i) => plant(s, i, 'radish')],
+    ...crops.map((crop): [string, (i: number) => ActionResult] => [`plant:${crop}`, (i) => plant(s, i, crop)]),
     ['till', (i) => till(s, i)],
   ]
   for (const [kind, act] of tries) {
@@ -57,29 +57,52 @@ function bestFarmAction(s: GameState): { state: GameState; kind: string } | null
   return null
 }
 
+/** the smallest number in the run a bug could push below 0: cash, energy, storage, pouch, durability */
+const lowestValue = ({ run }: GameState) =>
+  Math.min(run.cash, run.energy, ...Object.values(run.inventory), ...Object.values(run.seeds), run.pickaxe?.durability ?? 0)
+
 /** mineEarly: buy the mine license as soon as it is affordable while energy is idle;
- *  otherwise only once the pumpkin license is owned (the main crop is never delayed) */
-function runBot(mineEarly: boolean) {
+ *  otherwise only once the pumpkin license is owned (the main crop is never delayed).
+ *  licenses: bought in this order, each as soon as it is affordable; crops: what to plant, best first. */
+function runBot(
+  mineEarly: boolean,
+  {
+    ticks = TICKS,
+    licenses = ['pumpkin'],
+    crops = ['pumpkin', 'radish'],
+    saveForStorage = false,
+  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean } = {},
+) {
   let s = createInitialState()
   const m: Milestones = {}
   let minCash = s.run.cash
+  let lowest = lowestValue(s)
+  // the tick each license became affordable while it was the next one to buy, and the tick it was bought
+  const licenseAffordable: Partial<Record<CropId, number>> = {}
+  const licenseBought: Partial<Record<CropId, number>> = {}
+  let storageAffordable: number | undefined
+  let storageBought: number | undefined
   // net cash and energy per activity; licenses are one-off capital and excluded from both
   const farm = { cash: 0, energy: 0 }
   const mine = { cash: 0, energy: 0 }
-  const pumpkinLicense = licenseCost('pumpkin', s.meta)
   const mineLicense = mineLicenseCost(s.meta)
+  const nextLicense = () => licenses.find((id) => !s.run.licenses.includes(id))
+  const seen = () => {
+    minCash = Math.min(minCash, s.run.cash)
+    lowest = Math.min(lowest, lowestValue(s))
+  }
   const track = (next: GameState, into: { cash: number; energy: number }, energy = 0) => {
     into.cash += next.run.cash - s.run.cash
     into.energy += energy
     s = next
-    minCash = Math.min(minCash, s.run.cash)
+    seen()
   }
   const tryAct = (r: ActionResult, into: { cash: number; energy: number } | null, energy = 0) => {
     if (!r.ok) return false
     if (into) track(r.state, into, energy)
     else {
       s = r.state
-      minCash = Math.min(minCash, s.run.cash)
+      seen()
     }
     return true
   }
@@ -91,6 +114,12 @@ function runBot(mineEarly: boolean) {
       if (!mineEarly && !s.run.licenses.includes('pumpkin')) return false
       if (!tryAct(buyMineLicense(s), null)) return false
       m.mineLicenseBought ??= tick
+    }
+    // the pinned runs only check storage; saveForStorage keeps a full storage of stone until it can buy level 1
+    if (buyStorage(s).ok) storageAffordable ??= tick
+    if (saveForStorage && s.run.storageLevel === 0 && bagCount(s.run) >= s.run.bagCapacity) {
+      if (!tryAct(buyStorage(s), null)) return false
+      storageBought ??= tick
     }
     if (bagCount(s.run) >= s.run.bagCapacity) tryAct(sellItem(s, 'stone', s.run.inventory.stone ?? 0), mine)
     if (!s.run.pickaxe) {
@@ -108,17 +137,20 @@ function runBot(mineEarly: boolean) {
   }
 
   let borrowed = false
-  for (let t = 0; t < TICKS; t++) {
+  for (let t = 0; t < ticks; t++) {
     borrowed ||= s.run.loan !== null
     const tick = s.run.tick
     const milestones = () => {
-      if (!s.run.licenses.includes('pumpkin') && s.run.cash >= pumpkinLicense) m.pumpkinLicenseAffordable ??= tick
+      const want = nextLicense()
+      if (want && s.run.cash >= licenseCost(want, s.meta)) licenseAffordable[want] ??= tick
       if (s.run.cash >= mineLicense) m.mineLicenseAffordable ??= tick
+      if (buyStorage(s).ok) storageAffordable ??= tick
     }
     milestones()
-    if (!s.run.licenses.includes('pumpkin') && tryAct(buyLicense(s, 'pumpkin'), null)) m.pumpkinLicenseBought ??= tick
+    const want = nextLicense()
+    if (want && tryAct(buyLicense(s, want), null)) licenseBought[want] ??= tick
     while (s.run.energy >= ACTION_ENERGY_COST) {
-      const next = bestFarmAction(s)
+      const next = bestFarmAction(s, crops)
       if (next) {
         track(next.state, farm, ACTION_ENERGY_COST)
         if (next.kind.startsWith('harvest') && next.kind.endsWith(':radish')) m.firstRadishHarvest ??= tick
@@ -129,6 +161,7 @@ function runBot(mineEarly: boolean) {
     }
     milestones()
     s = step(s, 1)
+    seen()
   }
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
@@ -143,7 +176,13 @@ function runBot(mineEarly: boolean) {
   borrowed ||= s.run.loan !== null
   return {
     borrowed,
-    milestones: m,
+    milestones: { ...m, pumpkinLicenseAffordable: licenseAffordable.pumpkin, pumpkinLicenseBought: licenseBought.pumpkin },
+    licenseAffordable,
+    licenseBought,
+    storageAffordable,
+    storageBought,
+    lowest,
+    masteryXp: s.run.mastery.wooden ?? 0,
     minCash,
     finalCash: s.run.cash,
     finalTick: s.run.tick,
@@ -428,5 +467,140 @@ describe('tool-buying bot, 1200 ticks', () => {
   it('pins the Batch 5 results milestones (PLAN.md)', () => {
     // harvest and plant level 3 need 120 harvests / plants, not reached in 1200 ticks
     expect(summary.affordable).toEqual({ water: [120, 655, 984], harvest: [233, 886], plant: [200, 683] })
+  })
+})
+
+// ---- Batch 6: two-tier cash/energy hierarchy, four crops, storage ----
+
+const SESSION = 1200
+/** license order and best-first planting for the four-crop bots */
+const LICENSE_ORDER: CropId[] = ['chilli', 'pumpkin', 'lemon']
+const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
+
+// One crop on the 9 starting tiles for a session, license owned and cash to spare (so seeds never block it), farmed
+// by the greedy bot's own priority. Same accounting as runBot: harvest income − seeds per farm action (till, plant,
+// water, harvest all count 1 energy), plus the crops standing at the cut-off at sell price × growth progress.
+function runCropBot(crop: CropId, ticks = SESSION) {
+  const init = createInitialState()
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])] } }
+  const farm = { cash: 0, energy: 0 }
+  for (let t = 0; t < ticks; t++) {
+    while (s.run.energy >= ACTION_ENERGY_COST) {
+      const next = bestFarmAction(s, [crop])
+      if (!next) break
+      farm.cash += next.state.run.cash - s.run.cash
+      farm.energy += ACTION_ENERGY_COST
+      s = next.state
+    }
+    s = step(s, 1)
+  }
+  const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
+  return { ...farm, field, harvests: s.run.counters.harvests, cashPerEnergy: (farm.cash + field) / farm.energy }
+}
+
+// Steady-state mining at a fixed mastery level: energy is refilled before every mine action and the mastery xp put back
+// after it, so the level never moves. Sells stone and coal before storage runs out of room, crafts the first pickaxe
+// and repairs it when blunt (buying the wood; both count against mining), and values what is left in storage at the end.
+function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000 }: { pickaxe: boolean; xp?: number; mastered?: boolean; vein?: number; actions?: number }) {
+  const init = createInitialState()
+  const fixed = { mastery: { wooden: xp }, masteredTiers: mastered ? (['wooden'] as const).slice() : [] }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0 }, ...fixed } }
+  const start = s.run.cash
+  const recipe = pickaxeRecipe('wooden')
+  let repairs = 0
+  const act = (r: ActionResult) => {
+    if (!r.ok) throw new Error(r.error)
+    s = r.state
+  }
+  for (let i = 0; i < actions; i++) {
+    if (bagCount(s.run) + recipe.wood >= s.run.bagCapacity)
+      for (const id of ['stone', 'coal'] as const) if (s.run.inventory[id]) act(sellItem(s, id, s.run.inventory[id]!))
+    if (pickaxe && !s.run.pickaxe) {
+      act(buyWood(s, recipe.wood))
+      act(craftPickaxe(s))
+    } else if (pickaxe && s.run.pickaxe!.durability === 0) {
+      act(buyWood(s, recipe.repairWood))
+      act(repairPickaxe(s))
+      repairs++
+    }
+    s = { ...s, run: { ...s.run, energy: ACTION_ENERGY_COST } }
+    act(dig(s))
+    s = { ...s, run: { ...s.run, ...fixed } }
+  }
+  const bag = ITEM_IDS.reduce((sum, id) => sum + (s.run.inventory[id] ?? 0) * itemSellPrice(id, s.meta, 0), 0)
+  return { repairs, cashPerEnergy: (s.run.cash - start + bag) / actions }
+}
+
+/** dig for seeds, energy refilled every time; dug seeds valued at their buy price (batch 5 definition) */
+function digBench(actions = 5000) {
+  let s = createInitialState()
+  for (let i = 0; i < actions; i++) {
+    const r = digForSeeds({ ...s, run: { ...s.run, energy: ACTION_ENERGY_COST } })
+    if (!r.ok) throw new Error(r.error)
+    s = r.state
+  }
+  return ((s.run.seeds.radish ?? 0) * cropSeedCost('radish', s.meta)) / actions
+}
+
+describe('batch 6: two-tier cash/energy hierarchy', () => {
+  const farming = Object.fromEntries((['radish', 'chilli', 'pumpkin', 'lemon'] as const).map((c) => [c, runCropBot(c)]))
+  const mining = {
+    dig: digBench(),
+    hand: mineBench({ pickaxe: false }).cashPerEnergy,
+    pickaxeLv0: mineBench({ pickaxe: true }).cashPerEnergy,
+    pickaxeLv10: mineBench({ pickaxe: true, xp: 400, mastered: true }).cashPerEnergy,
+    veinLv1Lv10: mineBench({ pickaxe: true, xp: 400, mastered: true, vein: 1 }).cashPerEnergy,
+  }
+  console.log('batch 6 hierarchy', JSON.stringify({ farming, mining }, null, 1))
+  const carrot = farming.radish.cashPerEnergy
+  const pumpkin = farming.pumpkin.cashPerEnergy
+
+  it('(a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming', () => {
+    expect(mining.dig).toBeLessThan(mining.hand)
+    expect(mining.hand).toBeLessThan(mining.pickaxeLv0)
+    expect(mining.pickaxeLv0).toBeLessThan(0.9 * carrot)
+  })
+
+  it('(b) pickaxe Lv10 and vein Lv1 + Lv10, repairs included, < 0.9 × pumpkin farming', () => {
+    expect(mining.pickaxeLv10).toBeLessThan(0.9 * pumpkin)
+    expect(mining.veinLv1Lv10).toBeLessThan(0.9 * pumpkin)
+  })
+
+  it('(c) farming cash/energy: carrot < chilli < pumpkin < lemon', () => {
+    const order = [farming.radish, farming.chilli, farming.pumpkin, farming.lemon].map((f) => f.cashPerEnergy)
+    expect([...order].sort((x, y) => x - y)).toEqual(order)
+    expect(new Set(order).size).toBe(4)
+  })
+})
+
+describe.each([
+  { name: 'pumpkin-first', mineEarly: false },
+  { name: 'mine-early', mineEarly: true },
+])('batch 6: four-crop session bot $name, 1200 ticks', ({ name, mineEarly }) => {
+  const summary = runBot(mineEarly, { ticks: SESSION, licenses: LICENSE_ORDER, crops: PLANT_ORDER })
+  console.log(`session summary ${name}`, JSON.stringify(summary, null, 1))
+
+  it('(c) can afford each license in order within the session', () => {
+    const ticks = LICENSE_ORDER.map((id) => summary.licenseAffordable[id])
+    for (const t of ticks) expect(t).toBeLessThanOrEqual(SESSION)
+    expect([...ticks].sort((x, y) => x! - y!)).toEqual(ticks)
+  })
+
+  it('(e) nothing goes negative and it never borrows', () => {
+    expect(summary.lowest).toBeGreaterThanOrEqual(0)
+    expect(summary.borrowed).toBe(false)
+    expect(summary.finalTick).toBe(SESSION)
+  })
+})
+
+describe('batch 6: storage level 1 in mine-early play, 600 ticks', () => {
+  // mine-early as pinned above, but it keeps a full storage of stone (stops mining) until it can buy storage level 1
+  const summary = runBot(true, { saveForStorage: true })
+  console.log('storage summary', JSON.stringify(summary, null, 1))
+
+  it('(d) storage level 1 is affordable within ~600 ticks', () => {
+    expect(summary.storageAffordable).toBeLessThanOrEqual(600)
+    expect(summary.storageBought).toBe(summary.storageAffordable)
+    expect(summary.lowest).toBeGreaterThanOrEqual(0)
   })
 })

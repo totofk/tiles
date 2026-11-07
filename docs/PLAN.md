@@ -304,6 +304,22 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   🔒 license cards that way. The batch-3 greedy, tool and dig bots keep planting only carrot and pumpkin (their numbers
   are pinned); chilli and lemon enter the sim through task 31's per-crop and progression bots. The frozen `RunV4` type
   still names the live `CropId`, which only widens; no save shape changed and `SAVE_VERSION` stays 5.
+- **Batch 6 sim (task 31): mining and dig rates come from benches, not a session.** Mastery climbs during play (Lv1 after
+  10 xp), so "pickaxe Lv0" cannot be held in a session. `mineBench` mines 5000 times with energy refilled before each
+  action and the mastery xp put back after it (Lv0 = 0 xp; Lv10 = 400 xp with the tier in `masteredTiers`); it crafts
+  the first pickaxe, repairs when blunt (wood bought and charged to mining), sells stone and coal before storage runs
+  out of room and values what is left. Vein Lv1 is set directly in the bench state, because vein Lv1 cannot be bought in
+  play (open blocker in "Batch 6 results"). `digBench` digs 5000 times the same way, seeds at their buy price.
+- **Batch 6 sim: per-crop farming starts with 💰1000 and the crop's license**, so seed cost never blocks the bot and the
+  value is the crop's own rate; same accounting as `runBot`. `bestFarmAction` takes the crops to plant (best first);
+  its default (pumpkin, carrot) keeps every pinned bot identical.
+- **Batch 6 sim: the four-crop session bot is `runBot` with options** (ticks, license order, plant order,
+  `saveForStorage`); the defaults are the pinned batch-3 bot. It records "license affordable" only for the license it is
+  saving for (the next one in order), which for the pinned bots is the old pumpkin milestone. Storage affordability
+  is checked with `buyStorage(...).ok` and never bought except by the `saveForStorage` variant, so the pins hold.
+- **Batch 6 sim: "(d) storage Lv1 within ~600 ticks of mine-early play" is met by a saving variant (tick 594), not by the
+  pinned bot**, which sells its stone each time storage fills and never has 20 stone and 💰50 at once by tick 600.
+  "Normal session" for (c) and (e) is 1200 ticks (20 min).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -533,9 +549,66 @@ compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; 
 30. [x] Two crops: **Chilli 🌶️** (seed 5 → sells 25, 160 ticks, license 50) and **Lemon 🍋** (seed 20 → sells 110,
     360 ticks, license 400). Starting numbers; licenses in Shop, seeds in the pouch like the others, dig table stays
     carrot only. No save-shape change beyond the CropId union (old saves load unchanged — test it).
-31. [ ] Sim (two-tier hierarchy, decided 2026-11-07): (a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming;
+31. [x] Sim (two-tier hierarchy, decided 2026-11-07): (a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming;
     (b) pickaxe Lv10 and vein Lv1 + Lv10 (repair cost included) < 0.9 × **pumpkin** farming, both farming values
     measured by the sim (watering counted); (c) farming cash/energy order carrot < chilli < pumpkin < lemon, and
     each license affordable in order within a normal session (report ticks); (d) storage level 1 affordable within
     ~600 ticks of mine-early play; (e) nothing negative over 1200 ticks; batch-3 greedy numbers stay pinned. Retune
     crop numbers only if (c) fails. Write "## Batch 6 results" with every measured cash/energy value.
+
+## Batch 6 results
+Every check passes on the **starting numbers, unchanged**: no crop or mining number in `balance.ts` was retuned in
+task 31. The batch-3 greedy pins (milestones, lowest cash, final cash 394 / 132, counters) and the batch-5 tool and dig
+bot numbers are unchanged.
+
+Cash per energy (`tests/sim.test.ts`, "batch 6: two-tier cash/energy hierarchy"). Farming uses the sim's own definition:
+harvest income − seeds, per farm action (till, plant, water and harvest each 1 energy), plus the crops standing at the
+cut-off at sell price × growth progress. Each crop is farmed alone on the 9 starting tiles for 1200 ticks by the greedy
+bot's priority, license owned and 💰1000 to start so seeds never block it. Mining and dig are long-run benches (5000
+actions, energy refilled before each), see Deviations.
+
+| Activity | cash / energy | detail |
+|---|---|---|
+| dig for seeds (seed at buy price 💰2) | **0.39** | 976 seeds in 5000 digs |
+| hand mining (vein Lv0) | **1.00** | 2 energy per stone 💰2 |
+| pickaxe, mastery Lv0 (vein Lv0) | **1.68** | craft 3 wood + a repair (2 wood) every 25 mines |
+| pickaxe, mastery Lv10 (vein Lv0) | **1.94** | preserve 0.8: a repair every ~125 mines |
+| pickaxe Lv10 on vein Lv1 | **2.34** | 80 % stone 💰2 / 20 % coal 💰4 |
+| carrot farming | **2.14** | (774 + 72.7) / 396, 99 harvests |
+| chilli farming | **4.01** | (1215 + 85.8) / 324, 63 harvests |
+| pumpkin farming | **8.18** | (1710 + 497.3) / 270, 36 harvests |
+| lemon farming | **10.03** | (2250 + 277.8) / 252, 27 harvests |
+
+- **(a)** dig 0.39 < hand 1.00 < pickaxe Lv0 1.68 < 0.9 × carrot = **1.92**.
+- **(b)** pickaxe Lv10 1.94 and vein Lv1 + Lv10 2.34 < 0.9 × pumpkin = **7.36**. The Lv10-before-pumpkin check was not
+  needed; for the record, both 1200-tick session bots end at 79 mastery xp (Lv4), far from Lv10 (400 xp), while the
+  pumpkin license is affordable by tick 369.
+- **(c)** carrot 2.14 < chilli 4.01 < pumpkin 8.18 < lemon 10.03. Lemon is time-bound, not energy-bound: it used only
+  252 of the ~410 energy a session gives.
+
+Four-crop session bot (1200 ticks): greedy farming that buys the licenses in order chilli → pumpkin → lemon, each as
+soon as it is affordable, plants the best licensed crop it can pay for (lemon, pumpkin, chilli, carrot) and mines with
+idle energy like the batch-3 bot under both mine-license policies. It never borrows.
+
+| Milestone (tick) | pumpkin-first | mine-early |
+|---|---|---|
+| chilli license affordable / bought | 124 / 125 | 124 / 125 |
+| pumpkin license affordable / bought | 311 / 312 | 369 / 370 |
+| lemon license affordable / bought | 630 / 631 | 660 / 661 |
+| storage Lv1 affordable (checked, not bought) | 516 | 579 |
+| lowest cash / lowest of any value (e) | 0 / 0 | 0 / 0 |
+| final cash at 1200 | 840 | 860 |
+| harvests / mines | 45 / 79 | 46 / 79 |
+
+- **(c)** each license is affordable in order inside the session; lemon at ~630–660 (~11 min).
+- **(d) storage level 1:** the pinned 600-tick mine-early bot (it sells all stone when storage is full) never holds 20
+  stone and 💰50 at once by tick 600. A mine-early variant that keeps a full storage of stone (and stops mining) until
+  it can pay buys storage Lv1 at **tick 594**. Lowest cash 0.
+- **(e)** cash, energy, storage, pouch and durability never go below 0 in either session bot or the storage variant.
+- **Finding, chilli first delays pumpkin:** buying chilli at 125 moves the pumpkin license from 207 to 311
+  (pumpkin-first). Chilli pays 4.0 per energy against carrot's 2.1, so the delay is a choice the player makes, not a
+  trap.
+- **Open blocker (from the task 28 finding, not fixed): storage Lv2+ and vein Lv1 are still unpayable in play.**
+  Storage L2 costs 32 stone at capacity 30 and vein Lv1 needs 40 stone at capacity 30. The vein Lv1 rate above is
+  measured by setting the vein level directly. The stone prices are DECISIONS.md numbers and outside task 31's
+  retune list (vein coal share, repair cost); fixing them needs a decision.
