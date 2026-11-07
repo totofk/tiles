@@ -17,7 +17,7 @@ import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
 import { buyStorage, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
 import { Item } from './Info'
-import { dropText } from './Mine'
+import { dropText, priceText as price } from './Mine'
 import { TIPS, UPGRADE_TIPS } from './tips'
 import type { Act } from './useGame'
 
@@ -38,8 +38,6 @@ function effect(id: UpgradeId, level: number, meta: MetaState, maxed: boolean): 
       return show('Grow time', (l) => `−${pct(1 - growTimeFactor(l))}`)
   }
 }
-
-const price = (cost: { stone: number; cash: number }) => `🪨${cost.stone} 💰${cost.cash}`
 
 const GROUPS: { title: string; ids: UpgradeId[] }[] = [
   { title: '⚡ Energy', ids: ['energyMax', 'energyRegen'] },

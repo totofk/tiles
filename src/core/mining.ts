@@ -1,6 +1,7 @@
-import { fail, isAmount, nextRandom, withRun, type ActionResult } from './actions'
+import { addLifetime, fail, isAmount, nextRandom, withRun, type ActionResult } from './actions'
 import {
   ACTION_ENERGY_COST,
+  isSellable,
   itemSellPrice,
   masteryLevel,
   masteryMaxLevel,
@@ -15,6 +16,7 @@ import {
   veinDrops,
   veinUpgradeCost,
   woodCost,
+  type Price,
 } from './balance'
 import { ITEM_IDS, type ItemId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
@@ -112,6 +114,7 @@ export function dig(state: GameState): ActionResult {
     vein: { ...run.vein, progress: drop ? hits - stoneHits() : hits },
     inventory: drop ? addItems(run, pickDrop(veinDrops(run.vein.level), r), 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
+    lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
     ...(pickaxe && gainMastery(run, pickaxe.tier)),
   })
 }
@@ -129,15 +132,24 @@ export function repairPickaxe(state: GameState): ActionResult {
   })
 }
 
-// Mine upgrades pay stone from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),
-// NOT_ENOUGH_ITEMS (stone), NO_CASH.
-function buyMineUpgrade(state: GameState, cost: { stone: number; cash: number } | null, gain: Partial<RunState>): ActionResult {
+/** pays the items from storage, then the cash, and applies `gain`; NOT_ENOUGH_ITEMS before NO_CASH */
+export function pay(state: GameState, price: Price, gain: Partial<RunState> = {}): ActionResult {
   const { run } = state
-  if (!run.mineLicense) return fail('NO_MINE_LICENSE')
+  const { cash, ...items } = price
+  const ids = ITEM_IDS.filter((id) => (items[id] ?? 0) > 0)
+  if (ids.some((id) => (run.inventory[id] ?? 0) < items[id]!)) return fail('NOT_ENOUGH_ITEMS')
+  if (run.cash < cash) return fail('NO_CASH')
+  const inventory = { ...run.inventory }
+  for (const id of ids) inventory[id] = (inventory[id] ?? 0) - items[id]!
+  return withRun(state, { cash: run.cash - cash, inventory, ...gain })
+}
+
+// Mine upgrades pay items from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),
+// NOT_ENOUGH_ITEMS, NO_CASH.
+function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunState>): ActionResult {
+  if (!state.run.mineLicense) return fail('NO_MINE_LICENSE')
   if (!cost) return fail('MAX_LEVEL')
-  if ((run.inventory.stone ?? 0) < cost.stone) return fail('NOT_ENOUGH_ITEMS')
-  if (run.cash < cost.cash) return fail('NO_CASH')
-  return withRun(state, { cash: run.cash - cost.cash, inventory: addItems(run, 'stone', -cost.stone), ...gain })
+  return pay(state, cost, gain)
 }
 
 /** next vein level: a new drop table; a half-mined stone keeps its progress */
@@ -153,14 +165,17 @@ export function buyStorage(state: GameState): ActionResult {
   return buyMineUpgrade(state, cost, { storageLevel: run.storageLevel + 1, bagCapacity: run.bagCapacity + storageSlotsPerLevel() })
 }
 
-/** each unit sold counts as one sale */
+/** each unit sold counts as one sale. Order: BAD_AMOUNT, NOT_SELLABLE (copper bars), NOT_ENOUGH_ITEMS */
 export function sellItem(state: GameState, id: ItemId, n: number): ActionResult {
   const { run } = state
   if (!isAmount(n)) return fail('BAD_AMOUNT')
+  if (!isSellable(id)) return fail('NOT_SELLABLE')
   if ((run.inventory[id] ?? 0) < n) return fail('NOT_ENOUGH_ITEMS')
+  const income = n * itemSellPrice(id, state.meta, run.upgrades.sellPrice)
   return withRun(state, {
-    cash: run.cash + n * itemSellPrice(id, state.meta, run.upgrades.sellPrice),
+    cash: run.cash + income,
     inventory: addItems(run, id, -n),
     counters: { ...run.counters, sales: run.counters.sales + n },
+    lifetime: addLifetime(run, 0, income),
   })
 }

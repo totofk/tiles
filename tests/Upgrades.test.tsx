@@ -76,7 +76,7 @@ describe('Mine upgrades in the Upgrades tab', () => {
   })
 
   it('maxed storage and vein say "max"', () => {
-    const state = withRun({ mineLicense: true, storageLevel: 5, bagCapacity: 70, vein: { level: 1, progress: 0 } })
+    const state = withRun({ mineLicense: true, storageLevel: 5, bagCapacity: 70, vein: { level: 1, progress: 0, rock: 'stone' } })
     render(<Upgrades state={state} act={noop} />)
     const [storage, vein] = row('⛏ Mine')
     expect(storage.textContent).toContain('Storage 70 slots · max')

@@ -1,5 +1,6 @@
 import type { ActionResult } from '../core/actions'
 import {
+  isSellable,
   itemSellPrice,
   masteredPreserveBonus,
   masteryLevel,
@@ -12,8 +13,9 @@ import {
   veinDrops,
   veinUpgradeCost,
   woodCost,
+  type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS, type ItemId } from '../core/data/items'
+import { ITEMS, ITEM_IDS } from '../core/data/items'
 import {
   activePickaxe,
   bagCount,
@@ -33,7 +35,7 @@ import { ERROR_TEXT, type Act } from './useGame'
 /** the next ore after the last vein level; a teaser with no numbers until the furnace batch */
 const LOCKED_VEIN_TEXT = '🔒 Lv2: iron ore — needs Furnace (coming)'
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
-const SELL_WHEN_FULL: ItemId[] = ITEM_IDS.filter((id) => id !== 'wood')
+const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
 export function dropText(level: number): string {
   const drops = veinDrops(level)
@@ -41,6 +43,11 @@ export function dropText(level: number): string {
   return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
     .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
     .join(' · ')
+}
+
+/** "🪨20 ⚫5 💰150" */
+export function priceText(price: Price): string {
+  return [...ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`), `💰${price.cash}`].join(' ')
 }
 
 function sellAll(s: GameState): ActionResult {
@@ -160,9 +167,13 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
           <span>
             {ITEMS[id].emoji} {ITEMS[id].name} ×{run.inventory[id]}
           </span>
-          <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
-          <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
-          <small>💰{itemSellPrice(id, meta, run.upgrades.sellPrice)} each</small>
+          {isSellable(id) && (
+            <>
+              <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
+              <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
+              <small>💰{itemSellPrice(id, meta, run.upgrades.sellPrice)} each</small>
+            </>
+          )}
         </div>
       ))}
     </section>

@@ -46,14 +46,14 @@ describe('Mine panel', () => {
   })
 
   it('at the last vein level shows only the current table and the iron teaser', () => {
-    setup({ vein: { level: 1, progress: 0 } })
+    setup({ vein: { level: 1, progress: 0, rock: 'stone' } })
     expect(text()).toContain('Vein Lv1: 🪨 Stone 80 % · ⚫ Coal 20 %')
     expect(screen.queryByText(/^Lv2: /)).toBeNull()
     expect(screen.getByText(/iron ore/)).toBeTruthy()
   })
 
   it('shows a crack on a half-mined stone', () => {
-    setup({ vein: { level: 0, progress: 1 } })
+    setup({ vein: { level: 0, progress: 1, rock: 'stone' } })
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🪨 cracked 1/2')
   })
 

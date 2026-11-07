@@ -45,4 +45,5 @@ export const TIPS = {
   tile: 'One more farm tile. Each new tile costs more than the last, up to the tile cap.',
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
+  furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
 }

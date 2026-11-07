@@ -726,7 +726,7 @@ Question: does the mine get a clear goal after vein Lv1 (furnace → copper → 
 Decisions: DECISIONS.md "Round-5 research outcome (furnace)"; research docs/research/furnace.md. Save v6 (capture a
 real v5 fixture first; chain v1–v5 → v6; backup key).
 
-37. [ ] Save v6 (also new lifetime counters: cash earned, harvests per crop, energy spent, ticks played) + furnace building: `buildFurnace` = 20 stone + 5 coal + 💰150, requires vein Lv1. Items
+37. [x] Save v6 (also new lifetime counters: cash earned, harvests per crop, energy spent, ticks played) + furnace building: `buildFurnace` = 20 stone + 5 coal + 💰150, requires vein Lv1. Items
     `copperOre` (sells 1) and `copperBar` (no sell path — test it). Ore and bars take storage slots.
 38. [ ] Smelting core (`src/core/furnace.ts`): `enqueueSmelt(fuel)` pays 2 copper ore + fuel (1 coal or 2 wood,
     player picks) on enqueue; cap 5 jobs; 60 ticks per bar; finished bars wait in an output tray; `collectBars`.

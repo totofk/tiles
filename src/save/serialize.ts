@@ -7,9 +7,15 @@ import type { UpgradeId } from '../core/data/upgrades'
 import { createInitialState, createTile, type Counters, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 5
+export const SAVE_VERSION = 6
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
+type RunV5 = Omit<RunV4, 'vein'> & {
+  storageLevel: number
+  vein: { level: number; progress: number }
+  mastery: { wooden?: number }
+  masteredTiers: 'wooden'[]
+}
 type RunV4 = {
   cash: number
   energy: number
@@ -43,8 +49,9 @@ type SaveV1 = { version: 1; savedAtMs: number; state: { meta: GameState['meta'];
 type SaveV2 = { version: 2; savedAtMs: number; state: { meta: GameState['meta']; run: RunV2 } }
 type SaveV3 = { version: 3; savedAtMs: number; state: { meta: GameState['meta']; run: RunV3 } }
 type SaveV4 = { version: 4; savedAtMs: number; state: { meta: GameState['meta']; run: RunV4 } }
-type SaveV5 = { version: 5; savedAtMs: number; state: GameState }
-export type Save = SaveV5
+type SaveV5 = { version: 5; savedAtMs: number; state: { meta: GameState['meta']; run: RunV5 } }
+type SaveV6 = { version: 6; savedAtMs: number; state: GameState }
+export type Save = SaveV6
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -121,21 +128,50 @@ function migrateV4(save: SaveV4): SaveV5 {
   }
 }
 
+// v5 → v6: furnace (not built), copper items, the current rock (a half-mined rock stays stone), lifetime totals.
+// Totals start from the counters that map, so they never read lower than what the player did: each harvest,
+// water, plant, soil dig and mine cost 1 energy (tills were never counted), and with one license every harvest
+// was that crop. Cash earned was never tracked: 0.
+function migrateV5(save: SaveV5): SaveV6 {
+  const { meta, run } = save.state
+  const { harvests, waters, plants, digs, mines } = run.counters
+  return {
+    version: 6,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        vein: { ...run.vein, rock: 'stone' },
+        furnace: { built: false, queue: 0, progress: 0, ready: 0 },
+        lifetime: {
+          cashEarned: 0,
+          energySpent: harvests + waters + plants + digs + mines,
+          bars: 0,
+          harvests: run.licenses.length === 1 && harvests > 0 ? { [run.licenses[0]]: harvests } : {},
+        },
+      },
+    },
+  }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))
+      return migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))
     case 2:
-      return migrateV4(migrateV3(migrateV2(data as SaveV2)))
+      return migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2))))
     case 3:
-      return migrateV4(migrateV3(data as SaveV3))
+      return migrateV5(migrateV4(migrateV3(data as SaveV3)))
     case 4:
-      return migrateV4(data as SaveV4)
+      return migrateV5(migrateV4(data as SaveV4))
     case 5:
-      return data as SaveV5
+      return migrateV5(data as SaveV5)
+    case 6:
+      return data as SaveV6
     default:
       return null
   }

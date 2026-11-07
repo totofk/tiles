@@ -8,6 +8,7 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  isSellable,
   itemSellPrice,
   licenseCost,
   mineLicenseCost,
@@ -170,7 +171,7 @@ function runBot(
   }
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
-  const bagValue = ITEM_IDS.reduce(
+  const bagValue = ITEM_IDS.filter(isSellable).reduce(
     (sum, id) => sum + (s.run.inventory[id] ?? 0) * itemSellPrice(id, s.meta, s.run.upgrades.sellPrice),
     0,
   )
@@ -510,7 +511,7 @@ function runCropBot(crop: CropId, ticks = SESSION) {
 function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000 }: { pickaxe: boolean; xp?: number; mastered?: boolean; vein?: number; actions?: number }) {
   const init = createInitialState()
   const fixed = { mastery: { wooden: xp }, masteredTiers: mastered ? (['wooden'] as const).slice() : [] }
-  let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0 }, ...fixed } }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0, rock: 'stone' }, ...fixed } }
   const start = s.run.cash
   const recipe = pickaxeRecipe('wooden')
   let repairs = 0
@@ -533,7 +534,7 @@ function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000
     act(dig(s))
     s = { ...s, run: { ...s.run, ...fixed } }
   }
-  const bag = ITEM_IDS.reduce((sum, id) => sum + (s.run.inventory[id] ?? 0) * itemSellPrice(id, s.meta, 0), 0)
+  const bag = ITEM_IDS.filter(isSellable).reduce((sum, id) => sum + (s.run.inventory[id] ?? 0) * itemSellPrice(id, s.meta, 0), 0)
   return { repairs, cashPerEnergy: (s.run.cash - start + bag) / actions }
 }
 

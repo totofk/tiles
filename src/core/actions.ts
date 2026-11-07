@@ -13,7 +13,7 @@ import {
 } from './balance'
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import { createTile, type GameState, type RunState, type Tile } from './state'
+import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
 
 export type ActionError =
@@ -41,6 +41,11 @@ export type ActionError =
   | 'NOT_ENOUGH_CASH'
   | 'NO_SEEDS'
   | 'NOTHING_TO_DO'
+  | 'NOT_SELLABLE'
+  | 'NO_FURNACE'
+  | 'QUEUE_FULL'
+  | 'NOT_ENOUGH_ORE'
+  | 'NOT_ENOUGH_FUEL'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
@@ -51,6 +56,17 @@ export function withRun(state: GameState, run: Partial<RunState>): ActionResult 
 }
 
 export const isAmount = (n: number) => Number.isInteger(n) && n >= 1
+
+/** lifetime totals after an action that spent `energy`, earned `cash` and harvested `crop` */
+export function addLifetime(run: RunState, energy: number, cash: number, crop?: CropId): Lifetime {
+  const l = run.lifetime
+  return {
+    ...l,
+    energySpent: l.energySpent + energy,
+    cashEarned: l.cashEarned + cash,
+    harvests: crop ? { ...l.harvests, [crop]: (l.harvests[crop] ?? 0) + 1 } : l.harvests,
+  }
+}
 
 /** mulberry32: a float in [0, 1) and the next uint32 state */
 export function nextRandom(rngState: number): [number, number] {
@@ -70,6 +86,7 @@ function farmAction(
     cashDelta?: number
     counters?: Partial<RunState['counters']>
     seeds?: RunState['seeds']
+    harvested?: CropId
   },
 ): ActionResult {
   const { run } = state
@@ -77,13 +94,14 @@ function farmAction(
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0, counters, seeds = run.seeds } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, counters, seeds = run.seeds, harvested } = apply(run.tiles[i])
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
     counters: { ...run.counters, ...counters },
     seeds,
+    lifetime: addLifetime(run, ACTION_ENERGY_COST, harvested ? cashDelta : 0, harvested),
   })
 }
 
@@ -144,6 +162,7 @@ export function harvest(state: GameState, i: number): ActionResult {
         tile: clearedTile(t),
         cashDelta: cropSellPrice(t.cropId!, state.meta, state.run.upgrades.sellPrice),
         counters: { harvests: harvests + 1, sales: sales + 1 },
+        harvested: t.cropId,
       }
     },
   )
@@ -161,6 +180,7 @@ export function digForSeeds(state: GameState): ActionResult {
     rngState,
     seeds: r < chance ? { ...run.seeds, [crop]: (run.seeds[crop] ?? 0) + 1 } : run.seeds,
     counters: { ...run.counters, digs: run.counters.digs + 1 },
+    lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
   })
 }
 

@@ -1,5 +1,19 @@
 import { buyLicense, buySeeds, buyTile, setAutoBuySeeds } from '../core/actions'
-import { TILE_CAP, cropSeedCost, licenseCost, mineLicenseCost, tileCost, toolCost, toolNMax, toolUnlock, woodCost } from '../core/balance'
+import {
+  TILE_CAP,
+  cropSeedCost,
+  furnaceCost,
+  furnaceVeinLevel,
+  licenseCost,
+  mineLicenseCost,
+  tileCost,
+  toolCost,
+  toolNMax,
+  toolUnlock,
+  woodCost,
+} from '../core/balance'
+import { buildFurnace } from '../core/furnace'
+import { priceText } from './Mine'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { TOOLS, TOOL_JOBS } from '../core/data/tools'
 import { buyMineLicense, buyWood } from '../core/mining'
@@ -80,6 +94,14 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
             <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
               ⛏️ Mine license
               <small>💰{mineLicenseCost(meta)}</small>
+            </button>
+          </Item>
+        )}
+        {run.vein.level >= furnaceVeinLevel() && !run.furnace.built && (
+          <Item tip={TIPS.furnace}>
+            <button disabled={!buildFurnace(state).ok} onClick={() => act(buildFurnace)}>
+              🔥 Furnace
+              <small>{priceText(furnaceCost(meta))}</small>
             </button>
           </Item>
         )}

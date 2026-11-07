@@ -37,8 +37,11 @@ export type RunState = {
   bagCapacity: number
   /** storage upgrade level; each level already added its slots to bagCapacity */
   storageLevel: number
-  /** progress = hits into the current stone, below stoneHits() */
-  vein: { level: number; progress: number }
+  /** rock = what the current rock drops (rolled when the previous one broke); progress = hits into it */
+  vein: { level: number; progress: number; rock: ItemId }
+  furnace: Furnace
+  /** totals for the Stats tab; never unlock anything */
+  lifetime: Lifetime
   /** mastery xp per pickaxe tier (1 per mine action with that tier) */
   mastery: Partial<Record<PickaxeTier, number>>
   /** tiers that reached max mastery; each adds preserve chance to every tier */
@@ -66,6 +69,12 @@ export type Pickaxe = { tier: PickaxeTier; durability: number }
 /** sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds */
 export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number }
 export type CounterId = keyof Counters
+
+/** queue = jobs paid for and not done (the first one is in progress), ready = bars waiting in the output tray */
+export type Furnace = { built: boolean; queue: number; progress: number; ready: number }
+
+/** cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop */
+export type Lifetime = { cashEarned: number; energySpent: number; bars: number; harvests: Partial<Record<CropId, number>> }
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
 
@@ -105,7 +114,9 @@ export function createInitialState(): GameState {
       inventory: {},
       bagCapacity: BAG_CAPACITY_START,
       storageLevel: 0,
-      vein: { level: 0, progress: 0 },
+      vein: { level: 0, progress: 0, rock: 'stone' },
+      furnace: { built: false, queue: 0, progress: 0, ready: 0 },
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {} },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,

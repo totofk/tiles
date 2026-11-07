@@ -144,7 +144,7 @@ describe('digForSeeds', () => {
     expect(sellers).toEqual(['sellItem'])
     expect(ITEM_IDS as readonly string[]).not.toContain('radish')
     const s = withTile({}, { seeds: { radish: 5 } })
-    expect(mining.sellItem(s, 'radish' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(mining.sellItem(s, 'radish' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_SELLABLE' })
   })
 })
 
@@ -181,5 +181,21 @@ describe('harvest', () => {
   })
   it('rejects bad indexes', () => {
     expect(harvest(createInitialState(), START_TILES)).toEqual({ ok: false, error: 'BAD_TILE' })
+  })
+})
+
+describe('lifetime totals', () => {
+  it('count energy for every 1-energy action, cash for harvests and sales only, harvests per crop', () => {
+    let s = withTile(mature, { cash: 100, mineLicense: true, inventory: { stone: 3 } })
+    s = okState(harvest(s, 0))
+    s = okState(till(s, 1))
+    s = okState(plant(s, 0, 'radish'))
+    s = okState(water(s, 0))
+    s = okState(digForSeeds(s))
+    s = okState(mining.dig(s))
+    s = okState(mining.sellItem(s, 'stone', 3))
+    s = okState(bank.takeLoan(s))
+    const income = cropSellPrice('radish', meta, 0) + 3 * 2
+    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 } })
   })
 })

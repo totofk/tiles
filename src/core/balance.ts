@@ -52,8 +52,14 @@ const TILE_COST_GROWTH = 1.5
 
 const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
-// wood sells below its buy price, so buying and reselling wood never makes money
-const ITEM_SELL_PRICE: Record<ItemId, number> = { wood: 2, stone: 2, coal: 4 }
+// wood sells below its buy price, so buying and reselling wood never makes money. Ore sells ≤ 1 (its value is
+// smelting); copper bars have no price at all, so there is no smelt-to-sell loop.
+const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1 } satisfies Partial<Record<ItemId, number>>
+export type SellableItemId = keyof typeof ITEM_SELL_PRICE
+/** a price in cash plus items from storage */
+export type Price = { cash: number } & Partial<Record<ItemId, number>>
+// Furnace (round-5 research): built once vein level `vein` is owned.
+const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 // wood = craft cost, repairWood = cost to fix a blunt one (below craft), hits = stone hits per mine action
 const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
   wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
@@ -179,8 +185,26 @@ export function woodCost(meta: MetaState): number {
   return Math.round(WOOD_BUY_COST * multiplier(meta, 'cost'))
 }
 
-export function itemSellPrice(itemId: ItemId, meta: MetaState, sellPriceLevel: number): number {
+export function isSellable(itemId: ItemId): itemId is SellableItemId {
+  return itemId in ITEM_SELL_PRICE
+}
+
+export function itemSellPrice(itemId: SellableItemId, meta: MetaState, sellPriceLevel: number): number {
   return sellPrice(ITEM_SELL_PRICE[itemId], meta, sellPriceLevel)
+}
+
+/** items as they are, cash × the cost multiplier */
+function scalePrice({ cash, ...items }: Price, meta: MetaState): Price {
+  return { ...items, cash: Math.round(cash * multiplier(meta, 'cost')) }
+}
+
+export function furnaceCost(meta: MetaState): Price {
+  return scalePrice(FURNACE.cost, meta)
+}
+
+/** the vein level the furnace needs */
+export function furnaceVeinLevel(): number {
+  return FURNACE.vein
 }
 
 export function pickaxeRecipe(tier: PickaxeTier): { wood: number; repairWood: number; durability: number } {

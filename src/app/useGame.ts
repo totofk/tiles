@@ -32,6 +32,11 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NOT_ENOUGH_CASH: 'Not enough cash',
   NO_SEEDS: 'No seeds — buy some or turn on auto-buy',
   NOTHING_TO_DO: 'Nothing to do',
+  NOT_SELLABLE: 'Cannot be sold',
+  NO_FURNACE: 'Build the furnace first',
+  QUEUE_FULL: 'Furnace is full — collect bars first',
+  NOT_ENOUGH_ORE: 'Not enough ore',
+  NOT_ENOUGH_FUEL: 'Not enough fuel',
 }
 
 const TOAST_MS = 2000
