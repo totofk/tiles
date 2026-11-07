@@ -64,7 +64,9 @@ const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 // Fuelled furnace (batch 9): fire is kept in burn ticks, one fire unit = FIRE_UNIT_TICKS; a fuel item adds FUEL_UNITS.
 // A smelt cycle burns barTicks of fire and turns `ore` × batch copper ore from the ore slot (oreSlot ore) into batch
 // bars; it needs tray room for them (ready + batch ≤ trayCap). One cycle = 2 units = 1 coal or 2 wood, as before.
-const SMELT = { ore: 2, barTicks: 60, trayCap: 5, oreSlot: 10 }
+// oreSlot ≥ 2 × the top batch's cycle (2 × 3 × 2 = 12), so a slot short of one cycle always has room for a whole one:
+// at 10 a batch-3 slot holding 5 ore could neither smelt (< 6) nor take a loader's cycle (room 5 < 6).
+const SMELT = { ore: 2, barTicks: 60, trayCap: 5, oreSlot: 12 }
 const FIRE_UNIT_TICKS = 30
 const FUEL_UNITS = { coal: 2, wood: 1 }
 export type FuelId = keyof typeof FUEL_UNITS

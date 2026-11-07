@@ -341,7 +341,7 @@ describe('furnace loaders: workersAct', () => {
   it('ore loader idles unpaid with nothing to do: no ore for a cycle, slot full, no furnace', () => {
     for (const s of [
       smeltery({}, { copperOre: 1 }, { ore: 1 }),
-      smeltery({ ore: 9 }, { copperOre: 5 }, { ore: 1 }),
+      smeltery({ ore: 11 }, { copperOre: 5 }, { ore: 1 }),
       { ...smeltery({}, { copperOre: 5 }, { ore: 1 }), run: { ...smeltery({}, { copperOre: 5 }, { ore: 1 }).run, furnace: createFurnace() } },
     ]) {
       expect(workersAct(s)).toBe(s)
@@ -370,6 +370,11 @@ describe('furnace loaders: workersAct', () => {
     expect(smart.run.inventory.copperBar).toBe(2)
     expect(smart.run.lifetime.fireWasted).toBe(0)
     expect(smart.run.inventory.coal).toBeGreaterThan(after.run.inventory.coal!)
+  })
+
+  it('never stalls at the top batch level: a slot short of a cycle always has room for the ore loader to add one', () => {
+    const s = smeltery({ ore: 5, fire: 300, levels: { fireCap: 0, batch: 2 } }, { copperOre: 10, coal: 10 }, { ore: 1, fuel: 1, cash: 1000 })
+    expect(step(s, 600).run.lifetime.barsSmelted).toBeGreaterThan(0)
   })
 
   it('step(s, n) equals n × step(s, 1) with both loaders, plain and smart, and 8 h of catch-up stays fast', () => {

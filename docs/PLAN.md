@@ -535,8 +535,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   each: `WORKER_JOB_LABEL` and `WORKER_TIPS` are `Record<WorkerJob, …>`, so the build needs them. Task 59 lays them out.
 - **Batch 9 (task 58): starting prices (Hermes picks, task 61 tunes):** fire cap 🥉4 + 💰150, 🥉8 + 💰300; batch
   🥉6 + 💰200, 🥉12 + 💰400; smart 🥉10 + 💰400 (above the fuel certificate's 🥉8 + 💰200). Every bar price ≤ 40
-  (storage Lv2, the storage the furnace path needs; tested). The ore slot stays 10 at every batch level (batch 3 = 6
-  ore a cycle: one cycle + 4 loaded).
+  (storage Lv2, the storage the furnace path needs; tested).
+- **Batch 9 (task 58 fix): ore slot 12, not the plan's "e.g. 10".** At 10, batch level 2 (6 ore a cycle) could stall:
+  a slot holding 5 ore can neither smelt (5 < 6) nor take the ore loader's cycle (room 5 < 6), so the loader idles
+  for good while a fuel loader keeps a plain furnace burning on nothing (reproduced: 0 bars in 600 ticks). The slot
+  now holds two top-batch cycles (2 × 6 = 12, a balance test), so a slot short of a cycle always has room for one.
 - **Batch 9 (task 58): furnace jobs have no tile target**, so `workerTargets(state, job)` is typed for water/harvest
   only and a loader's "something to do" check is its own action (`workerAction` returns null = idle, unpaid);
   `workerUnpaid` uses the same check for every job. Task 60's `workerTargets(state)` will need to replace or rename
@@ -1378,7 +1381,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
   blocks smelting until collected, tested), fire 0, ore 0, progress 0, plain, base levels. Chain v1…v8 → v9; backup key per version.
 - **Numbers (`balance.ts`):** fire in burn ticks, unit 30; wood 1 unit, coal 2; a cycle burns `barTicks` 60 (coal 1 or
   wood 2 per bar, unchanged); fire cap 10 / 20 / 40 units by level; batch 1 / 2 / 3 bars per cycle (ore 2 × batch);
-  tray 5; ore slot 10. Read through `fireUnitTicks`, `fuelUnits`, `fuelTicks`, `fireCapUnits`, `fireCapTicks`,
+  tray 5; ore slot 10 (12 since the task-58 fix, see Deviations). Read through `fireUnitTicks`, `fuelUnits`, `fuelTicks`, `fireCapUnits`, `fireCapTicks`,
   `batchBars`, `furnaceTrayCap`, `oreSlotCap`, `smeltOre`, `smeltFuel`, `barTicks`.
 - **Rules (`furnace.ts`):** `smelting(f)` = fire > 0, ore ≥ `cycleOre(f)`, ready + batch ≤ tray cap. `tickFurnace`:
   smelting → fire − 1, progress + 1, on 60 the cycle's ore leaves the slot and batch bars enter the tray; lit but not

@@ -75,10 +75,15 @@ function oneByOne(s: GameState, n: number): GameState {
 }
 
 describe('fuelled furnace: balance', () => {
-  it('2 ore per bar, a cycle burns 60 ticks = 2 units = 1 coal or 2 wood; cap 10 units, tray 5, ore slot 10', () => {
+  it('2 ore per bar, a cycle burns 60 ticks = 2 units = 1 coal or 2 wood; cap 10 units, tray 5, ore slot 12', () => {
     expect([smeltOre(), barTicks(), fireUnitTicks(), fuelUnits('coal'), fuelUnits('wood')]).toEqual([2, 60, 30, 2, 1])
     expect([smeltFuel('coal'), smeltFuel('wood')]).toEqual([1, 2])
-    expect([fireCapUnits(0), fireCapTicks(0), batchBars(0), furnaceTrayCap(), oreSlotCap()]).toEqual([10, 300, 1, 5, 10])
+    expect([fireCapUnits(0), fireCapTicks(0), batchBars(0), furnaceTrayCap(), oreSlotCap()]).toEqual([10, 300, 1, 5, 12])
+  })
+
+  it('the ore slot holds two cycles of the top batch level, so a slot short of a cycle has room for a whole one', () => {
+    const topBatch = batchBars(furnaceUpgradeMaxLevel('batch'))
+    expect(oreSlotCap()).toBeGreaterThanOrEqual(2 * smeltOre() * topBatch)
   })
 })
 
@@ -115,7 +120,7 @@ describe('loadOre', () => {
   it('moves copper ore from storage into the slot, as much as fits, at most max', () => {
     const s = smelter({ inventory: { copperOre: 14 } })
     const full = okState(loadOre(s))
-    expect([full.run.furnace.ore, full.run.inventory.copperOre]).toEqual([10, 4])
+    expect([full.run.furnace.ore, full.run.inventory.copperOre]).toEqual([12, 2])
     expect(loadOre(full)).toEqual({ ok: false, error: 'FULL' })
     const two = okState(loadOre(s, 2))
     expect([two.run.furnace.ore, two.run.inventory.copperOre]).toEqual([2, 12])
@@ -123,7 +128,7 @@ describe('loadOre', () => {
 
   it('validates furnace, full slot, no ore in that order', () => {
     expect(loadOre(withRun({ inventory: { copperOre: 9 } }))).toEqual({ ok: false, error: 'NO_FURNACE' })
-    expect(loadOre(furnace({ ore: 10 }))).toEqual({ ok: false, error: 'FULL' })
+    expect(loadOre(furnace({ ore: 12 }))).toEqual({ ok: false, error: 'FULL' })
     expect(loadOre(smelter())).toEqual({ ok: false, error: 'NO_ORE' })
   })
 })
