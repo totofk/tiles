@@ -38,8 +38,8 @@ docs/              # PRD.md, DECISIONS.md, PLAN.md
 5. `tests/sim.test.ts` — greedy bot plays 600 ticks: cash never negative, crop-2 license affordable within ~300 ticks (target, tune `balance.ts` until it passes and report the final numbers).
 6. [x] React UI: 6-tile grid (colour/emoji per state), click tile → next sensible action, HUD, Shop. Mobile-width friendly.
 7. [x] Save/load (localStorage, versioned) + offline catch-up (step missed seconds, cap 8 h), tested with a fake clock.
-8. Deploy to GitHub Pages (Vite `base`, `gh-pages` or Actions workflow).
-9. Playtest together in the Discord thread → record verdict + tuned numbers in `docs/PLAYTEST.md`.
+8. [x] Deploy to GitHub Pages (Vite `base`, `gh-pages` or Actions workflow).
+9. [x] Playtest together in the Discord thread → record verdict + tuned numbers in `docs/PLAYTEST.md`.
 
 Tasks 1–5 are batch 1; 6–8 batch 2. Each batch = one commit series on `main` (prototype repo,
 no branch ceremony yet).
@@ -109,3 +109,25 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   fresh, so a newer build's save is not silently overwritten.
 - **`OFFLINE_CAP_TICKS = 8 * 3600` added to `balance.ts`**; no existing number changed.
 - **Upgrade max level 10** added in `balance.ts` so `buyUpgrade` can return `MAX_LEVEL`; no cap was specified before.
+
+
+## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
+Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
+
+10. [ ] Fix the "radish became pumpkin" report: crop emoji + name on planted tiles, harvest toast "+💰N <crop>",
+    tap guard after harvest (UI constant), watering allowed any time. Update `tile.ts` helpers + tests.
+11. [ ] Rebalance: START_TILES 9, ENERGY_MAX_BASE 10. Milestone counters in run state + `sellPrice` and `fertilizer`
+    upgrades (hidden until unlocked). Save version 2 with migration from v1 (fill new fields with defaults).
+12. [ ] Mining core: `src/core/mining.ts` + `data/items.ts` — mine license, buy wood, craft wooden pickaxe (durability),
+    dig (energy + durability → 1 drop from the vein table via seeded PRNG in run state), inventory with capacity,
+    sell item. Typed errors: NO_MINE_LICENSE, NO_PICKAXE, BAG_FULL, NOT_ENOUGH_ITEMS, …
+13. [ ] Mining UI: a "Mine" panel under the farm (dig button with pickaxe durability bar, bag N/cap, item rows with
+    sell buttons, craft/buy buttons). Shop: mine license. Fix the three UI nits: unaffordable cards unreadable
+    (dim the button, not the price), "💰 75" wrapping in the HUD, Reset button too easy (small, bottom, confirm).
+14. [ ] Sim: bot farms 9 tiles and digs whenever energy is idle and no farm action is possible. Assert: cash never
+    negative; mining cash per energy spent < farming cash per energy spent (report both); mine license affordable
+    within ~150 ticks; first pickaxe never leaves cash below 0. Record tuned numbers under "Batch 3 results".
+
+Starting numbers (tune via the sim): mine license 50, wood 4 each, wooden pickaxe = 3 wood, durability 20,
+stone sells 2, bag capacity 20, `sellPrice` +10 %/level cost 80 × 1.6^level (unlock 25 sales), `fertilizer`
+−10 % grow time/level cost 120 × 1.7^level (unlock 15 harvests), both max level 5.

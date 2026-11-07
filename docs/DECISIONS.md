@@ -35,3 +35,35 @@ These override the PRD where they differ. Source PRD: `docs/PRD.md`.
 ## Process
 - Planned and tracked in the Discord thread, not ClickUp/Kanban.
 - Prototype first: Phase 1 only, answering one question — is the manual loop fun enough to make the player want a sprinkler? If not, fix the loop before Phase 2.
+
+
+## Round-1 playtest changes (2026-11-07, see docs/PLAYTEST.md)
+- **Start: 9 tiles, energy max 10** (regen unchanged 1 per 3 s). Tile cap stays 24.
+- **Watering any time.** Tapping a planted, moist tile refills moisture to 1 (costs 1 energy). The player decides
+  whether to top up early. Replaces "tapping a moist tile does nothing".
+- **Planted tiles show their crop** (emoji + name) while growing, and harvest shows a toast "+💰N <crop>".
+  Taps on a tile are ignored for a short guard window after a harvest, so a double tap cannot replant.
+- **Milestone unlocks.** Run state keeps counters (`harvests`, `sales`, `digs`, …). Some shop items are hidden
+  until a counter passes a threshold, then bought with cash as usual:
+  - `sellPrice` upgrade (+10 % per level): unlocked after 25 sales.
+  - `fertilizer` upgrade (−10 % grow time per level): unlocked after 15 harvests.
+  Thresholds are starting values; tune in playtest.
+
+## Mining (fills idle energy while crops grow)
+- Why: the player waits for crops with nothing to spend energy on. Mining is the energy sink while waiting and
+  the source of **materials**, so later upgrades cost money *and* materials instead of money alone.
+- **v1 (batch 3):** buy a mine license (cash) → buy wood (cash) → craft a wooden pickaxe (wood) → dig (1 energy,
+  1 pickaxe durability) → 1 random drop into the inventory → sell items for cash. Pickaxe breaks at 0 durability;
+  craft another. Inventory has a capacity (upgradable later); digging with a full bag fails with a typed error.
+- **Stone vein v1 drops 100 % stone.** Vein upgrades add ores and shift the table (batch 4). Drop table lives in
+  `balance.ts`; the RNG is injected (seeded PRNG in run state) so the core stays deterministic and testable.
+- **Balance rule:** mining cash per energy must stay below farming cash per energy (it is a filler, not the main
+  loop); stone's real value is as a material later. Sim must assert this.
+- **Later (not v1):** vein upgrades (stone → coal → iron …; the player's 98.5/1/0.5 % idea is too slow for a
+  ~20 digs/min energy budget — first non-stone drop should land within ~3 minutes of digging), stone pickaxe,
+  furnace (ore → ingot, fuel = wood or coal, capacity/fuel upgrades paid in cash → stone → ingots), forge
+  (ingots + cash → tool tiers: watering can / hoe / seeder acting on 2+ tiles per energy).
+
+## Automation (moved after tooling)
+- Sprinklers, seeders, harvesters and workers come **after the forge**, are crafted from materials in quantity,
+  and pay running costs (water/power). The PRD's "Phase 2 semi-auto" dissolves into: manual → tooling → automation.
