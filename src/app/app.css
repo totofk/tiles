@@ -671,6 +671,9 @@ button:disabled {
   }
   .tools {
     position: static;
+    /* the mobile rule above leaves `bottom: tabbar + safe-area` set; with the relative
+       positioning below it lifts the whole bar 56+ px up onto the panel tabs */
+    bottom: auto;
     grid-column: 2;
     grid-row: 1 / -1;
     align-self: start;
