@@ -1,0 +1,191 @@
+{
+  "version": 9,
+  "savedAtMs": 1762732846000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 2351,
+      "energy": 10,
+      "tiles": [
+        {
+          "status": "planted",
+          "growth": 200,
+          "moisture": 1.616666666666668,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 348,
+          "moisture": 0.20000000000000207,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 335,
+          "moisture": 1.366666666666669,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 317,
+          "moisture": 1.616666666666668,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 296,
+          "moisture": 1.9500000000000002,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 290,
+          "moisture": 1.9500000000000002,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 245,
+          "moisture": 1.783333333333334,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 185,
+          "moisture": 1.8666666666666671,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 182,
+          "moisture": 1.8666666666666671,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        }
+      ],
+      "licenses": [
+        "radish",
+        "chilli",
+        "pumpkin",
+        "lemon"
+      ],
+      "upgrades": {
+        "energyMax": 0,
+        "energyRegen": 0,
+        "sellPrice": 0,
+        "fertilizer": 0
+      },
+      "tick": 3068,
+      "mineLicense": true,
+      "pickaxe": {
+        "tier": "copper",
+        "durability": 93
+      },
+      "inventory": {
+        "wood": 0,
+        "stone": 5,
+        "coal": 11,
+        "copperOre": 1,
+        "copperBar": 2
+      },
+      "bagCapacity": 40,
+      "storageLevel": 2,
+      "vein": {
+        "level": 2,
+        "progress": 0,
+        "rock": "stone"
+      },
+      "mastery": {
+        "wooden": 247,
+        "copper": 197
+      },
+      "masteredTiers": [],
+      "rngState": 3224399001,
+      "loan": null,
+      "seeds": {},
+      "autoBuySeeds": true,
+      "tools": {
+        "water": 2,
+        "harvest": 2,
+        "plant": 2
+      },
+      "toolN": {
+        "water": 2,
+        "harvest": 1,
+        "plant": 1
+      },
+      "toolTier": {
+        "water": 1,
+        "harvest": 0,
+        "plant": 0
+      },
+      "counters": {
+        "harvests": 91,
+        "sales": 295,
+        "mines": 444,
+        "digs": 0,
+        "waters": 415,
+        "plants": 100,
+        "bars": 18
+      },
+      "workers": {
+        "pool": 4,
+        "assigned": {
+          "water": 2,
+          "harvest": 1,
+          "ore": 1,
+          "fuel": 0
+        },
+        "certificates": [
+          "water",
+          "harvest",
+          "ore"
+        ]
+      },
+      "furnace": {
+        "built": true,
+        "fire": 554,
+        "ore": 2,
+        "progress": 43,
+        "ready": 0,
+        "smart": false,
+        "levels": {
+          "fireCap": 1,
+          "batch": 0
+        }
+      },
+      "lifetime": {
+        "cashEarned": 6957,
+        "energySpent": 1015,
+        "bars": 18,
+        "harvests": {
+          "radish": 15,
+          "chilli": 13,
+          "pumpkin": 18,
+          "lemon": 45
+        },
+        "wagesPaid": 45,
+        "fireBurnt": 46,
+        "fireWasted": 3,
+        "barsSmelted": 18
+      }
+    }
+  }
+}
