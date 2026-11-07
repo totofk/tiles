@@ -1,0 +1,166 @@
+{
+  "version": 7,
+  "savedAtMs": 1762646400000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 2718,
+      "energy": 0.3333333333333333,
+      "tiles": [
+        {
+          "status": "planted",
+          "growth": 115,
+          "moisture": 1.0833333333333366,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 265,
+          "moisture": 1.5833333333333348,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 250,
+          "moisture": 0.8333333333333364,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 232,
+          "moisture": 1.1333333333333364,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 214,
+          "moisture": 1.4333333333333353,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 211,
+          "moisture": 1.4833333333333352,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 163,
+          "moisture": 1.2833333333333359,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 1.3333333333333357,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        },
+        {
+          "status": "planted",
+          "growth": 97,
+          "moisture": 1.3833333333333355,
+          "ticksSinceMature": 0,
+          "cropId": "lemon"
+        }
+      ],
+      "licenses": [
+        "radish",
+        "chilli",
+        "pumpkin",
+        "lemon"
+      ],
+      "upgrades": {
+        "energyMax": 0,
+        "energyRegen": 0,
+        "sellPrice": 0,
+        "fertilizer": 0
+      },
+      "counters": {
+        "harvests": 82,
+        "sales": 192,
+        "mines": 316,
+        "digs": 0,
+        "waters": 380,
+        "plants": 91
+      },
+      "tick": 2620,
+      "mineLicense": true,
+      "pickaxe": {
+        "tier": "copper",
+        "durability": 147
+      },
+      "inventory": {
+        "wood": 0,
+        "stone": 26,
+        "coal": 10,
+        "copperOre": 0,
+        "copperBar": 0
+      },
+      "bagCapacity": 40,
+      "storageLevel": 2,
+      "vein": {
+        "level": 2,
+        "progress": 0,
+        "rock": "coal"
+      },
+      "furnace": {
+        "built": true,
+        "queue": 2,
+        "progress": 48,
+        "ready": 0
+      },
+      "lifetime": {
+        "cashEarned": 5759,
+        "energySpent": 878,
+        "bars": 9,
+        "harvests": {
+          "radish": 15,
+          "chilli": 13,
+          "pumpkin": 18,
+          "lemon": 36
+        }
+      },
+      "mastery": {
+        "wooden": 247,
+        "copper": 69
+      },
+      "masteredTiers": [],
+      "rngState": 2494986137,
+      "loan": null,
+      "seeds": {},
+      "autoBuySeeds": true,
+      "tools": {
+        "water": 2,
+        "harvest": 2,
+        "plant": 2
+      },
+      "toolN": {
+        "water": 2,
+        "harvest": 1,
+        "plant": 1
+      },
+      "toolTier": {
+        "water": 1,
+        "harvest": 0,
+        "plant": 0
+      }
+    }
+  }
+}
