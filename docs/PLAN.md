@@ -653,3 +653,17 @@ No save-shape change (numbers and UI only).
   `upgradeVein`'s own error. Contrast (WCAG ratio, computed with node from the CSS hex values): the greyed next-vein
   and iron lines were #888 on white = 3.54:1, now #555 = 7.46:1; storage text was already #555 on white = 7.46:1
   (6.10:1 on a disabled button), unchanged. Not checked in a browser (no dev server in headless runs).
+
+## Batch 6.2 — shop/upgrades structure, info tips, tool bar placement (tasks 34–36)
+Question: can the player tell where to buy things and what each upgrade does, and are the farm tool buttons easy to
+reach? UI only — no core numbers, no save-shape change (badge "seen" state lives in `tiles.ui`).
+
+34. [ ] Tab rule: 🛒 Shop = things you buy to own (seeds, licenses, farm tools Watering Can … Seed Spreader with their
+    milestone progress, wood, tiles); ⬆️ Upgrades = numbers that go up, grouped ⚡ Energy / 🌱 Farm / ⛏ Mine (energy
+    max + regen; sell price, fertilizer; storage, vein). Every row shows its effect as "now → next" (e.g. "Energy max
+    15 → 20", "Sell price +10 % → +20 %"); maxed rows say "max".
+35. [ ] ⓘ info button on every Shop and Upgrades row: hover shows it on desktop, tap toggles it on touch; one shared
+    component; texts in one UI data file (one or two plain sentences each: what it does, what it costs over time).
+36. [ ] Farm tool buttons: ≥ 768 px a vertical tool bar on the right edge of the Farm column; < 768 px a bar fixed
+    above the bottom tab bar (thumb reach), not scrolling with the grid. Badge dot on the Shop / Upgrades tabs (and
+    mobile tab bar) when something became unlocked or affordable since the tab was last opened; cleared on open.
