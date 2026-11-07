@@ -169,7 +169,7 @@ describe.each([
       },
       minCash: 2,
       finalCash: 394,
-      counters: { harvests: 31, sales: 31, digs: 19 },
+      counters: { harvests: 31, sales: 31, mines: 19, digs: 0 },
     },
   },
   {
@@ -189,7 +189,7 @@ describe.each([
       },
       minCash: 0,
       finalCash: 116,
-      counters: { harvests: 30, sales: 70, digs: 43 },
+      counters: { harvests: 30, sales: 70, mines: 43, digs: 0 },
     },
   },
 ])('greedy bot $name (farm first, dig with idle energy), 600 ticks', ({ name, mineEarly, pumpkinBy, batch3 }) => {

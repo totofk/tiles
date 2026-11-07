@@ -1,0 +1,117 @@
+{
+  "version": 3,
+  "savedAtMs": 1762510000000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 64,
+      "energy": 15,
+      "tiles": [
+        {
+          "status": "planted",
+          "growth": 73,
+          "moisture": 0,
+          "ticksSinceMature": 0,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 60,
+          "moisture": 0,
+          "ticksSinceMature": 0,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 60,
+          "moisture": 0,
+          "ticksSinceMature": 0,
+          "cropId": "radish"
+        },
+        {
+          "status": "tilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0,
+          "ticksSinceMature": 158,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0.6666666666666656,
+          "ticksSinceMature": 155,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0.6666666666666656,
+          "ticksSinceMature": 152,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0,
+          "ticksSinceMature": 149,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0,
+          "ticksSinceMature": 146,
+          "cropId": "radish"
+        }
+      ],
+      "licenses": [
+        "radish"
+      ],
+      "upgrades": {
+        "energyMax": 1,
+        "energyRegen": 0,
+        "sellPrice": 0,
+        "fertilizer": 0
+      },
+      "counters": {
+        "harvests": 17,
+        "sales": 20,
+        "digs": 7
+      },
+      "tick": 627,
+      "mineLicense": true,
+      "pickaxe": {
+        "tier": "wooden",
+        "durability": 13
+      },
+      "inventory": {
+        "wood": 0,
+        "stone": 4
+      },
+      "bagCapacity": 20,
+      "vein": {
+        "level": 0
+      },
+      "rngState": 731607024,
+      "loan": {
+        "principal": 30,
+        "debt": 40.800000000000296
+      }
+    }
+  }
+}

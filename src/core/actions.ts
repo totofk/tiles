@@ -36,6 +36,7 @@ export type ActionError =
   | 'LOAN_ACTIVE'
   | 'NO_LOAN'
   | 'NOT_ENOUGH_CASH'
+  | 'NO_SEEDS'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
@@ -45,24 +46,32 @@ export function withRun(state: GameState, run: Partial<RunState>): ActionResult 
   return { ok: true, state: { meta: state.meta, run: { ...state.run, ...run } } }
 }
 
-// Farm actions validate in this order: BAD_TILE, tile status, license/cash (plant), NO_ENERGY.
+export const isAmount = (n: number) => Number.isInteger(n) && n >= 1
+
+// Farm actions validate in this order: BAD_TILE, tile status, license/seeds/cash (plant), NO_ENERGY.
 function farmAction(
   state: GameState,
   i: number,
   check: (tile: Tile) => ActionError | null,
-  apply: (tile: Tile) => { tile: Tile; cashDelta?: number; counters?: Partial<RunState['counters']> },
+  apply: (tile: Tile) => {
+    tile: Tile
+    cashDelta?: number
+    counters?: Partial<RunState['counters']>
+    seeds?: RunState['seeds']
+  },
 ): ActionResult {
   const { run } = state
   if (!Number.isInteger(i) || i < 0 || i >= run.tiles.length) return fail('BAD_TILE')
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0, counters } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, counters, seeds = run.seeds } = apply(run.tiles[i])
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
     counters: { ...run.counters, ...counters },
+    seeds,
   })
 }
 
@@ -75,17 +84,27 @@ export function till(state: GameState, i: number): ActionResult {
   )
 }
 
+// Planting uses 1 seed from the pouch. With 0 in stock and autoBuySeeds on it buys that one seed at the
+// seed price instead (the pre-v4 cost, so auto-buy costs exactly what planting always did).
 export function plant(state: GameState, i: number, cropId: CropId): ActionResult {
-  const seed = cropSeedCost(cropId, state.meta)
+  const { run } = state
+  const stock = run.seeds[cropId] ?? 0
+  const price = stock > 0 ? 0 : cropSeedCost(cropId, state.meta)
   return farmAction(
     state,
     i,
     (t) => {
       if (t.status !== 'tilled') return 'NOT_TILLED'
-      if (!state.run.licenses.includes(cropId)) return 'NO_LICENSE'
-      return state.run.cash < seed ? 'NO_CASH' : null
+      if (!run.licenses.includes(cropId)) return 'NO_LICENSE'
+      if (stock === 0 && !run.autoBuySeeds) return 'NO_SEEDS'
+      return run.cash < price ? 'NO_CASH' : null
     },
-    (t) => ({ tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 }, cashDelta: -seed }),
+    (t) => ({
+      tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 },
+      cashDelta: -price,
+      seeds: stock > 0 ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds,
+      counters: { plants: run.counters.plants + 1 },
+    }),
   )
 }
 
@@ -94,7 +113,7 @@ export function water(state: GameState, i: number): ActionResult {
     state,
     i,
     (t) => (t.status === 'planted' ? null : 'NOT_PLANTED'),
-    (t) => ({ tile: { ...t, moisture: 1 } }),
+    (t) => ({ tile: { ...t, moisture: 1 }, counters: { waters: state.run.counters.waters + 1 } }),
   )
 }
 
@@ -135,6 +154,16 @@ export function buyLicense(state: GameState, cropId: CropId): ActionResult {
   const cost = licenseCost(cropId, state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   return withRun(state, { cash: run.cash - cost, licenses: [...run.licenses, cropId] })
+}
+
+/** seeds go to the pouch, not the bag; needs the crop's license */
+export function buySeeds(state: GameState, cropId: CropId, n: number): ActionResult {
+  const { run } = state
+  if (!isAmount(n)) return fail('BAD_AMOUNT')
+  if (!run.licenses.includes(cropId)) return fail('NO_LICENSE')
+  const cost = n * cropSeedCost(cropId, state.meta)
+  if (run.cash < cost) return fail('NO_CASH')
+  return withRun(state, { cash: run.cash - cost, seeds: { ...run.seeds, [cropId]: (run.seeds[cropId] ?? 0) + n } })
 }
 
 export function buyTile(state: GameState): ActionResult {

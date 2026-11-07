@@ -86,7 +86,8 @@ describe('dig', () => {
     expect(next.run.energy).toBe(s.run.energy - 1)
     expect(next.run.pickaxe?.durability).toBe(19)
     expect(next.run.inventory).toEqual({ stone: 1 })
-    expect(next.run.counters.digs).toBe(1)
+    expect(next.run.counters.mines).toBe(1)
+    expect(next.run.counters.digs).toBe(0)
     expect(next.run.rngState).not.toBe(s.run.rngState)
     expect(dig(s)).toEqual({ ok: true, state: next }) // same seed, same result
   })

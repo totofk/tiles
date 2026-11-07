@@ -170,6 +170,19 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 4.5 UI: the HUD debt badge reads "🏦 −💰N"** (debt rounded up) and sits before the tick counter. The
   mobile tab bar now has five buttons; at 375 px each is ~75 px wide. Not checked in a browser (no dev server in
   headless runs).
+- **Batch 5: planting takes a pouch seed first; auto-buy only covers an empty pouch.** With stock > 0 the seed comes
+  from the pouch and costs no cash. With 0 in stock and `autoBuySeeds` on, `plant` charges the seed price, which is
+  the pre-v4 cost, so a player who never touches the pouch plays exactly as before (the greedy sim numbers are
+  unchanged). With auto-buy off and 0 in stock it returns the new error `NO_SEEDS`. `buySeeds` needs the crop's
+  license (`NO_LICENSE`) and validates n like `buyWood` (`BAD_AMOUNT`). The pouch is `Partial<Record<CropId, number>>`
+  like the bag. The Farm view's "Planting" line also shows the pouch count; the Shop seed rows come in task 24.
+- **Batch 5: `tests/fixtures/save-v3.json` was produced by a throwaway vitest file run against the unmodified
+  batch-4.5 code** (scripted till/plant/water/harvest cycles, mine license, 7 digs, a stone sale, `energyMax` 1, a
+  loan, then a mixed field of growing, ripe and tilled tiles), then the file was deleted. Past save types in
+  `serialize.ts` are now frozen (`RunV3` / `RunV2` spelled out) instead of derived from the live `RunState`.
+- **Batch 5: the save backup runs before `deserialize`**, so it survives a migration that throws. Any raw save whose
+  `version` is a number below `SAVE_VERSION` is copied to `tiles.save.backup.v<old>`, even one that then fails to
+  load (it also goes to `tiles.save.bad`). The mining action is still called `dig()`; only its counter was renamed.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -306,7 +319,7 @@ It repays in full once the payment still leaves a radish seed's worth of cash.
 Question: does tending the farm stop being tedious (no hunting tile by tile), and can a broke player always recover?
 Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatibility". Save v4.
 
-21. [ ] Save v4 + seed stock + rename. Follow CLAUDE.md "Save compatibility": v3 → v4 migration, a real v3 fixture
+21. [x] Save v4 + seed stock + rename. Follow CLAUDE.md "Save compatibility": v3 → v4 migration, a real v3 fixture
     in `tests/fixtures/`, chain test from every fixture (v1, v2, v3) to v4, and `storage.ts` keeps the raw old save
     under `tiles.save.backup.v<old>` before migrating. Counters: the existing `digs` (mine actions) moves to `mines`
     in the migration; new `digs` (soil) starts at 0; add `waters` and `plants`. `run.seeds` pouch (not in the bag),

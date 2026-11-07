@@ -38,6 +38,10 @@ export type RunState = {
   rngState: number
   /** one loan at a time; step() grows its debt */
   loan: Loan | null
+  /** seed pouch per crop; separate from the bag, never counts toward bagCapacity */
+  seeds: Partial<Record<CropId, number>>
+  /** planting with 0 seeds of that crop buys one at the seed price */
+  autoBuySeeds: boolean
 }
 
 /** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
@@ -46,8 +50,8 @@ export type Loan = { principal: number; debt: number }
 export type PickaxeTier = 'wooden'
 export type Pickaxe = { tier: PickaxeTier; durability: number }
 
-/** sales = units sold for cash (each harvest sells 1 crop) */
-export type Counters = { harvests: number; sales: number; digs: number }
+/** sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds */
+export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number }
 export type CounterId = keyof Counters
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
@@ -81,7 +85,7 @@ export function createInitialState(): GameState {
       tiles: Array.from({ length: START_TILES }, createTile),
       licenses: [STARTING_CROP],
       upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
-      counters: { harvests: 0, sales: 0, digs: 0 },
+      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0 },
       tick: 0,
       mineLicense: false,
       pickaxe: null,
@@ -90,6 +94,8 @@ export function createInitialState(): GameState {
       vein: { level: 0 },
       rngState: INITIAL_RNG_SEED,
       loan: null,
+      seeds: {},
+      autoBuySeeds: true,
     },
   }
 }

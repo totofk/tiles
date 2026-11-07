@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import v1 from './fixtures/save-v1.json?raw'
 import v2 from './fixtures/save-v2.json?raw'
+import v3 from './fixtures/save-v3.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
-import { BAD_SAVE_KEY, SAVE_KEY, loadGame, saveGame, type KeyValueStore } from '../src/save/storage'
+import { BAD_SAVE_KEY, SAVE_KEY, backupKey, loadGame, saveGame, type KeyValueStore } from '../src/save/storage'
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   const data = new Map<string, string>()
@@ -19,7 +20,13 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 3, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 4, savedAtMs: 1234, state })
+  })
+
+  it('round-trips the seed pouch and auto-buy flag', () => {
+    const s = createInitialState()
+    const state = { ...s, run: { ...s.run, seeds: { radish: 3 }, autoBuySeeds: false } }
+    expect(deserialize(serialize(state, 0))?.state).toEqual(state)
   })
 
   it('round-trips an active loan', () => {
@@ -28,32 +35,64 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v3 and rejects unknown, missing or future versions', () => {
-    const v3 = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(v3))?.version).toBe(3)
-    expect(deserialize(JSON.stringify({ ...v3, version: 4 }))).toBeNull()
-    expect(deserialize(JSON.stringify({ ...v3, version: undefined }))).toBeNull()
+  it('migration switch accepts v4 and rejects unknown, missing or future versions', () => {
+    const v4 = JSON.parse(serialize(createInitialState(), 0))
+    expect(deserialize(JSON.stringify(v4))?.version).toBe(4)
+    expect(deserialize(JSON.stringify({ ...v4, version: 5 }))).toBeNull()
+    expect(deserialize(JSON.stringify({ ...v4, version: undefined }))).toBeNull()
   })
 
-  it('migrates a real v2 save (built by the batch-4 code) to v3 with no loan', () => {
+  it('migrates a real v3 save (built by the batch-4.5 code) to v4: digs → mines, new fields start empty', () => {
+    const old = JSON.parse(v3)
+    expect(old.version).toBe(3)
+    expect(old.state.run.counters).toEqual({ harvests: 17, sales: 20, digs: 7 })
+    const save = deserialize(v3)!
+    expect(save).toEqual({
+      version: 4,
+      savedAtMs: old.savedAtMs,
+      state: {
+        meta: old.state.meta,
+        run: {
+          ...old.state.run,
+          counters: { harvests: 17, sales: 20, mines: 7, digs: 0, waters: 0, plants: 0 },
+          seeds: {},
+          autoBuySeeds: true,
+        },
+      },
+    })
+    // nothing earned is lost: loan, pickaxe, bag, crops in the ground all survive, and the run plays on
+    expect(save.state.run.loan).toEqual(old.state.run.loan)
+    expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
+  })
+
+  it('migrates a real v2 save (built by the batch-4 code) to v4 with no loan', () => {
     const old = JSON.parse(v2)
     expect(old.version).toBe(2)
     expect(old.state.run).not.toHaveProperty('loan')
     const save = deserialize(v2)!
     expect(save).toEqual({
-      version: 3,
+      version: 4,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, loan: null } },
+      state: {
+        meta: old.state.meta,
+        run: {
+          ...old.state.run,
+          loan: null,
+          counters: { harvests: 2, sales: 2, mines: 2, digs: 0, waters: 0, plants: 0 },
+          seeds: {},
+          autoBuySeeds: true,
+        },
+      },
     })
     // the migrated state plays on, and a loan can be taken
     expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
     expect(takeLoan(save.state).ok).toBe(true)
   })
 
-  it('migrates a real v1 save (6 tiles, energy above the new max) to v3', () => {
+  it('migrates a real v1 save (6 tiles, energy above the new max) to v4', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(3)
+    expect(save.version).toBe(4)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(old.meta)
@@ -61,7 +100,7 @@ describe('serialize / deserialize', () => {
     expect(run.tiles.slice(0, 6)).toEqual(old.run.tiles)
     expect(run.tiles.slice(6)).toEqual([createTile(), createTile(), createTile()])
     expect(run.upgrades).toEqual({ ...old.run.upgrades, sellPrice: 0, fertilizer: 0 })
-    expect(run.counters).toEqual({ harvests: 0, sales: 0, digs: 0 })
+    expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0 })
     expect(run).toMatchObject({
       inventory: {},
       pickaxe: null,
@@ -70,6 +109,8 @@ describe('serialize / deserialize', () => {
       vein: { level: 0 },
       rngState: INITIAL_RNG_SEED,
       loan: null,
+      seeds: {},
+      autoBuySeeds: true,
     })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
     expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
@@ -130,6 +171,26 @@ describe('loadGame / saveGame with an injected clock', () => {
     store.setItem(SAVE_KEY, '{"version":99}')
     expect(loadGame(store, () => 0).ticks).toBe(0)
     expect(store.data.get(BAD_SAVE_KEY)).toBe('{"version":99}')
+  })
+
+  it.each([
+    [1, v1],
+    [2, v2],
+    [3, v3],
+  ])('keeps the raw v%i save under tiles.save.backup.v%i before migrating it', (version, raw) => {
+    const store = memoryStore()
+    store.setItem(SAVE_KEY, raw)
+    const loaded = loadGame(store, () => JSON.parse(raw).savedAtMs)
+    expect(backupKey(version)).toBe(`tiles.save.backup.v${version}`)
+    expect(store.data.get(backupKey(version))).toBe(raw)
+    expect(loaded.state).toEqual(deserialize(raw)!.state)
+  })
+
+  it('a current-version save makes no backup', () => {
+    const store = memoryStore()
+    saveGame(store, createInitialState(), () => 0)
+    loadGame(store, () => 0)
+    expect([...store.data.keys()]).toEqual([SAVE_KEY])
   })
 
   it('a throwing storage does not crash saveGame', () => {

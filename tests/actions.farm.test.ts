@@ -64,12 +64,29 @@ describe('plant', () => {
   it('rejects bad indexes', () => {
     expect(plant(createInitialState(), 99, 'radish')).toEqual({ ok: false, error: 'BAD_TILE' })
   })
+  it('uses 1 seed from the pouch and no cash when in stock, and counts the plant', () => {
+    const s = withTile(tilled, { cash: 0, seeds: { radish: 2 } })
+    const next = okState(plant(s, 0, 'radish'))
+    expect(next.run.seeds).toEqual({ radish: 1 })
+    expect(next.run.cash).toBe(0)
+    expect(next.run.counters.plants).toBe(1)
+  })
+  it('auto-buy (default on) buys the one seed with 0 in stock and leaves the pouch empty', () => {
+    const s = withTile(tilled)
+    expect(s.run.autoBuySeeds).toBe(true)
+    expect(okState(plant(s, 0, 'radish')).run.seeds).toEqual({})
+  })
+  it('with auto-buy off and 0 in stock returns NO_SEEDS; with stock it plants', () => {
+    expect(plant(withTile(tilled, { autoBuySeeds: false }), 0, 'radish')).toEqual({ ok: false, error: 'NO_SEEDS' })
+    expect(plant(withTile(tilled, { autoBuySeeds: false, seeds: { radish: 1 } }), 0, 'radish').ok).toBe(true)
+  })
 })
 
 describe('water', () => {
   it('fills a planted tile to moisture 1', () => {
     const next = okState(water(withTile({ ...planted, moisture: 0.2 }), 0))
     expect(next.run.tiles[0].moisture).toBe(1)
+    expect(next.run.counters.waters).toBe(1)
   })
   it('rejects a tile without a crop', () => {
     expect(water(withTile(tilled), 0)).toEqual({ ok: false, error: 'NOT_PLANTED' })
@@ -90,7 +107,7 @@ describe('harvest', () => {
     expect(next.run.tiles[0]).toMatchObject({ status: 'tilled', growth: 0, ticksSinceMature: 0 })
     expect(next.run.tiles[0].cropId).toBeUndefined()
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
-    expect(next.run.counters).toEqual({ harvests: 1, sales: 1, digs: 0 })
+    expect(next.run.counters).toEqual({ harvests: 1, sales: 1, mines: 0, digs: 0, waters: 0, plants: 0 })
   })
   it('applies the sellPrice upgrade (+10 % per level)', () => {
     const s = withTile(mature, { upgrades: { ...createInitialState().run.upgrades, sellPrice: 2 } })

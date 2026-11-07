@@ -87,7 +87,7 @@ export default function App() {
       <Mine state={state} act={act} />
       <section className="farm">
         <p className="planting">
-          Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name}
+          Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
         </p>
         <FarmGrid state={state} onTap={onTap} />
         {resetButton('farm')}

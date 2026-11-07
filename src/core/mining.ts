@@ -1,4 +1,4 @@
-import { fail, withRun, type ActionResult } from './actions'
+import { fail, isAmount, withRun, type ActionResult } from './actions'
 import {
   ACTION_ENERGY_COST,
   itemSellPrice,
@@ -23,8 +23,6 @@ export function nextRandom(rngState: number): [number, number] {
 export function bagCount(run: RunState): number {
   return ITEM_IDS.reduce((n, id) => n + (run.inventory[id] ?? 0), 0)
 }
-
-const isAmount = (n: number) => Number.isInteger(n) && n >= 1
 
 function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
@@ -83,7 +81,7 @@ export function dig(state: GameState): ActionResult {
     rngState,
     pickaxe: durability > 0 ? { ...run.pickaxe, durability } : null,
     inventory: addItems(run, pickDrop(veinDrops(run.vein.level), r), 1),
-    counters: { ...run.counters, digs: run.counters.digs + 1 },
+    counters: { ...run.counters, mines: run.counters.mines + 1 },
   })
 }
 

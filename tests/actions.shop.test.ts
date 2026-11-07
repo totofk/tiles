@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buyLicense, buyTile, buyUpgrade, type ActionResult } from '../src/core/actions'
+import { buyLicense, buySeeds, buyTile, buyUpgrade, type ActionResult } from '../src/core/actions'
 import {
   START_TILES,
   TILE_CAP,
+  cropSeedCost,
   energyMax,
   licenseCost,
   tileCost,
@@ -10,6 +11,7 @@ import {
   upgradeMaxLevel,
   upgradeUnlocked,
 } from '../src/core/balance'
+import { bagCount } from '../src/core/mining'
 import { createInitialState, createTile, type GameState } from '../src/core/state'
 
 function withRun(run: Partial<GameState['run']>): GameState {
@@ -101,5 +103,22 @@ describe('buyTile', () => {
     for (let i = s.run.tiles.length; i < TILE_CAP; i++) s = okState(buyTile(s))
     expect(s.run.tiles).toHaveLength(TILE_CAP)
     expect(buyTile(s)).toEqual({ ok: false, error: 'TILE_CAP' })
+  })
+})
+
+describe('buySeeds', () => {
+  it('adds n seeds to the pouch for n × the seed price, no energy, no bag space', () => {
+    const s = withRun({ cash: 50, seeds: { radish: 1 } })
+    const next = okState(buySeeds(s, 'radish', 10))
+    expect(next.run.seeds).toEqual({ radish: 11 })
+    expect(next.run.cash).toBe(50 - 10 * cropSeedCost('radish', meta))
+    expect(next.run.energy).toBe(s.run.energy)
+    expect(bagCount(next.run)).toBe(0)
+  })
+  it('rejects bad amounts, unlicensed crops and short cash', () => {
+    const s = withRun({ cash: 50 })
+    for (const n of [0, -1, 1.5, NaN]) expect(buySeeds(s, 'radish', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    expect(buySeeds(s, 'pumpkin', 1)).toEqual({ ok: false, error: 'NO_LICENSE' })
+    expect(buySeeds(withRun({ cash: 1 }), 'radish', 1)).toEqual({ ok: false, error: 'NO_CASH' })
   })
 })

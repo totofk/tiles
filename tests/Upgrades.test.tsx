@@ -18,7 +18,7 @@ describe('Upgrades tab', () => {
 
   it('shows milestone upgrades once their counters pass the threshold', () => {
     const s = createInitialState()
-    const state: GameState = { ...s, run: { ...s.run, counters: { harvests: 1000, sales: 1000, digs: 0 } } }
+    const state: GameState = { ...s, run: { ...s.run, counters: { ...s.run.counters, harvests: 1000, sales: 1000 } } }
     render(<Upgrades state={state} act={noop} />)
     expect(names()).toEqual(['Bigger stamina', 'Faster recovery', 'Better prices', 'Fertilizer'])
   })
