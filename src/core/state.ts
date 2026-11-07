@@ -3,6 +3,7 @@ import { STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
+import type { WorkerJob } from './data/workers'
 
 export type TileStatus = 'untilled' | 'tilled' | 'planted'
 
@@ -25,7 +26,7 @@ export type RunState = {
   /** crop ids the player may plant */
   licenses: CropId[]
   upgrades: Record<UpgradeId, number>
-  /** milestone counters; only actions change them, never step() */
+  /** milestone counters; only actions change them (the player's, or a worker's inside step()) */
   counters: Counters
   /** total ticks simulated this run */
   tick: number
@@ -60,7 +61,13 @@ export type RunState = {
   toolN: Record<ToolJob, number>
   /** material tier per job, 0 basic … toolTierMax (1 copper); changes what every action of the job does */
   toolTier: Record<ToolJob, number>
+  workers: Workers
+  /** the furnace queues coal jobs and collects its tray by itself inside step() */
+  autoSmelt: boolean
 }
+
+/** pool = hired; assigned per job ≤ pool in total; a job takes workers only once its certificate is bought */
+export type Workers = { pool: number; assigned: Record<WorkerJob, number>; certificates: WorkerJob[] }
 
 /** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
 export type Loan = { principal: number; debt: number }
@@ -75,8 +82,14 @@ export type CounterId = keyof Counters
 /** queue = jobs paid for and not done (the first one is in progress), ready = bars waiting in the output tray */
 export type Furnace = { built: boolean; queue: number; progress: number; ready: number }
 
-/** cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop */
-export type Lifetime = { cashEarned: number; energySpent: number; bars: number; harvests: Partial<Record<CropId, number>> }
+/** cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash */
+export type Lifetime = {
+  cashEarned: number
+  energySpent: number
+  bars: number
+  harvests: Partial<Record<CropId, number>>
+  wagesPaid: number
+}
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
 
@@ -118,7 +131,7 @@ export function createInitialState(): GameState {
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: { built: false, queue: 0, progress: 0, ready: 0 },
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {} },
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0 },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,
@@ -128,6 +141,8 @@ export function createInitialState(): GameState {
       tools: { water: 0, harvest: 0, plant: 0 },
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
+      workers: { pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] },
+      autoSmelt: false,
     },
   }
 }

@@ -4,6 +4,7 @@ import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
 import { PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
+import type { WorkerJob } from './data/workers'
 import type { CounterId, MetaState, MultiplierKey } from './state'
 
 export const START_TILES = 9
@@ -118,6 +119,20 @@ const WATER_MOISTURE = [1, 2]
 const DOUBLE_HARVEST = [0, 0.1]
 const SEED_KEEP = [0, 0.2]
 const TOOL_TIER_COST: ReadonlyArray<Price> = [{ copperBar: 4, cash: 100 }]
+
+// Workers v1 (batch 8, DECISIONS "Workers v1"): hire k (pool k − 1 → k) costs HIRE_BASE × HIRE_GROWTH^(k − 1), pool
+// capped; the hire button needs HIRE_UNLOCK. A job takes workers once its certificate is bought (needs its unlock
+// counter). Every WORKER_ACTION_TICKS each assigned worker does one action of its job, paid WORKER_WAGE at that moment.
+const WORKER_HIRE_BASE = 80
+const WORKER_HIRE_GROWTH = 1.7
+const WORKER_POOL_CAP = 6
+const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harvests', at: 30 }
+const WORKER_ACTION_TICKS = 5
+const WORKER_WAGE = 1
+const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number }> = {
+  water: { price: { cash: 100 }, counter: 'waters', at: 40 },
+  harvest: { price: { stone: 20, cash: 150 }, counter: 'harvests', at: 40 },
+}
 
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
@@ -371,6 +386,39 @@ export function toolTierMax(): number {
 /** price of material tier ≥ 1 for any job */
 export function toolTierCost(tier: number, meta: MetaState): Price {
   return scalePrice(TOOL_TIER_COST[tier - 1], meta)
+}
+
+/** price of the next hire when `pool` workers are already hired */
+export function workerHireCost(pool: number, meta: MetaState): number {
+  return Math.round(WORKER_HIRE_BASE * WORKER_HIRE_GROWTH ** pool * multiplier(meta, 'cost'))
+}
+
+export function workerPoolCap(): number {
+  return WORKER_POOL_CAP
+}
+
+/** hiring needs counters[counter] ≥ at */
+export function workerHireUnlock(): { counter: CounterId; at: number } {
+  return WORKER_HIRE_UNLOCK
+}
+
+/** buying the job's certificate needs counters[counter] ≥ at */
+export function certificateUnlock(job: WorkerJob): { counter: CounterId; at: number } {
+  return { counter: CERTIFICATES[job].counter, at: CERTIFICATES[job].at }
+}
+
+export function certificateCost(job: WorkerJob, meta: MetaState): Price {
+  return scalePrice(CERTIFICATES[job].price, meta)
+}
+
+/** ticks between two actions of one worker */
+export function workerActionTicks(): number {
+  return WORKER_ACTION_TICKS
+}
+
+/** cash per worker action */
+export function workerWage(meta: MetaState): number {
+  return Math.round(WORKER_WAGE * multiplier(meta, 'cost'))
 }
 
 export function digSeedDrop(): { crop: CropId; chance: number } {

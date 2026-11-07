@@ -438,6 +438,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 7.2 (task 48): the one wood constant is `ITEMS.wood.emoji` in `src/core/data/items.ts`** (it already fed
   every price line through `priceText` and the mine storage list); the three UI literals now read it. That is a
   display string in core data, not behaviour, balance or save shape. The old 🪵 is left in earlier batch notes.
+- **Batch 8 (task 49): `run.workers` has no `cooldowns`.** The worker clock is `run.tick`: on every tick that is a
+  multiple of `workerActionTicks()` each assigned worker acts once (task 50). `run.tick` is already saved and
+  deterministic, so a cooldown field would only duplicate it.
+- **Batch 8 (task 49): `wagesPaid` lives in `run.lifetime` only, not in `run.counters`.** It unlocks nothing (counters
+  are milestone gates), the batch-7 ladder pin compares `counters` with `toEqual`, and the frozen v4 save type uses
+  the live `Counters`. The auto-smelt flag is `run.autoSmelt` (beside `autoBuySeeds`), not a furnace field, and is
+  part of the same v8 bump so task 51 needs no second one.
+- **Batch 8 (task 49): `assignWorker(job, −1)` at 0 fails `NOTHING_TO_DO`**; hire order LOCKED, POOL_FULL, NO_CASH;
+  certificate order ALREADY_OWNED, LOCKED, NOT_ENOUGH_ITEMS, NO_CASH. "Visible" = `hireUnlocked` /
+  `certificateUnlocked` (the same check that makes the buy fail `LOCKED`).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1029,7 +1039,7 @@ Decisions: DECISIONS.md "Workers v1 (batch 8)"; research docs/research/workers.m
 §6 batch scope — its economy numbers predate batches 5–7, so the sim re-checks every one). Save v8 (capture a real
 v7 fixture first; chain v1–v7 → v8; backup key).
 
-49. [ ] Save v8 + workers core (`src/core/workers.ts`): `run.workers = { pool, assigned: Record<WorkerJob, number>,
+49. [x] Save v8 + workers core (`src/core/workers.ts`): `run.workers = { pool, assigned: Record<WorkerJob, number>,
     certificates: WorkerJob[], cooldowns }` with `WorkerJob = 'water' | 'harvest'` (plant/mine later, typed so they
     extend). `hireWorker()` cost 80 × 1.7^(n−1), cap 6; `buyCertificate(job)`: water 💰100 (visible after 40
     waters), harvest 💰150 + 20 stone (visible after 40 harvests); hire button visible after 30 harvests;

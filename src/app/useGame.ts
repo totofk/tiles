@@ -36,6 +36,9 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   QUEUE_FULL: 'Furnace is full — collect bars first',
   NOT_ENOUGH_ORE: 'Not enough ore',
   NOT_ENOUGH_FUEL: 'Not enough fuel',
+  NO_CERTIFICATE: 'Buy the certificate first',
+  POOL_FULL: 'No more workers to hire',
+  NO_FREE_WORKER: 'No free worker — hire one or unassign',
 }
 
 /** the welcome-back banner: the catch-up summary, plus the furnace tray when bars wait in it */

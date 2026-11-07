@@ -48,6 +48,9 @@ export type ActionError =
   | 'QUEUE_FULL'
   | 'NOT_ENOUGH_ORE'
   | 'NOT_ENOUGH_FUEL'
+  | 'NO_CERTIFICATE'
+  | 'POOL_FULL'
+  | 'NO_FREE_WORKER'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
