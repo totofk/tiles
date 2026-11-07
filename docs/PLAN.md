@@ -911,7 +911,7 @@ tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → 
 one button: `.tools > button` = 1 px border × 2 + 12 px padding × 2 + label, no wrap; the level-2 ⋯ mark adds 4 px
 margin + ≈ 10 px (12 px font). Labels ≈ 8 px per character (estimated): "Water 3" ≈ 55, "Harvest 3" ≈ 70,
 "Plant 3" ≈ 52. Three level-2 buttons ≈ 95 + 110 + 92 = **≈ 297 px**, + 2 × 6 px gaps + 2 × 8 px bar padding =
-**≈ 325 px of 375** (≈ 50 px spare; two-digit n adds ≈ 8 px per button, still ≤ 349). The bar no longer scrolls
+**≈ 325 px of 375** (≈ 50 px spare; n is at most 8 at the 24-tile cap, always one digit). The bar no longer scrolls
 sideways (`overflow-x` removed). The popover (− / count / +, 44 px buttons ≈ 150 px wide) opens above the bar at
 8 px from the left; ≥ 768 px it opens left of the vertical bar. Owned farm tools are solid green-bordered cards
 "✓ Owned"; pouch and storage item names never wrap their count ("🟤 Copper ore ×3" stays one line, the sell buttons

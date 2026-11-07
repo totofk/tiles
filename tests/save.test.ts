@@ -357,6 +357,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     [3, v3],
     [4, v4],
     [5, v5],
+    [6, v6],
   ])('keeps the raw v%i save under tiles.save.backup.v%i before migrating it', (version, raw) => {
     const store = memoryStore()
     store.setItem(SAVE_KEY, raw)
