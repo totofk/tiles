@@ -158,6 +158,15 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   field (unknown view, a tab id not in `PANEL_TABS`) falls back alone. A storage that throws also gives the defaults.
   DOM tests use `@testing-library/react` + `jsdom` through a per-file `// @vitest-environment jsdom` comment;
   every other test still runs in node.
+- **Batch 4.5: `repay(amount)` never pays part of the requested amount when cash is short.** "Capped at debt and
+  cash" is read as: the payment is `min(amount, debtDue)`, and if cash is below that it returns `NOT_ENOUGH_CASH`
+  instead of silently paying less. The Bank buttons then use the action result as their disabled reason, like Dig.
+  Amounts must be whole (`BAD_AMOUNT` otherwise), so cash stays an integer. Debt stays a float; the amount due is
+  `Math.ceil(debt − FLOAT_EPSILON)` so float drift (36.000…01) never adds 1. Leftover debt ≤ `FLOAT_EPSILON` clears
+  the loan.
+- **Batch 4.5: the loan principal and the "repay 💰N" step (`LOAN_REPAY_STEP` 10, added to `balance.ts`) follow the
+  `cost` meta multiplier**, so a loan always buys the same number of seeds. Fee, rate and cap are ratios of the
+  principal and take no multiplier. The bank's errors join the shared `ActionError` union, so `ERROR_TEXT` covers them.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -247,7 +256,7 @@ UI only: no change to `src/core/**` numbers or the save format.
 Question: does a loan get a broke player out of the soft-lock without becoming a free-money exploit?
 Numbers are placeholders, retuned after docs/research/round2-mining.md.
 
-18. [ ] Core `src/core/bank.ts`: `run.loan: { principal, debt } | null`. `takeLoan()` (only when no loan; principal
+18. [x] Core `src/core/bank.ts`: `run.loan: { principal, debt } | null`. `takeLoan()` (only when no loan; principal
     = `LOAN_PRINCIPAL`, cash += principal, debt = principal × (1 + `LOAN_FEE`)), `repay(amount)` (partial or full,
     capped at debt and cash; loan cleared at 0). `step` grows debt by principal × `LOAN_RATE_PER_TICK` per tick,
     capped at principal × `LOAN_DEBT_CAP` (2.0). Typed errors: LOAN_ACTIVE, NO_LOAN, NOT_ENOUGH_CASH. Save v3 with

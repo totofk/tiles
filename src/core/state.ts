@@ -36,7 +36,12 @@ export type RunState = {
   vein: { level: number }
   /** mulberry32 state (uint32); advanced by actions that roll, so runs replay exactly */
   rngState: number
+  /** one loan at a time; step() grows its debt */
+  loan: Loan | null
 }
+
+/** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
+export type Loan = { principal: number; debt: number }
 
 export type PickaxeTier = 'wooden'
 export type Pickaxe = { tier: PickaxeTier; durability: number }
@@ -84,6 +89,7 @@ export function createInitialState(): GameState {
       bagCapacity: BAG_CAPACITY_START,
       vein: { level: 0 },
       rngState: INITIAL_RNG_SEED,
+      loan: null,
     },
   }
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import v1 from './fixtures/save-v1.json?raw'
+import v2 from './fixtures/save-v2.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
+import { takeLoan } from '../src/core/bank'
 import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
@@ -17,20 +19,41 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 2, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 3, savedAtMs: 1234, state })
   })
 
-  it('migration switch accepts v2 and rejects unknown, missing or future versions', () => {
-    const v2 = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(v2))?.version).toBe(2)
-    expect(deserialize(JSON.stringify({ ...v2, version: 3 }))).toBeNull()
-    expect(deserialize(JSON.stringify({ ...v2, version: undefined }))).toBeNull()
+  it('round-trips an active loan', () => {
+    const s = createInitialState()
+    const state = { ...s, run: { ...s.run, loan: { principal: 30, debt: 41.12 } } }
+    expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migrates a real v1 save (6 tiles, energy above the new max) to v2', () => {
+  it('migration switch accepts v3 and rejects unknown, missing or future versions', () => {
+    const v3 = JSON.parse(serialize(createInitialState(), 0))
+    expect(deserialize(JSON.stringify(v3))?.version).toBe(3)
+    expect(deserialize(JSON.stringify({ ...v3, version: 4 }))).toBeNull()
+    expect(deserialize(JSON.stringify({ ...v3, version: undefined }))).toBeNull()
+  })
+
+  it('migrates a real v2 save (built by the batch-4 code) to v3 with no loan', () => {
+    const old = JSON.parse(v2)
+    expect(old.version).toBe(2)
+    expect(old.state.run).not.toHaveProperty('loan')
+    const save = deserialize(v2)!
+    expect(save).toEqual({
+      version: 3,
+      savedAtMs: old.savedAtMs,
+      state: { meta: old.state.meta, run: { ...old.state.run, loan: null } },
+    })
+    // the migrated state plays on, and a loan can be taken
+    expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
+    expect(takeLoan(save.state).ok).toBe(true)
+  })
+
+  it('migrates a real v1 save (6 tiles, energy above the new max) to v3', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(2)
+    expect(save.version).toBe(3)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(old.meta)
@@ -46,6 +69,7 @@ describe('serialize / deserialize', () => {
       bagCapacity: BAG_CAPACITY_START,
       vein: { level: 0 },
       rngState: INITIAL_RNG_SEED,
+      loan: null,
     })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
     expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])

@@ -4,9 +4,11 @@ import {
   cropRotGraceTicks,
   energyMax,
   energyRegenPerTick,
+  loanDebtCap,
+  loanDebtPerTick,
   moistureDrainPerTick,
 } from './balance'
-import type { GameState, MetaState, RunState, Tile } from './state'
+import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 
 /** a tile with its crop removed (harvest or rot); keeps the soil moisture */
 export function clearedTile(tile: Tile): Tile {
@@ -33,6 +35,13 @@ function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number): Tile {
   return moisture === next.moisture ? next : { ...next, moisture }
 }
 
+/** debt grows linearly while unpaid, never past the cap */
+function stepLoan(loan: Loan | null): Loan | null {
+  if (!loan) return null
+  const debt = Math.min(loanDebtCap(loan.principal), loan.debt + loanDebtPerTick(loan.principal))
+  return debt === loan.debt ? loan : { ...loan, debt }
+}
+
 function stepOnce(state: GameState): GameState {
   const { run, meta } = state
   const max = energyMax(run.upgrades.energyMax, meta)
@@ -44,6 +53,7 @@ function stepOnce(state: GameState): GameState {
     energy,
     tiles: run.tiles.map((t) => stepTile(t, meta, run.upgrades.fertilizer)),
     tick: run.tick + 1,
+    loan: stepLoan(run.loan),
   }
   return { meta, run: nextRun }
 }

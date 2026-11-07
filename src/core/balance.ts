@@ -60,6 +60,15 @@ export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
 const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }]
 
+// Bank v0 placeholders (PLAN.md batch 4.5): debt starts at principal × (1 + fee) and grows by
+// principal × rate per tick up to principal × cap (33 → 60 in 450 ticks).
+const LOAN_PRINCIPAL = 30
+const LOAN_FEE = 0.1
+const LOAN_RATE_PER_TICK = 0.002
+const LOAN_DEBT_CAP = 2.0
+/** the Bank tab's partial-repay button */
+const LOAN_REPAY_STEP = 10
+
 export function multiplier(meta: MetaState, key: MultiplierKey): number {
   return meta.multipliers[key]
 }
@@ -147,6 +156,28 @@ export function pickaxeRecipe(tier: PickaxeTier): { wood: number; durability: nu
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+/** whole cash; scales with the cost multiplier so a loan buys the same number of seeds */
+export function loanPrincipal(meta: MetaState): number {
+  return Math.round(LOAN_PRINCIPAL * multiplier(meta, 'cost'))
+}
+
+/** debt right after borrowing */
+export function loanStartDebt(principal: number): number {
+  return principal * (1 + LOAN_FEE)
+}
+
+export function loanDebtPerTick(principal: number): number {
+  return principal * LOAN_RATE_PER_TICK
+}
+
+export function loanDebtCap(principal: number): number {
+  return principal * LOAN_DEBT_CAP
+}
+
+export function loanRepayStep(meta: MetaState): number {
+  return Math.round(LOAN_REPAY_STEP * multiplier(meta, 'cost'))
 }
 
 /** cost of the next tile; Infinity once TILE_CAP tiles are owned */

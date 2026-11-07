@@ -1,0 +1,107 @@
+{
+  "version": 2,
+  "savedAtMs": 1762500000000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 30,
+      "energy": 8.333333333333334,
+      "tiles": [
+        {
+          "status": "tilled",
+          "growth": 0,
+          "moisture": 0.13333333333333192,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "tilled",
+          "growth": 0,
+          "moisture": 0.13333333333333192,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0.13333333333333192,
+          "ticksSinceMature": 12,
+          "cropId": "radish"
+        },
+        {
+          "status": "planted",
+          "growth": 100,
+          "moisture": 0.13333333333333192,
+          "ticksSinceMature": 12,
+          "cropId": "radish"
+        },
+        {
+          "status": "tilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        }
+      ],
+      "licenses": [
+        "radish"
+      ],
+      "upgrades": {
+        "energyMax": 0,
+        "energyRegen": 0,
+        "sellPrice": 0,
+        "fertilizer": 0
+      },
+      "counters": {
+        "harvests": 2,
+        "sales": 2,
+        "digs": 2
+      },
+      "tick": 127,
+      "mineLicense": true,
+      "pickaxe": {
+        "tier": "wooden",
+        "durability": 18
+      },
+      "inventory": {
+        "wood": 0,
+        "stone": 2
+      },
+      "bagCapacity": 20,
+      "vein": {
+        "level": 0
+      },
+      "rngState": 163712551
+    }
+  }
+}

@@ -25,6 +25,9 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   BAG_FULL: 'Bag is full — sell something',
   NOT_ENOUGH_ITEMS: 'Not enough items',
   BAD_AMOUNT: 'Invalid amount',
+  LOAN_ACTIVE: 'Repay the current loan first',
+  NO_LOAN: 'No loan to repay',
+  NOT_ENOUGH_CASH: 'Not enough cash',
 }
 
 const TOAST_MS = 2000

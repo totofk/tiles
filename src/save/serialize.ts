@@ -3,14 +3,15 @@ import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../core/balance'
 import { createInitialState, createTile, type GameState, type RunState } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 
 type RunV1 = Pick<RunState, 'cash' | 'energy' | 'tiles' | 'licenses' | 'tick'> & {
   upgrades: { energyMax: number; energyRegen: number }
 }
 type SaveV1 = { version: 1; savedAtMs: number; state: { meta: GameState['meta']; run: RunV1 } }
-type SaveV2 = { version: 2; savedAtMs: number; state: GameState }
-export type Save = SaveV2
+type SaveV2 = { version: 2; savedAtMs: number; state: { meta: GameState['meta']; run: Omit<RunState, 'loan'> } }
+type SaveV3 = { version: 3; savedAtMs: number; state: GameState }
+export type Save = SaveV3
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -35,15 +36,23 @@ function migrateV1(save: SaveV1): SaveV2 {
   }
 }
 
+// v2 → v3: the bank arrived; a v2 run never had a loan.
+function migrateV2(save: SaveV2): SaveV3 {
+  const { meta, run } = save.state
+  return { version: 3, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, loan: null } } }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV1(data as SaveV1)
+      return migrateV2(migrateV1(data as SaveV1))
     case 2:
-      return data as SaveV2
+      return migrateV2(data as SaveV2)
+    case 3:
+      return data as SaveV3
     default:
       return null
   }

@@ -33,6 +33,9 @@ export type ActionError =
   | 'BAG_FULL'
   | 'NOT_ENOUGH_ITEMS'
   | 'BAD_AMOUNT'
+  | 'LOAN_ACTIVE'
+  | 'NO_LOAN'
+  | 'NOT_ENOUGH_CASH'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
