@@ -52,6 +52,16 @@ describe('till', () => {
   })
 })
 
+describe('selectCrop ("Crop to plant", saved for the plant worker)', () => {
+  it('sets plantCrop for free; needs the license', () => {
+    const s = createInitialState()
+    expect(s.run.plantCrop).toBe('radish')
+    expect(actions.selectCrop(s, 'pumpkin')).toEqual({ ok: false, error: 'NO_LICENSE' })
+    const next = okState(actions.selectCrop({ ...s, run: { ...s.run, licenses: ['radish', 'pumpkin'] } }, 'pumpkin'))
+    expect(next.run).toMatchObject({ plantCrop: 'pumpkin', cash: s.run.cash, energy: s.run.energy })
+  })
+})
+
 describe('plant', () => {
   it('plants a licensed crop on a tilled tile and pays the seed', () => {
     const s = withTile(tilled)
@@ -196,6 +206,6 @@ describe('lifetime totals', () => {
     s = okState(mining.sellItem(s, 'stone', 3))
     s = okState(bank.takeLoan(s))
     const income = cropSellPrice('radish', meta, 0) + 3 * 2
-    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0 })
+    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0 })
   })
 })

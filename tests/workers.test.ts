@@ -6,6 +6,7 @@ import {
   certificateCost,
   certificateUnlock,
   cropGrowTicks,
+  cropSeedCost,
   cropSellPrice,
   moistureDrainPerTick,
   waterMoisture,
@@ -47,8 +48,8 @@ function okState(r: ActionResult): GameState {
   return r.state
 }
 
-const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0) => ({
-  workers: { pool, assigned: { water, harvest, ore, fuel }, certificates },
+const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0, plant = 0) => ({
+  workers: { pool, assigned: { plant, water, harvest, ore, fuel }, certificates },
 })
 
 describe('workers: balance', () => {
@@ -111,7 +112,7 @@ describe('assignWorker', () => {
     const certified = withRun(workers(2, 0, 0, ['water']))
     const one = okState(assignWorker(certified, 'water', 1))
     const two = okState(assignWorker(one, 'water', 1))
-    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ water: 2, harvest: 0, ore: 0, fuel: 0 }, 0])
+    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ plant: 0, water: 2, harvest: 0, ore: 0, fuel: 0 }, 0])
     expect(assignWorker(two, 'water', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const back = okState(assignWorker(two, 'water', -1))
     expect([back.run.workers.assigned.water, freeWorkers(back.run)]).toEqual([1, 1])
@@ -122,7 +123,7 @@ describe('assignWorker', () => {
     const s = withRun(workers(1, 1, 0))
     expect(assignWorker(s, 'harvest', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const moved = okState(assignWorker(okState(assignWorker(s, 'water', -1)), 'harvest', 1))
-    expect(moved.run.workers.assigned).toEqual({ water: 0, harvest: 1, ore: 0, fuel: 0 })
+    expect(moved.run.workers.assigned).toEqual({ plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0 })
   })
 })
 
@@ -133,15 +134,15 @@ const growing = (moisture: number, growth = 10): Tile => ({ status: 'planted', c
 const ripe = (ticksSinceMature: number): Tile => ({ status: 'planted', cropId: 'pumpkin', growth: PUMPKIN, moisture: 0, ticksSinceMature })
 const empty: Tile = { status: 'tilled', growth: 0, moisture: 0, ticksSinceMature: 0 }
 
-/** a farm whose first tiles are `tiles` (the rest tilled and empty), with workers on water / harvest */
-function farm(tiles: Tile[], { cash = 100, water = 1, harvest = 1, energy = 0, tick = 0 } = {}): GameState {
+/** a farm whose first tiles are `tiles` (the rest tilled and empty), with workers on water / harvest (/ plant) */
+function farm(tiles: Tile[], { cash = 100, water = 1, harvest = 1, plant = 0, energy = 0, tick = 0 } = {}): GameState {
   return withRun({
     cash,
     energy,
     tick,
     licenses: ['radish', 'pumpkin'],
     tiles: init.run.tiles.map((_, i) => tiles[i] ?? empty),
-    ...workers(water + harvest, water, harvest),
+    ...workers(water + harvest + plant, water, harvest, undefined, 0, 0, plant),
   })
 }
 
@@ -447,9 +448,123 @@ describe('furnace loaders: workersAct', () => {
   })
 })
 
+// ---- Task 62: plant worker ----
+
+const untilled: Tile = { status: 'untilled', growth: 0, moisture: 0, ticksSinceMature: 0 }
+/** every tile planted and growing except `tiles`; only a planter on the farm */
+const planterFarm = (tiles: Tile[], opts: { cash?: number; plant?: number } = {}) => {
+  const s = farm(init.run.tiles.map((_, i) => tiles[i] ?? growing(1)), { water: 0, harvest: 0, plant: 1, ...opts })
+  return { ...s, run: { ...s.run, plantCrop: 'pumpkin' as CropId } }
+}
+const SEED = (crop: CropId) => cropSeedCost(crop, meta)
+
+describe('plant worker: certificate', () => {
+  it('🥉10 + 💰300 after 60 plants; LOCKED below, NOT_ENOUGH_ITEMS before NO_CASH', () => {
+    expect(certificateCost('plant', meta)).toEqual({ copperBar: 10, cash: 300 })
+    expect(certificateUnlock('plant')).toEqual({ counter: 'plants', at: 60 })
+    expect(certificateUnlocked(withRun({}, { plants: 59 }).run, 'plant')).toBe(false)
+    expect(buyCertificate(withRun({ cash: 1000, inventory: { copperBar: 10 } }, { plants: 59 }), 'plant')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyCertificate(withRun({ cash: 1000, inventory: { copperBar: 9 } }, { plants: 60 }), 'plant')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyCertificate(withRun({ cash: 299, inventory: { copperBar: 10 } }, { plants: 60 }), 'plant')).toEqual({ ok: false, error: 'NO_CASH' })
+    const bought = okState(buyCertificate(withRun({ cash: 300, inventory: { copperBar: 10 } }, { plants: 60 }), 'plant'))
+    expect(bought.run).toMatchObject({ cash: 0, inventory: { copperBar: 0 }, workers: { certificates: ['plant'] } })
+  })
+})
+
+describe('plant worker: workersAct', () => {
+  it('plants "Crop to plant" on an empty tilled tile with a pouch seed: the player tap, no energy, one wage', () => {
+    const s0 = planterFarm([untilled, empty], { cash: 50 })
+    const s = { ...s0, run: { ...s0.run, seeds: { pumpkin: 3 }, energy: 4 } }
+    const next = workersAct(s)
+    expect(next.run.tiles[1]).toMatchObject({ status: 'planted', cropId: 'pumpkin', growth: 0 })
+    expect(next.run.tiles[0].status).toBe('untilled')
+    expect(next.run.seeds.pumpkin).toBe(2)
+    expect(next.run).toMatchObject({ cash: 50 - workerWage(meta), energy: 4, counters: { plants: 1 } })
+    expect(next.run.lifetime).toMatchObject({ wagesPaid: 1, workerPlants: 1, energySpent: 0 })
+    // the same as the player's plant with no energy, plus the wage
+    const manual = okState(plant(s, 1, 'pumpkin', 0))
+    expect(next.run).toEqual({ ...manual.run, cash: manual.run.cash - 1, lifetime: { ...manual.run.lifetime, wagesPaid: 1, workerPlants: 1 } })
+  })
+
+  it('tills an untilled tile when no tilled one is empty (a till is not a plant)', () => {
+    const next = workersAct(planterFarm([untilled]))
+    expect(next.run.tiles[0].status).toBe('tilled')
+    expect(next.run.counters.plants).toBe(0)
+    expect(next.run.lifetime).toMatchObject({ wagesPaid: 1, workerPlants: 0 })
+    expect(okState(till(planterFarm([untilled]), 0, 0)).run.tiles[0].status).toBe('tilled')
+  })
+
+  it('auto-buy on and an empty pouch: buys the one seed at the seed price, like the player', () => {
+    const next = workersAct(planterFarm([empty], { cash: 50 }))
+    expect(next.run.tiles[0].cropId).toBe('pumpkin')
+    expect(next.run.cash).toBe(50 - SEED('pumpkin') - workerWage(meta))
+  })
+
+  it('auto-buy off and an empty pouch: idles unpaid, and does not till ahead either', () => {
+    const s0 = planterFarm([empty, untilled])
+    const s = { ...s0, run: { ...s0.run, autoBuySeeds: false } }
+    expect(workersAct(s)).toBe(s)
+    expect(workerTargets(s)).toEqual([])
+    expect(workerUnpaid(s, 'plant')).toBe(false)
+  })
+
+  it('never goes below 0: a seed that would leave less than the wage idles the planter (unpaid badge)', () => {
+    const short = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta) - 1 })
+    expect(workersAct(short)).toBe(short)
+    expect(workerUnpaid(short, 'plant')).toBe(true)
+    expect(step(short, 600).run.cash).toBe(short.run.cash)
+    const exact = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta) })
+    expect(workersAct(exact).run.cash).toBe(0)
+    expect(workerUnpaid(exact, 'plant')).toBe(false)
+  })
+
+  it('acts only when a tile is empty: a fully planted farm costs nothing', () => {
+    const full = planterFarm([])
+    expect(workersAct(full)).toBe(full)
+  })
+
+  it('the copper dibber applies: its seed-keep roll is the player plant roll', () => {
+    const s0 = planterFarm([empty, empty], { cash: 50, plant: 2 })
+    const s = { ...s0, run: { ...s0.run, seeds: { pumpkin: 5 }, toolTier: { ...s0.run.toolTier, plant: 1 } } }
+    const manual = okState(plant(okState(plant(s, 0, 'pumpkin', 0)), 1, 'pumpkin', 0))
+    const next = workersAct(s)
+    expect(next.run).toEqual({ ...manual.run, cash: manual.run.cash - 2, lifetime: { ...manual.run.lifetime, wagesPaid: 2, workerPlants: 2 } })
+    expect(next.run.rngState).not.toBe(s.run.rngState)
+  })
+
+  it('plants before waterers and harvesters act; workerTargets rings the planter tile first', () => {
+    const s0 = planterFarm([empty, growing(0), ripe(3)])
+    const s = { ...s0, run: { ...s0.run, workers: { ...s0.run.workers, pool: 3, assigned: { ...s0.run.workers.assigned, water: 1, harvest: 1 } } } }
+    // the seed just planted on dry soil is the driest due tile (tile order breaks the tie), so it is watered in the same round
+    expect(workerTargets(s)).toEqual([
+      { job: 'plant', tile: 0 },
+      { job: 'water', tile: 0 },
+      { job: 'harvest', tile: 2 },
+    ])
+  })
+
+  it('step(s, n) equals n × step(s, 1) with all three farm workers on, and the full loop runs 8 h offline at cash ≥ 0', () => {
+    const s0 = farm([untilled, empty, growing(0), ripe(2), growing(0.1, PUMPKIN - 20)], { cash: 60, water: 1, harvest: 1, plant: 1 })
+    const s: GameState = { ...s0, run: { ...s0.run, plantCrop: 'pumpkin', seeds: { pumpkin: 2 } } }
+    let one = s
+    for (let i = 0; i < 900; i++) one = step(one, 1)
+    expect(step(s, 900)).toEqual(one)
+    expect(one.run.lifetime.workerPlants).toBeGreaterThan(0)
+    let lowest = Infinity
+    let t = s
+    for (let i = 0; i < OFFLINE_CAP_TICKS; i += 60) {
+      t = step(t, 60)
+      lowest = Math.min(lowest, t.run.cash)
+    }
+    expect(lowest).toBeGreaterThanOrEqual(0)
+    expect(t.run.tiles.every((tile) => tile.status !== 'untilled')).toBe(true)
+  })
+})
+
 describe('new runs', () => {
   it('start with no workers, no certificates and no wages paid', () => {
-    expect(init.run.workers).toEqual({ pool: 0, assigned: { water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] })
+    expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
+    expect([init.run.plantCrop, init.run.lifetime.workerPlants]).toEqual(['radish', 0])
   })
 })

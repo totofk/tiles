@@ -1,4 +1,4 @@
-import { fail, harvest, water, withRun, type ActionResult } from './actions'
+import { fail, harvest, plant, till, water, withRun, type ActionResult } from './actions'
 import {
   certificateCost,
   certificateUnlock,
@@ -18,12 +18,16 @@ import type { GameState, RunState } from './state'
 import { step } from './step'
 import { toolTargets } from './tools'
 
-/** the job's own action (so its copper tier applies), with no player energy */
+/**
+ * The job's own action (so its copper tier applies), with no player energy. Plant = the player's tap on an empty tile:
+ * till it, else plant "Crop to plant" with the pouch and auto-buy rules (and the copper dibber's seed-keep).
+ */
 const WORK: Record<TileJob, (s: GameState, i: number) => ActionResult> = {
+  plant: (s, i) => (s.run.tiles[i].status === 'untilled' ? till(s, i, 0) : plant(s, i, s.run.plantCrop, 0)),
   water: (s, i) => water(s, i, 0),
   harvest: (s, i) => harvest(s, i, 0),
 }
-export type TileJob = 'water' | 'harvest'
+export type TileJob = 'plant' | 'water' | 'harvest'
 const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 
 /**
@@ -49,10 +53,13 @@ const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
 
 /**
  * Tiles a worker of this job acts on, best first: the tool's targets, but a waterer only waters a tile that would run
- * dry before its next turn, so a copper can (moisture 2) halves its actions and wages (DECISIONS "Workers v1").
+ * dry before its next turn, so a copper can (moisture 2) halves its actions and wages (DECISIONS "Workers v1"). A
+ * planter takes the tilled tiles first, then the untilled ones; when the first cannot be planted (no seed, no cash)
+ * it idles rather than tilling ahead.
  */
 function jobTiles(state: GameState, job: TileJob): number[] {
   const targets = toolTargets(state, job)
+  if (job === 'plant') return [...targets, ...state.run.tiles.flatMap((t, i) => (t.status === 'untilled' ? [i] : []))]
   if (job !== 'water') return targets
   const due = workerActionTicks() * moistureDrainPerTick(state.meta)
   return targets.filter((i) => state.run.tiles[i].moisture <= due)
@@ -71,10 +78,17 @@ function workerAction(state: GameState, job: WorkerJob): { result: ActionResult;
 /** a farm worker's action on a tile */
 export type WorkerTarget = { job: TileJob; tile: number }
 
+/** the worker's action, or null when it has nothing to do or the wage would not be left after it (a bought seed) */
+function paidAction(state: GameState, job: WorkerJob): { result: { ok: true; state: GameState }; tile?: number } | null {
+  const a = workerAction(state, job)
+  return a?.result.ok && a.result.state.run.cash >= workerWage(state.meta) ? { result: a.result, tile: a.tile } : null
+}
+
 /**
  * One round of every assigned worker, job by job in WORKER_JOBS order, each paying the wage at its action; a worker
- * with nothing to do idles unpaid, and the round stops when cash < wage (never debt). `touched` = each farm worker's
- * tile, in action order. Returns the same state object when nobody acts.
+ * with nothing to do idles unpaid, and the round stops when cash < wage (never debt). A planter whose seed would leave
+ * less than the wage idles too. `touched` = each farm worker's tile, in action order. Returns the same state object
+ * when nobody acts.
  */
 function workRound(state: GameState): { state: GameState; touched: WorkerTarget[] } {
   const wage = workerWage(state.meta)
@@ -83,11 +97,16 @@ function workRound(state: GameState): { state: GameState; touched: WorkerTarget[
   for (const job of WORKER_JOBS) {
     for (let k = 0; k < s.run.workers.assigned[job]; k++) {
       if (s.run.cash < wage) return { state: s, touched }
-      const a = workerAction(s, job)
-      if (!a?.result.ok) break
+      const a = paidAction(s, job)
+      if (!a) break
       if (a.tile !== undefined && isTileJob(job)) touched.push({ job, tile: a.tile })
       const { run } = a.result.state
-      s = { ...a.result.state, run: { ...run, cash: run.cash - wage, lifetime: { ...run.lifetime, wagesPaid: run.lifetime.wagesPaid + wage } } }
+      const lifetime = {
+        ...run.lifetime,
+        wagesPaid: run.lifetime.wagesPaid + wage,
+        workerPlants: run.lifetime.workerPlants + run.counters.plants - s.run.counters.plants,
+      }
+      s = { ...a.result.state, run: { ...run, cash: run.cash - wage, lifetime } }
     }
   }
   return { state: s, touched }
@@ -144,19 +163,20 @@ export function buyCertificate(state: GameState, job: WorkerJob): ActionResult {
  */
 export function workerTargets(state: GameState): WorkerTarget[] {
   const { assigned } = state.run.workers
-  if (assigned.water + assigned.harvest === 0) return []
+  if (assigned.plant + assigned.water + assigned.harvest === 0) return []
   return workRound(step(state, ticksUntilWorkers(state.run))).touched
 }
 
-/** a worker on this job would act now but cannot pay its wage (the UI's "unpaid" badge) */
+/** a worker on this job would act now but cannot pay its wage, before or (a bought seed) after it (the "unpaid" badge) */
 export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
-  return state.run.workers.assigned[job] > 0 && state.run.cash < workerWage(state.meta) && !!workerAction(state, job)?.result.ok
+  const a = workerAction(state, job)
+  return state.run.workers.assigned[job] > 0 && !!a?.result.ok && (state.run.cash < workerWage(state.meta) || !paidAction(state, job))
 }
 
 /**
  * Runs at the start of a tick, before moisture drains and before the furnace burns, so a tile the player just watered
  * (full) or harvested (no longer ripe) is never a target. On every workerActionTicks-th tick each assigned worker does
- * one action (workRound: driest due tile / ripe longest / collect or load ore / one coal), paying the wage at that
+ * one action (workRound: till or plant an empty tile / driest due tile / ripe longest / collect or load ore / one coal), paying the wage at that
  * moment. Nothing to do or cash < wage = it idles, no charge; never debt.
  */
 export function workersAct(state: GameState): GameState {

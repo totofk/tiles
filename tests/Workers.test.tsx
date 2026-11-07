@@ -32,7 +32,7 @@ const LABEL = { Water: '💧 Water', Harvest: '🌾 Harvest' }
 const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.worker-row') as HTMLElement
 const summary = () => document.querySelector('summary')!.textContent
 const certified = (pool: number, water = 0, harvest = 0) => ({
-  workers: { pool, assigned: { water, harvest, ore: 0, fuel: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
 })
 
 describe('👷 Workers card', () => {

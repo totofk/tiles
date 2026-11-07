@@ -121,19 +121,20 @@ function tierRoll(run: RunState, tier: number, chance: number): { hit: boolean; 
   return { hit: r < chance, rngState }
 }
 
-export function till(state: GameState, i: number): ActionResult {
+export function till(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   return farmAction(
     state,
     i,
     (t) => (t.status === 'untilled' ? null : 'NOT_UNTILLED'),
     (t) => ({ tile: { ...t, status: 'tilled' } }),
+    energy,
   )
 }
 
 // Planting uses 1 seed from the pouch. With 0 in stock and autoBuySeeds on it buys that one seed at the
 // seed price instead (the pre-v4 cost, so auto-buy costs exactly what planting always did). A copper dibber may keep
 // the seed: the checks still need one in hand, but a kept seed leaves the pouch as it was and auto-buy charges nothing.
-export function plant(state: GameState, i: number, cropId: CropId): ActionResult {
+export function plant(state: GameState, i: number, cropId: CropId, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   const stock = run.seeds[cropId] ?? 0
   const price = stock > 0 ? 0 : cropSeedCost(cropId, state.meta)
@@ -156,7 +157,13 @@ export function plant(state: GameState, i: number, cropId: CropId): ActionResult
         rngState,
       }
     },
+    energy,
   )
+}
+
+/** "Crop to plant" for taps, the plant tool and the plant worker; free, needs the license */
+export function selectCrop(state: GameState, cropId: CropId): ActionResult {
+  return state.run.licenses.includes(cropId) ? withRun(state, { plantCrop: cropId }) : fail('NO_LICENSE')
 }
 
 export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {

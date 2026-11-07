@@ -572,6 +572,23 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   doing a loader's job once one is assigned (the batch-8 rule for farm jobs), else it would load and collect before
   the loader's 5-tick clock and the loaders would idle.
 - **Batch 9 (task 61): no `balance.ts` change**; the starting numbers pass every check.
+- **Batch 10 (task 62): "Crop to plant" moved from React state into the save (`run.plantCrop`, set by the new free
+  action `selectCrop`, NO_LICENSE).** The planter acts inside `step()`, also during the offline catch-up, where no UI
+  state exists. App reads and writes it through the game state (taps, the plant tool, Farm tab and Shop pickers); it
+  survives a reload now instead of resetting to Carrot, and a reset goes back to Carrot through `createInitialState`.
+  v9 saves migrate to Carrot, which is what the UI showed after every load before.
+- **Batch 10 (task 62): `plant` is first in `WORKER_JOBS`** (action order plant → water → harvest), which gives the
+  Workers card the plan's Plant / Water / Harvest rows with no second list. A tile harvested in a round is replanted on
+  the next round (5 s later), not the same one; harvest → plant in one round would have meant reordering water /
+  harvest too and moving every batch-8 / 9 worker pin.
+- **Batch 10 (task 62): a planter whose first tile cannot be planted idles instead of tilling another tile.** The plan
+  pins "auto-buy off → workers idle when the pouch is empty"; tilling ahead with no seed would charge wages for soil
+  nobody can plant.
+- **Batch 10 (task 62): wages are checked after the action as well as before** (`paidAction`), see the results: an
+  auto-bought seed is the first worker action that spends cash.
+- **Batch 10 (task 62): the plant row, its ⓘ tip (`WORKER_TIPS.plant`) and 🌱 (`WORKER_JOB_EMOJI.plant`) ship with the
+  core**, because `WORKER_JOB_LABEL` / `WORKER_TIPS` / `WORKER_JOB_EMOJI` are `Record<WorkerJob, …>` and the build needs
+  them (as batch 9's loader rows did); task 63 lays out the rest.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1545,7 +1562,7 @@ No `balance.ts` number changed: every check below passes on the task-57/58 start
 Toon: workers for planting next, before iron; dig-for-seeds never gets a worker (a paid dig worker buys a 💰2 carrot
 seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot pay it anyway). Save v9 → v10.
 
-- [ ] 62. **Plant worker core + save v10.** New `WorkerJob` `plant` (same pool, wage, action clock as batch 8/9).
+- [x] 62. **Plant worker core + save v10.** New `WorkerJob` `plant` (same pool, wage, action clock as batch 8/9).
     One action = what the player's tap does on that tile: till an untilled tile, else plant the crop selected in
     "Crop to plant" on an empty tilled tile, using a seed from the pouch (auto-buy rules apply exactly as for the
     player: buys one seed when the pouch is empty and auto-buy is on and cash allows; else the worker idles, no wage).
@@ -1560,3 +1577,31 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
     offline vs batch 8's +💰1,085 (the gap this batch closes). Pin: the full loop runs offline without going below 0
     cash, auto-buy off → workers idle when the pouch is empty, the certificate is reachable after the furnace
     loaders. Tune only batch-10 numbers; report every change as a deviation.
+
+## Batch 10 results
+
+### Plant worker core + save v10 (task 62)
+- **Fixture first:** `tests/fixtures/save-v9.json` (own commit) is the real v8 fixture loaded by the batch-9 code and
+  played with its real actions: 10 coal sold, tray collected, ore certificate bought, a 4th hire put on ore, fire cap
+  Lv1, coal added, then 46 ticks of taps (lemons), digs and steps. It saves mid-smelt (fire 554, ore 2, progress 43)
+  with 100 plants, so the plant certificate is already visible in it.
+- **Job:** `WORKER_JOBS = plant, water, harvest, ore, fuel` (farm-loop order; also the round's action order and the
+  Workers card's row order). Same pool, wage (💰1 at the action) and 5-tick clock. One action = the player's tap on an
+  empty tile with no energy: `till(s, i, 0)` on an untilled tile, else `plant(s, i, run.plantCrop, 0)`, so the pouch,
+  auto-buy and the copper dibber's seed-keep roll are the player's own code (`till` / `plant` take the same `energy`
+  argument `water` / `harvest` already had). Tiles: the plant tool's targets (tilled, tile order), then the untilled
+  ones; when the first cannot be planted (no seed and auto-buy off, or no cash for the seed) the planter idles unpaid
+  and does not till ahead.
+- **Never below 0:** `workRound` checked `cash ≥ wage` before the action only; an auto-bought seed could then leave less
+  than the wage (cash 2, seed 2, wage 1 → −1). The shared rule is now "the wage must be left after the action"
+  (`paidAction`), for every job (water / harvest / loaders never lower cash, so nothing else changes); `workerUnpaid`
+  uses it too, so a planter short of seed + wage shows "unpaid".
+- **Certificate:** 🥉10 + 💰300, visible / buyable at 60 plants (`counters.plants`). **Lifetime:** `workerPlants` (plants
+  only, a worker's till does not count) for Stats and the away banner.
+- **workerTargets** covers the planter (one rule: `workRound`); the planter acts first, so a seed planted on dry soil is
+  the driest due tile and is watered in the same round.
+- **Save v10:** `run.plantCrop` (see Deviations), `workers.assigned.plant` 0, `lifetime.workerPlants` 0. `RunV9` is frozen
+  in `serialize.ts`; v1…v9 chain to v10 and the raw old save is kept under `tiles.save.backup.v<n>` (v9 added to the
+  backup test). Tested: the v9 fixture's whole migrated run, its smelt finishing after the load, the certificate visible
+  but not owned; plant / till / auto-buy / no seed / seed + wage − 1 / full farm / copper dibber = player roll / target
+  order; step(s, 900) = 900 × step(s, 1) with plant + water + harvest on, and 8 h from that state never below 0.

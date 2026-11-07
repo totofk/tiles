@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
+import { selectCrop } from '../core/actions'
+import { CROPS, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { DigSeeds } from './Farm'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
@@ -17,7 +18,9 @@ const TAP_GUARD_MS = 400
 
 export default function App() {
   const { state, act, reset, toast, banner, dismissBanner, acted } = useGame()
-  const [cropId, setCropId] = useState<CropId>(STARTING_CROP)
+  // saved in the run: the plant worker plants it offline too
+  const cropId = state.run.plantCrop
+  const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
   const [ui, setUi] = useState(() => loadUi(localStorage))
   useEffect(() => saveUi(localStorage, ui), [ui])
   const { view, tab, collapsed } = ui
@@ -75,7 +78,6 @@ export default function App() {
       onClick={() => {
         if (!window.confirm('Reset save? All progress is lost.')) return
         reset()
-        setCropId(STARTING_CROP)
       }}
     >
       Reset save

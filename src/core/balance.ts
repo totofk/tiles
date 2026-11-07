@@ -139,6 +139,8 @@ const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harve
 const WORKER_ACTION_TICKS = 5
 const WORKER_WAGE = 1
 const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number }> = {
+  // plant worker (batch 10): copper bars, so the mine → furnace path comes first
+  plant: { price: { copperBar: 10, cash: 300 }, counter: 'plants', at: 60 },
   water: { price: { cash: 100 }, counter: 'waters', at: 40 },
   harvest: { price: { stone: 20, cash: 150 }, counter: 'harvests', at: 40 },
   // furnace loaders (batch 9): gated by copper bars collected, paid in bars

@@ -55,6 +55,8 @@ export type RunState = {
   seeds: Partial<Record<CropId, number>>
   /** planting with 0 seeds of that crop buys one at the seed price */
   autoBuySeeds: boolean
+  /** "Crop to plant": what a tap on a tilled tile and the plant worker plant (saved, so the worker plants it offline) */
+  plantCrop: CropId
   /** farm tool level per job, 0 (none) … 3 */
   tools: Record<ToolJob, number>
   /** tiles per press for a level-2 tool; read through toolCount, which clamps it to the tile count */
@@ -97,7 +99,8 @@ export type Furnace = {
 
 /**
  * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
- * fireBurnt / fireWasted = furnace burn ticks in total / with no cycle progressing; barsSmelted = bars the furnace made
+ * fireBurnt / fireWasted = furnace burn ticks in total / with no cycle progressing; barsSmelted = bars the furnace made;
+ * workerPlants = crops the plant worker planted (its tills not counted)
  */
 export type Lifetime = {
   cashEarned: number
@@ -108,6 +111,7 @@ export type Lifetime = {
   fireBurnt: number
   fireWasted: number
   barsSmelted: number
+  workerPlants: number
 }
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
@@ -150,17 +154,18 @@ export function createInitialState(): GameState {
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: createFurnace(),
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0 },
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0 },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,
       loan: null,
       seeds: {},
       autoBuySeeds: true,
+      plantCrop: STARTING_CROP,
       tools: { water: 0, harvest: 0, plant: 0 },
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
-      workers: { pool: 0, assigned: { water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] },
+      workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] },
     },
   }
 }

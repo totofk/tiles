@@ -710,7 +710,7 @@ const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
 // perMin = net cash per minute over the whole run (worker sales − wages included, which per-energy cannot show).
 function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState().run.toolTier, assigned = { water: 0, harvest: 0 }) {
   const init = createInitialState()
-  const workers = { pool: assigned.water + assigned.harvest, assigned: { ...assigned, ore: 0, fuel: 0 }, certificates: [...WORKER_JOBS] }
+  const workers = { pool: assigned.water + assigned.harvest, assigned: { ...assigned, plant: 0, ore: 0, fuel: 0 }, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], toolTier, workers } }
   const farm = { cash: 0, energy: 0 }
   for (let t = 0; t < ticks; t++) {
@@ -1117,7 +1117,7 @@ type Loaders = { ore?: boolean; fuel?: boolean }
 /** a built furnace at base levels with ore and coal in a roomy storage and cash for wages; loaders certified + staffed */
 function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
   const init = createInitialState()
-  const assigned = { water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel) }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel) }
   const furnace = { ...createFurnace(), built: true, fire, smart, levels: { fireCap, batch: 0 } }
   const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
   return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
@@ -1292,7 +1292,7 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
-    expect(end.run.workers.assigned).toEqual({ water: 2, harvest: 2, ore: 1, fuel: 1 })
+    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1 })
     expect(fireBurnt).toBe(barsSmelted * barTicks())
     expect(fireWasted).toBe(0)
   })
