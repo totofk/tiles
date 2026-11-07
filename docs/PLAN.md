@@ -205,3 +205,39 @@ Findings for round-2 playtest:
   Mining nets ~1.4 per dig at best (stone 2 − 12 wood per 20-dig pickaxe), so it stays a filler.
 - With energy 10 the farm alone uses ~170 of the ~210 energy in 600 ticks. Mining fills the other ~20–40.
 
+
+## Batch 4 — desktop-first responsive layout (tasks 15–17)
+Question: does the game feel like a desktop game at full screen while still playable on a phone?
+UI only: no change to `src/core/**` numbers or the save format.
+
+15. [ ] Layout shell: drop the 480 px cap. ≥ 1024 px three columns (Mine | Farm | side panel); 768–1023 px
+    Farm + Mine side by side and the side panel as a slide-over; < 768 px one view at a time with a bottom tab bar
+    and a sticky HUD. Farm tiles scale with the space (square, readable at 375 px and 1440 px). Before the mine
+    license the Mine column/tab shows a locked card with the license price.
+16. [ ] Side panel with tabs **Shop / Upgrades** (Bank added in batch 4.5): split the current Shop into Shop
+    (seeds, licenses, wood, tiles) and Upgrades (energy max, regen, sell price, fertilizer; milestone-hidden ones
+    stay hidden). Collapse/expand button on desktop; when collapsed the farm grows. Toasts stay visible in every
+    layout.
+17. [ ] UI state (active tab/view, panel collapsed) persisted under localStorage key `tiles.ui`, separate from the
+    game save; a broken/missing value falls back to defaults. Component tests for the tab switching and the
+    persisted UI state. Reset save stays a small confirm-guarded button at the bottom of the side panel / Farm view.
+
+## Batch 4.5 — bank v0, rough (tasks 18–20)
+Question: does a loan get a broke player out of the soft-lock without becoming a free-money exploit?
+Numbers are placeholders, retuned after docs/research/round2-mining.md.
+
+18. [ ] Core `src/core/bank.ts`: `run.loan: { principal, debt } | null`. `takeLoan()` (only when no loan; principal
+    = `LOAN_PRINCIPAL`, cash += principal, debt = principal × (1 + `LOAN_FEE`)), `repay(amount)` (partial or full,
+    capped at debt and cash; loan cleared at 0). `step` grows debt by principal × `LOAN_RATE_PER_TICK` per tick,
+    capped at principal × `LOAN_DEBT_CAP` (2.0). Typed errors: LOAN_ACTIVE, NO_LOAN, NOT_ENOUGH_CASH. Save v3 with
+    v2 → v3 migration (`loan: null`) tested on a real v2 fixture.
+19. [ ] Bank tab in the side panel (and the mobile tab bar): borrow button with principal + fee + growth explained
+    in one line, current debt with its cap, a "time until cap" hint, repay 💰N / repay all. HUD shows a small debt
+    badge while a loan is active.
+20. [ ] Tests: the round-2 soft-lock state (cash 1, 9 tilled tiles, empty bag, no pickaxe) recovers via a loan —
+    the bot takes the loan, farms, repays in full, and ends with more cash than it started. Exploit check: borrow →
+    repay immediately always loses cash (fee > 0). Existing sim: the greedy bot never borrows and its batch-3
+    numbers do not change. Record the placeholder numbers under "Batch 4.5 results".
+
+Starting numbers (placeholders): LOAN_PRINCIPAL 30, LOAN_FEE 0.1, LOAN_RATE_PER_TICK 0.002 (debt reaches the 200 %
+cap after ~450 ticks ≈ 7.5 min), LOAN_DEBT_CAP 2.0.

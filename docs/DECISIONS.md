@@ -67,3 +67,22 @@ These override the PRD where they differ. Source PRD: `docs/PRD.md`.
 ## Automation (moved after tooling)
 - Sprinklers, seeders, harvesters and workers come **after the forge**, are crafted from materials in quantity,
   and pay running costs (water/power). The PRD's "Phase 2 semi-auto" dissolves into: manual → tooling → automation.
+
+## Round-2 changes (2026-11-07, see docs/PLAYTEST.md round 2)
+- **Desktop-first responsive layout.** The game is meant to be played full-screen on desktop; mobile is a shrunk
+  version. Breakpoints: ≥ 1024 px three columns (mine left, farm centre growing with the viewport, side panel right
+  with tabs Shop / Upgrades / Bank that collapses so the farm takes the space); 768–1023 px farm + mine side by
+  side, side panel as a slide-over; < 768 px one view at a time with a bottom tab bar (Farm / Mine / Shop /
+  Upgrades / Bank) and the HUD (cash, energy) sticky on top. Why: the 480 px single column wasted the desktop screen
+  and every new system (mine table, mastery, bank) needs its own space.
+- **Upgrades are a separate tab from Shop.** Shop = seeds, licenses, wood, tiles. Upgrades = energy, sell price,
+  fertilizer and every later upgrade (mastery, vein). UI-only state (open tab, panel collapsed) lives in its own
+  localStorage key `tiles.ui`, never in the game save.
+- **Bank v0 (rough, numbers pending research).** Fixes the round-2 soft-lock now; hand digging (batch 5) will add
+  a free floor later. One loan at a time, borrowed from a Bank tab. Debt starts at principal × (1 + fee) and grows
+  linearly per tick while unpaid, capped at 200 % of principal (Toon's cap). Partial or full repayment any time;
+  no forced collection in v0. Interest accrues inside `step`, so offline catch-up charges it too. All numbers in
+  `balance.ts`; tuned after the round-2 research (docs/research/round2-mining.md).
+- **Pending research (Fable, round 2):** hand digging (stone = 2 hits; hand 1 hit/energy, pickaxe 2), per-tool-type
+  mastery (chance to preserve durability, cap ~90 %), visible locked drop table, vein Lv1, logging. Batches 5–6 are
+  planned after the research returns.
