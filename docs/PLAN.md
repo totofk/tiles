@@ -1675,3 +1675,31 @@ No `balance.ts` number changed: the starting certificate (🥉10 + 💰300 after
   lemon rate (💰8,048/h), instead of one harvest round. Nothing in the rules discounts offline time beyond the 8 h cap,
   so from here on offline income is active farm income; if that is too generous it needs a new rule (an offline rate),
   not a batch-10 number.
+
+## Batch 11 — iron tier + mine worker (tasks 65–69)
+
+Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tools are NOT in this batch.
+
+- [ ] 65. **Iron items + vein Lv3 + save v11.** Items iron ore and iron bar (emoji Unicode ≤ 11, from the shared
+    `ITEMS` constants; list your choice). Vein Lv3 drops ~55 % stone / 20 % coal / 15 % copper ore / 10 % iron ore;
+    iron rock = 4 hits and needs a copper pickaxe or better (wooden or by hand: it breaks as stone). Price fits the
+    storage the player has then (assert in the sim): e.g. 40 stone + 🥉5 + 💰400. Save v11: FIRST commit
+    `tests/fixtures/save-v10.json` from the current code; chain v1–v10 → v11 (iron items 0, furnace ore kind copper,
+    mine worker 0).
+- [ ] 66. **Iron smelting + iron pickaxe.** The furnace's ore slot holds one ore kind; the player picks copper or
+    iron (switching only when the slot is empty). Iron cycle = 2 iron ore + 4 fire units (120 ticks) → 1 iron bar ×
+    batch level. The ore loader loads the selected kind. Iron pickaxe: 5 iron bars + 💰200, durability 1200, 4 hits,
+    repair 2 iron bars. **Durability rule kept:** each tier's base durability must beat the previous tier's Lv10
+    lifetime (copper Lv10 = 200 × (1 + 0.4 × 10) = 1000), so iron is 1200 instead of the old 500 guess — the existing
+    balance test must pass unchanged. Iron mastery thresholds follow the existing tier factor.
+- [ ] 67. **Mine worker.** New `WorkerJob` `mine`: one action = one press of the player's Mine button (uses the
+    active pickaxe's durability and preserve chance, gives mastery xp like a press, no energy). Idles when storage
+    is full or the pickaxe is blunt — repair stays manual. Certificate 5 iron bars + 💰500, visible once vein Lv3 is
+    owned and after 200 mines. step(s, n) = n × step(s, 1) with the mine and furnace workers on together.
+- [ ] 68. **UI.** Vein Lv3 row, ore-kind picker on the furnace, iron pickaxe craft/repair, mine row in the Workers
+    card (below the furnace jobs), worker flash on the Mine button / rock when the mine worker acts. Stats: iron
+    ore/bars, mines by workers. Compact at 375 px; no 7th tab.
+- [ ] 69. **Sim + balance.** Time to vein Lv3, first iron bar, iron pickaxe and the mine worker; bars/hour with mine +
+    ore + fuel workers on a plain vs smart furnace; 8 h offline with the whole chain (storage full is the expected
+    stop); every iron price ≤ what the player can hold; mining cash/energy still ≤ the farm cap; all older pins pass.
+    Tune only batch-11 numbers; report every change as a deviation.

@@ -251,3 +251,14 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **No dig-for-seeds worker, confirmed again (Toon agreed):** dig finds a carrot seed 20 % of the time, so at 💰1 a
   dig a worker pays ~💰5 for a 💰2 seed; a free one prints seeds; and the dig floor exists for broke players, who
   cannot pay wages. Revisit only if digging gets better drops.
+
+## Iron tier + mine worker (batch 11)
+
+- **Mine worker waits for iron** (Toon + Hermes): it makes the whole mine → furnace → bars chain run alone, the
+  biggest automation step, so it sits one metal tier above the farm and furnace workers. Its certificate is paid
+  in iron bars (furnace/forge outputs, per the batch-8 scope rule).
+- **Iron pickaxe durability 1200**, not the earlier 500 guess: the existing rule "each tier's base durability beats
+  the previous tier's Lv10 lifetime" is kept (copper Lv10 = 1000), which closes the open question from round 5.
+- **Iron needs a copper pickaxe or better**; the furnace smelts one ore kind at a time (player picks); iron costs
+  twice the fire of copper per bar.
+- **Iron farm tools are a later batch** (moisture 4, 20 % double harvest, 35 % seed keep were the round-4 numbers).
