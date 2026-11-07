@@ -28,8 +28,11 @@ button {
   background: #fff;
   cursor: pointer;
 }
+/* unaffordable/blocked: the frame is muted, the label and price stay full-contrast */
 button:disabled {
-  opacity: 0.45;
+  background: #ece8df;
+  border-style: dashed;
+  color: #444;
   cursor: not-allowed;
 }
 
@@ -45,6 +48,9 @@ button:disabled {
   background: #fff;
   border-radius: 8px;
   font-weight: 600;
+}
+.hud > span {
+  white-space: nowrap;
 }
 .hud-energy {
   flex: 1;
@@ -138,6 +144,52 @@ button:disabled {
 .bar-rot > span {
   background: #e53935;
 }
+.bar-tool > span {
+  background: #8d6e63;
+}
+
+.mine {
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mine h2 {
+  font-size: 15px;
+  margin: 0;
+}
+.mine small {
+  font-size: 12px;
+  font-weight: normal;
+  color: #555;
+}
+.mine-dig {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-weight: 600;
+}
+.mine-pickaxe {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 14px;
+}
+.mine-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.mine-item > span {
+  flex: 1;
+  min-width: 0;
+}
+.mine-item button {
+  padding: 0 10px;
+}
 
 .shop h2 {
   font-size: 15px;
@@ -166,14 +218,20 @@ button:disabled {
 }
 .shop-row .locked {
   background: #eee;
-  color: #777;
+  color: #444;
 }
 
+/* deliberately small and far from the game controls; still behind a confirm */
 .reset {
   align-self: center;
-  padding: 0 16px;
-  color: #b71c1c;
-  margin-top: 16px;
+  min-height: 32px;
+  margin-top: 40px;
+  padding: 0 8px;
+  border: none;
+  background: none;
+  color: #9b2c2c;
+  font-size: 12px;
+  text-decoration: underline;
 }
 
 .toast {

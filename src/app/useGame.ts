@@ -7,7 +7,7 @@ import { step } from '../core/step'
 import { awayText, catchUp, offlineTicks } from '../save/serialize'
 import { loadGame, saveGame, wallClock } from '../save/storage'
 
-const ERROR_TEXT: Record<ActionError, string> = {
+export const ERROR_TEXT: Record<ActionError, string> = {
   NO_ENERGY: 'Not enough energy',
   BAD_TILE: 'No such tile',
   NOT_UNTILLED: 'Already tilled',

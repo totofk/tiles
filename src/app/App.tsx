@@ -3,6 +3,7 @@ import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
+import { Mine } from './Mine'
 import { Shop } from './Shop'
 import { useGame } from './useGame'
 
@@ -41,6 +42,7 @@ export default function App() {
         </div>
       )}
       <FarmGrid state={state} onTap={onTap} />
+      {state.run.mineLicense && <Mine state={state} act={act} />}
       <Shop state={state} cropId={cropId} onSelectCrop={setCropId} act={act} />
       <button
         className="reset"

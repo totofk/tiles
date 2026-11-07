@@ -132,6 +132,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   Buy, craft, license and sell cost no energy; only `dig` does. `buyWood` does not need the mine license.
 - **Batch 3: amounts are validated.** `buyWood(n)` and `sellItem(id, n)` return `BAD_AMOUNT` unless n is an
   integer ≥ 1. ESLint now also bans `Math.random` in core and in serialize.
+- **Batch 3 UI: a shop card is a single button, so "dim only the button" means** a disabled button no longer uses
+  `opacity`. Its background goes grey with a dashed border while the label and price keep full-contrast text.
+  Mine panel buttons (Dig, craft, buy wood) are disabled using the core action's own result. The Dig button shows that
+  error's text as the reason ("No pickaxe", "Bag is full — sell something", "Not enough energy"). The 375 px layout
+  is CSS only (flex-wrap rows) and was not checked in a browser in this batch (no dev server in headless runs).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -144,7 +149,7 @@ Question: does digging while crops grow remove the "idle" feeling, without out-e
 12. [x] Mining core: `src/core/mining.ts` + `data/items.ts` — mine license, buy wood, craft wooden pickaxe (durability),
     dig (energy + durability → 1 drop from the vein table via seeded PRNG in run state), inventory with capacity,
     sell item. Typed errors: NO_MINE_LICENSE, NO_PICKAXE, BAG_FULL, NOT_ENOUGH_ITEMS, …
-13. [ ] Mining UI: a "Mine" panel under the farm (dig button with pickaxe durability bar, bag N/cap, item rows with
+13. [x] Mining UI: a "Mine" panel under the farm (dig button with pickaxe durability bar, bag N/cap, item rows with
     sell buttons, craft/buy buttons). Shop: mine license. Fix the three UI nits: unaffordable cards unreadable
     (dim the button, not the price), "💰 75" wrapping in the HUD, Reset button too easy (small, bottom, confirm).
 14. [ ] Sim: bot farms 9 tiles and digs whenever energy is idle and no farm action is possible. Assert: cash never

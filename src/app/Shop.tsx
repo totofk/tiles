@@ -6,6 +6,7 @@ import {
   energyRegenPerTick,
   growTimeFactor,
   licenseCost,
+  mineLicenseCost,
   sellPriceFactor,
   tileCost,
   upgradeCost,
@@ -14,6 +15,7 @@ import {
 } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { UPGRADES, UPGRADE_IDS, type UpgradeId } from '../core/data/upgrades'
+import { buyMineLicense } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import type { Act } from './useGame'
@@ -78,6 +80,12 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
             </button>
           )
         })}
+        {!run.mineLicense && (
+          <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
+            ⛏️ Mine license
+            <small>💰{mineLicenseCost(meta)}</small>
+          </button>
+        )}
         <button disabled={tiles >= TILE_CAP || run.cash < nextTile} onClick={() => act(buyTile)}>
           Buy tile ({tiles}/{TILE_CAP})
           <small>{tiles >= TILE_CAP ? 'max tiles' : `💰${nextTile}`}</small>
