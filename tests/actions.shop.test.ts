@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buyLicense, buySeeds, buyTile, buyUpgrade, type ActionResult } from '../src/core/actions'
+import { buyLicense, buySeeds, buyTile, buyUpgrade, setAutoBuySeeds, type ActionResult } from '../src/core/actions'
 import {
   START_TILES,
   TILE_CAP,
@@ -120,5 +120,14 @@ describe('buySeeds', () => {
     for (const n of [0, -1, 1.5, NaN]) expect(buySeeds(s, 'radish', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
     expect(buySeeds(s, 'pumpkin', 1)).toEqual({ ok: false, error: 'NO_LICENSE' })
     expect(buySeeds(withRun({ cash: 1 }), 'radish', 1)).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
+describe('setAutoBuySeeds', () => {
+  it('switches the one auto-buy flag and changes nothing else', () => {
+    const s = createInitialState()
+    const off = okState(setAutoBuySeeds(s, false))
+    expect(off.run).toEqual({ ...s.run, autoBuySeeds: false })
+    expect(okState(setAutoBuySeeds(off, true)).run).toEqual(s.run)
   })
 })

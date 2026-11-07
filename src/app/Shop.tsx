@@ -1,4 +1,4 @@
-import { buyLicense, buyTile } from '../core/actions'
+import { buyLicense, buySeeds, buyTile, setAutoBuySeeds } from '../core/actions'
 import { TILE_CAP, cropSeedCost, licenseCost, mineLicenseCost, tileCost, woodCost } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { buyMineLicense, buyWood } from '../core/mining'
@@ -34,6 +34,24 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
           )
         })}
       </div>
+
+      <h2>Seed pouch</h2>
+      {run.licenses.map((id) => (
+        <div key={id} className="pouch-row">
+          <span>
+            {CROP_EMOJI[id]} {CROPS[id].name} × {run.seeds[id] ?? 0}
+          </span>
+          {[1, 10].map((n) => (
+            <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
+              Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
+            </button>
+          ))}
+        </div>
+      ))}
+      <label className="pouch-auto">
+        <input type="checkbox" checked={run.autoBuySeeds} onChange={(e) => act((s) => setAutoBuySeeds(s, e.target.checked))} />
+        Auto-buy a seed when the pouch is empty
+      </label>
 
       <h2>Supplies</h2>
       <div className="shop-row">

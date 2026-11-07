@@ -191,6 +191,11 @@ export function buySeeds(state: GameState, cropId: CropId, n: number): ActionRes
   return withRun(state, { cash: run.cash - cost, seeds: { ...run.seeds, [cropId]: (run.seeds[cropId] ?? 0) + n } })
 }
 
+/** one flag for every crop; costs nothing */
+export function setAutoBuySeeds(state: GameState, on: boolean): ActionResult {
+  return withRun(state, { autoBuySeeds: on })
+}
+
 export function buyTile(state: GameState): ActionResult {
   const { run } = state
   // cap before cash: tileCost is Infinity at the cap

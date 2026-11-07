@@ -201,6 +201,40 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   next level (so level k needs k − 1): `MAX_LEVEL` at 3, `LOCKED` below the counter threshold, `NO_CASH`. Tool
   prices follow the `cost` meta multiplier like every other price. The numbers are the PLAN.md starting values,
   not yet tuned (task 25).
+- **Batch 5 UI: the auto-buy toggle needed a core action**, `setAutoBuySeeds(state, on)` in `actions.ts` (one flag for
+  every crop, costs nothing). The pouch rows show licensed crops only, with "Buy ×1" / "Buy ×10" disabled by
+  `buySeeds`'s own result.
+- **Batch 5 UI: one tool button per owned job, at its current level** ("Water 1", "− Water 2 +", "Water all"); jobs
+  with no tool show nothing above the farm. The toast is "Watered 5/9 — out of energy"; NO_CASH / NO_SEEDS read "out of
+  cash" / "out of seeds", any other stop reason uses `ERROR_TEXT`. A press with nothing eligible toasts "Nothing to do".
+  There is no "new tool unlocked" toast: `useGame`'s unlock toast covers `UPGRADE_IDS` only.
+- **Batch 5 UI: Upgrades lists all 9 tool levels under a "Tools" heading.** Status per level: "owned", the counter
+  progress while locked ("harvest 7/15", the job's name for its counter), "needs <previous tool>" when unlocked but
+  level k − 1 is missing, otherwise the effect and price. Only the next level can be enabled (`buyTool(...).ok`).
+  `tests/Upgrades.test.tsx` now reads the upgrade names from the row under the "Upgrades" heading, since the tool
+  buttons share the tab.
+- **Batch 5 UI: at ≥ 768 px the page no longer scrolls.** `.app` is exactly the viewport height (`100dvh`, rows
+  `auto minmax(0, 1fr)`); the Mine, Farm and side-panel columns scroll on their own. The grid sits in `.farm-fit`, a
+  `container-type: size` box that takes the farm column's leftover height, and a tile is
+  `max(72px, min(--tile-max, width per column, height per row))` from that box (`--rows` set by `FarmGrid`). Below
+  768 px nothing changed: the page scrolls and the tab bar is fixed.
+- **Batch 5 UI: tab fixes.** The desktop panel's floor went 260 → 300 px (`clamp(300px, 26vw, 380px)`), the panel tabs
+  are one line (`nowrap`, 14 px, 4 px gaps) and the › toggle is 36 px wide: at 1024 px the old 266 px panel pushed the
+  toggle 30 px past the window edge. The mobile tab bar sizes its buttons by content (`flex: 1 1 auto`, 12 px,
+  `nowrap`), so "⬆️ Upgrades" is on one line at 375 px; before, it wrapped its icon above the label.
+- **Batch 5 UI: measured in headless Chrome** (CDP script, prod `pnpm preview`, throwaway and not committed), worst case
+  seeded: all three tools at level 2 (three stepper groups), every tile planted, Upgrades tab open.
+
+  | Viewport | tiles | page scroll (scrollHeight / innerHeight) | grid top..bottom | tile px | panel tabs + › inside panel |
+  |---|---|---|---|---|---|
+  | 1920×824 | 9 | none (824 / 824) | 155..716 | 183 | yes |
+  | 1920×824 | 24 | none (824 / 824) | 155..716 | 107 | yes |
+  | 1440×900 | 9 | none (900 / 900) | 155..792 | 208 | yes |
+  | 1440×900 | 24 | none (900 / 900) | 155..792 | 123 | yes |
+  | 1280×720 | 9 | none (720 / 720) | 155..612 | 148 | yes |
+  | 1024×768 | 9 | none (768 / 768) | 205..624 | 136 | yes (toggle 960..996, panel ends 1004) |
+  | 800×600 | 9 | none (600 / 600) | 205..504 | 96 | slide-over |
+  | 375×740 | 9 | page scrolls (846 / 740) | 251..610 | 116 | tab bar fixed at 683..740 before and after scrolling to the end |
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -352,7 +386,7 @@ Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatib
     first, water = driest first, plant = first empty tilled tile (selected crop). Per tile the cost is exactly the
     manual action (1 energy, a seed); when energy/seeds/cash run out it does as many as it can and returns
     `{ done, wanted, stoppedBy }`. Each level is unlocked by the job's counter and bought once (numbers below).
-24. [ ] Farm tools UI + UI fixes: tool buttons above the farm ("Water 1" / "Water 3 −/+" / "Water all"), locked
+24. [x] Farm tools UI + UI fixes: tool buttons above the farm ("Water 1" / "Water 3 −/+" / "Water all"), locked
     tools listed in the Upgrades tab with their milestone progress, toast "Watered 5/9 — out of energy", seed
     pouch rows in Shop (stock, ×1 / ×10, auto-buy toggle). Fix batch-4 nits: farm must fit the viewport height on
     wide-but-short screens (1920×824: no scroll, size tiles by min(width, height)); all side-panel tabs visible at

@@ -48,11 +48,15 @@ function Cell({ tile, state, onTap }: { tile: Tile; state: GameState; onTap: () 
 export function FarmGrid({ state, onTap }: { state: GameState; onTap: (i: number) => void }) {
   // a near-square grid on wider screens (9 → 3, 16 → 4, 24 → 5 columns); mobile CSS keeps 3
   const cols = Math.ceil(Math.sqrt(state.run.tiles.length))
+  const rows = Math.ceil(state.run.tiles.length / cols)
+  // .farm-fit is the box the grid must fit (width and height, ≥ 768 px), so tiles size by the smaller side
   return (
-    <div className="grid" style={{ '--n': cols } as CSSProperties}>
-      {state.run.tiles.map((tile, i) => (
-        <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} />
-      ))}
+    <div className="farm-fit">
+      <div className="grid" style={{ '--n': cols, '--rows': rows } as CSSProperties}>
+        {state.run.tiles.map((tile, i) => (
+          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} />
+        ))}
+      </div>
     </div>
   )
 }

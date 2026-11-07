@@ -4,15 +4,22 @@ import {
   energyRegenPerTick,
   growTimeFactor,
   sellPriceFactor,
+  toolCost,
+  toolNMax,
+  toolUnlock,
   upgradeCost,
   upgradeMaxLevel,
   upgradeUnlocked,
 } from '../core/balance'
+import { TOOLS, TOOL_JOBS } from '../core/data/tools'
 import { UPGRADES, UPGRADE_IDS, type UpgradeId } from '../core/data/upgrades'
 import type { GameState, MetaState } from '../core/state'
+import { buyTool } from '../core/tools'
 import type { Act } from './useGame'
 
 const pct = (f: number) => `${Math.round(f * 100)} %`
+/** per press, by level (index 0 = level 1) */
+const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)} tiles`, () => 'all tiles']
 
 function effect(id: UpgradeId, level: number, meta: MetaState): string {
   switch (id) {
@@ -47,6 +54,31 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
             </button>
           )
         })}
+      </div>
+      <h2>Tools</h2>
+      <div className="shop-row">
+        {TOOL_JOBS.flatMap((job) =>
+          [1, 2, 3].map((level) => {
+            const owned = run.tools[job]
+            const { counter, at } = toolUnlock(job, level)
+            const progress = `${job} ${Math.min(run.counters[counter], at)}/${at}`
+            const status =
+              owned >= level
+                ? 'owned'
+                : run.counters[counter] < at
+                  ? progress
+                  : owned < level - 1
+                    ? `needs ${TOOLS[job].names[level - 2]}`
+                    : `${TOOL_EFFECT[level - 1](run.tiles.length)} · 💰${toolCost(job, level, meta)}`
+            const next = owned === level - 1
+            return (
+              <button key={`${job}${level}`} disabled={!next || !buyTool(state, job).ok} onClick={() => act((s) => buyTool(s, job))}>
+                {TOOLS[job].names[level - 1]}
+                <small>{status}</small>
+              </button>
+            )
+          }),
+        )}
       </div>
     </section>
   )

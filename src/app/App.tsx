@@ -7,6 +7,7 @@ import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
+import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
 
@@ -92,6 +93,7 @@ export default function App() {
         <p className="planting">
           Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
         </p>
+        <Tools state={state} act={act} cropId={cropId} />
         <FarmGrid state={state} onTap={onTap} />
         <p className="dig-seeds">
           <button
