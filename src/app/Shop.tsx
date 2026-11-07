@@ -122,7 +122,7 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
             const progress = `${job} ${Math.min(run.counters[counter], at)}/${at}`
             const status =
               owned >= level
-                ? 'owned'
+                ? '✓ Owned'
                 : run.counters[counter] < at
                   ? progress
                   : owned < level - 1
@@ -131,7 +131,11 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
             const next = owned === level - 1
             return (
               <Item key={`${job}${level}`} tip={TOOL_TIPS[job][level - 1]}>
-                <button disabled={!next || !buyTool(state, job).ok} onClick={() => act((s) => buyTool(s, job))}>
+                <button
+                  className={owned >= level ? 'owned' : undefined}
+                  disabled={!next || !buyTool(state, job).ok}
+                  onClick={() => act((s) => buyTool(s, job))}
+                >
                   {TOOLS[job].names[level - 1]}
                   <small>{status}</small>
                 </button>

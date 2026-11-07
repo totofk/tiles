@@ -401,6 +401,14 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 7: the first five commits (v5 fixture … copper pickaxe) carry a Co-Authored-By trailer; the later ones do
   not.** The batch 6.2 rule (no AI attribution) was noticed mid-batch; rewriting the unpushed messages
   (`git filter-branch --msg-filter`) needed an approval the headless run could not get, so they are left as is.
+- **Batch 7.1 (task 43): the ⋯ is a mark inside the press button, not its own button** (DECISIONS: one button per job
+  at every level). A click on the ⋯ opens the popover, a click elsewhere on the button presses. Long-press uses touch
+  events (450 ms, `LONG_PRESS_MS` in `Tools.tsx`), so a mouse never long-presses; it has right-click and the ⋯. On
+  ≥ 768 px the popover opens to the left of the vertical bar, level with its top.
+- **Batch 7.1 (task 43): the Collect button's "storage full" reason is shortened too** (same 100 px button as the
+  smelt reasons); short reasons sit on their own line under the label. Per-crop harvest rows read "… harvests since
+  v6" when the per-crop sum is below the Harvests counter (a migrated multi-license save); no save field is added.
+- **Batch 7.1: 375 px numbers are computed from the CSS, not measured in a browser** (no dev server; Hermes measures).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -852,7 +860,7 @@ Question: do ingots give the farm a reason to smelt (fewer presses per crop), an
 Decisions: DECISIONS.md "Round-4 research outcome (progression)", "Round-5 research outcome (furnace)", "Copper farm
 tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → v7; backup key).
 
-43. [ ] Tool bar + shop fixes found on the live 6.2 build (UI only, first so the copper work lands on the final bar):
+43. [x] Tool bar + shop fixes found on the live 6.2 build (UI only, first so the copper work lands on the final bar):
     (a) < 768 px the bar overflowed ~30 px right with one level-2 stepper (Plant clipped). The level-2 button shows
     only "Water 3" with a small ⋯ mark; tap = the action; long-press (touch, ~450 ms) or right-click / the ⋯ (mouse)
     opens one shared popover with − / count / +. Three level-2 buttons must fit 375 px with no sideways scroll (same
@@ -879,3 +887,16 @@ tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → 
     batch 7); carrot and pumpkin cash/energy with all three copper tools vs none (water presses per crop must drop);
     mining stays below farming as in batch 7; every bar + cash price fits storage when buyable; nothing negative over
     3600 ticks; batch-3 greedy numbers pinned. Write "## Batch 7.1 results".
+
+## Batch 7.1 results
+
+**Tool bar (task 43), computed from `app.css` at 16 px system-ui, not measured (see Deviations):** every level is
+one button: `.tools > button` = 1 px border × 2 + 12 px padding × 2 + label, no wrap; the level-2 ⋯ mark adds 4 px
+margin + ≈ 10 px (12 px font). Labels ≈ 8 px per character (estimated): "Water 3" ≈ 55, "Harvest 3" ≈ 70,
+"Plant 3" ≈ 52. Three level-2 buttons ≈ 95 + 110 + 92 = **≈ 297 px**, + 2 × 6 px gaps + 2 × 8 px bar padding =
+**≈ 325 px of 375** (≈ 50 px spare; two-digit n adds ≈ 8 px per button, still ≤ 349). The bar no longer scrolls
+sideways (`overflow-x` removed). The popover (− / count / +, 44 px buttons ≈ 150 px wide) opens above the bar at
+8 px from the left; ≥ 768 px it opens left of the vertical bar. Owned farm tools are solid green-bordered cards
+"✓ Owned"; pouch and storage item names never wrap their count ("🟤 Copper ore ×3" stays one line, the sell buttons
+wrap instead); smelt reasons are "no fuel" / "no ore" / "full" on a second line; the recipe line breaks only
+between "ore N · coal N · wood N"; the pickaxe line reads "187 / 200 · ~187 more uses".

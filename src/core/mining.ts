@@ -89,9 +89,9 @@ export function pickaxePreserve(tier: PickaxeTier, run: RunState): number {
   return preserveChance(masteryLevel(tier, run.mastery[tier] ?? 0), run.masteredTiers.length)
 }
 
-/** mine actions a fresh pickaxe of this tier lasts on average at the run's mastery: durability / (1 − preserve) */
-export function expectedUses(tier: PickaxeTier, run: RunState): number {
-  return pickaxeDurability(tier) / (1 - pickaxePreserve(tier, run))
+/** mine actions a pickaxe of this tier lasts on average at the run's mastery: durability / (1 − preserve); fresh by default */
+export function expectedUses(tier: PickaxeTier, run: RunState, durability = pickaxeDurability(tier)): number {
+  return durability / (1 - pickaxePreserve(tier, run))
 }
 
 /** +1 xp for the tier; reaching max mastery adds it to masteredTiers once */

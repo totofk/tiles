@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
 import { cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick } from '../src/core/balance'
+import type { CropId } from '../src/core/data/crops'
 import { createInitialState, type GameState } from '../src/core/state'
 import { stats } from '../src/core/stats'
 
@@ -35,6 +36,19 @@ describe('stats(state)', () => {
       { label: 'Plant tool', value: 'none' },
       { label: 'Drop table', value: '🪨 Stone 100 %', source: 'Vein Lv0' },
     ])
+  })
+
+  it('per-crop harvests say "since v6" when a migrated save has harvests no crop was credited with', () => {
+    const s = createInitialState()
+    const counters = { ...s.run.counters, harvests: 38 }
+    const migrated = { ...s, run: { ...s.run, licenses: ['radish', 'pumpkin'] as CropId[], counters, lifetime: { ...s.run.lifetime, harvests: { pumpkin: 2 } } } }
+    expect(stats(migrated).totals.filter((r) => /harvests/i.test(r.label)).map((r) => [r.label, r.value])).toEqual([
+      ['Harvests', '38'],
+      ['Carrot harvests since v6', '0'],
+      ['Pumpkin harvests since v6', '2'],
+    ])
+    const tracked = { ...migrated, run: { ...migrated.run, lifetime: { ...s.run.lifetime, harvests: { radish: 36, pumpkin: 2 } } } }
+    expect(row(stats(tracked).totals, 'Carrot harvests')).toMatchObject({ value: '36' })
   })
 
   it('a later run: the same balance functions give each value and its source', () => {

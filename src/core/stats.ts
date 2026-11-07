@@ -48,6 +48,9 @@ export function stats(state: GameState): Stats {
   const { run, meta } = state
   const { lifetime, upgrades } = run
   const lv = (id: keyof typeof upgrades) => `${UPGRADES[id].name} Lv${upgrades[id]}`
+  // a save migrated from before v6 with several licenses has harvests no crop was credited with
+  const tracked = Object.values(lifetime.harvests).reduce((sum, n) => sum + (n ?? 0), 0)
+  const since = tracked < run.counters.harvests ? ' since v6' : ''
 
   const totals: StatRow[] = [
     { label: 'Time played', value: duration(run.tick) },
@@ -55,7 +58,7 @@ export function stats(state: GameState): Stats {
     { label: 'Energy spent', value: `⚡${lifetime.energySpent}` },
     ...(Object.keys(COUNTER_LABELS) as CounterId[]).map((id) => ({ label: COUNTER_LABELS[id], value: `${run.counters[id]}` })),
     ...CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => ({
-      label: `${CROPS[id].name} harvests`,
+      label: `${CROPS[id].name} harvests${since}`,
       value: `${lifetime.harvests[id] ?? 0}`,
     })),
     { label: 'Copper bars smelted', value: `${lifetime.bars}` },

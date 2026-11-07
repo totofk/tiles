@@ -73,14 +73,17 @@ describe('Mine panel', () => {
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🪨 cracked 1/2')
   })
 
-  it('shows "lasts ~N uses" on the durability line, mastery level + xp, and the badge only once mastered', () => {
+  it('shows "~N more uses" from the current durability, mastery level + xp, and the badge only once mastered', () => {
     setup({ pickaxe: wooden(), mastery: { wooden: 5 } })
-    expect(text()).toContain('Wooden pickaxe 25 / 25 · lasts ~25 uses')
+    expect(text()).toContain('Wooden pickaxe 25 / 25 · ~25 more uses')
     expect(text()).toContain('Mastery Lv 0/10 · 5/10 xp')
     expect(screen.queryByText(/Mastered/)).toBeNull()
     cleanup()
+    setup({ pickaxe: { tier: 'copper', durability: 187 }, mastery: { copper: 0 } })
+    expect(text()).toContain('Copper pickaxe 187 / 200 · ~187 more uses')
+    cleanup()
     setup({ pickaxe: wooden(), mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
-    expect(text()).toContain('Wooden pickaxe 25 / 25 · lasts ~125 uses')
+    expect(text()).toContain('Wooden pickaxe 25 / 25 · ~125 more uses')
     expect(text()).toContain('Mastery Lv 10/10 · 400 xp')
     expect(screen.getByText('Mastered ✓ +5 % all pickaxes')).toBeTruthy()
   })
@@ -101,7 +104,7 @@ describe('Mine panel', () => {
     const t = setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 5 }, mastery: { wooden: 33 } })
     fireEvent.click(screen.getByRole('button', { name: /^Craft copper pickaxe/ }))
     t.rerender()
-    expect(text()).toContain('Copper pickaxe 200 / 200 · lasts ~200 uses')
+    expect(text()).toContain('Copper pickaxe 200 / 200 · ~200 more uses')
     expect(text()).toContain('Mastery Lv 0/10 · 0/20 xp')
     expect(screen.queryByRole('button', { name: /^Craft copper pickaxe/ })).toBeNull()
   })
@@ -114,12 +117,14 @@ describe('Mine panel', () => {
     const summary = () => document.querySelector('.mine-furnace summary')!.textContent
     expect(summary()).toBe('🔥 Furnace · 0 queued · 1 ready')
     const smelt = (fuel: RegExp) => screen.getByRole('button', { name: fuel }) as HTMLButtonElement
-    expect(smelt(/^Smelt with 🪵2/).textContent).toBe('Smelt with 🪵2 — Not enough fuel')
+    // short reasons on their own line, so a ≈ 100 px button stays two lines; stock items never split
+    expect(smelt(/^Smelt with 🪵2/).textContent).toBe('Smelt with 🪵2no fuel')
+    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 1'])
     fireEvent.click(smelt(/^Smelt with ⚫1/))
     t.rerender()
     expect(t.get().run.furnace.queue).toBe(1)
     expect(summary()).toBe('🔥 Furnace · 1 queued · 1 ready · next bar 60s')
-    expect(smelt(/^Smelt with ⚫1/).textContent).toBe('Smelt with ⚫1 — Not enough ore')
+    expect(smelt(/^Smelt with ⚫1/).textContent).toBe('Smelt with ⚫1no ore')
     fireEvent.click(screen.getByRole('button', { name: /^Collect 1/ }))
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
     // bars have no sell buttons

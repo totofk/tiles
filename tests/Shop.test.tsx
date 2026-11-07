@@ -71,8 +71,11 @@ describe('Farm tools in the Shop', () => {
     t.rerender()
     expect(t.get().run.tools.harvest).toBe(1)
     expect(t.get().run.cash).toBe(1000 - toolCost('harvest', 1, s.meta))
-    expect(tool('Sickle').textContent).toContain('owned')
+    // a solid "owned" card, not the dashed "can't buy" frame
+    expect(tool('Sickle').textContent).toContain('✓ Owned')
     expect(tool('Sickle').disabled).toBe(true)
+    expect(tool('Sickle').classList.contains('owned')).toBe(true)
+    expect(tool('Scythe').classList.contains('owned')).toBe(false)
     expect(tool('Scythe').disabled).toBe(false)
   })
 })

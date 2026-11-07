@@ -1,4 +1,5 @@
-import type { ActionResult } from '../core/actions'
+import { Fragment } from 'react'
+import type { ActionError, ActionResult } from '../core/actions'
 import {
   FUEL_IDS,
   barTicks,
@@ -47,6 +48,10 @@ const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
+/** smelt-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
+const SMELT_SHORT: Partial<Record<ActionError, string>> = { NOT_ENOUGH_ORE: 'no ore', NOT_ENOUGH_FUEL: 'no fuel', QUEUE_FULL: 'full', BAG_FULL: 'storage full' }
+const STOCK_LABEL = { copperOre: 'ore', coal: 'coal', wood: 'wood' }
+
 /** "🪨20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
   const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`)
@@ -74,8 +79,15 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       </summary>
       {f.queue > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
       <small>
-        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or 🪵{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} · ore {have('copperOre')} ·
-        coal {have('coal')} · wood {have('wood')}
+        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or 🪵{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
+        {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
+          <Fragment key={id}>
+            {i > 0 && ' · '}
+            <span className="nowrap">
+              {STOCK_LABEL[id]} {have(id)}
+            </span>
+          </Fragment>
+        ))}
       </small>
       <div className="mine-furnace-actions">
         {FUEL_IDS.map((fuel) => {
@@ -83,12 +95,12 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           return (
             <button key={fuel} disabled={!r.ok} onClick={() => act((s) => enqueueSmelt(s, fuel))}>
               Smelt with {fuel === 'coal' ? `⚫${smeltFuel(fuel)}` : `🪵${smeltFuel(fuel)}`}
-              {!r.ok && <small> — {ERROR_TEXT[r.error]}</small>}
+              {!r.ok && <small>{SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error]}</small>}
             </button>
           )
         })}
         <button disabled={!collect.ok} onClick={() => act(collectBars)}>
-          Collect {f.ready} 🟧{!collect.ok && f.ready > 0 && <small> — {ERROR_TEXT[collect.error]}</small>}
+          Collect {f.ready} 🟧{!collect.ok && f.ready > 0 && <small>{SMELT_SHORT[collect.error] ?? ERROR_TEXT[collect.error]}</small>}
         </button>
       </div>
     </details>
@@ -182,8 +194,8 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       ) : run.pickaxe ? (
         <div className="mine-pickaxe">
           <span>
-            {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · lasts ~
-            {Math.round(expectedUses(run.pickaxe.tier, run))} uses
+            {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · ~
+            {Math.round(expectedUses(run.pickaxe.tier, run, run.pickaxe.durability))} more uses
           </span>
           <Bar value={run.pickaxe.durability / pickaxeDurability(run.pickaxe.tier)} kind="tool" />
         </div>

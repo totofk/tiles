@@ -194,6 +194,9 @@ describe('pickaxe mastery', () => {
     expect(expectedUses('wooden', run({ mastery: { wooden: 400 } }))).toBeCloseTo(125)
     expect(expectedUses('wooden', run({ mastery: { wooden: 400 }, masteredTiers: ['wooden'] }))).toBeCloseTo(125)
     expect(pickaxePreserve('wooden', run({ masteredTiers: ['wooden'] }))).toBeCloseTo(0.05)
+    // from a worn pickaxe's current durability: 187 left at copper Lv0 = 187 more uses, not the fresh 200
+    expect(expectedUses('copper', run({}), 187)).toBe(187)
+    expect(expectedUses('wooden', run({ mastery: { wooden: 400 } }), 10)).toBeCloseTo(50)
   })
 })
 
