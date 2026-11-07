@@ -26,9 +26,9 @@ describe('Mine panel', () => {
   it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
     setup({})
     expect(text()).toContain('Vein Lv0: 🪨 Stone 100 %')
-    expect(screen.getByText(/^Lv1: 🪨 Stone 80 % · ⚫ Coal 20 % — 25 🪨 \+ 💰100$/)).toBeTruthy()
+    expect(screen.getByText(/^Lv1: 🪨 Stone 80 % · ⚫ Coal 20 % — 🪨25 💰100$/)).toBeTruthy()
     const iron = screen.getByText(/iron ore/)
-    expect(iron.textContent).toBe('🔒 Lv2: iron ore — needs Furnace (coming)')
+    expect(iron.textContent).toBe('🔒 Lv3: iron ore — coming')
     expect(iron.textContent).not.toMatch(/%|💰|🪨|\d\s/)
   })
 
@@ -42,14 +42,30 @@ describe('Mine panel', () => {
     fireEvent.click(upgrade())
     expect(affordable.get().run.vein.level).toBe(1)
     affordable.rerender()
-    expect(screen.queryByRole('button', { name: /^Upgrade vein/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Upgrade vein to Lv1/ })).toBeNull()
+    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ })).toBeTruthy()
+  })
+
+  it('vein Lv2 is copper ore and needs the furnace: the Upgrade button says so until it is built', () => {
+    const rich = { cash: 1e3, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: { level: 1, progress: 0, rock: 'stone' as const } }
+    setup(rich)
+    expect(screen.getByText(/^Lv2: /).textContent).toBe('Lv2: 🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 % — 🪨30 ⚫10 💰200')
+    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }).textContent).toBe('Upgrade vein to Lv2 — Build the furnace first')
+    cleanup()
+    setup({ ...rich, furnace: { built: true, queue: 0, progress: 0, ready: 0 } })
+    expect((screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('at the last vein level shows only the current table and the iron teaser', () => {
-    setup({ vein: { level: 1, progress: 0, rock: 'stone' } })
-    expect(text()).toContain('Vein Lv1: 🪨 Stone 80 % · ⚫ Coal 20 %')
-    expect(screen.queryByText(/^Lv2: /)).toBeNull()
+    setup({ vein: { level: 2, progress: 0, rock: 'stone' } })
+    expect(text()).toContain('Vein Lv2: 🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 %')
+    expect(screen.queryByText(/^Lv3: /)).toBeNull()
     expect(screen.getByText(/iron ore/)).toBeTruthy()
+  })
+
+  it('shows the current rock type and its hits: a copper rock takes 3', () => {
+    setup({ vein: { level: 2, progress: 2, rock: 'copperOre' } })
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🟤 cracked 2/3')
   })
 
   it('shows a crack on a half-mined stone', () => {

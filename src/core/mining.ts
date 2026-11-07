@@ -1,4 +1,4 @@
-import { addLifetime, fail, isAmount, nextRandom, withRun, type ActionResult } from './actions'
+import { addLifetime, fail, isAmount, nextRandom, withRun, type ActionError, type ActionResult } from './actions'
 import {
   ACTION_ENERGY_COST,
   isSellable,
@@ -9,11 +9,12 @@ import {
   mineLicenseCost,
   pickaxeRecipe,
   preserveChance,
-  stoneHits,
+  rockHits,
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
   veinDrops,
+  veinNeedsFurnace,
   veinUpgradeCost,
   woodCost,
   type Price,
@@ -93,9 +94,10 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 }
 
 // The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL, NO_ENERGY.
-// Hits add to the current stone; at stoneHits() it drops one roll of the vein table and the rest carries over.
-// A pickaxe action rolls preserve first (mastery level before this action's xp), else loses 1 durability; at 0 it
-// goes blunt (kept, mines by hand until repaired). Only pickaxe actions earn mastery xp.
+// Hits add to the current rock; at rockHits(rock) it drops its item, extra hits are lost, and the next rock is rolled
+// from the vein table (one roll per break, as before the rock had a type). A pickaxe action rolls preserve first
+// (mastery level before this action's xp), else loses 1 durability; at 0 it goes blunt (kept, mines by hand until
+// repaired). Only pickaxe actions earn mastery xp.
 export function dig(state: GameState): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
@@ -103,7 +105,7 @@ export function dig(state: GameState): ActionResult {
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
   const pickaxe = activePickaxe(run)
   const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
-  const drop = hits >= stoneHits()
+  const drop = hits >= rockHits(run.vein.rock)
   const [keep, afterKeep] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
   const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
@@ -111,8 +113,8 @@ export function dig(state: GameState): ActionResult {
     energy: run.energy - ACTION_ENERGY_COST,
     rngState,
     pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
-    vein: { ...run.vein, progress: drop ? hits - stoneHits() : hits },
-    inventory: drop ? addItems(run, pickDrop(veinDrops(run.vein.level), r), 1) : run.inventory,
+    vein: drop ? { ...run.vein, progress: 0, rock: pickDrop(veinDrops(run.vein.level), r) } : { ...run.vein, progress: hits },
+    inventory: drop ? addItems(run, run.vein.rock, 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
     lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
     ...(pickaxe && gainMastery(run, pickaxe.tier)),
@@ -145,17 +147,19 @@ export function pay(state: GameState, price: Price, gain: Partial<RunState> = {}
 }
 
 // Mine upgrades pay items from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),
-// NOT_ENOUGH_ITEMS, NO_CASH.
-function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunState>): ActionResult {
+// `blocked` (a missing building), NOT_ENOUGH_ITEMS, NO_CASH.
+function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunState>, blocked: ActionError | null = null): ActionResult {
   if (!state.run.mineLicense) return fail('NO_MINE_LICENSE')
   if (!cost) return fail('MAX_LEVEL')
+  if (blocked) return fail(blocked)
   return pay(state, cost, gain)
 }
 
-/** next vein level: a new drop table; a half-mined stone keeps its progress */
+/** next vein level: a new drop table for the rocks after the current one, which keeps its type and progress */
 export function upgradeVein(state: GameState): ActionResult {
-  const { vein } = state.run
-  return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: vein.level + 1 } })
+  const { vein, furnace } = state.run
+  const blocked = veinNeedsFurnace(vein.level + 1) && !furnace.built ? 'NO_FURNACE' : null
+  return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: vein.level + 1 } }, blocked)
 }
 
 /** next storage level: +storageSlotsPerLevel() capacity */

@@ -9,8 +9,9 @@ import {
   mineHits,
   mineLicenseCost,
   pickaxeRecipe,
-  stoneHits,
+  rockHits,
   veinDrops,
+  veinMaxLevel,
   veinUpgradeCost,
   woodCost,
   type Price,
@@ -32,8 +33,8 @@ import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 import { ERROR_TEXT, type Act } from './useGame'
 
-/** the next ore after the last vein level; a teaser with no numbers until the furnace batch */
-const LOCKED_VEIN_TEXT = '🔒 Lv2: iron ore — needs Furnace (coming)'
+/** the next ore after the last vein level; a teaser with no numbers until the iron batch */
+const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
@@ -77,6 +78,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
   const hits = mineHits(activePickaxe(run)?.tier ?? null)
   const repair = repairPickaxe(state)
   const cracked = run.vein.progress > 0
+  const rock = ITEMS[run.vein.rock].emoji
   const nextVein = veinUpgradeCost(run.vein.level, meta)
   const veinCheck = upgradeVein(state)
   const fullValue = SELL_WHEN_FULL.reduce(
@@ -103,7 +105,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
         ⛏️ Dig
         <small>
           {digCheck.ok
-            ? `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${cracked ? '🪨 cracked' : '🪨'} ${run.vein.progress}/${stoneHits()}`
+            ? `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${cracked ? `${rock} cracked` : rock} ${run.vein.progress}/${rockHits(run.vein.rock)}`
             : ERROR_TEXT[digCheck.error]}
         </small>
       </button>
@@ -120,7 +122,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
         {nextVein && (
           <>
             <span className="mine-vein-next">
-              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1)} — {nextVein.stone} 🪨 + 💰{nextVein.cash}
+              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1)} — {priceText(nextVein)}
             </span>
             <button disabled={!veinCheck.ok} onClick={() => act(upgradeVein)}>
               Upgrade vein to Lv{run.vein.level + 1}

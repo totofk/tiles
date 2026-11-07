@@ -69,8 +69,9 @@ export const FUEL_IDS = Object.keys(SMELT.fuel) as FuelId[]
 const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
   wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
 }
-/** a stone drops after this many hits; mining by hand (no pickaxe, or a blunt one) deals HAND_HITS per action */
+/** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2
+const ROCK_HITS: Partial<Record<ItemId, number>> = { copperOre: 3 }
 const HAND_HITS = 1
 // Pickaxe mastery: cumulative xp for Lv1 … Lv10 of the first tier; each later tier multiplies them by the factor.
 const MASTERY_THRESHOLDS = [10, 25, 45, 70, 100, 140, 190, 250, 320, 400]
@@ -84,9 +85,18 @@ export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
-const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }, { stone: 0.8, coal: 0.2 }]
-/** price of vein level index + 1, paid in stone from storage and cash */
-const VEIN_UPGRADES: ReadonlyArray<{ stone: number; cash: number }> = [{ stone: 25, cash: 100 }]
+const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
+  { stone: 1 },
+  { stone: 0.8, coal: 0.2 },
+  { stone: 0.65, coal: 0.2, copperOre: 0.15 },
+]
+/** price of vein level index + 1, paid in items from storage and cash */
+const VEIN_UPGRADES: ReadonlyArray<Price> = [
+  { stone: 25, cash: 100 },
+  { stone: 30, coal: 10, cash: 200 },
+]
+/** vein levels from this one up need the furnace */
+const VEIN_FURNACE_LEVEL = 2
 // Storage upgrade (the stone sink): +slots capacity per level; level 1 costs the base, stone +stoneStep per level
 // (so each price fits the capacity before it), cash ×growth per level.
 const STORAGE = { slots: 10, stone: 15, stoneStep: 5, cash: 50, growth: 1.6, maxLevel: 5 }
@@ -235,8 +245,9 @@ export function pickaxeRecipe(tier: PickaxeTier): { wood: number; repairWood: nu
   return PICKAXES[tier]
 }
 
-export function stoneHits(): number {
-  return STONE_HITS
+/** hits a rock that drops `rock` takes to break */
+export function rockHits(rock: ItemId): number {
+  return ROCK_HITS[rock] ?? STONE_HITS
 }
 
 /** hits per mine action; null = by hand */
@@ -276,9 +287,13 @@ export function veinMaxLevel(): number {
 }
 
 /** price to go from `level` to level + 1; null at the max level */
-export function veinUpgradeCost(level: number, meta: MetaState): { stone: number; cash: number } | null {
+export function veinUpgradeCost(level: number, meta: MetaState): Price | null {
   const cost = VEIN_UPGRADES[level]
-  return cost ? { stone: cost.stone, cash: Math.round(cost.cash * multiplier(meta, 'cost')) } : null
+  return cost ? scalePrice(cost, meta) : null
+}
+
+export function veinNeedsFurnace(level: number): boolean {
+  return level >= VEIN_FURNACE_LEVEL
 }
 
 export function storageMaxLevel(): number {

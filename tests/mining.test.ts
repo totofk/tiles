@@ -6,7 +6,7 @@ import {
   mineHits,
   mineLicenseCost,
   pickaxeRecipe,
-  stoneHits,
+  rockHits,
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
@@ -14,6 +14,7 @@ import {
   veinMaxLevel,
   veinUpgradeCost,
   woodCost,
+  type Price,
 } from '../src/core/balance'
 import {
   activePickaxe,
@@ -111,7 +112,7 @@ describe('dig', () => {
     expect(dig(s)).toEqual({ ok: true, state: next }) // same seed, same result
   })
   it('mines by hand with no pickaxe: 1 hit per energy, a stone every 2nd action', () => {
-    expect([stoneHits(), mineHits(null), mineHits('wooden')]).toEqual([2, 1, 2])
+    expect([rockHits('stone'), mineHits(null), mineHits('wooden')]).toEqual([2, 1, 2])
     const s = withRun({ mineLicense: true })
     const half = okState(dig(s))
     expect(half.run.energy).toBe(s.run.energy - 1)
@@ -124,10 +125,10 @@ describe('dig', () => {
     expect(done.run.inventory).toEqual({ stone: 1 })
     expect(done.run.counters.mines).toBe(2)
   })
-  it('a pickaxe finishes a half-mined stone and carries the extra hit over', () => {
+  it('a pickaxe finishes a half-mined stone; extra hits are lost (one rock per action)', () => {
     const next = okState(dig(miner({ vein: { level: 0, progress: 1, rock: 'stone' } })))
     expect(next.run.inventory).toEqual({ stone: 1 })
-    expect(next.run.vein.progress).toBe(1)
+    expect(next.run.vein.progress).toBe(0)
   })
   it('goes blunt at 0 durability: still owned, then mines by hand and loses no more durability', () => {
     const blunt = okState(dig(miner({ pickaxe: { tier: 'wooden', durability: 1 } })))
@@ -196,7 +197,7 @@ describe('pickaxe mastery', () => {
 
 describe('upgradeVein', () => {
   it('vein Lv1 costs 25 stone + 100 cash and drops 80 % stone / 20 % coal; coal sells for 4', () => {
-    expect([veinMaxLevel(), veinUpgradeCost(0, meta), veinUpgradeCost(1, meta)]).toEqual([1, { stone: 25, cash: 100 }, null])
+    expect([veinMaxLevel(), veinUpgradeCost(0, meta), veinUpgradeCost(2, meta)]).toEqual([2, { stone: 25, cash: 100 }, null])
     expect(veinDrops(1)).toEqual({ stone: 0.8, coal: 0.2 })
     expect(itemSellPrice('coal', meta, 0)).toBe(4)
     const s = miner({ cash: 100, inventory: { stone: 26 }, bagCapacity: 50, vein: { level: 0, progress: 1, rock: 'stone' } })
@@ -204,7 +205,32 @@ describe('upgradeVein', () => {
     expect(next.run.vein).toEqual({ level: 1, progress: 1, rock: 'stone' })
     expect(next.run.cash).toBe(0)
     expect(next.run.inventory.stone).toBe(1)
-    expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('vein Lv2 costs 30 stone + 10 coal + 200 cash, needs the furnace, and drops 65 % stone / 20 % coal / 15 % copper ore', () => {
+    expect(veinUpgradeCost(1, meta)).toEqual({ stone: 30, coal: 10, cash: 200 })
+    expect(veinDrops(2)).toEqual({ stone: 0.65, coal: 0.2, copperOre: 0.15 })
+    const lv1 = { level: 1, progress: 0, rock: 'stone' as const }
+    const s = miner({ cash: 200, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: lv1 })
+    expect(upgradeVein(s)).toEqual({ ok: false, error: 'NO_FURNACE' })
+    const next = okState(upgradeVein({ ...s, run: { ...s.run, furnace: { built: true, queue: 0, progress: 0, ready: 0 } } }))
+    expect([next.run.vein.level, next.run.cash, next.run.inventory]).toEqual([2, 0, { stone: 0, coal: 0 }])
+    expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3, coal: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('a copper rock takes 3 hits: 2 wooden-pickaxe actions, the 3rd hit lost', () => {
+    expect(rockHits('copperOre')).toBe(3)
+    const s = miner({ vein: { level: 2, progress: 0, rock: 'copperOre' } })
+    const half = okState(dig(s))
+    expect([half.run.vein.progress, half.run.inventory]).toEqual([2, {}])
+    const done = okState(dig(half))
+    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { copperOre: 1 }])
+  })
+  it('vein Lv2 drops copper ore about 3 times in 20 rocks', () => {
+    let s = miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1e6 }, vein: { level: 2, progress: 0, rock: 'stone' } })
+    for (let i = 0; i < 2000; i++) s = okState(dig(s))
+    const { stone = 0, coal = 0, copperOre = 0 } = s.run.inventory
+    const rocks = stone + coal + copperOre
+    expect(copperOre / rocks).toBeGreaterThan(0.11)
+    expect(copperOre / rocks).toBeLessThan(0.19)
   })
   it('vein Lv1 drops coal about 1 time in 5', () => {
     let s = miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1e6 }, vein: { level: 1, progress: 0, rock: 'stone' } })
@@ -236,7 +262,9 @@ describe('buyStorage', () => {
     for (let l = 0; l < storageMaxLevel(); l++) expect(storageCost(l, meta).stone).toBeLessThanOrEqual(capacity(l))
     // vein Lv1 is meant to come after storage Lv1
     expect(veinUpgradeCost(0, meta)!.stone).toBeGreaterThan(capacity(0))
-    for (let v = 0; v < veinMaxLevel(); v++) expect(veinUpgradeCost(v, meta)!.stone).toBeLessThanOrEqual(capacity(v + 1))
+    // vein level v + 1 comes after storage level v + 1; the price is the sum of its items
+    const items = (p: Price) => Object.entries(p).reduce((a, [k, n]) => (k === 'cash' ? a : a + n), 0)
+    for (let v = 0; v < veinMaxLevel(); v++) expect(items(veinUpgradeCost(v, meta)!)).toBeLessThanOrEqual(capacity(v + 1))
   })
   it('adds 10 capacity per level and pays stone from storage', () => {
     const next = okState(buyStorage(miner({ cash: 60, inventory: { stone: 15 } })))

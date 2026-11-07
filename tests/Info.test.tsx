@@ -28,10 +28,17 @@ describe('ⓘ info button', () => {
 
   it('every Shop and Upgrades row has one, with a text', () => {
     const s = createInitialState()
-    // everything visible: all licenses (pouch rows), the mine license (wood, Mine upgrades), all milestone upgrades
+    // everything visible: all licenses (pouch rows), the mine license (wood, Mine upgrades), vein Lv1 (furnace),
+    // all milestone upgrades
     const state: GameState = {
       ...s,
-      run: { ...s.run, licenses: [...CROP_IDS], mineLicense: true, counters: { ...s.run.counters, harvests: 1e4, sales: 1e4 } },
+      run: {
+        ...s.run,
+        licenses: [...CROP_IDS],
+        mineLicense: true,
+        vein: { level: 1, progress: 0, rock: 'stone' },
+        counters: { ...s.run.counters, harvests: 1e4, sales: 1e4 },
+      },
     }
     const { container } = render(
       <>
@@ -40,8 +47,8 @@ describe('ⓘ info button', () => {
       </>,
     )
     const rows = [...container.querySelectorAll('.shop-row > *, .pouch-row, .pouch-auto')]
-    // 4 crops + wood + tile + 9 tools, 4 pouch rows + auto-buy, 4 upgrades + storage + vein
-    expect(rows).toHaveLength(15 + 5 + 6)
+    // 4 crops + wood + furnace + tile + 9 tools, 4 pouch rows + auto-buy, 4 upgrades + storage + vein
+    expect(rows).toHaveLength(16 + 5 + 6)
     for (const r of rows) {
       expect(r.querySelectorAll('.info-btn')).toHaveLength(1)
       expect(r.querySelector('.tip')?.textContent?.length).toBeGreaterThan(20)
