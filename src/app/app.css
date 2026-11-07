@@ -535,12 +535,18 @@ button:disabled {
     bottom: 16px;
   }
 }
+/* out of the text flow, so a dot never pushes a tab label into its ellipsis */
+.panel-tabs button,
+.tabbar button,
+.panel-open {
+  position: relative;
+}
 .badge-dot {
-  display: inline-block;
+  position: absolute;
+  top: 4px;
+  right: 4px;
   width: 8px;
   height: 8px;
-  margin-left: 4px;
-  vertical-align: top;
   border-radius: 50%;
   background: #d32f2f;
 }

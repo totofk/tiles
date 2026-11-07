@@ -347,7 +347,8 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   Seen keys accumulate (a thing seen once, then unaffordable, then affordable again does not badge again); the level
   is in the key, so each next level is news. **First load after this patch** (no `seen` in `tiles.ui`) shows a dot
   for whatever is available once. The "seen" update runs during render, guarded, so `tiles.ui` is written only when
-  a key is new, never every tick. The tablet "🛒 Shop" opener button has no dot (not in the brief).
+  a key is new, never every tick. At 768–1023 px the tabs sit in the closed slide-over, so the "🛒 Shop" opener
+  button also shows the dot when Shop or Upgrades has news (an addition to the brief, so that layout gets a signal).
 - **Batch 6.2: the 375 / 1440 px numbers in "Batch 6.2 results" are computed from the CSS, not measured in a
   browser** (no dev server or browser in this headless run; the brief forbids `pnpm dev` and files under `dist/` for
   browser checks). Button widths in them are estimates.

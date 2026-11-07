@@ -37,7 +37,11 @@ export default function App() {
   // opening a tab (or keeping it open while something new appears) marks what it shows as seen;
   // set during render, guarded, so it re-renders once and never on a tick with nothing new
   const fresh = panelOnScreen ? unseen(tab) : []
-  if (fresh.length > 0 && isBadgeTab(tab)) setUi((u) => ({ ...u, seen: { ...u.seen, [tab]: [...u.seen[tab], ...fresh] } }))
+  if (fresh.length > 0 && isBadgeTab(tab))
+    setUi((u) => {
+      const add = fresh.filter((k) => !u.seen[tab].includes(k))
+      return add.length ? { ...u, seen: { ...u.seen, [tab]: [...u.seen[tab], ...add] } } : u
+    })
   const dot = (t: PanelTabId) => badge(t) && <span className="badge-dot" aria-hidden="true" />
 
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
@@ -93,6 +97,7 @@ export default function App() {
         <Hud state={state} />
         <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
           🛒 Shop
+          {(badge('shop') || badge('upgrades')) && <span className="badge-dot" aria-hidden="true" />}
         </button>
         {banner && (
           <div className="banner" role="status">
