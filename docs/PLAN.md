@@ -616,3 +616,16 @@ idle energy like the batch-3 bot under both mine-license policies. It never borr
   Storage L2 costs 32 stone at capacity 30 and vein Lv1 needs 40 stone at capacity 30. The vein Lv1 rate above is
   measured by setting the vein level directly. The stone prices are DECISIONS.md numbers and outside task 31's
   retune list (vein coal share, repair cost); fixing them needs a decision.
+
+## Batch 6.1 — stone costs fit storage + mine panel polish (tasks 32–33)
+Question: can the player actually buy storage → vein Lv1, and is the Mine panel readable?
+No save-shape change (numbers and UI only).
+
+32. [ ] Storage stone cost +5 per level: 15 / 20 / 25 / 30 / 35 (cash stays 50 × 1.6ⁿ). Vein Lv1 = 25 stone + 100
+    cash (so storage Lv1 comes first). Test: every stone/ore price ≤ the storage capacity the player has when it
+    becomes buyable (each storage level vs capacity before it; vein Lv1 vs capacity after storage Lv1). Sim: the
+    stone-keeping mine-early bot buys storage Lv1 then vein Lv1 — report both ticks in "## Batch 6.1 results".
+33. [ ] Mine panel polish: "lasts ~N uses" moves to the pickaxe durability line (mastery line shows level + xp
+    only, e.g. "Mastery Lv 0/10 · 5/10 xp"); drop-table and storage text at readable contrast (≥ 4.5:1); coal named
+    in the drop table ("⚫ Coal 20 %"); the offline banner says "1 tick" / "N ticks"; the next vein level shows an
+    Upgrade button (disabled with the reason when unaffordable).

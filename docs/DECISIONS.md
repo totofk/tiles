@@ -161,3 +161,4 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Crops:** Chilli 🌶️ and Lemon 🍋 join carrot and pumpkin (batch 6, starting numbers; order carrot < chilli <
   pumpkin < lemon by cash/energy and license cost).
 - **Stone sink:** Storage upgrade (+10 slots, 20 stone + 50 cash, ×1.6 per level, max 5); "Bag" displays as "📦 Storage". Worker certificates add more stone sinks later.
+- **Stone prices fit storage (2026-11-07):** storage stone cost +5/level (15…35) and vein Lv1 = 25 stone, because 40 stone with 20→30 capacity was unbuyable. Every stone/ore price must be ≤ the capacity the player has when it becomes buyable (sim-enforced).
