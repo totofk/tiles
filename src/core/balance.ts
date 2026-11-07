@@ -51,7 +51,7 @@ const TILE_COST_GROWTH = 1.5
 const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
 // wood sells below its buy price, so buying and reselling wood never makes money
-const ITEM_SELL_PRICE: Record<ItemId, number> = { wood: 2, stone: 2 }
+const ITEM_SELL_PRICE: Record<ItemId, number> = { wood: 2, stone: 2, coal: 4 }
 // wood = craft cost, repairWood = cost to fix a blunt one (below craft), hits = stone hits per mine action
 const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
   wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
@@ -71,7 +71,11 @@ export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
-const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }]
+const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }, { stone: 0.8, coal: 0.2 }]
+/** price of vein level index + 1, paid in stone from storage and cash */
+const VEIN_UPGRADES: ReadonlyArray<{ stone: number; cash: number }> = [{ stone: 40, cash: 100 }]
+// Storage upgrade (the stone sink): +SLOTS capacity per level; level 1 costs the base, both prices ×growth per level.
+const STORAGE = { slots: 10, stone: 20, cash: 50, growth: 1.6, maxLevel: 5 }
 
 // Farm tools (PLAN.md batch 5 starting numbers): per job, the counter that unlocks each level and the level's
 // one-time price; levels[0] is level 1. Level 2 does toolN tiles per press, 1 … ceil(tiles × TOOL_N_RATIO).
@@ -209,6 +213,31 @@ export function preserveChance(level: number, masteredTiers: number): number {
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+export function veinMaxLevel(): number {
+  return VEIN_UPGRADES.length
+}
+
+/** price to go from `level` to level + 1; null at the max level */
+export function veinUpgradeCost(level: number, meta: MetaState): { stone: number; cash: number } | null {
+  const cost = VEIN_UPGRADES[level]
+  return cost ? { stone: cost.stone, cash: Math.round(cost.cash * multiplier(meta, 'cost')) } : null
+}
+
+export function storageMaxLevel(): number {
+  return STORAGE.maxLevel
+}
+
+/** capacity each storage level adds */
+export function storageSlotsPerLevel(): number {
+  return STORAGE.slots
+}
+
+/** whole-number price to go from `level` to level + 1 */
+export function storageCost(level: number, meta: MetaState): { stone: number; cash: number } {
+  const f = STORAGE.growth ** level
+  return { stone: Math.round(STORAGE.stone * f), cash: Math.round(STORAGE.cash * f * multiplier(meta, 'cost')) }
 }
 
 export function toolMaxLevel(job: ToolJob): number {

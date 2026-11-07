@@ -24,7 +24,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_PICKAXE: 'No pickaxe',
   NOT_BLUNT: 'Pickaxe is not blunt yet',
   NOT_ENOUGH_WOOD: 'Not enough wood',
-  BAG_FULL: 'Bag is full — sell something',
+  BAG_FULL: 'Storage is full — sell something',
   NOT_ENOUGH_ITEMS: 'Not enough items',
   BAD_AMOUNT: 'Invalid amount',
   LOAN_ACTIVE: 'Repay the current loan first',

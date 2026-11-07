@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Upgrades } from '../src/app/Upgrades'
 import { toolCost, upgradeMaxLevel } from '../src/core/balance'
+import { buyStorage } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { buyTool } from '../src/core/tools'
 
@@ -39,6 +40,26 @@ describe('Upgrades tab', () => {
     const btn = screen.getByRole('button', { name: /Bigger stamina/ })
     expect((btn as HTMLButtonElement).disabled).toBe(true)
     expect(btn.textContent).toContain('max level')
+  })
+})
+
+describe('Mine upgrades in the Upgrades tab', () => {
+  it('appear only with the mine license: storage and vein with stone + cash prices', () => {
+    render(<Upgrades state={createInitialState()} act={noop} />)
+    expect(screen.queryByRole('heading', { name: 'Mine' })).toBeNull()
+    cleanup()
+
+    const act = vi.fn()
+    const state = withRun({ mineLicense: true, cash: 50, inventory: { stone: 20 } })
+    render(<Upgrades state={state} act={act} />)
+    const [storage, vein] = row('Mine') as HTMLButtonElement[]
+    expect(storage.textContent).toBe('📦 Storage Lv 0/5+10 slots · 🪨20 💰50')
+    expect(storage.disabled).toBe(false)
+    expect(vein.textContent).toContain('🪨40 💰100')
+    expect(vein.disabled).toBe(true)
+    fireEvent.click(storage)
+    const fn = act.mock.calls[0][0] as (s: GameState) => ReturnType<typeof buyStorage>
+    expect(fn(state)).toEqual(buyStorage(state))
   })
 })
 

@@ -30,7 +30,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       <h2>
         ⛏️ Mine{' '}
         <small>
-          bag {bagCount(run)} / {run.bagCapacity}
+          📦 Storage {bagCount(run)} / {run.bagCapacity}
         </small>
       </h2>
       <button className="mine-dig" disabled={!digCheck.ok} onClick={() => act(dig)}>

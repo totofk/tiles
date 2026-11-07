@@ -277,6 +277,20 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 6: `expectedUses(tier, run)` (in `mining.ts`) is the lifetime of a fresh pickaxe of that tier**: the tier's
   base durability / (1 − preserve), per DECISIONS.md ("25 at Lv0 → 125 at Lv10"), not the remaining uses of the
   pickaxe in hand. It returns a float; the UI rounds it for "lasts ~N uses".
+- **Batch 6: vein and storage upgrades are `upgradeVein` / `buyStorage` in `mining.ts`**, paid in stone from storage plus
+  cash (cash follows the `cost` multiplier, stone does not), no energy. Order: NO_MINE_LICENSE, MAX_LEVEL,
+  NOT_ENOUGH_ITEMS, NO_CASH. A vein upgrade keeps a half-mined stone's progress. Storage prices are
+  `storageCost(level)` = round(20 × 1.6^L) stone, round(50 × 1.6^L) cash: 20/50, 32/80, 51/128, 82/205, 131/328.
+  Vein max level is 1 (`veinMaxLevel()`, `veinUpgradeCost` returns null past it).
+- **Batch 6 UI (minimal, the Mine panel is task 29):** the Upgrades tab gets a "Mine" heading after the mine license with
+  "📦 Storage Lv L/5" and "⛏️ Vein Lv L/1", disabled by their own action results. The Mine panel header reads
+  "📦 Storage N / cap", `BAG_FULL` reads "Storage is full — sell something", the Dig button shows hits and the current
+  stone's progress, and a blunt pickaxe shows a "Blunt pickaxe — repair (2 🪵)" button. Coal is ⚫ and sells from the
+  existing item rows.
+- **Finding (not fixed, numbers are task 31's): the stone prices lock storage and vein out.** Every item takes a slot.
+  Storage L1 costs 20 stone at capacity 20 (payable only with nothing else in storage); L2 costs 32 stone at capacity 30,
+  so it can never be paid, and neither can L3–L5 (51/82/131 stone at 40/50/60). Vein Lv1 needs 40 stone = capacity 40 =
+  storage L2, so **vein Lv1 is unreachable in play**. A sim that sets vein Lv1 directly would hide this.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -495,7 +509,7 @@ compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; 
     to `run.masteredTiers`; each mastered tier gives +5 % preserve chance to every pickaxe tier, permanently. Total
     preserve capped at 0.8. Balance test encodes the tier rule: base durability of tier k+1 > Lv10 lifetime of tier k
     (wood Lv10 = 125 uses) — with one tier it documents the rule for the furnace batch.
-28. [ ] Vein Lv1: 40 stone + 100 cash → 80 % stone / 20 % coal, coal sells 4 (`ItemId` gains `coal`). **Storage
+28. [x] Vein Lv1: 40 stone + 100 cash → 80 % stone / 20 % coal, coal sells 4 (`ItemId` gains `coal`). **Storage
     upgrade:** +10 capacity per level, level 1 = 20 stone + 50 cash, ×1.6 both per level, max 5, in the Upgrades tab
     once the mine license is owned. Display rename "Bag" → "📦 Storage" everywhere (code ids `bagCapacity`,
     `inventory` unchanged). The seed pouch stays separate.

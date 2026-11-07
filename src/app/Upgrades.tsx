@@ -4,15 +4,21 @@ import {
   energyRegenPerTick,
   growTimeFactor,
   sellPriceFactor,
+  storageCost,
+  storageMaxLevel,
+  storageSlotsPerLevel,
   toolCost,
   toolNMax,
   toolUnlock,
   upgradeCost,
   upgradeMaxLevel,
   upgradeUnlocked,
+  veinMaxLevel,
+  veinUpgradeCost,
 } from '../core/balance'
 import { TOOLS, TOOL_JOBS } from '../core/data/tools'
 import { UPGRADES, UPGRADE_IDS, type UpgradeId } from '../core/data/upgrades'
+import { buyStorage, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
 import { buyTool } from '../core/tools'
 import type { Act } from './useGame'
@@ -36,6 +42,32 @@ function effect(id: UpgradeId, level: number, meta: MetaState): string {
   }
 }
 
+const price = (cost: { stone: number; cash: number }) => `🪨${cost.stone} 💰${cost.cash}`
+
+/** storage and vein: paid in stone + cash, shown once the mine license is owned */
+function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
+  const { run, meta } = state
+  const storageMaxed = run.storageLevel >= storageMaxLevel()
+  const veinCost = veinUpgradeCost(run.vein.level, meta)
+  return (
+    <>
+      <h2>Mine</h2>
+      <div className="shop-row">
+        <button disabled={!buyStorage(state).ok} onClick={() => act(buyStorage)}>
+          📦 Storage Lv {run.storageLevel}/{storageMaxLevel()}
+          <small>
+            {storageMaxed ? 'max level' : `+${storageSlotsPerLevel()} slots · ${price(storageCost(run.storageLevel, meta))}`}
+          </small>
+        </button>
+        <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
+          ⛏️ Vein Lv {run.vein.level}/{veinMaxLevel()}
+          <small>{veinCost ? `new drops · ${price(veinCost)}` : 'max level'}</small>
+        </button>
+      </div>
+    </>
+  )
+}
+
 export function Upgrades({ state, act }: { state: GameState; act: Act }) {
   const { run, meta } = state
   return (
@@ -55,6 +87,7 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
           )
         })}
       </div>
+      {run.mineLicense && <MineUpgrades state={state} act={act} />}
       <h2>Tools</h2>
       <div className="shop-row">
         {TOOL_JOBS.flatMap((job) =>

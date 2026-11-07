@@ -9,7 +9,11 @@ import {
   pickaxeRecipe,
   preserveChance,
   stoneHits,
+  storageCost,
+  storageMaxLevel,
+  storageSlotsPerLevel,
   veinDrops,
+  veinUpgradeCost,
   woodCost,
 } from './balance'
 import { ITEM_IDS, type ItemId, type PickaxeTier } from './data/items'
@@ -123,6 +127,30 @@ export function repairPickaxe(state: GameState): ActionResult {
     inventory: addItems(run, 'wood', -recipe.repairWood),
     pickaxe: { ...run.pickaxe, durability: recipe.durability },
   })
+}
+
+// Mine upgrades pay stone from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),
+// NOT_ENOUGH_ITEMS (stone), NO_CASH.
+function buyMineUpgrade(state: GameState, cost: { stone: number; cash: number } | null, gain: Partial<RunState>): ActionResult {
+  const { run } = state
+  if (!run.mineLicense) return fail('NO_MINE_LICENSE')
+  if (!cost) return fail('MAX_LEVEL')
+  if ((run.inventory.stone ?? 0) < cost.stone) return fail('NOT_ENOUGH_ITEMS')
+  if (run.cash < cost.cash) return fail('NO_CASH')
+  return withRun(state, { cash: run.cash - cost.cash, inventory: addItems(run, 'stone', -cost.stone), ...gain })
+}
+
+/** next vein level: a new drop table; a half-mined stone keeps its progress */
+export function upgradeVein(state: GameState): ActionResult {
+  const { vein } = state.run
+  return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: vein.level + 1 } })
+}
+
+/** next storage level: +storageSlotsPerLevel() capacity */
+export function buyStorage(state: GameState): ActionResult {
+  const { run } = state
+  const cost = run.storageLevel < storageMaxLevel() ? storageCost(run.storageLevel, state.meta) : null
+  return buyMineUpgrade(state, cost, { storageLevel: run.storageLevel + 1, bagCapacity: run.bagCapacity + storageSlotsPerLevel() })
 }
 
 /** each unit sold counts as one sale */

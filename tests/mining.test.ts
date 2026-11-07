@@ -7,12 +7,18 @@ import {
   mineLicenseCost,
   pickaxeRecipe,
   stoneHits,
+  storageCost,
+  storageMaxLevel,
   veinDrops,
+  veinMaxLevel,
+  veinUpgradeCost,
   woodCost,
 } from '../src/core/balance'
 import {
   activePickaxe,
   buyMineLicense,
+  buyStorage,
+  upgradeVein,
   buyWood,
   craftPickaxe,
   dig,
@@ -184,6 +190,55 @@ describe('pickaxe mastery', () => {
     expect(expectedUses('wooden', run({ mastery: { wooden: 400 } }))).toBeCloseTo(125)
     expect(expectedUses('wooden', run({ mastery: { wooden: 400 }, masteredTiers: ['wooden'] }))).toBeCloseTo(125)
     expect(pickaxePreserve('wooden', run({ masteredTiers: ['wooden'] }))).toBeCloseTo(0.05)
+  })
+})
+
+describe('upgradeVein', () => {
+  it('vein Lv1 costs 40 stone + 100 cash and drops 80 % stone / 20 % coal; coal sells for 4', () => {
+    expect([veinMaxLevel(), veinUpgradeCost(0, meta), veinUpgradeCost(1, meta)]).toEqual([1, { stone: 40, cash: 100 }, null])
+    expect(veinDrops(1)).toEqual({ stone: 0.8, coal: 0.2 })
+    expect(itemSellPrice('coal', meta, 0)).toBe(4)
+    const s = miner({ cash: 100, inventory: { stone: 41 }, bagCapacity: 50, vein: { level: 0, progress: 1 } })
+    const next = okState(upgradeVein(s))
+    expect(next.run.vein).toEqual({ level: 1, progress: 1 })
+    expect(next.run.cash).toBe(0)
+    expect(next.run.inventory.stone).toBe(1)
+    expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('vein Lv1 drops coal about 1 time in 5', () => {
+    let s = miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1e6 }, vein: { level: 1, progress: 0 } })
+    for (let i = 0; i < 1000; i++) s = okState(dig(s))
+    expect(s.run.inventory.stone! + s.run.inventory.coal!).toBe(1000)
+    expect(s.run.inventory.coal).toBeGreaterThan(150)
+    expect(s.run.inventory.coal).toBeLessThan(250)
+  })
+  it('validates license, max level, stone, cash in that order', () => {
+    expect(upgradeVein(withRun({ cash: 1e6, inventory: { stone: 40 } }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
+    expect(upgradeVein(miner({ cash: 1e6, inventory: { stone: 39 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(upgradeVein(miner({ cash: 99, inventory: { stone: 40 } }))).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
+describe('buyStorage', () => {
+  it('costs 20 stone + 50 cash, ×1.6 both per level in whole numbers, max 5', () => {
+    expect(storageMaxLevel()).toBe(5)
+    expect([0, 1, 2, 3, 4].map((l) => storageCost(l, meta))).toEqual([
+      { stone: 20, cash: 50 },
+      { stone: 32, cash: 80 },
+      { stone: 51, cash: 128 },
+      { stone: 82, cash: 205 },
+      { stone: 131, cash: 328 },
+    ])
+  })
+  it('adds 10 capacity per level and pays stone from storage', () => {
+    const next = okState(buyStorage(miner({ cash: 60, inventory: { stone: 20 } })))
+    expect([next.run.storageLevel, next.run.bagCapacity, next.run.cash, next.run.inventory.stone]).toEqual([1, BAG_CAPACITY_START + 10, 10, 0])
+  })
+  it('validates license, max level, stone, cash in that order', () => {
+    expect(buyStorage(withRun({ cash: 1e6, inventory: { stone: 20 } }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
+    expect(buyStorage(miner({ cash: 1e6, inventory: { stone: 1e3 }, storageLevel: 5 }))).toEqual({ ok: false, error: 'MAX_LEVEL' })
+    expect(buyStorage(miner({ cash: 1e6, inventory: { stone: 19 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyStorage(miner({ cash: 49, inventory: { stone: 20 } }))).toEqual({ ok: false, error: 'NO_CASH' })
   })
 })
 
