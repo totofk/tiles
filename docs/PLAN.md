@@ -589,6 +589,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 10 (task 62): the plant row, its ⓘ tip (`WORKER_TIPS.plant`) and 🌱 (`WORKER_JOB_EMOJI.plant`) ship with the
   core**, because `WORKER_JOB_LABEL` / `WORKER_TIPS` / `WORKER_JOB_EMOJI` are `Record<WorkerJob, …>` and the build needs
   them (as batch 9's loader rows did); task 63 lays out the rest.
+- **Batch 10 (task 63): `PLANT_EMOJI` lives in `useGame.ts` next to `FIRE_EMOJI`** and `WORKER_JOB_EMOJI.plant` reads it:
+  the banner (useGame) needs it, and importing `Workers.tsx` from `useGame.ts` would make a module cycle
+  (useGame → Workers → Mine → useGame). The older 🌱 in the "🌱 Farm" tab labels are left as they were.
+- **Batch 10 (task 64): cash per hour runs 1 h (3600 ticks), not the 1200-tick session** of batch 8, on pumpkin and lemon
+  as the plan names them; carrot is not measured. "Cash/hour" = net cash per minute × 60, the batch-8 accounting.
+- **Batch 10 (task 64): the 8 h offline comparison grants the plant certificate** on batch 8's own start (tick 3600,
+  before the furnace ladder could pay 🥉10) and moves one waterer to planting, so the only difference from the +💰1,085
+  run is the planter. That the certificate is reachable is a separate ladder run (4341, after the loaders and smart).
+- **Batch 10 (task 64): the sim bots leave planting and tilling to a staffed planter** (`bestFarmAction` checks
+  `assigned.plant` like water / harvest); with no planter every earlier pin replays unchanged.
+- **Batch 10 (task 64): no `balance.ts` change.** Offline income (+💰69,849 in 8 h) is not capped by any batch-10 number;
+  see the reading in "Batch 10 results".
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1573,7 +1585,7 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
 - [x] 63. **UI.** Plant row in the Workers card (certificate, −/count/+, ⓘ) in the same order as the tool rows:
     Plant / Water / Harvest, then the furnace jobs. Target ring + flash (🌱) on planted tiles. Stats: plants by
     workers. Away banner: plants by workers. Compact at 375 px.
-- [ ] 64. **Sim + balance.** With plant + water + harvest workers on pumpkin and lemon: cash/hour vs manual, and 8 h
+- [x] 64. **Sim + balance.** With plant + water + harvest workers on pumpkin and lemon: cash/hour vs manual, and 8 h
     offline vs batch 8's +💰1,085 (the gap this batch closes). Pin: the full loop runs offline without going below 0
     cash, auto-buy off → workers idle when the pouch is empty, the certificate is reachable after the furnace
     loaders. Tune only batch-10 numbers; report every change as a deviation.
@@ -1624,3 +1636,40 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
   - The open card grows by one 44 px row + 4 px gap; closed it is the same 44 px summary (summary text unchanged).
   - Ring and pop take no layout (outline + absolute pop, task 60), so tiles and the grid do not move at any width.
   - Banner: the text span wraps inside the flex banner, ✕ stays right; one more part only lengthens the wrapped text.
+
+### Sim (task 64, `tests/sim.test.ts` "batch 10", measured)
+No `balance.ts` number changed: the starting certificate (🥉10 + 💰300 after 60 plants) passes every check. Save stays v10.
+- **Cash per hour, one crop on 9 tiles, 1 h** (`runCropBot`, net cash incl. standing crops, from tick 0; "all" = 1 plant
+  + 1 water + 1 harvest worker and the player does nothing on the farm; the bot leaves a staffed job to its worker):
+
+  | Crop | manual | water + harvest | all three | share | wages | all three + copper can/sickle/dibber | wages |
+  |---|---|---|---|---|---|---|---|
+  | pumpkin | 6707 | 5842 | **5636** | **84.0 %** | 855 | **6755** (100.7 %) | 536 |
+  | lemon | 8048 | 7262 | **7088** | **88.1 %** | 765 | **8615** (107.0 %) | 448 |
+
+  Player energy on the farm with all three: **0** (manual 810 / 720). Asserted: all three ≥ 80 % of manual, above manual
+  with the three copper tools; cash never below 0. The planter's 135 / 90 plants an hour cost 💰140 / 95 more wages than
+  water + harvest alone (one wage per till or plant), for −3.5 % / −2.4 % cash per hour and all the player's energy back.
+- **8 h offline** (catch-up from the batch-8 workers ladder end, tick 3600, furnace loaded as in batch 8: cash 💰3452,
+  9 tiles, empty pouch, auto-buy on; the plant certificate granted and one of the 3 waterers moved to plant, Crop to
+  plant = 🍋 lemon, so water 2 / harvest 3 / plant 1):
+
+  | Setup | cash gain | wages | plants by workers |
+  |---|---|---|---|
+  | batch 8 (no planter) | **+💰1,085** (unchanged, asserted) | 15 | 0 |
+  | 1 planter | **+💰69,849** | 3,551 | **711** (= 711 harvests) |
+  | 1 planter, auto-buy off, empty pouch | +💰1,085 | 15 | 0 |
+
+  The full loop runs all 8 h (lowest cash 💰3451, never below 0, stepped one tick at a time). With auto-buy off the
+  planter idles: cash and wages equal the same run with that worker unassigned (asserted).
+- **Ladder** (`runBot(…, { furnace: true, planter: true })` = the batch-9 furnace ladder + the plant certificate after
+  the smart furnace; once certified the planter gets one worker (taken from the bigger farm job when none is free) and
+  "Crop to plant" follows the best licensed crop), 7200 ticks, pinned: every batch-9 tick unchanged (ore certificate
+  2550, fuel 3141, smart 3741), **plant certificate 4341** (≈ 72 min, 600 ticks after smart). At 2 h: cash 💰13 694,
+  wages 💰999, 72 plants by the worker, staff plant 1 / water 2 / harvest 1 / ore 1 / fuel 1, cash never below 0, no loan.
+- **Prices fit storage:** the plant certificate (🥉10) joins the table: ≤ 40 items (storage Lv2).
+- **Unchanged pins:** batch 3–9 sims all replay; 447 tests.
+- **Reading:** the planter closes the offline gap completely: 8 h away now earns ≈ 💰8.7k an hour, about the hand-farmed
+  lemon rate (💰8,048/h), instead of one harvest round. Nothing in the rules discounts offline time beyond the 8 h cap,
+  so from here on offline income is active farm income; if that is too generous it needs a new rule (an offline rate),
+  not a batch-10 number.
