@@ -426,6 +426,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 7.1: the v6 fixture was captured with a temporary Node script** (Vite `ssrLoadModule` of the current core,
   printed to stdout, written with the editor, then deleted; diffed identical to a second run), because no TS runner
   is installed and temporary test files were not allowed.
+- **Batch 7.2 (task 47): a collapsed desktop panel puts the farm actions back on the farm column.** Collapsing hides
+  every tab's content, so a Farm tab there would hide the only tool buttons; "side panel next to the farm" is read as
+  "≥ 1024 px and expanded". The Planting line, the right-edge tool bar and Dig for seeds return while collapsed.
+- **Batch 7.2 (task 47): on desktop only the open side-panel tab shows its name; the other four are icon-only**
+  (name kept for screen readers and as the hover title). With names, five tabs need ≈ 351 px and the row has 244 px at
+  1024 / 318 px at 1440, so "every tab without overflow" is not reachable with names at either width.
+- **Batch 7.2 (task 47): below 1024 px the Shop keeps the crop picker and the seed pouch.** "Nothing moves on mobile"
+  plus the Shop being the only place to pick a crop there; the "Shop no longer has a crop picker" test is the
+  desktop Shop. Tablet (768–1023 px, slide-over panel) counts as not-beside-the-farm and stays as in 7.1.
+- **Batch 7.2 (task 48): the one wood constant is `ITEMS.wood.emoji` in `src/core/data/items.ts`** (it already fed
+  every price line through `priceText` and the mine storage list); the three UI literals now read it. That is a
+  display string in core data, not behaviour, balance or save shape. The old 🪵 is left in earlier batch notes.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -979,7 +991,33 @@ UI only — no core numbers, no save-shape change (tab choice lives in `tiles.ui
     nothing moves: the bar above the tab bar stays and the side-panel tabs do not gain a 🌾 Farm tab (the bottom
     🌱 Farm tab already is it). Badge rules unchanged; the side-panel tab row must show every tab without the ›
     overflow at ≥ 1024 px.
-48. [ ] Wood icon: 🪵 renders as an empty box on Toon's device. Replace it everywhere (UI, tips, prices, Stats) with
+48. [x] Wood icon: 🪵 renders as an empty box on Toon's device. Replace it everywhere (UI, tips, prices, Stats) with
     one shared icon constant using an older, widely supported emoji (e.g. 🌲 or 🪓 — pick one and say why), so a
     later change is one line. Tests for 47: the Farm tab renders the three tool buttons and the crop picker; picking
     a crop changes what Plant plants; Shop no longer has a crop picker.
+
+## Batch 7.2 results
+UI only; no `balance.ts` number, no save shape (save stays v7), no core behaviour. 318 tests (314 before).
+
+- **Breakpoint:** `(min-width: 1024px)` and the panel expanded = the side panel sits beside the farm (same query as
+  the app.css desktop grid). Below it (mobile, and the 768–1023 px slide-over) nothing moved from 7.1.
+- **What moved where (task 47), desktop:** new first and default tab 🌾 Farm (`DEFAULT_UI.tab = 'farm'`; a remembered
+  `farm` shows 🛒 Shop where the tab does not exist) holds, top to bottom: the tool buttons (same `Tools` component,
+  n-step popover opening below the row, copper marks), "Crop to plant" (owned crops only, `seeds N` under each;
+  picking sets what Plant and tile taps plant), the Seed pouch rows + auto-buy, 🪏 Dig for seeds. The farm column
+  shows only the grid: the Planting line, the right-edge tool bar and Dig are not rendered there. 🛒 Shop keeps
+  Seeds (licenses; an owned crop is a ✓ card with its seed price), Supplies, Farm tools, copper tools. Badges
+  unchanged (Farm is not a badge tab). New code: `src/app/Farm.tsx` (`Farm`, `SeedPouch`, `DigSeeds`).
+- **Side-panel tab row, computed from `app.css` at 14 px system-ui, not measured (see Deviations):** row width =
+  panel − 2 × 8 padding − 36 › toggle − 4 gap. **1024 px:** panel clamp(300, 26vw = 266, 380) = 300 → **244 px**.
+  **1440 px:** panel 26vw = 374.4 → **318.4 px**. Icon-only tab ≈ 28 px (2 border + 2 × 4 padding + ≈ 18 emoji,
+  estimated); the open tab adds its name (≈ 7 px/char, estimated): Farm/Shop/Bank ≈ 60, Stats ≈ 67, Upgrades ≈ 88.
+  Row = 4 × 28 + open tab + 4 × 4 gaps ≤ **216 px** (Upgrades open): 28 px spare at 1024, 102 px at 1440; buttons
+  stretch to fill. With every name shown the row would need ≈ 351 px.
+- **Grid width gained at 1440 px:** the Farm column is 668.8 px (6.2 results). The right-edge bar took ≈ 104 px
+  (level-1 "Harvest 1" ≈ 96 + 8 margin) to ≈ 118 px (level-2 "Harvest 3 ⋯"), estimated, so the grid box goes from
+  ≈ 551 to **668.8 px (+≈ 118)**. At 1440 × 900 the grid is width-bound (9 tiles: 219 px per tile by width vs 260
+  tile-max and ≈ 262 by height; 24 tiles: 129 vs ≈ 155), so the tiles do grow by that width.
+- **Wood icon (task 48): 🌲 (U+1F332, Unicode 6.0, 2010)** in `ITEMS.wood.emoji`, read by Shop "🌲 Wood", the furnace
+  recipe line, "Smelt with 🌲2", and every price through `priceText` (pickaxe craft/repair). 🪓 (U+1FA93) sits in
+  the same Symbols and Pictographs Extended-A block as 🪵 (U+1FAB5), so a font missing 🪵 likely misses 🪓 too.

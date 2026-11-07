@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
 import { itemSellPrice, pickaxeDurability } from '../src/core/balance'
+import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
+const WOOD = ITEMS.wood.emoji
 
 function setup(run: Partial<GameState['run']>) {
   const s = createInitialState()
@@ -90,7 +92,7 @@ describe('Mine panel', () => {
 
   it('a blunt pickaxe shows the repair button with its wood cost', () => {
     setup({ pickaxe: wooden(0), inventory: { wood: 2 } })
-    const repair = screen.getByRole('button', { name: /Blunt wooden pickaxe — repair \(🪵2\)/ }) as HTMLButtonElement
+    const repair = screen.getByRole('button', { name: `Blunt wooden pickaxe — repair (${WOOD}2)` }) as HTMLButtonElement
     expect(repair.disabled).toBe(false)
   })
 
@@ -118,7 +120,7 @@ describe('Mine panel', () => {
     expect(summary()).toBe('🔥 Furnace · 0 queued · 1 ready')
     const smelt = (fuel: RegExp) => screen.getByRole('button', { name: fuel }) as HTMLButtonElement
     // short reasons on their own line, so a ≈ 100 px button stays two lines; stock items never split
-    expect(smelt(/^Smelt with 🪵2/).textContent).toBe('Smelt with 🪵2no fuel')
+    expect(smelt(new RegExp(`^Smelt with ${WOOD}2`)).textContent).toBe(`Smelt with ${WOOD}2no fuel`)
     expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 1'])
     fireEvent.click(smelt(/^Smelt with ⚫1/))
     t.rerender()

@@ -8,7 +8,8 @@ export type PickaxeTier = (typeof PICKAXE_TIERS)[number]
 export const PICKAXE_NAMES: Record<PickaxeTier, string> = { wooden: 'Wooden pickaxe', copper: 'Copper pickaxe' }
 
 export const ITEMS: Record<ItemId, { name: string; emoji: string }> = {
-  wood: { name: 'Wood', emoji: '🪵' },
+  // 🌲 (Unicode 6.0) not 🪵 (13.0): 🪵 renders as an empty box on older emoji fonts; every wood icon reads this
+  wood: { name: 'Wood', emoji: '🌲' },
   stone: { name: 'Stone', emoji: '🪨' },
   coal: { name: 'Coal', emoji: '⚫' },
   copperOre: { name: 'Copper ore', emoji: '🟤' },

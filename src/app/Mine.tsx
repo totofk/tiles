@@ -79,7 +79,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       </summary>
       {f.queue > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
       <small>
-        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or 🪵{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
+        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or {ITEMS.wood.emoji}{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
         {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
           <Fragment key={id}>
             {i > 0 && ' · '}
@@ -94,7 +94,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           const r = enqueueSmelt(state, fuel)
           return (
             <button key={fuel} disabled={!r.ok} onClick={() => act((s) => enqueueSmelt(s, fuel))}>
-              Smelt with {fuel === 'coal' ? `⚫${smeltFuel(fuel)}` : `🪵${smeltFuel(fuel)}`}
+              Smelt with {`${ITEMS[fuel].emoji}${smeltFuel(fuel)}`}
               {!r.ok && <small>{SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error]}</small>}
             </button>
           )

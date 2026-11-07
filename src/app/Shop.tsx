@@ -16,6 +16,7 @@ import {
 import { buildFurnace } from '../core/furnace'
 import { priceText } from './Mine'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
+import { ITEMS } from '../core/data/items'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
 import { buyMineLicense, buyWood } from '../core/mining'
 import type { GameState } from '../core/state'
@@ -92,7 +93,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
         {run.mineLicense ? (
           <Item tip={TIPS.wood}>
             <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
-              🪵 Wood
+              {ITEMS.wood.emoji} Wood
               <small>💰{woodCost(meta)}</small>
             </button>
           </Item>
