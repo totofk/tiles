@@ -301,3 +301,25 @@ It repays in full once the payment still leaves a radish seed's worth of cash.
   over those 100 ticks is small against the harvest, so the loan is a cheap way out. It is still no free-money loop:
   the fee alone makes borrow → repay a loss. A player who never repays keeps the 💰30, because v0 has no forced
   collection, but one loan at a time limits that to a single +30.
+
+## Batch 5 — dig for seeds, hand mining, mastery, vein Lv1, seed stock (tasks 21–25)
+Question: does mining feel like progress now (visible goals, mastery), and can a broke player always recover?
+Decisions: DECISIONS.md "Round-2 research outcome". Save v4 with v3 → v4 migration tested on a real v3 fixture.
+
+21. [ ] Seed stock + Carrot rename: `run.seeds: Partial<Record<CropId, number>>` (seed pouch, not in the bag),
+    `buySeeds(crop, n)`, planting consumes 1 seed; `run.autoBuySeeds` (default true) buys one when stock is 0.
+    Display name Radish → Carrot (id unchanged). Shop: seed rows with stock, ×1 / ×10, auto-buy toggle.
+22. [ ] Dig for seeds: `dig()` in a farm module — 1 energy, 20 % radish seed via the seeded PRNG, `counters.digs`
+    (rename the existing mining counter to `mines` in the migration). Dug seeds go to the pouch and cannot be sold.
+    "🪏 Dig for seeds" button in the Farm view with the last result ("found 🥕 seed" / "nothing").
+23. [ ] Mining rework: stone = 2 hits (`run.vein.progress`), hand mining after the license (1 hit/energy), pickaxe
+    2 hits/energy, durability 25. Per-tool mastery (`meta`-free, in run: `mastery: Record<ToolId, xp>`), thresholds
+    and preserve formula from DECISIONS; global `counters.mines`. Vein Lv1 upgrade (40 stone + 100 cash → 80/20
+    stone/coal, coal sells 4). Typed errors as before. Mine panel: crack on half-mined stone, drop table with the
+    next level greyed + cost, mastery bar with "lasts ~N uses".
+24. [ ] Loan: debt grows only on live ticks — offline catch-up must not grow it (pass a flag into `step`/`catchUp`
+    or split the debt update out). Test with the fake clock.
+25. [ ] Sim: bot digs for seeds when broke, hand-mines then crafts pickaxes once licensed, buys vein Lv1. Assert
+    cash/energy order dig < hand < pickaxe Lv0 < pickaxe Lv10 < farming and max mining < 0.9 × farming; the round-2
+    soft-lock state (cash 1, 9 tilled, empty bag, no pickaxe, no loan taken) recovers via digging alone; nothing
+    negative over 1200 ticks. Write "## Batch 5 results" with the measured numbers.

@@ -86,3 +86,27 @@ These override the PRD where they differ. Source PRD: `docs/PRD.md`.
 - **Pending research (Fable, round 2):** hand digging (stone = 2 hits; hand 1 hit/energy, pickaxe 2), per-tool-type
   mastery (chance to preserve durability, cap ~90 %), visible locked drop table, vein Lv1, logging. Batches 5–6 are
   planned after the research returns.
+
+## Round-2 research outcome (2026-11-07, docs/research/round2-mining.md, Fable)
+Accepted by Toon after the research; batch 5 implements these.
+- **Dig (soil) ≠ mine.** *Dig* = a farm action, button "🪏 Dig for seeds" in the Farm view (not a tile tap), free from
+  tick 0, 1 energy, 20 % chance of a radish seed. Dug seeds cannot be sold, only planted. This is the anti-soft-lock
+  floor: a broke player with energy always gets back to farming. Dig mastery: **undecided**, revisit after playtest.
+- **Mine still needs the license** (50). After it, hand mining works with no pickaxe. Stone = 2 hits; hand = 1 hit
+  per energy, pickaxe = 2 hits per energy. Show a crack on a half-mined stone.
+- **Pickaxe mastery per tool type.** 1 XP per mine action with that tool; thresholds (cumulative) 10/25/45/70/100/
+  140/190/250/320/400 → Lv1–10. Preserve chance (durability not consumed) = 1 − 1/(1 + 0.4·L), cap 80 % at Lv10, so
+  expected lifetime = 25 × (1 + 0.4·L): each level adds 10 uses (25 at Lv0 → 125 at Lv10). UI shows "lasts ~N uses", not %. A new
+  tool tier starts its own mastery at Lv0 with doubled thresholds; a global `mines` counter keeps total progress.
+- **Wooden pickaxe durability 25** (was 20); wood price stays 4 (resell 2, no arbitrage).
+- **Always-visible drop table** in the Mine panel: current vein with %, next vein level greyed with its cost.
+- **Vein Lv1** = 40 stone + 100 cash → 80 % stone / 20 % coal; **coal sells 4**.
+- **Seed stock.** Seeds live in a seed pouch (not counted against the bag). Buy ×1 / ×10. **Auto-buy on by
+  default**: planting with 0 stock buys one seed if affordable (today's behaviour).
+- **Loan: no interest while offline.** Debt grows only on live ticks; offline catch-up does not grow it. Everything
+  else in bank v0 stays.
+- **Radish displays as "Carrot"** (matches 🥕; Unicode has no radish). Internal id stays `radish`, no save migration
+  for the name.
+- **Hierarchy the sim must prove (cash per energy):** dig (~0.4, seeds valued at buy price) < hand mining (1.0) <
+  pickaxe Lv0 (~1.5) < pickaxe Lv10 (~1.9; ~2.3 on vein Lv1) < farming (~2.7). Assert max mining < 0.9 × farming.
+- **Later:** logging (chop wood), dig mastery.
