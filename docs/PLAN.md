@@ -728,7 +728,7 @@ real v5 fixture first; chain v1–v5 → v6; backup key).
 
 37. [x] Save v6 (also new lifetime counters: cash earned, harvests per crop, energy spent, ticks played) + furnace building: `buildFurnace` = 20 stone + 5 coal + 💰150, requires vein Lv1. Items
     `copperOre` (sells 1) and `copperBar` (no sell path — test it). Ore and bars take storage slots.
-38. [ ] Smelting core (`src/core/furnace.ts`): `enqueueSmelt(fuel)` pays 2 copper ore + fuel (1 coal or 2 wood,
+38. [x] Smelting core (`src/core/furnace.ts`): `enqueueSmelt(fuel)` pays 2 copper ore + fuel (1 coal or 2 wood,
     player picks) on enqueue; cap 5 jobs; 60 ticks per bar; finished bars wait in an output tray; `collectBars`.
     0 energy. Progress advances inside `step`, closed-form for any tick count (offline catch-up identical), no RNG.
 39. [ ] Vein Lv2 = 30 stone + 10 coal + 💰200, requires the furnace; drops 65 % stone / 20 % coal / 15 % copper ore;

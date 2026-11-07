@@ -8,6 +8,7 @@ import {
   loanDebtPerTick,
   moistureDrainPerTick,
 } from './balance'
+import { advanceFurnace } from './furnace'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 
 /** a tile with its crop removed (harvest or rot); keeps the soil moisture */
@@ -54,6 +55,7 @@ function stepOnce(state: GameState): GameState {
     tiles: run.tiles.map((t) => stepTile(t, meta, run.upgrades.fertilizer)),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),
+    furnace: advanceFurnace(run.furnace, 1),
   }
   return { meta, run: nextRun }
 }

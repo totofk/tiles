@@ -60,6 +60,11 @@ export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 export type Price = { cash: number } & Partial<Record<ItemId, number>>
 // Furnace (round-5 research): built once vein level `vein` is owned.
 const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
+// One smelt job = `ore` copper ore + one fuel choice → 1 copper bar after barTicks. The furnace holds queueCap jobs,
+// counting the bars still waiting in its output tray.
+const SMELT = { ore: 2, fuel: { coal: 1, wood: 2 }, barTicks: 60, queueCap: 5 }
+export type FuelId = keyof typeof SMELT.fuel
+export const FUEL_IDS = Object.keys(SMELT.fuel) as FuelId[]
 // wood = craft cost, repairWood = cost to fix a blunt one (below craft), hits = stone hits per mine action
 const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
   wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
@@ -205,6 +210,25 @@ export function furnaceCost(meta: MetaState): Price {
 /** the vein level the furnace needs */
 export function furnaceVeinLevel(): number {
   return FURNACE.vein
+}
+
+/** copper ore per bar */
+export function smeltOre(): number {
+  return SMELT.ore
+}
+
+/** units of this fuel per bar */
+export function smeltFuel(fuel: FuelId): number {
+  return SMELT.fuel[fuel]
+}
+
+export function barTicks(): number {
+  return SMELT.barTicks
+}
+
+/** queued jobs + bars waiting in the tray */
+export function furnaceQueueCap(): number {
+  return SMELT.queueCap
 }
 
 export function pickaxeRecipe(tier: PickaxeTier): { wood: number; repairWood: number; durability: number } {
