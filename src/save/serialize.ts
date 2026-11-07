@@ -1,15 +1,22 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
 import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../core/balance'
 import type { CropId } from '../core/data/crops'
-import type { ItemId } from '../core/data/items'
+import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
 import { createInitialState, createTile, type Counters, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
+type RunV6 = Omit<RunV5, 'vein' | 'mastery' | 'masteredTiers'> & {
+  vein: { level: number; progress: number; rock: ItemId }
+  furnace: { built: boolean; queue: number; progress: number; ready: number }
+  lifetime: { cashEarned: number; energySpent: number; bars: number; harvests: Partial<Record<CropId, number>> }
+  mastery: Partial<Record<PickaxeTier, number>>
+  masteredTiers: PickaxeTier[]
+}
 type RunV5 = Omit<RunV4, 'vein'> & {
   storageLevel: number
   vein: { level: number; progress: number }
@@ -50,8 +57,9 @@ type SaveV2 = { version: 2; savedAtMs: number; state: { meta: GameState['meta'];
 type SaveV3 = { version: 3; savedAtMs: number; state: { meta: GameState['meta']; run: RunV3 } }
 type SaveV4 = { version: 4; savedAtMs: number; state: { meta: GameState['meta']; run: RunV4 } }
 type SaveV5 = { version: 5; savedAtMs: number; state: { meta: GameState['meta']; run: RunV5 } }
-type SaveV6 = { version: 6; savedAtMs: number; state: GameState }
-export type Save = SaveV6
+type SaveV6 = { version: 6; savedAtMs: number; state: { meta: GameState['meta']; run: RunV6 } }
+type SaveV7 = { version: 7; savedAtMs: number; state: GameState }
+export type Save = SaveV7
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -156,23 +164,31 @@ function migrateV5(save: SaveV5): SaveV6 {
   }
 }
 
+// v6 → v7: copper farm tools; every job starts at the basic tier. Nothing else changes.
+function migrateV6(save: SaveV6): SaveV7 {
+  const { meta, run } = save.state
+  return { version: 7, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, toolTier: { water: 0, harvest: 0, plant: 0 } } } }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))
+      return migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))))
     case 2:
-      return migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2))))
+      return migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2)))))
     case 3:
-      return migrateV5(migrateV4(migrateV3(data as SaveV3)))
+      return migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3))))
     case 4:
-      return migrateV5(migrateV4(data as SaveV4))
+      return migrateV6(migrateV5(migrateV4(data as SaveV4)))
     case 5:
-      return migrateV5(data as SaveV5)
+      return migrateV6(migrateV5(data as SaveV5))
     case 6:
-      return data as SaveV6
+      return migrateV6(data as SaveV6)
+    case 7:
+      return data as SaveV7
     default:
       return null
   }

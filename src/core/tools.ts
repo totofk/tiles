@@ -1,5 +1,6 @@
 import { fail, harvest, isAmount, plant, water, withRun, type ActionError, type ActionResult } from './actions'
-import { toolCost, toolMaxLevel, toolNMax, toolUnlock } from './balance'
+import { toolCost, toolMaxLevel, toolNMax, toolTierCost, toolTierMax, toolUnlock, waterMoisture } from './balance'
+import { pay } from './mining'
 import type { CropId } from './data/crops'
 import type { ToolJob } from './data/tools'
 import type { GameState, RunState } from './state'
@@ -26,17 +27,18 @@ export function toolCount(run: RunState, job: ToolJob): number {
 
 /**
  * Tile indexes the job may act on, best first; ties keep tile order (sort is stable).
- * harvest: ripe, longest ripe first. water: growing (not ripe) with moisture < 1, driest first. plant: tilled.
+ * harvest: ripe, longest ripe first. water: growing (not ripe) below what a watering sets, driest first. plant: tilled.
  */
 export function toolTargets(state: GameState, job: ToolJob): number[] {
   const { tiles } = state.run
+  const full = waterMoisture(state.run.toolTier.water)
   const all = tiles.map((_, i) => i)
   switch (job) {
     case 'harvest':
       return all.filter((i) => isMature(tiles[i], state)).sort((a, b) => tiles[b].ticksSinceMature - tiles[a].ticksSinceMature)
     case 'water':
       return all
-        .filter((i) => tiles[i].status === 'planted' && !isMature(tiles[i], state) && tiles[i].moisture < 1)
+        .filter((i) => tiles[i].status === 'planted' && !isMature(tiles[i], state) && tiles[i].moisture < full)
         .sort((a, b) => tiles[a].moisture - tiles[b].moisture)
     case 'plant':
       return all.filter((i) => tiles[i].status === 'tilled')
@@ -76,6 +78,15 @@ export function buyTool(state: GameState, job: ToolJob): ActionResult {
   const cost = toolCost(job, level + 1, state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   return withRun(state, { cash: run.cash - cost, tools: { ...run.tools, [job]: level + 1 } })
+}
+
+// The copper tier of a job (Shop): needs that job's tool Lv1. Order: ALREADY_OWNED, LOCKED, NOT_ENOUGH_ITEMS, NO_CASH.
+export function buyCopperTool(state: GameState, job: ToolJob): ActionResult {
+  const { run } = state
+  const tier = run.toolTier[job]
+  if (tier >= toolTierMax()) return fail('ALREADY_OWNED')
+  if (run.tools[job] < 1) return fail('LOCKED')
+  return pay(state, toolTierCost(tier + 1, state.meta), { toolTier: { ...run.toolTier, [job]: tier + 1 } })
 }
 
 /** sets level-2 tiles per press; n must be a whole number in 1 … toolNMax(tiles) */

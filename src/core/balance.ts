@@ -111,6 +111,13 @@ const TOOL_LEVELS: Record<ToolJob, { counter: CounterId; levels: ReadonlyArray<{
   plant: { counter: 'plants', levels: [{ at: 15, cost: 40 }, { at: 50, cost: 120 }, { at: 120, cost: 300 }] },
 }
 const TOOL_N_RATIO = 1 / 3
+// Material tier per farm job (batch 7.1; index = tier, 0 basic, 1 copper). Watering fills moisture to WATER_MOISTURE;
+// harvest yields 2 crops with DOUBLE_HARVEST chance; planting keeps the seed with SEED_KEEP chance. TOOL_TIER_COST[t − 1]
+// = price of tier t, the same for every job. Iron/gold later: moisture 4/8, 20/30 %, 35/50 %.
+const WATER_MOISTURE = [1, 2]
+const DOUBLE_HARVEST = [0, 0.1]
+const SEED_KEEP = [0, 0.2]
+const TOOL_TIER_COST: ReadonlyArray<Price> = [{ copperBar: 4, cash: 100 }]
 
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
@@ -340,6 +347,30 @@ export function toolCost(job: ToolJob, level: number, meta: MetaState): number {
 /** the largest tiles-per-press a level-2 tool may be set to */
 export function toolNMax(tiles: number): number {
   return Math.max(1, Math.ceil(tiles * TOOL_N_RATIO))
+}
+
+/** moisture a watering sets with this water-tool tier; growth needs 1 / moistureDrainPerTick ticks per 1 */
+export function waterMoisture(tier: number): number {
+  return WATER_MOISTURE[tier]
+}
+
+/** chance a harvest with this sickle tier yields 2 crops */
+export function doubleHarvestChance(tier: number): number {
+  return DOUBLE_HARVEST[tier]
+}
+
+/** chance a planting with this dibber tier keeps its seed */
+export function seedKeepChance(tier: number): number {
+  return SEED_KEEP[tier]
+}
+
+export function toolTierMax(): number {
+  return TOOL_TIER_COST.length
+}
+
+/** price of material tier ≥ 1 for any job */
+export function toolTierCost(tier: number, meta: MetaState): Price {
+  return scalePrice(TOOL_TIER_COST[tier - 1], meta)
 }
 
 export function digSeedDrop(): { crop: CropId; chance: number } {

@@ -25,12 +25,14 @@ const noTools = { tools: { water: 0, harvest: 0, plant: 0 }, toolN: { water: 1, 
 const noMiningProgress = { vein: { level: 0, progress: 0, rock: 'stone' }, mastery: {}, masteredTiers: [], storageLevel: 0 }
 /** v6 fields every migrated save starts with (lifetime is checked per fixture below) */
 const noFurnace = { furnace: { built: false, queue: 0, progress: 0, ready: 0 }, lifetime: expect.any(Object) }
+/** the only v7 field: every job at the basic tier */
+const noCopper = { toolTier: { water: 0, harvest: 0, plant: 0 } }
 
 describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 6, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 7, savedAtMs: 1234, state })
   })
 
   it('round-trips the furnace, copper items, the current rock and lifetime totals', () => {
@@ -48,8 +50,9 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state).toEqual(state)
   })
 
-  it('loads a real v6 save (built by the batch-7 code): furnace queue and tray, vein Lv2, copper pickaxe, tools Lv2', () => {
+  it('migrates a real v6 save (built by the batch-7 code) to v7: everything kept, every job at the basic tier', () => {
     const old = JSON.parse(v6)
+    expect(old.version).toBe(6)
     expect(old.state.run).toMatchObject({
       furnace: { built: true, queue: 1, ready: 1 },
       vein: { level: 2 },
@@ -57,18 +60,23 @@ describe('serialize / deserialize', () => {
       mastery: { copper: 15 },
       tools: { water: 2, harvest: 2, plant: 2 },
     })
-    expect(deserialize(v6)).toEqual(old)
+    const save = deserialize(v6)!
+    expect(save).toEqual({ version: 7, savedAtMs: old.savedAtMs, state: { meta: old.state.meta, run: { ...old.state.run, ...noCopper } } })
+    // the queued smelt finishes and the run plays on
+    const later = step(save.state, 60)
+    expect(later.run.furnace).toMatchObject({ queue: 0, ready: 2 })
+    expect(later.run.tick).toBe(old.state.run.tick + 60)
   })
 
-  it('migrates a real v5 save (built by the batch-6.2 code) to v6: everything kept, furnace not built', () => {
+  it('migrates a real v5 save (built by the batch-6.2 code) to v7:everything kept, furnace not built', () => {
     const old = JSON.parse(v5)
     expect(old.version).toBe(5)
     expect(old.state.run).toMatchObject({ vein: { level: 1, progress: 0 }, storageLevel: 1, inventory: { stone: 5, coal: 2 }, mastery: { wooden: 46 } })
     const save = deserialize(v5)!
     expect(save).toEqual({
-      version: 6,
+      version: 7,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, vein: { level: 1, progress: 0, rock: 'stone' }, ...noFurnace } },
+      state: { meta: old.state.meta, run: { ...old.state.run, vein: { level: 1, progress: 0, rock: 'stone' }, ...noFurnace, ...noCopper } },
     })
     // the migrated run (saved at 0 energy) mines again after regen and plays on
     expect(dig(step(save.state, 3)).ok).toBe(true)
@@ -115,22 +123,29 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v6 and rejects unknown, missing or future versions', () => {
-    const v6 = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(v6))?.version).toBe(6)
-    expect(deserialize(JSON.stringify({ ...v6, version: 7 }))).toBeNull()
-    expect(deserialize(JSON.stringify({ ...v6, version: undefined }))).toBeNull()
+  it('migration switch accepts v7 and rejects unknown, missing or future versions', () => {
+    const v7 = JSON.parse(serialize(createInitialState(), 0))
+    expect(deserialize(JSON.stringify(v7))?.version).toBe(7)
+    expect(deserialize(JSON.stringify({ ...v7, version: 8 }))).toBeNull()
+    expect(deserialize(JSON.stringify({ ...v7, version: undefined }))).toBeNull()
   })
 
-  it('migrates a real v4 save (built by the batch-5 code) to v6: pickaxe, stone and counters kept', () => {
+  it('round-trips copper tool tiers and a tile watered above 1', () => {
+    const s = createInitialState()
+    const tiles = s.run.tiles.map((t, i) => (i === 0 ? { ...t, status: 'planted' as const, cropId: 'radish' as const, moisture: 2 } : t))
+    const state = { ...s, run: { ...s.run, tiles, toolTier: { water: 1, harvest: 1, plant: 0 } } }
+    expect(deserialize(serialize(state, 0))?.state).toEqual(state)
+  })
+
+  it('migrates a real v4 save (built by the batch-5 code) to v7:pickaxe, stone and counters kept', () => {
     const old = JSON.parse(v4)
     expect(old.version).toBe(4)
     expect(old.state.run).toMatchObject({ mineLicense: true, pickaxe: { tier: 'wooden', durability: 11 }, inventory: { stone: 7 } })
     const save = deserialize(v4)!
     expect(save).toEqual({
-      version: 6,
+      version: 7,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, ...noMiningProgress, ...noFurnace } },
+      state: { meta: old.state.meta, run: { ...old.state.run, ...noMiningProgress, ...noFurnace, ...noCopper } },
     })
     expect(save.state.run.bagCapacity).toBe(old.state.run.bagCapacity)
     // the migrated pickaxe keeps working and loses durability as before
@@ -139,13 +154,13 @@ describe('serialize / deserialize', () => {
     expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
   })
 
-  it('migrates a real v3 save (built by the batch-4.5 code) to v6: digs → mines, new fields start empty', () => {
+  it('migrates a real v3 save (built by the batch-4.5 code) to v7:digs → mines, new fields start empty', () => {
     const old = JSON.parse(v3)
     expect(old.version).toBe(3)
     expect(old.state.run.counters).toEqual({ harvests: 17, sales: 20, digs: 7 })
     const save = deserialize(v3)!
     expect(save).toEqual({
-      version: 6,
+      version: 7,
       savedAtMs: old.savedAtMs,
       state: {
         meta: old.state.meta,
@@ -156,7 +171,7 @@ describe('serialize / deserialize', () => {
           autoBuySeeds: true,
           ...noTools,
           ...noMiningProgress,
-          ...noFurnace,
+          ...noFurnace, ...noCopper,
         },
       },
     })
@@ -165,13 +180,13 @@ describe('serialize / deserialize', () => {
     expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
   })
 
-  it('migrates a real v2 save (built by the batch-4 code) to v6 with no loan', () => {
+  it('migrates a real v2 save (built by the batch-4 code) to v7 with no loan', () => {
     const old = JSON.parse(v2)
     expect(old.version).toBe(2)
     expect(old.state.run).not.toHaveProperty('loan')
     const save = deserialize(v2)!
     expect(save).toEqual({
-      version: 6,
+      version: 7,
       savedAtMs: old.savedAtMs,
       state: {
         meta: old.state.meta,
@@ -183,7 +198,7 @@ describe('serialize / deserialize', () => {
           autoBuySeeds: true,
           ...noTools,
           ...noMiningProgress,
-          ...noFurnace,
+          ...noFurnace, ...noCopper,
         },
       },
     })
@@ -192,10 +207,10 @@ describe('serialize / deserialize', () => {
     expect(takeLoan(save.state).ok).toBe(true)
   })
 
-  it('migrates a real v1 save (6 tiles, energy above the new max) to v6', () => {
+  it('migrates a real v1 save (6 tiles, energy above the new max) to v7', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(6)
+    expect(save.version).toBe(7)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(old.meta)
@@ -215,7 +230,7 @@ describe('serialize / deserialize', () => {
       autoBuySeeds: true,
       ...noTools,
       ...noMiningProgress,
-      ...noFurnace,
+      ...noFurnace, ...noCopper,
     })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
     expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
@@ -232,8 +247,8 @@ describe('serialize / deserialize', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(6)
-    for (const raw of [v1, v2, v3, v4, v5]) {
+    expect(SAVE_VERSION).toBe(7)
+    for (const raw of [v1, v2, v3, v4, v5, v6]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
       expect(run.licenses).toEqual(old.licenses)
@@ -259,6 +274,15 @@ describe('batch 6 crops: chilli and lemon widen CropId only', () => {
 })
 
 describe('catch-up', () => {
+  it('a tile copper-watered to 2 grows 120 ticks across an 8 h catch-up, then waits dry', () => {
+    const s = createInitialState()
+    const tiles = s.run.tiles.map((t, i) => (i === 0 ? { ...t, status: 'planted' as const, cropId: 'lemon' as const, moisture: 2 } : t))
+    const state = { ...s, run: { ...s.run, tiles, toolTier: { water: 1, harvest: 0, plant: 0 } } }
+    const after = catchUp(state, 8 * HOUR)
+    expect(after.run.tiles[0]).toMatchObject({ status: 'planted', growth: 120, moisture: 0 })
+    expect(after).toEqual(step(state, OFFLINE_CAP_TICKS))
+  })
+
   it('simulates 0 ticks when away less than 1 s, or when the clock went backwards', () => {
     const s = createInitialState()
     expect(offlineTicks(999)).toBe(0)

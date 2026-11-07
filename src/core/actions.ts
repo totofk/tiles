@@ -5,11 +5,14 @@ import {
   cropSeedCost,
   cropSellPrice,
   digSeedDrop,
+  doubleHarvestChance,
   licenseCost,
+  seedKeepChance,
   tileCost,
   upgradeCost,
   upgradeMaxLevel,
   upgradeUnlocked,
+  waterMoisture,
 } from './balance'
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
@@ -86,6 +89,7 @@ function farmAction(
     counters?: Partial<RunState['counters']>
     seeds?: RunState['seeds']
     harvested?: CropId
+    rngState?: number
   },
 ): ActionResult {
   const { run } = state
@@ -93,15 +97,23 @@ function farmAction(
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0, counters, seeds = run.seeds, harvested } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, counters, seeds = run.seeds, harvested, rngState = run.rngState } = apply(run.tiles[i])
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
     counters: { ...run.counters, ...counters },
     seeds,
+    rngState,
     lifetime: addLifetime(run, ACTION_ENERGY_COST, harvested ? cashDelta : 0, harvested),
   })
+}
+
+/** one roll against `chance`, only for a tier above basic, so tier-0 runs keep their exact PRNG sequence */
+function tierRoll(run: RunState, tier: number, chance: number): { hit: boolean; rngState: number } {
+  if (tier === 0) return { hit: false, rngState: run.rngState }
+  const [r, rngState] = nextRandom(run.rngState)
+  return { hit: r < chance, rngState }
 }
 
 export function till(state: GameState, i: number): ActionResult {
@@ -114,7 +126,8 @@ export function till(state: GameState, i: number): ActionResult {
 }
 
 // Planting uses 1 seed from the pouch. With 0 in stock and autoBuySeeds on it buys that one seed at the
-// seed price instead (the pre-v4 cost, so auto-buy costs exactly what planting always did).
+// seed price instead (the pre-v4 cost, so auto-buy costs exactly what planting always did). A copper dibber may keep
+// the seed: the checks still need one in hand, but a kept seed leaves the pouch as it was and auto-buy charges nothing.
 export function plant(state: GameState, i: number, cropId: CropId): ActionResult {
   const { run } = state
   const stock = run.seeds[cropId] ?? 0
@@ -128,25 +141,31 @@ export function plant(state: GameState, i: number, cropId: CropId): ActionResult
       if (stock === 0 && !run.autoBuySeeds) return 'NO_SEEDS'
       return run.cash < price ? 'NO_CASH' : null
     },
-    (t) => ({
-      tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 },
-      cashDelta: -price,
-      seeds: stock > 0 ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds,
-      counters: { plants: run.counters.plants + 1 },
-    }),
+    (t) => {
+      const { hit: kept, rngState } = tierRoll(run, run.toolTier.plant, seedKeepChance(run.toolTier.plant))
+      return {
+        tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 },
+        cashDelta: kept ? 0 : -price,
+        seeds: stock > 0 && !kept ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds,
+        counters: { plants: run.counters.plants + 1 },
+        rngState,
+      }
+    },
   )
 }
 
 export function water(state: GameState, i: number): ActionResult {
+  const { run } = state
   return farmAction(
     state,
     i,
     (t) => (t.status === 'planted' ? null : 'NOT_PLANTED'),
-    (t) => ({ tile: { ...t, moisture: 1 }, counters: { waters: state.run.counters.waters + 1 } }),
+    (t) => ({ tile: { ...t, moisture: waterMoisture(run.toolTier.water) }, counters: { waters: run.counters.waters + 1 } }),
   )
 }
 
-// Harvest sells instantly: there is no inventory and no separate sell action.
+// Harvest sells instantly: there is no inventory and no separate sell action. A copper sickle may yield 2 crops:
+// both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1).
 export function harvest(state: GameState, i: number): ActionResult {
   return farmAction(
     state,
@@ -156,12 +175,16 @@ export function harvest(state: GameState, i: number): ActionResult {
       return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer) ? 'NOT_MATURE' : null
     },
     (t) => {
-      const { harvests, sales } = state.run.counters
+      const { run } = state
+      const { harvests, sales } = run.counters
+      const { hit, rngState } = tierRoll(run, run.toolTier.harvest, doubleHarvestChance(run.toolTier.harvest))
+      const crops = hit ? 2 : 1
       return {
         tile: clearedTile(t),
-        cashDelta: cropSellPrice(t.cropId!, state.meta, state.run.upgrades.sellPrice),
-        counters: { harvests: harvests + 1, sales: sales + 1 },
+        cashDelta: crops * cropSellPrice(t.cropId!, state.meta, run.upgrades.sellPrice),
+        counters: { harvests: harvests + 1, sales: sales + crops },
         harvested: t.cropId,
+        rngState,
       }
     },
   )

@@ -409,6 +409,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   smelt reasons); short reasons sit on their own line under the label. Per-crop harvest rows read "… harvests since
   v6" when the per-crop sum is below the Harvests counter (a migrated multi-license save); no save field is added.
 - **Batch 7.1: 375 px numbers are computed from the CSS, not measured in a browser** (no dev server; Hermes measures).
+- **Batch 7.1 (task 44): a copper double harvest is one harvest that sells 2 crops**: `harvests` and the per-crop
+  lifetime total +1 (tool / fertilizer unlocks keep their meaning, and the Stats "since v6" check stays exact),
+  `sales` +2, cash and cash earned ×2. A kept seed still needs one in hand (NO_SEEDS / NO_CASH checks unchanged, no
+  draw on a failed action); it only skips the pouch decrement or the auto-buy charge. The water tool's targets are
+  tiles below `waterMoisture(tier)`, so a copper hose tops up tiles between 1 and 2. `buyCopperTool` order:
+  ALREADY_OWNED (tier at max), LOCKED (job tool < Lv1), NOT_ENOUGH_ITEMS, NO_CASH; price `toolTierCost(tier)` is the
+  same for every job. The frozen `RunV6` save type no longer aliases the live `GameState`.
+- **Batch 7.1: the v6 fixture was captured with a temporary Node script** (Vite `ssrLoadModule` of the current core,
+  printed to stdout, written with the editor, then deleted; diffed identical to a second run), because no TS runner
+  is installed and temporary test files were not allowed.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -871,7 +881,7 @@ tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → 
     as a short "no fuel"); the furnace recipe line orphans "wood 0"; the pickaxe line "187 / 200 · lasts ~200 uses"
     reads as a contradiction (say "~N more uses" from the current durability); Stats shows "Carrot/Pumpkin harvests
     0" next to "Harvests 38" for a migrated save (show per-crop rows as "since v6" or hide zeros when untracked).
-44. [ ] Save v7 + copper farm tool core (`src/core/tools.ts`): `run.toolTier[job]` 0 = basic, 1 = copper (a number so
+44. [x] Save v7 + copper farm tool core (`src/core/tools.ts`): `run.toolTier[job]` 0 = basic, 1 = copper (a number so
     iron/gold extend it). `buyCopperTool(job)` = 4 copper bars + 💰100, requires that job's tool Lv1; typed errors.
     Applies to every action of the job (tile tap and tool press):
     - water: sets moisture to `waterMoisture(tier)` = 2 instead of 1 (a copper-watered tile grows 120 ticks).

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cropGrowTicks, cropRotGraceTicks, energyMax, moistureDrainPerTick } from '../src/core/balance'
+import { cropGrowTicks, cropRotGraceTicks, energyMax, moistureDrainPerTick, waterMoisture } from '../src/core/balance'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 
@@ -40,6 +40,18 @@ describe('step', () => {
     expect(dry.growth).toBe(fillTicks)
     expect(dry.status).toBe('planted')
     expect(step(withTile({ status: 'planted', cropId: 'radish', moisture: 0 }), 50).run.tiles[0].growth).toBe(0)
+  })
+
+  it('a copper-watered tile (moisture 2) grows exactly 2 × fillTicks, and step(s, n) equals n single steps', () => {
+    const s = withTile({ status: 'planted', cropId: 'lemon', moisture: waterMoisture(1) })
+    expect(waterMoisture(1)).toBe(2)
+    const after = step(s, 2 * fillTicks + 30).run.tiles[0]
+    expect([after.growth, after.moisture]).toEqual([2 * fillTicks, 0])
+    let single = s
+    for (let n = 1; n <= 2 * fillTicks + 5; n++) {
+      single = step(single, 1)
+      expect(single).toEqual(step(s, n))
+    }
   })
 
   it('regens energy without float drift and caps at max', () => {

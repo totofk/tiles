@@ -11,7 +11,7 @@ export type Tile = {
   cropId?: CropId
   /** ticks grown so far; only advances while moisture > 0 */
   growth: number
-  /** 0..1 */
+  /** 0 … waterMoisture of the water tool's tier (1 basic, 2 copper); drains 1 per MOISTURE_FULL_TICKS */
   moisture: number
   /** ticks since growth reached cropGrowTicks; rots past cropRotGraceTicks */
   ticksSinceMature: number
@@ -58,6 +58,8 @@ export type RunState = {
   tools: Record<ToolJob, number>
   /** tiles per press for a level-2 tool; read through toolCount, which clamps it to the tile count */
   toolN: Record<ToolJob, number>
+  /** material tier per job, 0 basic … toolTierMax (1 copper); changes what every action of the job does */
+  toolTier: Record<ToolJob, number>
 }
 
 /** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
@@ -125,6 +127,7 @@ export function createInitialState(): GameState {
       autoBuySeeds: true,
       tools: { water: 0, harvest: 0, plant: 0 },
       toolN: { water: 1, harvest: 1, plant: 1 },
+      toolTier: { water: 0, harvest: 0, plant: 0 },
     },
   }
 }
