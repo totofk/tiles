@@ -1183,7 +1183,7 @@ No `balance.ts` number changed in tasks 52–53; save stays v8.
 UI only: no change to `src/core/**`, `balance.ts` or the save shape (save stays v8). Toon's playtest feedback on
 the live batch-8 build.
 
-- [ ] 54. **Floating ⓘ tips.** `Info` (src/app/Info.tsx) renders the tip in flow today, so opening one pushes every
+- [x] 54. **Floating ⓘ tips.** `Info` (src/app/Info.tsx) renders the tip in flow today, so opening one pushes every
     row below it down. Make the tip float: `position: fixed`, placed from the ⓘ button's `getBoundingClientRect()`
     — below the button by default, flipped above when it would pass the viewport bottom, clamped to the viewport's
     left/right edges (8 px margin), max-width ~280 px. It must not be clipped by the scrolling side panel, must

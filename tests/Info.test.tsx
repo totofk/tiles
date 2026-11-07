@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Info } from '../src/app/Info'
+import { Info, placeTip } from '../src/app/Info'
 import { Shop } from '../src/app/Shop'
 import { Upgrades } from '../src/app/Upgrades'
 import { CROP_IDS } from '../src/core/data/crops'
@@ -24,6 +24,63 @@ describe('ⓘ info button', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('true')
     fireEvent.click(btn)
     expect(tip.hidden).toBe(true)
+  })
+
+  it('a mouse hover shows the tip, placed as a fixed box; a touch enter does not', () => {
+    render(<Info text="Grows fast." />)
+    const btn = screen.getByRole('button', { name: 'More info' })
+    const tip = screen.getByRole('tooltip', { hidden: true })
+    fireEvent.pointerEnter(btn, { pointerType: 'touch' })
+    expect(tip.hidden).toBe(true)
+    fireEvent.pointerEnter(btn, { pointerType: 'mouse' })
+    expect(tip.hidden).toBe(false)
+    // jsdom rects are all 0: below the ⓘ (0 + 4 gap), clamped to the 8 px left margin
+    expect([tip.style.top, tip.style.left]).toEqual(['4px', '8px'])
+    fireEvent.pointerLeave(btn, { pointerType: 'mouse' })
+    expect(tip.hidden).toBe(true)
+  })
+
+  it('an open tip closes on Esc, a pointer-down outside or a scroll, not on a pointer-down on itself', () => {
+    render(<Info text="Grows fast." />)
+    const btn = screen.getByRole('button', { name: 'More info' })
+    const tip = screen.getByRole('tooltip', { hidden: true })
+    fireEvent.click(btn)
+    fireEvent.pointerDown(tip)
+    expect(tip.hidden).toBe(false)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(tip.hidden).toBe(true)
+    fireEvent.click(btn)
+    fireEvent.pointerDown(document.body)
+    expect(tip.hidden).toBe(true)
+    fireEvent.click(btn)
+    fireEvent.scroll(document.body)
+    expect(tip.hidden).toBe(true)
+  })
+})
+
+describe('placeTip', () => {
+  const vp = { width: 375, height: 600 }
+  const tip = { width: 200, height: 60 }
+  const at = (left: number, top: number) => ({ left, top, bottom: top + 28, width: 28 })
+
+  it('opens below the ⓘ, centred on it', () => {
+    expect(placeTip(at(160, 100), tip, vp)).toEqual({ top: 132, left: 74 })
+  })
+
+  it('flips above when it would pass the viewport bottom (8 px margin)', () => {
+    // below would end at 540 + 28 + 4 + 60 = 632 > 592
+    expect(placeTip(at(160, 540), tip, vp)).toEqual({ top: 476, left: 74 })
+    // ends exactly at 592: stays below
+    expect(placeTip(at(160, 500), tip, vp).top).toBe(532)
+  })
+
+  it('stays below when there is no room above either', () => {
+    expect(placeTip(at(160, 40), { width: 200, height: 560 }, vp).top).toBe(72)
+  })
+
+  it('is clamped to 8 px from the left and right edges', () => {
+    expect(placeTip(at(0, 100), tip, vp).left).toBe(8)
+    expect(placeTip(at(347, 100), tip, vp).left).toBe(375 - 8 - 200)
   })
 
   it('every Shop and Upgrades row has one, with a text', () => {

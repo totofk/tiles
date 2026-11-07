@@ -559,10 +559,6 @@ button:disabled {
   min-width: 2ch;
   text-align: center;
 }
-.worker-row > .tip {
-  flex-basis: 100%;
-  margin-top: 0;
-}
 .unpaid {
   padding: 0 6px;
   border-radius: 999px;
@@ -719,8 +715,8 @@ button:disabled {
   margin-bottom: 6px;
 }
 /* the count never wraps away from its name; the buttons drop to the next line instead */
-.pouch-row > span,
-.mine-item > span {
+.pouch-row > span:first-child,
+.mine-item > span:first-child {
   flex: 1 0 auto;
   white-space: nowrap;
 }
@@ -758,7 +754,7 @@ button:disabled {
   flex-direction: column;
   align-items: center;
 }
-/* a row = its buy button + the ⓘ in the top-right corner + the tip under it (in flow, so it is never clipped) */
+/* a row = its buy button + the ⓘ in the top-right corner (its tip floats, see .tip) */
 .item {
   position: relative;
   display: flex;
@@ -783,34 +779,35 @@ button:disabled {
   top: 1px;
   right: 1px;
 }
+/* floats over everything, placed by Info (placeTip) from the ⓘ's rect, so opening one moves no row and the
+   scrolling side panel never clips it; above the toast (4) and the slide-over (3) */
 .tip {
-  display: block;
-  margin-top: 4px;
+  position: fixed;
+  z-index: 5;
+  max-width: min(280px, calc(100vw - 16px));
   padding: 6px 8px;
   border-radius: 6px;
   background: #fff8e1;
   border: 1px solid #e0c97a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   font-size: 13px;
+  font-weight: normal;
   line-height: 1.35;
+  white-space: normal;
 }
 .tip[hidden] {
   display: none;
-}
-/* desktop: hovering (or keyboard-focusing) the ⓘ shows the tip; touch devices toggle it with a tap */
-@media (hover: hover) {
-  .info-btn:hover + .tip[hidden],
-  .info-btn:focus-visible + .tip[hidden] {
-    display: block;
-  }
 }
 .pouch-row,
 .pouch-auto {
   flex-wrap: wrap;
 }
-.pouch-row > .tip,
-.pouch-auto > .tip {
-  flex-basis: 100%;
-  margin-top: 0;
+/* the ⓘ sits right after the crop name, so it stays on the first line when the buy buttons wrap */
+.pouch-row > span:first-child {
+  flex-grow: 0;
+}
+.pouch-row > .info-btn {
+  margin-right: auto;
 }
 .pouch-auto > label {
   flex: 1;

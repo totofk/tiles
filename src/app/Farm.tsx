@@ -22,12 +22,12 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
           <span>
             {CROP_EMOJI[id]} {CROPS[id].name} × {run.seeds[id] ?? 0}
           </span>
+          <Info text={TIPS.pouch} />
           {[1, 10].map((n) => (
             <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
               Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
             </button>
           ))}
-          <Info text={TIPS.pouch} />
         </div>
       ))}
       <div className="pouch-auto">
