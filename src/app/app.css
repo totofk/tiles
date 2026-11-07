@@ -4,20 +4,177 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg: #f4efe4;
+  --tabbar-h: 56px;
+  /* farm tiles grow with the column up to this size */
+  --tile-max: 200px;
+}
+
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background: #f4efe4;
+  background: var(--bg);
   color: #222;
 }
 
+/* ---- layout shell: mobile first, one view at a time (< 768 px) ---- */
 .app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 8px;
+  min-height: 100vh;
+  padding: 0 8px calc(var(--tabbar-h) + 16px);
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  background: var(--bg);
+}
+.top .hud {
+  flex: 1;
+}
+.top .banner {
+  flex-basis: 100%;
+}
+.farm {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.planting {
+  margin: 0;
+  font-size: 14px;
+}
+.panel {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+}
+.panel-open,
+.panel-close,
+.reset-panel {
+  display: none;
+}
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #fff;
+  border-top: 1px solid #8a7a5c;
+}
+.tabbar button {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tabbar-h);
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-size: 13px;
+}
+.tabbar [aria-pressed='true'] {
+  background: #c8e6c9;
+  font-weight: 600;
+}
+/* the hide rules stay inside the mobile query, so a remembered view never hides a column on desktop */
+@media (max-width: 767px) {
+  .app:not([data-view='farm']) > .farm,
+  .app:not([data-view='mine']) > .mine,
+  .app:not([data-view='panel']) > .panel {
+    display: none;
+  }
+}
+
+/* ---- tablet: Farm + Mine side by side, side panel as a slide-over ---- */
+@media (min-width: 768px) {
+  .app {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    grid-template-areas:
+      'top top'
+      'mine farm';
+    align-items: start;
+    column-gap: 16px;
+    padding: 0 12px 24px;
+  }
+  .top {
+    grid-area: top;
+    padding-top: 12px;
+  }
+  .mine {
+    grid-area: mine;
+  }
+  .farm {
+    grid-area: farm;
+  }
+  .tabbar,
+  .reset-farm {
+    display: none;
+  }
+  .reset-panel {
+    display: block;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .panel-open,
+  .panel-close {
+    display: block;
+  }
+  .panel-open {
+    padding: 0 12px;
+  }
+  .panel-close {
+    align-self: flex-end;
+    min-width: 44px;
+  }
+  .panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    width: min(380px, 90vw);
+    border-radius: 8px 0 0 8px;
+    overflow-y: auto;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+    transform: translateX(100%);
+    visibility: hidden;
+    transition:
+      transform 0.2s,
+      visibility 0.2s;
+  }
+  .slide-open > .panel {
+    transform: none;
+    visibility: visible;
+  }
+}
+
+/* ---- desktop: Mine | Farm | side panel across the full width ---- */
+@media (min-width: 1024px) {
+  .app {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-areas:
+      'top top top'
+      'mine farm panel';
+    column-gap: 20px;
+    padding: 0 20px 24px;
+  }
+  .panel {
+    grid-area: panel;
+  }
 }
 
 button {
@@ -37,9 +194,6 @@ button:disabled {
 }
 
 .hud {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -73,28 +227,43 @@ button:disabled {
   min-width: 44px;
 }
 
+/* --n (columns for the tile count) comes from FarmGrid; mobile keeps 3 so tiles stay tappable */
 .grid {
+  --cols: 3;
+  --gap: 6px;
+  container-type: inline-size;
+  width: 100%;
+  max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) - 1) * var(--gap));
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--gap);
+}
+@media (min-width: 768px) {
+  .grid {
+    --cols: var(--n, 3);
+  }
 }
 
+/* square, but a tile may grow taller rather than clip its text on a narrow screen */
 .cell {
+  aspect-ratio: 1;
   min-height: 96px;
   padding: 6px 4px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: stretch;
   gap: 3px;
   text-align: center;
 }
 .cell-emoji {
-  font-size: 28px;
+  font-size: clamp(28px, calc(30cqi / var(--cols)), 64px);
   line-height: 1;
 }
 .cell-label,
 .cell-rot {
-  font-size: 12px;
+  font-size: clamp(12px, calc(8cqi / var(--cols)), 16px);
 }
 .cell-untilled {
   background: #d9cdb4;
@@ -234,10 +403,12 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* above the tab bar and the slide-over, so it shows in every layout */
 .toast {
   position: fixed;
+  z-index: 4;
   left: 50%;
-  bottom: 16px;
+  bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
   padding: 10px 16px;
@@ -245,4 +416,9 @@ button:disabled {
   background: #333;
   color: #fff;
   pointer-events: none;
+}
+@media (min-width: 768px) {
+  .toast {
+    bottom: 16px;
+  }
 }

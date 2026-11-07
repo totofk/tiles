@@ -137,6 +137,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   Mine panel buttons (Dig, craft, buy wood) are disabled using the core action's own result. The Dig button shows that
   error's text as the reason ("No pickaxe", "Bag is full — sell something", "Not enough energy"). The 375 px layout
   is CSS only (flex-wrap rows) and was not checked in a browser in this batch (no dev server in headless runs).
+- **Batch 4: breakpoints are CSS only** (no `matchMedia` in the app). Every column is always rendered and media
+  queries pick what shows, so the tablet slide-over and the desktop column are the same `<aside>`. The 375 / 768 /
+  1440 px layouts were not checked in a browser (no dev server in headless runs).
+- **Batch 4: the tablet slide-over's open state is not persisted.** It is an overlay and always starts closed;
+  `tiles.ui` keeps only the desktop collapse flag, which the slide-over ignores.
+- **Batch 4: farm tiles are `aspect-ratio: 1` with a 96 px floor**, so a tile with long text on a narrow screen grows
+  taller instead of clipping. Columns: 3 below 768 px, ⌈√tiles⌉ above (9 → 3, 16 → 4, 24 → 5), tiles capped at 200 px.
+- **Batch 4: the Farm view shows "Planting: 🥕 Radish"**, because on mobile the seed picker sits in the Shop view and
+  a tap on a tilled tile plants the selected crop (the round-1 "radish became pumpkin" report).
+- **Batch 4: the locked Mine card also has the buy button** for the mine license (same action as the Shop card).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -210,7 +220,7 @@ Findings for round-2 playtest:
 Question: does the game feel like a desktop game at full screen while still playable on a phone?
 UI only: no change to `src/core/**` numbers or the save format.
 
-15. [ ] Layout shell: drop the 480 px cap. ≥ 1024 px three columns (Mine | Farm | side panel); 768–1023 px
+15. [x] Layout shell: drop the 480 px cap. ≥ 1024 px three columns (Mine | Farm | side panel); 768–1023 px
     Farm + Mine side by side and the side panel as a slide-over; < 768 px one view at a time with a bottom tab bar
     and a sticky HUD. Farm tiles scale with the space (square, readable at 375 px and 1440 px). Before the mine
     license the Mine column/tab shows a locked card with the license price.

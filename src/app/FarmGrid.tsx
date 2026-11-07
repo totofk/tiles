@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { cropRotGraceTicks } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
 import type { GameState, Tile } from '../core/state'
@@ -45,11 +46,13 @@ function Cell({ tile, state, onTap }: { tile: Tile; state: GameState; onTap: () 
 }
 
 export function FarmGrid({ state, onTap }: { state: GameState; onTap: (i: number) => void }) {
+  // a near-square grid on wider screens (9 → 3, 16 → 4, 24 → 5 columns); mobile CSS keeps 3
+  const cols = Math.ceil(Math.sqrt(state.run.tiles.length))
   return (
-    <section className="grid">
+    <div className="grid" style={{ '--n': cols } as CSSProperties}>
       {state.run.tiles.map((tile, i) => (
         <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} />
       ))}
-    </section>
+    </div>
   )
 }

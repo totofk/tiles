@@ -1,12 +1,24 @@
-import { itemSellPrice, pickaxeRecipe, woodCost } from '../core/balance'
+import { itemSellPrice, mineLicenseCost, pickaxeRecipe, woodCost } from '../core/balance'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
-import { bagCount, buyWood, craftPickaxe, dig, sellItem } from '../core/mining'
+import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 import { ERROR_TEXT, type Act } from './useGame'
 
 export function Mine({ state, act }: { state: GameState; act: Act }) {
   const { run, meta } = state
+  if (!run.mineLicense) {
+    const cost = mineLicenseCost(meta)
+    return (
+      <section className="mine mine-locked">
+        <h2>🔒 Mine</h2>
+        <p>Spend idle energy digging stone to sell.</p>
+        <button disabled={run.cash < cost} onClick={() => act(buyMineLicense)}>
+          ⛏️ Mine license 💰{cost}
+        </button>
+      </section>
+    )
+  }
   // the core actions double as "can I?" checks, so the disabled reason is the action's own error
   const digCheck = dig(state)
   const recipe = pickaxeRecipe('wooden')
