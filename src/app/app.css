@@ -261,20 +261,10 @@ body {
     overflow: hidden;
     clip-path: inset(50%);
   }
-  /* 🌾 Farm tab: the tool buttons as a wrapping row; the n popover opens below, inside the scrolling panel */
+  /* 🌾 Farm tab: the stacked tool rows (column from the ≥ 768 .tools rule) across the panel's content width */
   .panel .tools {
-    flex-direction: row;
-    flex-wrap: wrap;
     align-self: stretch;
     margin: 8px 0 0;
-  }
-  .panel .tools > button {
-    flex: 1 0 auto;
-  }
-  .panel .tool-pop {
-    top: calc(100% + 6px);
-    right: auto;
-    left: 0;
   }
   .farm-tab h2 {
     font-size: 15px;
@@ -600,7 +590,8 @@ button:disabled {
   background: #fff;
   border-top: 1px solid #8a7a5c;
 }
-.tools > button {
+.tools > button,
+.tool-row > button {
   flex: none;
   padding: 0 12px;
   white-space: nowrap;
@@ -608,9 +599,24 @@ button:disabled {
   user-select: none;
 }
 /* copper tier: an inset copper stripe along the bottom, so the button keeps its width */
-.tools > button.copper {
+.tools .copper {
   border-color: #b87333;
   box-shadow: inset 0 -4px 0 #b87333;
+}
+/* desktop stacked rows (🌾 Farm tab, collapsed-panel fallback): [−] [press] [+]; a level-1 / 3 row keeps the − / +
+   slots as empty 44 px spans, so every press button has the same width */
+.tool-row {
+  display: flex;
+  gap: 6px;
+}
+.tool-row > .tool-step {
+  flex: none;
+  width: 44px;
+  padding: 0;
+}
+.tool-row > :not(.tool-step) {
+  flex: 1;
+  min-width: 0;
 }
 /* the level-2 mark: a click on it (or right-click / long-press on the button) opens the n popover */
 .tool-more {
@@ -667,8 +673,10 @@ button:disabled {
   }
   .tools {
     position: static;
-    /* the mobile rule above leaves `bottom: tabbar + safe-area` set; with the relative
+    /* the mobile rule above leaves `bottom: tabbar + safe-area` (and left / right 0) set; with the relative
        positioning below it lifts the whole bar 56+ px up onto the panel tabs */
+    left: auto;
+    right: auto;
     bottom: auto;
     grid-column: 2;
     grid-row: 1 / -1;

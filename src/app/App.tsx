@@ -122,7 +122,8 @@ export default function App() {
             <p className="planting">
               Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
             </p>
-            <Tools state={state} act={act} cropId={cropId} />
+            {/* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */}
+            <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
           </>
         )}
         <FarmGrid state={state} onTap={onTap} />

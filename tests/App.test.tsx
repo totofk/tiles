@@ -243,11 +243,16 @@ describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
     expect((panel().getByRole('button', { name: /Chilli/ }) as HTMLButtonElement).disabled).toBe(true)
   })
 
-  it('collapsing the panel puts the tool bar back on the farm column', () => {
+  it('collapsing the panel puts the tool bar back on the farm column, as the same stacked rows', () => {
     render(<App />)
+    const order = () => [...document.querySelectorAll('.tool-row > :not(.tool-step)')].map((b) => b.textContent)
+    expect(order()).toEqual(['Plant 1', 'Water 1', 'Harvest 1'])
+    expect(document.querySelectorAll('.panel .tool-row')).toHaveLength(3)
     fireEvent.click(screen.getByRole('button', { name: 'Collapse panel' }))
     expect(farm().getByRole('button', { name: /^Plant 1/ })).toBeTruthy()
     expect(screen.queryAllByRole('button', { name: /^Plant 1/ })).toHaveLength(1)
+    expect(document.querySelectorAll('.farm .tool-row')).toHaveLength(3)
+    expect(order()).toEqual(['Plant 1', 'Water 1', 'Harvest 1'])
   })
 })
 

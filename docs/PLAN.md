@@ -489,6 +489,20 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   workers from tick 0 (certificates owned, cash 1000), not the ladder bot, so it compares like with like.
 - **Batch 8 (task 53): the bot hires to the cap (6) "when affordable"**, though 2 workers cover 9 tiles; the extra
   four idle for free (wages are per action), so they cost only their hire price. Reported, not tuned.
+- **Batch 8.1 (task 54): an open tip closes on any scroll in the page**, not only its own scroll parent (one capture
+  `scroll` listener on `document`). A fixed tip cannot follow any scroll, so closing on every one is the same rule
+  with less code. Hover / keyboard focus now set state in JS (`pointerType === 'mouse'`, `:focus-visible`) instead of
+  the `@media (hover: hover)` CSS sibling rule: the tip needs coordinates computed when it opens, which CSS cannot give.
+- **Batch 8.1 (task 54): the pouch row's ⓘ sits right after the crop name** (`🎃 Pumpkin × 12 ⓘ … [Buy ×1] [Buy ×10]`),
+  not last in the row. Name + ⓘ is at most ≈ 168 px (4-digit count), so the ⓘ is on the first line at every width;
+  only the buy buttons wrap. Moving it last but non-wrapping would have depended on width estimates.
+- **Batch 8.1 (task 55): press labels stay text-only ("Plant 4")**; the plan's `[ 🌱 Plant 4 ]` mock is not followed.
+  No shared emoji constant exists for the plant job (`WORKER_JOB_LABEL` covers water and harvest only) and the brief
+  allows emoji only from existing constants; the label code is also shared with the mobile bar.
+- **Batch 8.1 (task 55): the 768–1023 px tablet layout keeps the vertical bar with ⋯ + popover.** The task names the
+  desktop Farm tab, the desktop collapsed-panel fallback and mobile; tablet is neither (desktop = ≥ 1024 px since
+  7.2), so `stacked` is `matchMedia('(min-width: 1024px)')`, the same flag that picks the Farm tab.
+- **Batch 8.1: widths computed from `app.css`, not measured in a browser** (no dev server in headless runs).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1191,7 +1205,7 @@ the live batch-8 build.
     hover-to-show on desktop and tap-to-toggle on touch. Keep `role="tooltip"` + `aria-describedby`. Also fix the
     seed-pouch rows of Pumpkin / Lemon where the ⓘ wraps to its own line: the ⓘ stays on the row's first line at
     every width from 1024 px up and at 375 px.
-- [ ] 55. **Desktop Farm tab: three stacked tool rows, order Plant / Water / Harvest.** Inside the desktop 🌾 Farm
+- [x] 55. **Desktop Farm tab: three stacked tool rows, order Plant / Water / Harvest.** Inside the desktop 🌾 Farm
     tab only, `.tools` becomes `flex-direction: column`; each owned tool is one row
     `[ − ]  [ 🌱 Plant 4 ]  [ + ]` (a flex row: − on the left, the press button with the per-press count in the
     middle, + on the right), in the order plant, water, harvest (the farm loop order). −/+ set the same per-press
@@ -1203,3 +1217,33 @@ the live batch-8 build.
     when the side panel is collapsed) uses the stacked rows too. Measure from CSS that each row fits the panel's
     content width at 1024 px (~284 px) and 1440 px; no row may overlap the panel tabs (reset every offset the mobile
     rule sets).
+
+## Batch 8.1 results
+UI only; no `src/core/**`, `balance.ts` or save change (save stays v8). 374 tests (365 before).
+
+- **Tip placement (task 54):** `placeTip(anchorRect, tipSize, viewport)` in `src/app/Info.tsx` (pure, unit-tested):
+  top = ⓘ bottom + 4 px; flipped to ⓘ top − 4 − tip height when the tip would end below `viewport − 8` and fits above
+  (else it stays below); left = centred on the ⓘ, clamped to `[8, viewport width − 8 − tip width]`. CSS caps the tip
+  at `min(280px, 100vw − 16px)`, so the clamp always fits. The tip is `position: fixed` (z-index 5, above the toast
+  and the slide-over), placed in a layout effect when it opens (measured at 0,0 so its shrink-to-fit width is the
+  final one), so it moves no row and the scrolling side panel cannot clip it. No `Info` renders inside `.farm-fit` /
+  `.grid` (`container-type` would make them its containing block). Opens on mouse hover / keyboard focus-visible /
+  tap; a tap pins it; closes on a second tap, Esc, a pointer-down outside the ⓘ and the tip, or any scroll.
+  `role="tooltip"` + `aria-describedby` unchanged.
+- **Pouch rows:** `[🎃 Pumpkin × 12] [ⓘ] … [Buy ×1] [Buy ×10]`, name + ⓘ ≤ ≈ 168 px (4-digit count). At 16 px
+  (≈ 8 px/char, ≈ 18 px/emoji, 12 px price), Pumpkin: name ≈ 118 + ⓘ 28 + Buy ×1 ≈ 101 + Buy ×10 ≈ 116 + 3 × 6 gaps
+  = ≈ 381 px, so at 284 (1024), 343 (375 px Shop view: 375 − 2 × 8 − 2 × 8) and 358 (1440) line 1 is name, ⓘ, Buy ×1
+  (≈ 259) and Buy ×10 wraps; Lemon the same (≈ 365). Radish (≈ 346) fits one line at 1440.
+- **Stacked rows (task 55), computed at 16 px:** each row = − 44 + 6 + press + 6 + + 44 (`.tool-row`, flex), the
+  press button `flex: 1`. Widest label "Harvest all" ≈ 88 + 24 padding + 2 border = **114 px**, so a row needs
+  **≈ 214 px**. **1024 px Farm tab:** content 284 → press buttons **184 px** (70 spare). **1440 px:** 374.4 − 16 =
+  358.4 → press buttons **258 px**. The rows sit in panel flow 8 px below the panel head; the ≥ 768 `.tools` rule now
+  resets `left`, `right` and `bottom` to `auto`, so nothing offsets them onto the tabs. Header and bottom tab bar are
+  other grid rows / hidden at ≥ 768.
+- **Collapsed-panel fallback:** the same rows in the farm column's `auto` track: 214 + 8 margin = **222 px** (was
+  ≈ 118 for the level-2 vertical bar). Farm column collapsed = 1024 − 2 × 20 padding − 2 × 20 gaps − mine 225.3 −
+  panel 52 (36 px toggle + 2 × 8) = 666.7 → grid box **≈ 445 px** at 1024 (was ≈ 549; 9 tiles ≈ 144 px each), and
+  1440 − 80 − 316.8 − 52 = 991.2 → **≈ 769 px** at 1440.
+- **Mobile (< 768 px), 375 px:** unchanged — the fixed one-row bar above the tab bar, water / harvest / plant, ⋯ +
+  popover (≈ 325 of 375 px, 7.1). Tips there are ≤ 280 px wide, ≥ 8 px from each edge. Tablet (768–1023) keeps the
+  vertical bar + popover (see Deviations).

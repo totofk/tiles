@@ -70,7 +70,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
   const { run } = state
   return (
     <section className="farm-tab">
-      <Tools state={state} act={act} cropId={cropId} />
+      <Tools state={state} act={act} cropId={cropId} stacked />
       <h2>Crop to plant</h2>
       <div className="shop-row">
         {CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => (

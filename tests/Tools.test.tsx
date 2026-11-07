@@ -10,7 +10,7 @@ afterEach(cleanup)
 
 const dry: Tile = { ...createTile(), status: 'planted', cropId: 'radish', growth: 1, moisture: 0 }
 
-function setup(run: Partial<GameState['run']>) {
+function setup(run: Partial<GameState['run']>, stacked = false) {
   const s = createInitialState()
   let state: GameState = { ...s, run: { ...s.run, ...run } }
   const toasts: (string | null)[] = []
@@ -21,8 +21,12 @@ function setup(run: Partial<GameState['run']>) {
     toasts.push(okToast?.(state, r.state) ?? null)
     state = r.state
   }
-  const view = render(<Tools state={state} act={act} cropId="radish" />)
-  return { toasts, get: () => state, rerender: () => view.rerender(<Tools state={state} act={act} cropId="radish" />) }
+  const view = render(<Tools state={state} act={act} cropId="radish" stacked={stacked} />)
+  return {
+    toasts,
+    get: () => state,
+    rerender: () => view.rerender(<Tools state={state} act={act} cropId="radish" stacked={stacked} />),
+  }
 }
 const labels = () => screen.queryAllByRole('button').map((b) => b.textContent)
 
@@ -121,6 +125,57 @@ describe('farm tool buttons', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Water all' }))
     expect(t.toasts).toEqual(['Watered 5/9 — out of energy'])
     expect(t.get().run.energy).toBe(0)
+  })
+
+  describe('stacked rows (desktop)', () => {
+    it('one row per owned tool in Plant / Water / Harvest order; − / + only on a level-2 row, empty slots elsewhere', () => {
+      setup({ tools: { water: 2, harvest: 3, plant: 1 }, toolN: { water: 1, harvest: 1, plant: 1 } }, true)
+      const rows = [...document.querySelectorAll('.tool-row')]
+      expect(rows.map((r) => [...r.children].map((c) => c.textContent))).toEqual([
+        ['', 'Plant 1', ''],
+        ['−', 'Water 1', '+'],
+        ['', 'Harvest all', ''],
+      ])
+      expect(document.querySelectorAll('.tool-row > span.tool-step[aria-hidden="true"]')).toHaveLength(4)
+      const names = screen.getAllByRole('button').map((b) => b.getAttribute('aria-label') ?? b.textContent)
+      expect(names).toEqual(['Plant 1', 'Water fewer tiles', 'Water 1', 'Water more tiles', 'Harvest all'])
+      expect(document.querySelector('.tool-more')).toBeNull()
+    })
+
+    it('− / + set n within 1 … ceil(tiles / 3) with the same disabled states as the popover', () => {
+      const t = setup({ tools: { water: 0, harvest: 2, plant: 0 } }, true)
+      const fewer = () => screen.getByRole('button', { name: 'Harvest fewer tiles' }) as HTMLButtonElement
+      const more = () => screen.getByRole('button', { name: 'Harvest more tiles' }) as HTMLButtonElement
+      expect(fewer().disabled).toBe(true)
+      for (const n of [2, 3]) {
+        fireEvent.click(more())
+        t.rerender()
+        expect(screen.getByRole('button', { name: `Harvest ${n}` })).toBeTruthy()
+      }
+      expect(more().disabled).toBe(true) // 9 tiles → at most 3
+      fireEvent.click(fewer())
+      t.rerender()
+      expect(t.get().run.toolN.harvest).toBe(2)
+      expect(t.toasts).toEqual([null, null, null])
+    })
+
+    it('right-click and a touch hold press or do nothing: no popover; a press still toasts; copper keeps its mark', () => {
+      vi.useFakeTimers()
+      try {
+        const t = setup({ tiles: [dry, dry], tools: { water: 2, harvest: 0, plant: 0 }, toolTier: { water: 1, harvest: 0, plant: 0 } }, true)
+        const button = screen.getByRole('button', { name: 'Water 1' })
+        expect(button.className).toBe('copper')
+        fireEvent.contextMenu(button)
+        fireEvent.touchStart(button)
+        act(() => void vi.advanceTimersByTime(450))
+        expect(screen.queryByRole('dialog')).toBeNull()
+        fireEvent.touchEnd(button)
+        fireEvent.click(button)
+        expect(t.toasts).toEqual(['Watered 1/1'])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
   })
 
   it('a full press has no reason; nothing eligible gives the action error', () => {

@@ -34,6 +34,25 @@ export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extr
   return `${VERB[job].past} ${done}/${wanted}${extra}${why}`
 }
 
+/** stacked rows (desktop): the farm loop order */
+const STACK_ORDER: readonly ToolJob[] = ['plant', 'water', 'harvest']
+
+/** − or + of a level-2 tool's tiles per press, within 1 … toolNMax */
+function StepButton({ state, act, job, dir }: { state: GameState; act: Act; job: ToolJob; dir: -1 | 1 }) {
+  const n = toolCount(state.run, job)
+  const blocked = dir < 0 ? n <= 1 : n >= toolNMax(state.run.tiles.length)
+  return (
+    <button
+      className="tool-step"
+      aria-label={`${VERB[job].now} ${dir < 0 ? 'fewer' : 'more'} tiles`}
+      disabled={blocked}
+      onClick={() => act((s) => setToolN(s, job, n + dir))}
+    >
+      {dir < 0 ? '−' : '+'}
+    </button>
+  )
+}
+
 /** the shared − / count / + popover of a level-2 tool; closes on a pointer-down outside it or Esc */
 function StepPopover({ state, act, job, onClose }: { state: GameState; act: Act; job: ToolJob; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -47,26 +66,21 @@ function StepPopover({ state, act, job, onClose }: { state: GameState; act: Act;
       document.removeEventListener('keydown', esc)
     }
   }, [onClose])
-  const n = toolCount(state.run, job)
   return (
     <div ref={ref} className="tool-pop" role="dialog" aria-label={`${VERB[job].now} tiles per press`}>
-      <button aria-label={`${VERB[job].now} fewer tiles`} disabled={n <= 1} onClick={() => act((s) => setToolN(s, job, n - 1))}>
-        −
-      </button>
-      <output>{n}</output>
-      <button
-        aria-label={`${VERB[job].now} more tiles`}
-        disabled={n >= toolNMax(state.run.tiles.length)}
-        onClick={() => act((s) => setToolN(s, job, n + 1))}
-      >
-        +
-      </button>
+      <StepButton state={state} act={act} job={job} dir={-1} />
+      <output>{toolCount(state.run, job)}</output>
+      <StepButton state={state} act={act} job={job} dir={1} />
     </div>
   )
 }
 
-/** one press button per owned tool beside the farm; a level-2 button's ⋯ / right-click / long-press sets n */
-export function Tools({ state, act, cropId }: { state: GameState; act: Act; cropId: CropId }) {
+/**
+ * one press button per owned tool. Default (mobile bar, tablet column): a level-2 button's ⋯ / right-click /
+ * long-press opens the n popover. stacked (desktop): one row per tool, Plant / Water / Harvest, with − / + beside a
+ * level-2 button; level 1 / 3 keep empty slots there so every press button has the same width.
+ */
+export function Tools({ state, act, cropId, stacked = false }: { state: GameState; act: Act; cropId: CropId; stacked?: boolean }) {
   const { run } = state
   const [openJob, setOpenJob] = useState<ToolJob | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -86,18 +100,38 @@ export function Tools({ state, act, cropId }: { state: GameState; act: Act; crop
     )
   }
   const cancelHold = () => clearTimeout(timer.current)
+  const label = (job: ToolJob) => {
+    const level = run.tools[job]
+    return `${VERB[job].now} ${level === 1 ? 1 : level === 2 ? toolCount(run, job) : 'all'}`
+  }
+  // copper tier: a copper stripe inside the frame (no width change), named in the tooltip
+  const tier = (job: ToolJob) => (run.toolTier[job] > 0 ? { className: 'copper', title: TOOLS[job].copper } : {})
+
+  if (stacked) {
+    const step = (job: ToolJob, dir: -1 | 1) =>
+      run.tools[job] === 2 ? <StepButton state={state} act={act} job={job} dir={dir} /> : <span className="tool-step" aria-hidden="true" />
+    return (
+      <div className="tools tools-stacked">
+        {STACK_ORDER.filter((job) => run.tools[job] > 0).map((job) => (
+          <div key={job} className="tool-row">
+            {step(job, -1)}
+            <button {...tier(job)} onClick={() => press(job)}>
+              {label(job)}
+            </button>
+            {step(job, 1)}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="tools">
       {owned.map((job) => {
-        const level = run.tools[job]
-        const label = `${VERB[job].now} ${level === 1 ? 1 : level === 2 ? toolCount(run, job) : 'all'}`
-        // copper tier: a copper stripe inside the frame (no width change), named in the tooltip
-        const tier = run.toolTier[job] > 0 ? { className: 'copper', title: TOOLS[job].copper } : {}
-        if (level !== 2)
+        if (run.tools[job] !== 2)
           return (
-            <button key={job} {...tier} onClick={() => press(job)}>
-              {label}
+            <button key={job} {...tier(job)} onClick={() => press(job)}>
+              {label(job)}
             </button>
           )
         const onClick = (e: MouseEvent) => {
@@ -108,7 +142,7 @@ export function Tools({ state, act, cropId }: { state: GameState; act: Act; crop
         return (
           <button
             key={job}
-            {...tier}
+            {...tier(job)}
             aria-haspopup="dialog"
             aria-expanded={openJob === job}
             onClick={onClick}
@@ -128,7 +162,7 @@ export function Tools({ state, act, cropId }: { state: GameState; act: Act; crop
             onTouchMove={cancelHold}
             onTouchCancel={cancelHold}
           >
-            {label}
+            {label(job)}
             <span className="tool-more" aria-hidden="true">
               ⋯
             </span>
