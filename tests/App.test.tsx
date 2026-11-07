@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 
@@ -90,6 +90,40 @@ describe('persisted UI state (tiles.ui)', () => {
     expect(app().dataset.view).toBe('farm')
     expect(selected(panelTab(/Shop/))).toBe(true)
     expect(app().classList.contains('panel-collapsed')).toBe(false)
+  })
+})
+
+describe('loan debt with a fake clock', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    Reflect.deleteProperty(document, 'hidden')
+  })
+
+  it('grows on live ticks but not while the tab was hidden (catch-up)', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] })
+    let hidden = false
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden })
+    const badge = () => screen.getByTitle('Bank debt').textContent
+    const setHidden = (h: boolean) => {
+      hidden = h
+      act(() => void document.dispatchEvent(new Event('visibilitychange')))
+    }
+
+    render(<App />)
+    fireEvent.click(mobileTab(/Bank/))
+    fireEvent.click(screen.getByRole('button', { name: /Borrow/ }))
+    expect(badge()).toBe('🏦 −💰33')
+    act(() => void vi.advanceTimersByTime(10_000))
+    expect(badge()).toBe('🏦 −💰34') // 33 + 10 × 0.06, rounded up
+
+    setHidden(true)
+    act(() => void vi.advanceTimersByTime(3600_000))
+    setHidden(false)
+    expect(screen.getByText(/Away for 1h 0m — 3600 ticks simulated/)).toBeTruthy()
+    expect(badge()).toBe('🏦 −💰34')
+
+    act(() => void vi.advanceTimersByTime(10_000))
+    expect(badge()).toBe('🏦 −💰35') // live again: 34.2
   })
 })
 

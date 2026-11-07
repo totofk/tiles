@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buyLicense, harvest, plant, till, water, type ActionResult } from '../src/core/actions'
+import { buyLicense, digForSeeds, harvest, plant, till, water, type ActionResult } from '../src/core/actions'
+import type { CropId } from '../src/core/data/crops'
+import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
+import { buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
   ACTION_ENERGY_COST,
   cropGrowTicks,
@@ -279,5 +282,146 @@ describe('soft-lock recovery through a loan (round-2 state), 600 ticks', () => {
     expect(summary.repaidAt).toBeDefined()
     expect(summary.loan).toBeNull()
     expect(summary.finalCash).toBeGreaterThan(summary.startCash)
+  })
+})
+
+// Batch 5 (a), "a tool press equals the same manual actions in sequence, at every level", is the tools.test.ts case
+// of that name; it is not repeated here.
+
+// Farms greedily; when no farm action is possible it digs for seeds (never borrows, never mines). Dug seeds are
+// valued at their buy price on both sides: income for digging, a cost for the farming that plants them.
+function runDigBot(start: GameState, ticks: number) {
+  let s = start
+  const seed = cropSeedCost('radish', s.meta)
+  const farm = { cash: 0, energy: 0 }
+  const digging = { seeds: 0, energy: 0 }
+  let minCash = s.run.cash
+  let firstHarvest: number | undefined
+  for (let t = 0; t < ticks; t++) {
+    while (s.run.energy >= ACTION_ENERGY_COST) {
+      const pouch = s.run.seeds.radish ?? 0
+      const next = bestFarmAction(s)
+      if (next) {
+        const used = pouch - (next.state.run.seeds.radish ?? 0)
+        farm.cash += next.state.run.cash - s.run.cash - used * seed
+        farm.energy += ACTION_ENERGY_COST
+        if (next.kind.startsWith('harvest')) firstHarvest ??= s.run.tick
+        s = next.state
+      } else {
+        const dug = digForSeeds(s)
+        if (!dug.ok) break
+        digging.seeds += (dug.state.run.seeds.radish ?? 0) - pouch
+        digging.energy += ACTION_ENERGY_COST
+        s = dug.state
+      }
+      minCash = Math.min(minCash, s.run.cash)
+    }
+    s = step(s, 1)
+  }
+  const fieldValue = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
+  return {
+    startCash: start.run.cash,
+    finalCash: s.run.cash,
+    minCash,
+    firstHarvest,
+    loan: s.run.loan,
+    counters: s.run.counters,
+    digging,
+    farm,
+    digCashPerEnergy: (digging.seeds * seed) / digging.energy,
+    farmingCashPerEnergy: (farm.cash + fieldValue) / farm.energy,
+  }
+}
+
+describe('soft-lock recovery by digging for seeds alone (round-2 state, no loan), 600 ticks', () => {
+  const start = softLockState()
+  const summary = runDigBot(start, TICKS)
+  console.log('dig recovery summary', JSON.stringify(summary, null, 1))
+
+  it('starts stuck: no farm action is possible, no loan', () => {
+    expect(start.run.loan).toBeNull()
+    expect(bestFarmAction(start)).toBeNull()
+  })
+
+  it('digs its way back to farming and ends with more cash, never borrowing or mining', () => {
+    expect(summary.firstHarvest).toBeDefined()
+    expect(summary.finalCash).toBeGreaterThan(summary.startCash)
+    expect(summary.minCash).toBeGreaterThanOrEqual(0)
+    expect(summary.loan).toBeNull()
+    expect(summary.counters.mines).toBe(0)
+  })
+
+  it('digging earns less cash per energy than farming (seeds valued at their buy price)', () => {
+    expect(summary.digging.energy).toBeGreaterThan(0)
+    expect(summary.digCashPerEnergy).toBeLessThan(summary.farmingCashPerEnergy)
+  })
+})
+
+// Greedy farmer that buys every tool level the moment buyTool allows it (unlocked, cash, level k − 1 owned) and uses
+// its tools before manual taps: harvest press, water press only while some growing tile is dry, plant press.
+// The pumpkin license is bought first, as in the greedy bot. No digging, mining or loans.
+function runToolBot(ticks: number) {
+  let s = createInitialState()
+  let minCash = s.run.cash
+  // per job, the tick each level became affordable (index 0 = level 1); the bot buys it that same tick
+  const affordable = { water: [], harvest: [], plant: [] } as Record<ToolJob, number[]>
+  const dry = (st: GameState) => toolTargets(st, 'water').some((i) => st.run.tiles[i].moisture === 0)
+  const buy = () => {
+    for (const job of TOOL_JOBS) {
+      const r = buyTool(s, job)
+      if (!r.ok) continue
+      affordable[job].push(s.run.tick)
+      s = r.state
+    }
+  }
+  const press = (job: ToolJob, cropId: CropId) => {
+    if (s.run.tools[job] < 1) return false
+    const r = pressTool(s, job, cropId)
+    if (!r.ok || r.done === 0) return false
+    s = r.state
+    return true
+  }
+  for (let t = 0; t < ticks; t++) {
+    if (!s.run.licenses.includes('pumpkin')) {
+      const r = buyLicense(s, 'pumpkin')
+      if (r.ok) s = r.state
+    }
+    buy()
+    while (s.run.energy >= ACTION_ENERGY_COST) {
+      const crop: CropId = s.run.licenses.includes('pumpkin') && s.run.cash >= cropSeedCost('pumpkin', s.meta) ? 'pumpkin' : 'radish'
+      const acted =
+        press('harvest', crop) ||
+        (dry(s) && press('water', crop)) ||
+        press('plant', crop) ||
+        (() => {
+          const next = bestFarmAction(s)
+          if (next) s = next.state
+          return next !== null
+        })()
+      if (!acted) break
+      minCash = Math.min(minCash, s.run.cash)
+      buy()
+    }
+    s = step(s, 1)
+  }
+  return { affordable, minCash, finalCash: s.run.cash, finalTick: s.run.tick, owned: s.run.tools, counters: s.run.counters }
+}
+
+describe('tool-buying bot, 1200 ticks', () => {
+  const summary = runToolBot(1200)
+  console.log('tool bot summary', JSON.stringify(summary, null, 1))
+
+  it('never goes negative on cash', () => {
+    expect(summary.minCash).toBeGreaterThanOrEqual(0)
+    expect(summary.finalTick).toBe(1200)
+  })
+
+  it('can afford every level-1 tool within ~300 ticks (about 5 minutes)', () => {
+    for (const job of TOOL_JOBS) expect(summary.affordable[job][0]).toBeLessThanOrEqual(300)
+  })
+
+  it('pins the Batch 5 results milestones (PLAN.md)', () => {
+    // harvest and plant level 3 need 120 harvests / plants, not reached in 1200 ticks
+    expect(summary.affordable).toEqual({ water: [120, 655, 984], harvest: [233, 886], plant: [200, 683] })
   })
 })

@@ -236,6 +236,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   | 800×600 | 9 | none (600 / 600) | 205..504 | 96 | slide-over |
   | 375×740 | 9 | page scrolls (846 / 740) | 251..610 | 116 | tab bar fixed at 683..740 before and after scrolling to the end |
 
+  The 375×740 Shop (pouch rows), Upgrades (3 upgrades + 9 tools) and Bank views: no horizontal overflow
+  (scrollWidth 375 = innerWidth) and no clipped or off-screen button or label.
+- **Batch 5: offline catch-up keeps the loan as it was** instead of `step()` learning about "offline". `catchUp` steps
+  the whole run, then puts back the pre-catch-up `loan`: no action runs during catch-up, so debt growth is the only
+  loan change it can undo. `step()` is unchanged, so live ticks still grow the debt. The batch-4.5 test "offline
+  catch-up charges it too" in `bank.test.ts` now asserts the opposite; `save.test.ts` checks both paths with the
+  injected clock (load after 1 h: debt unchanged, everything else caught up; then 5 live ticks grow it), and
+  `App.test.tsx` runs the real hook under vitest fake timers (borrow, 10 s live → 💰34, tab hidden 1 h → still 💰34
+  and the "Away for 1h 0m" banner, 10 s live → 💰35).
+- **Batch 5 sim: the tool bot's "affordable" tick is when `buyTool` succeeds**, which also needs level k − 1. The bot
+  buys at once, so k − 1 is always owned by the time k unlocks; the two definitions give the same ticks in this run.
+
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -391,7 +403,7 @@ Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatib
     pouch rows in Shop (stock, ×1 / ×10, auto-buy toggle). Fix batch-4 nits: farm must fit the viewport height on
     wide-but-short screens (1920×824: no scroll, size tiles by min(width, height)); all side-panel tabs visible at
     ≥ 1024 px (no › overflow); Upgrades tab icon inline like the others.
-25. [ ] Loan + sim: debt grows only on live ticks — offline catch-up does not grow it (fake-clock test). Sim:
+25. [x] Loan + sim: debt grows only on live ticks — offline catch-up does not grow it (fake-clock test). Sim:
     (a) a tool press equals the same manual actions in sequence (same state after, any level); (b) the round-2
     soft-lock state (cash 1, 9 tilled, empty bag, no pickaxe, no loan) recovers by digging for seeds alone;
     (c) dig cash/energy (seed valued at buy price) < farming cash/energy; (d) cash never negative over 1200 ticks
@@ -401,6 +413,42 @@ Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatib
 Starting numbers (unlock counter / price), tune via the sim so level 1 lands within ~5 minutes:
 water 20 / 40 → 60 / 120 → 150 / 300; harvest 15 / 50 → 50 / 150 → 120 / 350; plant 15 / 40 → 50 / 120 → 120 / 300.
 Names: Watering Can → Garden Hose → Water Cart; Sickle → Scythe → Reaper; Dibber → Seed Drill → Seed Spreader.
+
+## Batch 5 results
+The tool numbers are the **starting values above, unchanged**: every level-1 tool is affordable by tick 233, inside the
+~300-tick target, so `balance.ts` was not retuned. No other number changed.
+
+Tool-buying bot (`tests/sim.test.ts`, 1200 ticks from a new run): greedy farming as in batch 3, pumpkin license first,
+then it buys each tool level the tick `buyTool` allows it (unlocked, cash ≥ price, level k − 1 owned) and presses its
+tools before tapping: harvest, then water only while some growing tile is dry, then plant (pumpkin when it has the
+license and the cash, else carrot). No digging, mining or loans. "Affordable" and "bought" are the same tick.
+
+| Tool level (unlock / price) | affordable at tick |
+|---|---|
+| Watering Can (20 waters / 40) | **120** |
+| Garden Hose (60 waters / 120) | 655 |
+| Water Cart (150 waters / 300) | 984 |
+| Sickle (15 harvests / 50) | **233** |
+| Scythe (50 harvests / 150) | 886 |
+| Reaper (120 harvests / 350) | not by 1200 (63 harvests) |
+| Dibber (15 plants / 40) | **200** |
+| Seed Drill (50 plants / 120) | 683 |
+| Seed Spreader (120 plants / 300) | not by 1200 (72 plants) |
+
+Lowest cash 0, final cash 480, counters at 1200: 63 harvests, 184 waters, 72 plants. The level-3 harvest and plant
+tools are gated by their counters, not cash: ~5 harvests per 100 ticks puts 120 harvests near tick 2300.
+
+Other batch 5 checks:
+- **(a) tool press = the same manual actions:** the `tools.test.ts` case "a press equals the same manual actions in
+  sequence, at every level" (all 3 jobs × levels 1–3, mixed field, `toEqual` on the whole state). Not repeated in the sim.
+- **(b) soft-lock recovery by digging alone** (cash 1, 9 tilled, empty bag, no pickaxe, no loan; greedy farming, dig
+  when no farm action is possible; never borrows or mines), 600 ticks: first harvest at tick 102, final cash 💰279
+  (from 💰1), lowest cash 1, 52 digs found 8 seeds.
+- **(c) dig vs farming, same run, seeds valued at the buy price (💰2):** dig **0.31** cash/energy (8 × 2 / 52) vs
+  farming **1.99** ((262 + field) / 157; the pouch seeds it planted are charged at 💰2 each).
+- **(d)** the tool bot above never goes below 0. The greedy batch-3 bot (no tools) keeps its pinned milestones, lowest
+  cash, final cash (394 / 116) and counters.
+- **Loan offline:** debt no longer grows during `catchUp` (reload and hidden-tab return); it still grows on live ticks.
 
 ## Batch 6 — mining progress (tasks 26–30)
 Question: does mining feel like progress now (visible goals, mastery)?

@@ -116,8 +116,11 @@ export function offlineTicks(elapsedMs: number): number {
   return Math.min(Math.max(0, Math.floor(elapsedMs / 1000)), OFFLINE_CAP_TICKS)
 }
 
+// Loan debt grows on live ticks only (DECISIONS.md round-2 outcome). No action runs during catch-up, so step()'s
+// debt growth is the only change to the loan, and putting the old loan back undoes exactly that.
 export function catchUp(state: GameState, elapsedMs: number): GameState {
-  return step(state, offlineTicks(elapsedMs))
+  const after = step(state, offlineTicks(elapsedMs))
+  return after === state ? state : { ...after, run: { ...after.run, loan: state.run.loan } }
 }
 
 /** "Away for 12m — 720 ticks simulated" */

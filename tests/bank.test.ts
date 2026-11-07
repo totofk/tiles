@@ -65,9 +65,10 @@ describe('debt growth in step', () => {
     expect(loanTicksToCap(step(borrowed, 2000).run.loan!)).toBe(0)
   })
 
-  it('offline catch-up charges it too', () => {
-    expect(catchUp(borrowed, 100_000).run.loan!.debt).toBeCloseTo(39)
-    expect(catchUp(borrowed, 8 * 3600 * 1000).run.loan!.debt).toBe(60)
+  it('offline catch-up does not grow it (live ticks only)', () => {
+    expect(catchUp(borrowed, 100_000).run.loan).toEqual(borrowed.run.loan)
+    expect(catchUp(borrowed, 8 * 3600 * 1000).run.loan).toEqual(borrowed.run.loan)
+    expect(catchUp(borrowed, 100_000).run.tick).toBe(100)
   })
 
   it('no loan stays no loan', () => {

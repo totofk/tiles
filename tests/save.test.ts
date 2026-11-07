@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import v1 from './fixtures/save-v1.json?raw'
 import v2 from './fixtures/save-v2.json?raw'
 import v3 from './fixtures/save-v3.json?raw'
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -164,6 +164,26 @@ describe('loadGame / saveGame with an injected clock', () => {
     expect(loaded.ticks).toBe(65)
     expect(loaded.awayMs).toBe(65_400)
     expect(loaded.state.run.tick).toBe(75)
+  })
+
+  it('loan debt does not grow while offline, and grows again on live ticks', () => {
+    const store = memoryStore()
+    const r = takeLoan(createInitialState())
+    if (!r.ok) throw new Error(r.error)
+    const live = step(r.state, 10)
+    const debt = live.run.loan!.debt
+    expect(debt).toBeCloseTo(r.state.run.loan!.debt + 10 * loanDebtPerTick(r.state.run.loan!.principal))
+    saveGame(store, live, () => 1_000_000)
+
+    const loaded = loadGame(store, () => 1_000_000 + HOUR)
+    expect(loaded.ticks).toBe(3600)
+    expect(loaded.state.run.tick).toBe(live.run.tick + 3600)
+    expect(loaded.state.run.loan).toEqual(live.run.loan)
+    // the rest of the run still caught up (energy regen is not frozen)
+    expect(loaded.state).toEqual({ ...step(live, 3600), run: { ...step(live, 3600).run, loan: live.run.loan } })
+
+    const after = step(loaded.state, 5).run.loan!.debt
+    expect(after).toBeCloseTo(debt + 5 * loanDebtPerTick(live.run.loan!.principal))
   })
 
   it('starts fresh with no save', () => {
