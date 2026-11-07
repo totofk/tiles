@@ -1,3 +1,4 @@
+import { BADGE_TABS, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 
 /** UI-only state lives under its own key; the game save (src/save) never reads or writes it */
@@ -12,9 +13,13 @@ export type UiState = {
   tab: PanelTabId
   /** desktop only: a collapsed panel gives its width to the farm */
   collapsed: boolean
+  /** badge keys (badges.ts) the player has seen on each tab; a key not in here is news */
+  seen: Record<BadgeTab, string[]>
 }
 
-export const DEFAULT_UI: UiState = { view: 'farm', tab: 'shop', collapsed: false }
+export const DEFAULT_UI: UiState = { view: 'farm', tab: 'shop', collapsed: false, seen: { shop: [], upgrades: [] } }
+
+const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
 
 /** a missing, broken or partly invalid value falls back to the defaults, field by field */
 export function parseUi(raw: string | null): UiState {
@@ -30,6 +35,12 @@ export function parseUi(raw: string | null): UiState {
     view: VIEWS.find((x) => x === o.view) ?? DEFAULT_UI.view,
     tab: PANEL_TABS.find((t) => t.id === o.tab)?.id ?? DEFAULT_UI.tab,
     collapsed: typeof o.collapsed === 'boolean' ? o.collapsed : DEFAULT_UI.collapsed,
+    seen: Object.fromEntries(
+      BADGE_TABS.map((t) => {
+        const v = (o.seen as Record<string, unknown> | null | undefined)?.[t]
+        return [t, isStrings(v) ? v : DEFAULT_UI.seen[t]]
+      }),
+    ) as UiState['seen'],
   }
 }
 

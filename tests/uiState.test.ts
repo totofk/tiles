@@ -29,14 +29,24 @@ describe('parseUi', () => {
       view: 'farm',
       tab: 'upgrades',
       collapsed: true,
+      seen: { shop: [], upgrades: [] },
     })
+  })
+
+  it('a value from before badges (no seen) loads with nothing seen; a broken seen list falls back per tab', () => {
+    expect(parseUi(JSON.stringify({ view: 'mine', tab: 'bank', collapsed: false })).seen).toEqual({ shop: [], upgrades: [] })
+    expect(parseUi(JSON.stringify({ seen: { shop: ['tile:9', 3], upgrades: ['energyMax'] } })).seen).toEqual({
+      shop: [],
+      upgrades: ['energyMax'],
+    })
+    expect(parseUi(JSON.stringify({ seen: 'all' })).seen).toEqual({ shop: [], upgrades: [] })
   })
 })
 
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true }
+    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)
@@ -59,7 +69,7 @@ describe('loadUi / saveUi', () => {
 describe('separation from the game save', () => {
   it('loadGame and saveGame never touch tiles.ui', () => {
     const store = memoryStore()
-    saveUi(store, { view: 'mine', tab: 'upgrades', collapsed: true })
+    saveUi(store, { ...DEFAULT_UI, view: 'mine', tab: 'upgrades', collapsed: true })
     const before = store.data.get(UI_KEY)
     store.touched.clear()
     saveGame(store, createInitialState(), () => 0)

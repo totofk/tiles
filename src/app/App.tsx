@@ -6,6 +6,7 @@ import { isMature, tapTile } from '../core/tile'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
+import { availableKeys, isBadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
@@ -26,6 +27,19 @@ export default function App() {
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
   const [lastDig, setLastDig] = useState<string | null>(null)
+
+  // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css)
+  const media = (q: string) => window.matchMedia?.(q).matches ?? false
+  const panelOnScreen = media('(min-width: 1024px)') ? !collapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
+  const avail = availableKeys(state)
+  const unseen = (t: PanelTabId) => (isBadgeTab(t) ? avail[t].filter((k) => !ui.seen[t].includes(k)) : [])
+  const badge = (t: PanelTabId) => !(panelOnScreen && tab === t) && unseen(t).length > 0
+  // opening a tab (or keeping it open while something new appears) marks what it shows as seen;
+  // set during render, guarded, so it re-renders once and never on a tick with nothing new
+  const fresh = panelOnScreen ? unseen(tab) : []
+  if (fresh.length > 0 && isBadgeTab(tab)) setUi((u) => ({ ...u, seen: { ...u.seen, [tab]: [...u.seen[tab], ...fresh] } }))
+  const dot = (t: PanelTabId) => badge(t) && <span className="badge-dot" aria-hidden="true" />
+
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
   const guardUntil = useRef<Record<number, number>>({})
 
@@ -60,10 +74,11 @@ export default function App() {
   const panelProps = { state, act, cropId, onSelectCrop: setCropId }
   const Panel = PANEL_TABS.find((t) => t.id === tab)!.Panel
   const mobileTabs = [
-    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm') },
-    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine') },
+    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
+    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: false },
     ...PANEL_TABS.map((t) => ({
       label: t.label,
+      dot: dot(t.id),
       active: view === 'panel' && tab === t.id,
       select: () => {
         setView('panel')
@@ -118,6 +133,7 @@ export default function App() {
             {PANEL_TABS.map((t) => (
               <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
                 {t.label}
+                {dot(t.id)}
               </button>
             ))}
           </div>
@@ -140,6 +156,7 @@ export default function App() {
         {mobileTabs.map((t) => (
           <button key={t.label} aria-pressed={t.active} onClick={t.select}>
             {t.label}
+            {t.dot}
           </button>
         ))}
       </nav>

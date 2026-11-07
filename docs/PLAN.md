@@ -328,6 +328,31 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   Lv1 costs more stone than the starting storage, so the order storage → vein is enforced, not only allowed.
 - **Batch 6.1 UI (task 33): every item in the drop table is named** ("🪨 Stone 100 %"), not only coal, so the rows
   read alike. The vein Upgrade button sits in the Mine panel as well as the Upgrades tab (both call `upgradeVein`).
+- **Batch 6.2 (task 34): milestone upgrades stay hidden until unlocked, and a group with no unlocked row is hidden**
+  (a fresh game shows only ⚡ Energy). The brief's "Energy max 15 → 20" is an example: level 0 reads "Energy max
+  10 → 15" from `energyMax()`. Upgrade rows are one per line (`.shop-row.one-col`) because "now → next" lines are
+  long; the vein row shows the drop table now → next (Mine panel's `dropText`, now exported).
+- **Batch 6.2 (task 35): the ⓘ is a sibling of the row's buy button, not inside it** (a button cannot hold a
+  button), wrapped by `Item` in `Info.tsx`. The tip opens in flow under the row rather than as a floating popover, so
+  a 2-column row at 375 px never clips it. Hover uses CSS `@media (hover: hover)` (also on keyboard focus), not JS
+  mouseenter, because a tap fires mouseenter then click and would close it at once. Seed pouch rows share one text
+  (`TIPS.pouch`); tool tips are per level. The ⓘ hit area is 28 × 28 px (WCAG 2.5.8 minimum 24), below the 44 px of
+  the game buttons, to keep it out of the label.
+- **Batch 6.2 (task 36): "opened" = the tab's content is on screen**, not "the tab is selected": ≥ 1024 px the panel
+  is open (not collapsed), 768–1023 px the slide-over is open, < 768 px the Panel view is showing (`matchMedia`, same
+  breakpoints as the CSS). A tab on screen never shows its own dot and marks new keys seen as they appear. The
+  remembered `ui.tab` on mobile is not "open" while the Farm view shows. "Unlocked or affordable" = `availableKeys`
+  in `src/app/badges.ts` (licenses, mine license, next tile, tool level milestone reached / affordable, upgrade
+  unlocked / level affordable, storage / vein affordable). Seeds and wood are left out (always buyable, never news).
+  Seen keys accumulate (a thing seen once, then unaffordable, then affordable again does not badge again); the level
+  is in the key, so each next level is news. **First load after this patch** (no `seen` in `tiles.ui`) shows a dot
+  for whatever is available once. The "seen" update runs during render, guarded, so `tiles.ui` is written only when
+  a key is new, never every tick. The tablet "🛒 Shop" opener button has no dot (not in the brief).
+- **Batch 6.2: the 375 / 1440 px numbers in "Batch 6.2 results" are computed from the CSS, not measured in a
+  browser** (no dev server or browser in this headless run; the brief forbids `pnpm dev` and files under `dist/` for
+  browser checks). Button widths in them are estimates.
+- **Batch 6.2: commits carry no AI co-author trailer**, unlike the batch 6.1 commits: the user-level delivery rules
+  say no AI attribution in commits, and user rules take precedence over the session default.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -664,6 +689,33 @@ reach? UI only — no core numbers, no save-shape change (badge "seen" state liv
     15 → 20", "Sell price +10 % → +20 %"); maxed rows say "max".
 35. [x] ⓘ info button on every Shop and Upgrades row: hover shows it on desktop, tap toggles it on touch; one shared
     component; texts in one UI data file (one or two plain sentences each: what it does, what it costs over time).
-36. [ ] Farm tool buttons: ≥ 768 px a vertical tool bar on the right edge of the Farm column; < 768 px a bar fixed
+36. [x] Farm tool buttons: ≥ 768 px a vertical tool bar on the right edge of the Farm column; < 768 px a bar fixed
     above the bottom tab bar (thumb reach), not scrolling with the grid. Badge dot on the Shop / Upgrades tabs (and
     mobile tab bar) when something became unlocked or affordable since the tab was last opened; cleared on open.
+
+## Batch 6.2 results
+UI only; no `balance.ts` number and no save shape changed (save stays v5). 244 tests (234 before).
+
+- **What moved where (task 34):** Farm tools (Watering Can … Seed Spreader, with milestone progress) moved from
+  ⬆️ Upgrades to 🛒 Shop under "Farm tools", after Seeds / Seed pouch / Supplies (mine license or wood, tiles).
+  ⬆️ Upgrades now has ⚡ Energy (Bigger stamina, Faster recovery), 🌱 Farm (Better prices, Fertilizer, each shown once
+  its milestone unlocks it) and ⛏ Mine (📦 Storage, ⛏️ Vein, once the mine license is owned). Row texts, fresh game:
+  "Energy max 10 → 15 · 💰50", "Regen 0.33/s → 0.42/s", "Sell price +0 % → +10 %", "Grow time −0 % → −10 %",
+  "Storage 20 → 30 slots · 🪨15 💰50", "🪨 Stone 100 % → 🪨 Stone 80 % · ⚫ Coal 20 % · 🪨25 💰100". Maxed:
+  "Energy max 60 · max", "Storage 70 slots · max", "🪨 Stone 80 % · ⚫ Coal 20 % · max".
+- **ⓘ (task 35):** 26 rows carry one (4 crops, wood or mine license, tile, 9 tool levels, 4 pouch rows, auto-buy,
+  4 upgrades, storage, vein; `tests/Info.test.tsx` checks every row). Texts in `src/app/tips.ts`, no numbers.
+- **Tool bar (task 36), computed from `app.css`, not measured in a browser (see Deviations):**
+  - **375 px:** the bar is fixed 56 px tall directly above the 56 px tab bar (its top 112 px above the viewport
+    bottom) and does not scroll with the grid. The Farm view gets 56 px extra bottom padding, so the last tile, Dig
+    for seeds and Reset save scroll clear of both bars (16 px gap). The toast moves up to 128 px. Three level-1 or
+    level-3 buttons fit the 375 px width; three level-2 steppers (≈ 176 px each, estimated) do not, so the bar
+    scrolls sideways. Shop / Upgrades 2-column cells are 168.5 px wide (30 px side padding for the ⓘ).
+  - **1440 px:** the Farm column is 668.8 px (1440 − 2 × 20 padding − 316.8 Mine − 374.4 panel − 2 × 20 gaps). The
+    bar sits on its right edge, one button wide (the level-2 stepper stacks + / count / −), ≈ 118 px with its 8 px
+    margin (estimated), leaving ≈ 550 px for the grid. Upgrade rows are one full-width 358 px button per line.
+  - **768 px, for the narrowest bar layout:** Farm column 428 px, grid ≈ 310 px, 3 columns ≈ 99 px per tile (floor
+    72 px).
+- **Badges (task 36):** `availableKeys` + `tiles.ui` `seen`; App test: a fresh game dots ⬆️ Upgrades only, opening it
+  clears it, borrowing to 💰50 dots 🛒 Shop (chilli and mine licenses) and ⬆️ Upgrades (Bigger stamina Lv1), opening
+  clears each, and the seen state survives a reload.

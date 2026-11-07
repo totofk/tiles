@@ -69,13 +69,59 @@ describe('mobile tab bar', () => {
   })
 })
 
+describe('badge dot on Shop / Upgrades (jsdom = mobile layout)', () => {
+  const hasDot = (el: HTMLElement) => el.querySelector('.badge-dot') !== null
+
+  it('shows what is new since the tab was last opened and clears on open', () => {
+    render(<App />)
+    // fresh game: the two energy upgrades are unlocked and never seen; nothing in the Shop is affordable on 💰20
+    expect(hasDot(mobileTab(/Upgrades/))).toBe(true)
+    expect(hasDot(panelTab(/Upgrades/))).toBe(true)
+    expect(hasDot(mobileTab(/Shop/))).toBe(false)
+    expect(hasDot(mobileTab(/Bank/))).toBe(false)
+
+    fireEvent.click(mobileTab(/Upgrades/))
+    expect(hasDot(mobileTab(/Upgrades/))).toBe(false)
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!).seen.upgrades).toEqual(['energyMax', 'energyRegen'])
+
+    // borrowing makes 💰50: the chilli and mine licenses and Bigger stamina Lv1 become affordable
+    fireEvent.click(mobileTab(/Bank/))
+    fireEvent.click(screen.getByRole('button', { name: /Borrow/ }))
+    expect(hasDot(mobileTab(/Shop/))).toBe(true)
+    expect(hasDot(mobileTab(/Upgrades/))).toBe(true)
+    fireEvent.click(mobileTab(/Upgrades/))
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!).seen.upgrades).toEqual(['energyMax', 'energyRegen', 'energyMax@0'])
+
+    fireEvent.click(mobileTab(/Shop/))
+    expect(hasDot(mobileTab(/Shop/))).toBe(false)
+    fireEvent.click(mobileTab(/Farm/))
+    expect(hasDot(mobileTab(/Shop/))).toBe(false)
+
+    // seen survives a reload
+    cleanup()
+    render(<App />)
+    expect(hasDot(mobileTab(/Shop/))).toBe(false)
+    expect(hasDot(mobileTab(/Upgrades/))).toBe(false)
+  })
+
+  it('the dot does not change the tab labels', () => {
+    render(<App />)
+    expect(mobileTab(/Upgrades/).textContent).toBe('⬆️ Upgrades')
+  })
+})
+
 describe('persisted UI state (tiles.ui)', () => {
   it('restores view, tab and collapse after a reload', () => {
     render(<App />)
     fireEvent.click(mobileTab(/Mine/))
     fireEvent.click(panelTab(/Upgrades/))
     fireEvent.click(screen.getByRole('button', { name: 'Collapse panel' }))
-    expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({ view: 'mine', tab: 'upgrades', collapsed: true })
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!)).toEqual({
+      view: 'mine',
+      tab: 'upgrades',
+      collapsed: true,
+      seen: { shop: [], upgrades: [] },
+    })
 
     cleanup()
     render(<App />)

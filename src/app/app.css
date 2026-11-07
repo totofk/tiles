@@ -7,6 +7,7 @@
 :root {
   --bg: #f4efe4;
   --tabbar-h: 56px;
+  --toolbar-h: 56px;
   /* farm tiles grow with the column up to this size; at ≥ 768 px the height left for the farm also caps them */
   --tile-max: 260px;
 }
@@ -466,17 +467,82 @@ button:disabled {
   padding: 0 10px;
 }
 
+/* mobile: the tool bar is fixed above the tab bar (thumb reach) and scrolls sideways if it overflows; it lives in
+   .farm, so it hides with the Farm view */
 .tools {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  z-index: 2;
+  height: var(--toolbar-h);
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  padding: 0 8px;
+  overflow-x: auto;
+  background: #fff;
+  border-top: 1px solid #8a7a5c;
 }
 .tools button {
+  flex: none;
   padding: 0 12px;
 }
 .tool-step {
+  flex: none;
   display: flex;
   gap: 2px;
+}
+.farm:has(> .tools) {
+  padding-bottom: var(--toolbar-h);
+}
+.app[data-view='farm']:has(.tools) > .toast {
+  bottom: calc(var(--tabbar-h) + var(--toolbar-h) + 16px + env(safe-area-inset-bottom));
+}
+/* ≥ 768 px: a vertical bar on the right edge of the Farm column, beside the grid */
+@media (min-width: 768px) {
+  .farm {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    column-gap: 0;
+  }
+  .farm > :not(.tools) {
+    grid-column: 1;
+  }
+  .farm:has(> .tools) {
+    padding-bottom: 0;
+  }
+  .tools {
+    position: static;
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: start;
+    height: auto;
+    margin-left: 8px;
+    padding: 0;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: visible;
+    border: none;
+    background: none;
+  }
+  /* the stepper stacks: + on top, − below, so the bar stays one button wide */
+  .tool-step {
+    flex-direction: column-reverse;
+  }
+  .app[data-view='farm']:has(.tools) > .toast {
+    bottom: 16px;
+  }
+}
+.badge-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 4px;
+  vertical-align: top;
+  border-radius: 50%;
+  background: #d32f2f;
 }
 .tool-step button[aria-label] {
   min-width: 44px;
