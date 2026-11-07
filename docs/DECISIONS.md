@@ -269,3 +269,13 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   `tiles.dev`, cleared by `?dev=off`) the upgrade to vein Lv3, the iron-rock hint, the locked ⛏️ mine-worker row and
   zero iron stats are hidden, and the vein line shows the old "🔒 Lv3: iron ore — coming" teaser. UI only: core, save
   v11 and every number are unchanged; a player already on vein Lv3 sees everything. Remove the gate when iron is ready.
+
+## Feedback form + reset confirm (batch 11.1)
+
+- **Feedback goes to Toon's Google Form** (no backend on GitHub Pages; no secret in the bundle; responses kept in the
+  form's sheet). Mail with a `[tiles] <kind>: <title> (<build>)` subject comes from an Apps Script on the form that
+  Toon owns, outside the repo. Rejected: Web3Forms/Formspree/EmailJS (third-party quota, no history), Discord webhook
+  (public URL = spam), mailto (no mail client on most phones).
+- **no-cors POST:** the game cannot read the reply, so "Sent" means "the request left"; network errors keep the text.
+- **Context is a summary, not the save** (build, save version, screen, UA, one-line game summary).
+- **Reset lives in 📊 Stats under Feedback** with a two-press in-game confirm and a `tiles.save.backup.reset` copy.

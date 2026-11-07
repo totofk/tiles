@@ -1879,3 +1879,36 @@ No `balance.ts` number changed: the task 65–67 numbers pass every check. Save 
   certificate ≈ 30 (10 min after the pickaxe), all inside 2 h. The mine → furnace chain runs at its 28–30 bars/h only while someone empties storage: alone
   it fills 50 slots in ≈ 16 min, because stone, copper ore and the unsellable bars pile up. That is the stop the plan
   expects; a sell worker or an auto-sell rule would be the next lever, not a batch-11 number.
+
+## Batch 11.1 — feedback form + safer reset (tasks 70–71, UI only, no save bump)
+
+Toon: a way for players to send feedback / ideas that reaches his mail and is kept; put it on the 📊 Stats tab and
+move Reset there with a confirm. Transport = his Google Form (responses kept in Forms/Sheets; mail via an Apps Script
+on the form that Toon installs — not part of this repo).
+
+- [ ] 70. **💬 Feedback card at the end of 📊 Stats.** Fields: kind (Feedback / Idea / Bug report — segmented buttons,
+    default Feedback), short title (required, ≤ 80 chars, counter), details (required textarea, ≤ 2000 chars),
+    contact (optional, "name or email if you want a reply"). Hidden honeypot input (`website`, off-screen, not
+    `display:none`, `tabindex=-1`, `autocomplete=off`): if filled, pretend success and send nothing. Send button
+    disabled until both required fields are non-blank; one send per 30 s (UI clock, `src/app/`).
+    - Transport (all constants in `src/app/feedback.ts`, no secrets exist): `fetch(FORM_URL, { method: 'POST', mode:
+      'no-cors', body: new URLSearchParams(...) })` with FORM_URL = `https://docs.google.com/forms/d/e/1FAIpQLSd_rX4oEt82dSuZcnVBX1sB-Yp_VP9WgQeiMpGKtR6GUwfTBQ/formResponse` and fields
+      `entry.247767374` = kind (exact strings `Feedback`, `Idea`, `Bug report`), `entry.544014453` = title,
+      `entry.1552861218` = details + a context block, `entry.767920014` = contact (may be empty).
+    - Context block appended to details, plain text, one item per line, after a `---` line:
+      `Build: <short git hash>` (inject at build time with Vite `define` from `git rev-parse --short HEAD`, falling
+      back to `GITHUB_SHA` in CI and `dev`), `Save: v<N>`, `Screen: <w>×<h> @<dpr>`, `UA: <navigator.userAgent>`,
+      `Time: <ISO>`, and a one-line game summary built by a pure core selector `feedbackSummary(state)` (cash,
+      licensed crops, tool levels, workers per job, vein level, furnace smart/levels, play time) — never the raw save.
+    - The response is opaque (no-cors): resolve = "Sent — thank you" and clear the fields; a network error = keep the
+      text, show "Could not send — check your connection" with Retry. Draft text survives a tab switch (React state
+      lifted to the Stats tab is fine; not saved).
+    - Tests: the field mapping + context block (pure function `buildFeedbackBody`), honeypot, cooldown, blank
+      required fields, error path (mock fetch). No real network in tests.
+- [ ] 71. **Reset moves under Feedback, with an in-game confirm.** Remove the Farm-panel "Reset save" link and
+    `window.confirm`. In 📊 Stats, a "Danger zone" row below Feedback: first press turns the button into a red
+    "Press again to erase everything" for 5 s (then reverts); the second press copies the current save to
+    `tiles.save.backup.reset` (overwrite) and resets as before. Keyboard: Esc cancels the armed state. Tests for
+    arm → revert after 5 s, arm → confirm, backup written.
+    Layout: both cards compact at 375 px (Stats tab under the mobile tab bar) and inside the desktop panel at 1024 /
+    1440; textarea `resize: vertical`, max-width 100 %; no overlap with neighbours; no 7th tab.
