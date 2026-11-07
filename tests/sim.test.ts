@@ -3,7 +3,7 @@ import { buyLicense, digForSeeds, harvest, plant, till, water, type ActionResult
 import type { CropId } from '../src/core/data/crops'
 import type { PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
-import { buyTool, pressTool, toolTargets } from '../src/core/tools'
+import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
   ACTION_ENERGY_COST,
   cropGrowTicks,
@@ -19,6 +19,7 @@ import {
   smeltFuel,
   smeltOre,
   storageCost,
+  toolTierCost,
   veinUpgradeCost,
   type Price,
 } from '../src/core/balance'
@@ -81,9 +82,18 @@ const lowestValue = ({ run }: GameState) =>
   )
 
 /** batch 7 ladder goals, in order; `keep` = items mining must not sell while this goal is next */
-type LadderStep = 'storageLv1' | 'veinLv1' | 'furnace' | 'storageLv2' | 'veinLv2' | 'copperPickaxe'
+type LadderStep = 'storageLv1' | 'veinLv1' | 'furnace' | 'storageLv2' | 'veinLv2' | 'copperPickaxe' | `copper:${ToolJob}`
+type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
-const LADDER: { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }[] = [
+const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
+/** keep `bars` bars plus the ore and coal to smelt the ones not yet in storage, the furnace or its tray */
+const keepBars =
+  (bars: number) =>
+  ({ run }: GameState): Price => {
+    const toSmelt = Math.max(0, bars - (run.inventory.copperBar ?? 0) - run.furnace.queue - run.furnace.ready)
+    return { cash: 0, copperBar: bars, copperOre: smeltOre() * toSmelt, coal: smeltFuel('coal') * toSmelt }
+  }
+const LADDER: Goal[] = [
   { name: 'storageLv1', done: (s) => s.run.storageLevel >= 1, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
   { name: 'veinLv1', done: (s) => s.run.vein.level >= 1, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
   { name: 'furnace', done: (s) => s.run.furnace.built, buy: buildFurnace, keep: (s) => furnaceCost(s.meta) },
@@ -93,12 +103,25 @@ const LADDER: { name: LadderStep; done: (s: GameState) => boolean; buy: (s: Game
     name: 'copperPickaxe',
     done: (s) => s.run.pickaxe?.tier === 'copper',
     buy: (s) => craftPickaxe(s, 'copper'),
-    keep: ({ run }) => {
-      const toSmelt = Math.max(0, COPPER_PICKAXE_BARS - (run.inventory.copperBar ?? 0) - run.furnace.queue - run.furnace.ready)
-      return { cash: 0, copperBar: COPPER_PICKAXE_BARS, copperOre: smeltOre() * toSmelt, coal: smeltFuel('coal') * toSmelt }
-    },
+    keep: keepBars(COPPER_PICKAXE_BARS),
   },
 ]
+/** batch 7.1: after the copper pickaxe, each job's copper tier in order (buying the job's tool Lv1 with it if missing) */
+const COPPER_LADDER: Goal[] = [
+  ...LADDER,
+  ...TOOL_JOBS.map(
+    (job): Goal => ({
+      name: `copper:${job}`,
+      done: (s) => s.run.toolTier[job] >= 1,
+      buy: (s) => {
+        const tool = s.run.tools[job] < 1 ? buyTool(s, job) : ({ ok: true, state: s } as const)
+        return tool.ok ? buyCopperTool(tool.state, job) : tool
+      },
+      keep: keepBars(COPPER_TOOL_BARS),
+    }),
+  ),
+]
+const smeltsFor = (g: Goal | undefined) => g !== undefined && (g.name === 'copperPickaxe' || g.name.startsWith('copper:'))
 
 /** mineEarly: buy the mine license as soon as it is affordable while energy is idle;
  *  otherwise only once the pumpkin license is owned (the main crop is never delayed).
@@ -111,8 +134,10 @@ function runBot(
     crops = ['pumpkin', 'radish'],
     saveForStorage = false,
     ladder = false,
-  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean; ladder?: boolean } = {},
+    copperTools = false,
+  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean; ladder?: boolean; copperTools?: boolean } = {},
 ) {
+  const goals = copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar', number>> = {}
   let s = createInitialState()
   const m: Milestones = {}
@@ -163,10 +188,10 @@ function runBot(
     if (ladder) {
       // batch 7: buy the next goal as soon as it can be paid; smelt (coal fuel) and collect while the copper pickaxe
       // is the goal; when storage is full sell only what the goal does not need, else stop mining
-      const goal = LADDER.find((g) => !g.done(s))
+      const goal = goals.find((g) => !g.done(s))
       if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
-      const next = LADDER.find((g) => !g.done(s))
-      if (next?.name === 'copperPickaxe') {
+      const next = goals.find((g) => !g.done(s))
+      if (smeltsFor(next)) {
         while (tryAct(enqueueSmelt(s, 'coal'), null));
         tryAct(collectBars(s), null)
       }
@@ -550,9 +575,9 @@ const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
 // One crop on the 9 starting tiles for a session, license owned and cash to spare (so seeds never block it), farmed
 // by the greedy bot's own priority. Same accounting as runBot: harvest income − seeds per farm action (till, plant,
 // water, harvest all count 1 energy), plus the crops standing at the cut-off at sell price × growth progress.
-function runCropBot(crop: CropId, ticks = SESSION) {
+function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState().run.toolTier) {
   const init = createInitialState()
-  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])] } }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], toolTier } }
   const farm = { cash: 0, energy: 0 }
   for (let t = 0; t < ticks; t++) {
     while (s.run.energy >= ACTION_ENERGY_COST) {
@@ -565,7 +590,8 @@ function runCropBot(crop: CropId, ticks = SESSION) {
     s = step(s, 1)
   }
   const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
-  return { ...farm, field, harvests: s.run.counters.harvests, cashPerEnergy: (farm.cash + field) / farm.energy }
+  const { harvests, waters } = s.run.counters
+  return { ...farm, field, harvests, waters, watersPerHarvest: waters / harvests, cashPerEnergy: (farm.cash + field) / farm.energy }
 }
 
 // Steady-state mining at a fixed mastery level: energy is refilled before every mine action and the mastery xp put back
@@ -756,7 +782,59 @@ describe('batch 7: every multi-item price fits the storage the player has when i
     ['furnace', furnaceCost(meta), 30],
     ['vein Lv2', veinUpgradeCost(1, meta)!, 40],
     ['copper pickaxe', pickaxeCraftCost('copper', meta), 40],
+    // batch 7.1: copper farm tools come after the copper pickaxe (storage Lv2)
+    ['copper farm tool', toolTierCost(1, meta), 40],
   ] as const)('%s', (_, price, capacity) => {
     expect(items(price)).toBeLessThanOrEqual(capacity)
+  })
+})
+
+// ---- Batch 7.1: copper farm tools ----
+
+const ALL_COPPER = { water: 1, harvest: 1, plant: 1 }
+
+describe('batch 7.1: copper farm tools vs none, one crop on 9 tiles, 1200 ticks', () => {
+  const farming = Object.fromEntries(
+    (['radish', 'pumpkin'] as const).map((c) => [c, { none: runCropBot(c), copper: runCropBot(c, SESSION, ALL_COPPER) }]),
+  )
+  console.log('batch 7.1 farming', JSON.stringify(farming, null, 1))
+
+  it.each(['radish', 'pumpkin'])('%s: fewer waterings per harvest and more cash per energy with all three copper tools', (crop) => {
+    const { none, copper } = farming[crop]
+    expect(copper.watersPerHarvest).toBeLessThan(none.watersPerHarvest)
+    expect(copper.cashPerEnergy).toBeGreaterThan(none.cashPerEnergy)
+  })
+
+  it('mining stays below farming: the batch-7 copper pickaxe benches < 0.9 × pumpkin without copper tools', () => {
+    const pumpkin = farming.pumpkin.none.cashPerEnergy
+    for (const vein of [1, 2])
+      for (const lv10 of [false, true])
+        expect(mineBench({ pickaxe: true, tier: 'copper', vein, xp: lv10 ? 800 : 0, mastered: lv10 }).cashPerEnergy).toBeLessThan(0.9 * pumpkin)
+  })
+})
+
+describe('batch 7.1: ladder bot continues to the three copper farm tools', () => {
+  // the batch-7 ladder bot, then water → harvest → plant copper tiers (each with its tool Lv1 if missing)
+  const summary = runBot(true, { ticks: HOUR_TICKS, licenses: LICENSE_ORDER, crops: PLANT_ORDER, ladder: true, copperTools: true })
+  console.log('copper ladder', JSON.stringify({ ...summary.ladderTicks, finalCash: summary.finalCash, counters: summary.counters }, null, 1))
+  const t = summary.ladderTicks
+
+  it('the batch-7 steps are unchanged (copper tools only come after the copper pickaxe)', () => {
+    const { firstBar, storageLv1, veinLv1, furnace, storageLv2, veinLv2, copperPickaxe } = t
+    expect({ storageLv1, veinLv1, furnace, storageLv2, veinLv2, firstBar, copperPickaxe }).toEqual({
+      storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1776, copperPickaxe: 2172,
+    })
+  })
+
+  it('buys the three copper tools in order after the copper pickaxe, within the hour (pinned)', () => {
+    const order = [t.copperPickaxe, t['copper:water'], t['copper:harvest'], t['copper:plant']]
+    expect(order).toEqual([2172, 2598, 2835, 3075])
+    expect(summary.finalCash).toBe(6119)
+  })
+
+  it('nothing goes negative over 3600 ticks and it never borrows', () => {
+    expect(summary.lowest).toBeGreaterThanOrEqual(0)
+    expect(summary.borrowed).toBe(false)
+    expect(summary.finalTick).toBe(HOUR_TICKS)
   })
 })

@@ -420,6 +420,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   "Harvested 6"); a kept seed reads "(N seeds kept)". The press bonus is counted in `pressTool` from each action's
   state change (sales above 1, or pouch and cash both unchanged), so no action result shape changed. The copper mark
   is a copper border + inset stripe, not an emoji, so it adds no width to the 375 px bar.
+- **Batch 7.1 (task 46): the copper-tool ladder bot also buys each job's tool Lv1 when missing** (the batch-7 bot
+  never buys farm tools, so the copper rows would stay LOCKED); it buys tool Lv1 and copper tier in one step. Copper
+  tool cash/energy is measured with the one-crop bench (`runCropBot` with `toolTier` all 1), not the ladder bot.
 - **Batch 7.1: the v6 fixture was captured with a temporary Node script** (Vite `ssrLoadModule` of the current core,
   printed to stdout, written with the editor, then deleted; diffed identical to a second run), because no TS runner
   is installed and temporary test files were not allowed.
@@ -897,7 +900,7 @@ tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → 
     🟧4 💰100, ⓘ tip, locked until the job's tool Lv1); the tool bar button shows a copper mark when tier 1; the tile
     moisture bar shows values above 1 (e.g. a second, darker band); toast for a double harvest / kept seed only in
     the tool-press summary ("Harvested 6 (+1 bonus)"). 📊 Stats: tiers and their effects from the same functions.
-46. [ ] Sim + results: ticks to the first and the third copper farm tool (after the copper pickaxe, same bot as
+46. [x] Sim + results: ticks to the first and the third copper farm tool (after the copper pickaxe, same bot as
     batch 7); carrot and pumpkin cash/energy with all three copper tools vs none (water presses per crop must drop);
     mining stays below farming as in batch 7; every bar + cash price fits storage when buyable; nothing negative over
     3600 ticks; batch-3 greedy numbers pinned. Write "## Batch 7.1 results".
@@ -927,3 +930,37 @@ dark). A press toast names the copper luck: "Harvested 6/6 (+1 bonus)", "Planted
 never toast it. 📊 Stats: "Water tier · waters to 2 (×2 moist time) · Copper Can", "Harvest tier · 10 % double
 harvest", "Plant tier · 20 % seed kept" (basic: 1 / ×1, 0 %, 0 %), from `waterMoisture` / `doubleHarvestChance` /
 `seedKeepChance`.
+
+**Sim (task 46), `tests/sim.test.ts` "batch 7.1".** Save v7 (one bump; fixture `tests/fixtures/save-v6.json` captured
+from the batch-7 code first, chain v1–v6 → v7 tested). No `balance.ts` number was retuned: the copper tool price
+stays 🟧4 💰100 (cash is never the limit; bars are). Tier-0 runs replay exactly: the batch-7 ladder pin (ticks,
+final cash 5980, counters, PRNG state 1328891991) and every batch-3 greedy pin pass unchanged.
+
+Ladder: the batch-7 ladder bot, then Copper Can → Copper Sickle → Copper Dibber (each bought with the job's tool Lv1
+if missing, as soon as 4 bars + 💰100 are in hand; it keeps 4 bars plus the ore and coal to smelt the rest), 3600 ticks:
+
+| Step | tick | min |
+|---|---|---|
+| copper pickaxe (unchanged) | 2172 | 36 |
+| 1st copper tool (Copper Can) | 2598 | 43 |
+| 2nd (Copper Sickle) | 2835 | 47 |
+| 3rd (Copper Dibber) | 3075 | 51 |
+
+- Goals every 4–7 min after the pickaxe (+7.1, +4.0, +4.0 min). Every batch-7 step tick is unchanged. Lowest value
+  0, never borrows, final cash 6119 (batch 7: 5980). Hour counters vs batch 7: waters 454 (525), mines 519 (447 —
+  the energy saved on watering goes into mining), sales 417 (386), harvests 107 (107), plants 115 (116).
+
+Cash per energy, one crop on the 9 starting tiles, 1200 ticks (`runCropBot`, same accounting as batch 6):
+
+| Crop | tools | cash/energy | waters | harvests | water presses per crop |
+|---|---|---|---|---|---|
+| carrot | none | 2.14 | 180 | 99 | 1.82 |
+| carrot | all three copper | 3.15 | 90 | 99 | 0.91 |
+| pumpkin | none | 8.18 | 180 | 36 | 5.00 |
+| pumpkin | all three copper | 14.21 | 90 | 36 | 2.50 |
+
+- Water presses per crop halve for both crops; harvests per session do not change (grow time and tile count still
+  bind). Most of the cash/energy gain is the halved watering energy, plus double harvests and kept seeds.
+- Mining stays below farming as in batch 7: every copper-pickaxe bench (vein Lv1 / Lv2, mastery Lv0 / Lv10) < 0.9 ×
+  pumpkin without copper tools (7.36; benches 2.18–2.38), so with copper tools the gap only grows.
+- Prices vs storage: a copper farm tool is 4 bars ≤ 40 (storage Lv2 when buyable, after the copper pickaxe).
