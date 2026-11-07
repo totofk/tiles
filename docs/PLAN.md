@@ -1249,3 +1249,62 @@ UI only; no `src/core/**`, `balance.ts` or save change (save stays v8). 374 test
   viewport bottom (− 8 px), so a tip opened just above the 56 px tab bar (or the tool bar) may draw over them: it is
   z-index 5, on top, and closes on the next tap or scroll, so they are covered only while it is open. Tablet
   (768–1023) keeps the vertical bar + popover (see Deviations).
+
+## Batch 9 — fuelled furnace, furnace workers, smart furnace + feedback polish (tasks 56–61)
+
+Toon's playtest feedback on the live batch-8.1 build: the free auto-smelt toggle is too easy; the furnace should need
+fuel that burns away; furnace upgrades and furnace workers replace the toggle. Plus three UI items. Save v8 → v9.
+
+- [ ] 56. **UI polish first (no core).** (a) The 🔥 Furnace and 👷 Workers `<summary>` headers do not look pressable
+    (`display: flex` on `summary` hides the native ▸ marker; app.css `.mine-furnace summary`, `.workers summary`):
+    add a ▸ / ▾ chevron (U+25B8 / U+25BE) on the left that follows `open`, a light button-like background + radius,
+    and a hover/focus state, the same for every collapsible card. (b) **Smooth bars:** progress bars (`.bar > span`:
+    grow, water, rot, tool, energy and every furnace bar) jump once per 1 s tick. Add `transition: width 1s linear`
+    while the value grows; when it goes DOWN (harvest → 0, new bar, refill) the bar jumps with no transition (no
+    backwards slide). Honour `prefers-reduced-motion: reduce` (no transition).
+- [ ] 57. **Save v9 + fuelled furnace core** (`src/core/furnace.ts`). Replace the paid-up-front queue with:
+    `furnace = { built, fire, ore, progress, ready, smart, levels: { fireCap, batch } }`.
+    - `fire` is in burn ticks. One fire unit = FIRE_UNIT_TICKS (30); wood = 1 unit, coal = 2 units; one smelt cycle
+      = BAR_TICKS (60) of fire = 2 units, so cost per bar stays coal 1 or wood 2 as today. Start fire cap 10 units.
+    - **Plain furnace: fire burns whenever fire > 0**, also with no ore loaded or the tray full (wasted). A cycle
+      progresses only while fire > 0, ore ≥ ORE_PER_BAR × batch and the tray has room; a cycle yields `batch` bars.
+    - `addFuel(state, fuel)` = the player's "fill" press: adds as many whole wood/coal items as fit under the cap
+      (never over the cap; partial if storage runs short). `loadOre(state)` moves copper ore from storage into the
+      furnace's ore slot (slot cap ORE_SLOT, e.g. 10). `collectBars` as today. Typed errors (FULL, NO_FUEL, NO_ORE …).
+    - **Smart furnace** (`smart = true`, an upgrade, task 58): fire only burns while a cycle is progressing.
+    - step(s, n) must equal n × step(s, 1) for every combination (fire running out mid-cycle, ore running out, tray
+      filling) — test it.
+    - Save v9 per CLAUDE.md: FIRST commit `tests/fixtures/save-v8.json` (a realistic v8 state from the current code:
+      furnace with a queue and ready bars, workers hired and assigned, autoSmelt on). Migration: every paid queued
+      job becomes a ready bar (fuel and ore were already paid, nothing is lost; the tray may exceed its cap once);
+      fire 0, ore 0, smart false, levels at base; `autoSmelt` is dropped (it was a free toggle, no earned value).
+      Chain v1–v8 → v9 with a backup key.
+- [ ] 58. **Furnace workers, certificates, upgrades** (core). Two new `WorkerJob`s, using the same pool, wage and
+    action clock as batch 8:
+    - **Ore loader** (`ore`): one action = collect the tray into storage if it has bars and storage has room, else
+      load one cycle of ore. Acts only when it has something to do (no wage for idle presses). Certificate: 🥉3 bars
+      + 💰100, visible after 10 bars collected.
+    - **Fuel loader** (`fuel`): one action = add one coal when the room ≥ 2 units. **Coal only** (wood stays manual,
+      kept for pickaxe repairs). Certificate: 🥉8 bars + 💰200, visible after 30 bars collected. On a plain furnace
+      it keeps the fire going with or without ore — that is the waste smart furnace removes.
+    - Bars-collected unlocks read `lifetime.bars` (add a counter migrated from it if `CERTIFICATES` needs a CounterId).
+    - **Furnace upgrades** (one-time or levelled, prices in copper bars + cash, the costs in balance.ts):
+      fire capacity (10 → 20 → 40 units), batch (1 → 2 → 3 bars per cycle: more bars per fuel), smart furnace
+      (more expensive than the fuel certificate). Shown next to the furnace in the Mine panel, like the vein upgrade.
+    - Remove `setAutoSmelt` / `autoSmelt` and its UI (task 59) — the ore loader replaces it.
+- [ ] 59. **Furnace + worker UI.** Furnace card: a fire gauge (`.bar`, units / cap, 🔥), the ore slot count, buttons
+    "Load ore", "Fill with 🌲 wood", "Fill with ⚫ coal" (each shows how many items it will use, disabled with a reason
+    when it cannot), the tray + Collect, the three upgrades, and a plain-furnace hint when the fire burns with no ore
+    ("burning with nothing to smelt"). Workers card: ore and fuel rows with their certificates, the same −/count/+
+    pattern as water/harvest. 📊 Stats: fire wasted (ticks or units) and bars smelted. Away banner: fuel burnt / bars.
+    ⓘ tips without numbers in text. Compact at 375 px; no 7th tab.
+- [ ] 60. **Show which tile a worker works on.** A pure core function `workerTargets(state)` returns, for every
+    assigned water/harvest worker, the tile its next action will touch — sharing the selection code the worker uses
+    (one rule, not a copy). Not saved. UI: a thin dashed ring on each target tile; when a worker acts on a tile (the UI
+    sees it between two ticks), that tile flashes ~0.5 s with a small 💧 / 🌾 pop. No walking figures. Must stay
+    readable on 375 px tiles and must not shift layout.
+- [ ] 61. **Sim + balance** (existing ladder bot / runCropBot). Measure and pin: plain furnace with no ore wastes at
+    most one tank; time to first ore/fuel certificate and to smart furnace; bars/hour manual vs ore loader vs both vs
+    smart; 8 h offline with both loaders on a plain vs smart furnace (waste ≤ one tank on plain when ore runs out);
+    every copper-bar price ≤ what the player can hold; cash never negative; all older pins still pass. Tune only the
+    batch-9 numbers in balance.ts and report every change as a deviation.

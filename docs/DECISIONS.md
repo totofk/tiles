@@ -223,3 +223,20 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   −/+ slots so the press buttons line up.
 - **Mobile keeps the single-row bar + ⋯ popover**: three stacked rows would be ~132 px plus the 56 px tab bar,
   covering almost half the farm on a 375 px phone.
+
+## Fuelled furnace + furnace workers (batch 9)
+
+- **The furnace burns fuel over time** (Toon): fire is a gauge filled by the player, wood = 1 unit, coal = 2 units,
+  one bar = 2 units, so cost per bar is unchanged. A plain furnace burns whenever the fire is lit, ore or not — the
+  loss is bounded by the fire cap (start 10 units), so leaving the game never costs more than one tank.
+- **Free auto-smelt toggle removed** (too easy): automation follows manual → tooling → automation like the farm.
+  Manual first (load ore, fill fuel), then **ore loader** (certificate 🥉3 + 💰100 after 10 bars; it also collects the
+  tray), then **fuel loader** (🥉8 + 💰200 after 30 bars; coal only, wood stays manual for pickaxe repairs), then the
+  **smart furnace** upgrade (fire burns only while smelting). Both loaders + plain furnace still waste fuel when ore
+  runs out — that gap is what the smart furnace buys. Toon chose certificates for both loaders over a free one.
+- **Furnace upgrades:** fire capacity and bars per cycle, priced in copper bars + cash, next to the furnace like the
+  vein upgrade. "Fire burns slower" was not added: smart furnace already removes the waste.
+- **v8 → v9:** paid queued jobs become ready bars (nothing paid is lost); autoSmelt is dropped (free toggle).
+- **Worker targets are shown, not walked:** a dashed ring on the next tile and a short flash when a worker acts.
+  Farm rows are not stable across widths, so no walking figures. Targets are derived from state, never saved.
+- **Progress bars ease between 1 s ticks** (CSS transition while growing, jump on reset, off for reduced motion).
