@@ -9,7 +9,7 @@ export const SAVE_VERSION = 4
 type RunV1 = Pick<RunState, 'cash' | 'energy' | 'tiles' | 'licenses' | 'tick'> & {
   upgrades: { energyMax: number; energyRegen: number }
 }
-type RunV3 = Omit<RunState, 'counters' | 'seeds' | 'autoBuySeeds'> & {
+type RunV3 = Omit<RunState, 'counters' | 'seeds' | 'autoBuySeeds' | 'tools' | 'toolN'> & {
   /** digs = mine actions (renamed `mines` in v4) */
   counters: { harvests: number; sales: number; digs: number }
 }
@@ -59,10 +59,11 @@ function migrateV2(save: SaveV2): SaveV3 {
 }
 
 // v3 → v4: old `digs` counted mine actions, so it moves to `mines`; soil `digs` (new), `waters` and `plants`
-// start at 0. Empty seed pouch, auto-buy on, so planting costs what it did before.
+// start at 0. Empty seed pouch, auto-buy on, so planting costs what it did before. No farm tools yet.
 function migrateV3(save: SaveV3): SaveV4 {
   const { meta, run } = save.state
   const { harvests, sales, digs } = run.counters
+  const { tools, toolN } = createInitialState().run
   return {
     version: 4,
     savedAtMs: save.savedAtMs,
@@ -73,6 +74,8 @@ function migrateV3(save: SaveV3): SaveV4 {
         counters: { harvests, sales, mines: digs, digs: 0, waters: 0, plants: 0 },
         seeds: {},
         autoBuySeeds: true,
+        tools,
+        toolN,
       },
     },
   }

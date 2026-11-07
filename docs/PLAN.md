@@ -188,6 +188,19 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   chance are `DIG_SEED_CROP` / `DIG_SEED_CHANCE` in `balance.ts`, read through `digSeedDrop()`. The Farm view shows
   the last dig's result ("Found a 🥕 Carrot seed!" / "Nothing this time") next to the button, not as a toast; it is
   UI state only and starts empty after a reload.
+- **Batch 5: tool levels and `toolN` are folded into save v4** (`run.tools`, `run.toolN`; `migrateV3` sets no tools
+  and `toolN` 1). v4 was committed in task 21 but never deployed, so there is no v4 save in the wild and no
+  `save-v4.json` fixture (v4 is the current version, not a past one).
+- **Batch 5: farm tools (`src/core/tools.ts`).** `pressTool(state, job, crop)` returns `LOCKED` at level 0 and
+  `NOTHING_TO_DO` when no tile is eligible (nothing spent). Otherwise it is ok with `{ done, wanted, stoppedBy }`,
+  even when `done` is 0 because the first tile already failed (e.g. no energy: state unchanged, `stoppedBy:
+  'NO_ENERGY'`). Eligible water tiles are growing (not ripe) with moisture < 1, so a press never spends energy on a
+  full tile or a ripe crop. Ties in priority keep tile order. `toolN` defaults to 1 and is **clamped on read**
+  (`toolCount`, 1 … ceil(tiles × 1/3)) instead of rewritten when tiles change: tiles only ever grow, so a stored value
+  never goes stale, and `setToolN` rejects values outside the range (`BAD_AMOUNT`). `buyTool(job)` always buys the
+  next level (so level k needs k − 1): `MAX_LEVEL` at 3, `LOCKED` below the counter threshold, `NO_CASH`. Tool
+  prices follow the `cost` meta multiplier like every other price. The numbers are the PLAN.md starting values,
+  not yet tuned (task 25).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -333,7 +346,7 @@ Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatib
 22. [x] Dig for seeds: farm action `digForSeeds()` — 1 energy, `DIG_SEED_CHANCE` 0.2 radish seed via the seeded PRNG,
     `counters.digs++`, available from tick 0, no license. Dug seeds go to the pouch and cannot be sold (no
     sell-seed action exists at all). Farm view button "🪏 Dig for seeds" with the last result.
-23. [ ] Farm tools core (`src/core/tools.ts`): for each job water / harvest / plant a tool level 0–3. Level 1 =
+23. [x] Farm tools core (`src/core/tools.ts`): for each job water / harvest / plant a tool level 0–3. Level 1 =
     1 tile per press, level 2 = n tiles per press with `run.toolN[job]` set by the player (1 … ceil(tiles ×
     `TOOL_N_RATIO`), ratio 1/3), level 3 = all eligible tiles. Tiles chosen by priority: harvest = ripe longest
     first, water = driest first, plant = first empty tilled tile (selected crop). Per tile the cost is exactly the

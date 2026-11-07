@@ -38,6 +38,7 @@ export type ActionError =
   | 'NO_LOAN'
   | 'NOT_ENOUGH_CASH'
   | 'NO_SEEDS'
+  | 'NOTHING_TO_DO'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 

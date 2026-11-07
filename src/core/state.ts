@@ -1,6 +1,7 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
 import { STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId } from './data/items'
+import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
 
 export type TileStatus = 'untilled' | 'tilled' | 'planted'
@@ -42,6 +43,10 @@ export type RunState = {
   seeds: Partial<Record<CropId, number>>
   /** planting with 0 seeds of that crop buys one at the seed price */
   autoBuySeeds: boolean
+  /** farm tool level per job, 0 (none) … 3 */
+  tools: Record<ToolJob, number>
+  /** tiles per press for a level-2 tool; read through toolCount, which clamps it to the tile count */
+  toolN: Record<ToolJob, number>
 }
 
 /** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
@@ -96,6 +101,8 @@ export function createInitialState(): GameState {
       loan: null,
       seeds: {},
       autoBuySeeds: true,
+      tools: { water: 0, harvest: 0, plant: 0 },
+      toolN: { water: 1, harvest: 1, plant: 1 },
     },
   }
 }

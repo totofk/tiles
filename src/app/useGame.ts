@@ -29,6 +29,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_LOAN: 'No loan to repay',
   NOT_ENOUGH_CASH: 'Not enough cash',
   NO_SEEDS: 'No seeds — buy some or turn on auto-buy',
+  NOTHING_TO_DO: 'Nothing to do',
 }
 
 const TOAST_MS = 2000

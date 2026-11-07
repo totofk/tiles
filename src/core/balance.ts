@@ -3,6 +3,7 @@
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
 import type { ItemId } from './data/items'
+import type { ToolJob } from './data/tools'
 import type { CounterId, MetaState, MultiplierKey, PickaxeTier } from './state'
 
 export const START_TILES = 9
@@ -59,6 +60,15 @@ export const BAG_CAPACITY_START = 20
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
 const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }]
+
+// Farm tools (PLAN.md batch 5 starting numbers): per job, the counter that unlocks each level and the level's
+// one-time price; levels[0] is level 1. Level 2 does toolN tiles per press, 1 … ceil(tiles × TOOL_N_RATIO).
+const TOOL_LEVELS: Record<ToolJob, { counter: CounterId; levels: ReadonlyArray<{ at: number; cost: number }> }> = {
+  water: { counter: 'waters', levels: [{ at: 20, cost: 40 }, { at: 60, cost: 120 }, { at: 150, cost: 300 }] },
+  harvest: { counter: 'harvests', levels: [{ at: 15, cost: 50 }, { at: 50, cost: 150 }, { at: 120, cost: 350 }] },
+  plant: { counter: 'plants', levels: [{ at: 15, cost: 40 }, { at: 50, cost: 120 }, { at: 120, cost: 300 }] },
+}
+const TOOL_N_RATIO = 1 / 3
 
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
@@ -160,6 +170,25 @@ export function pickaxeRecipe(tier: PickaxeTier): { wood: number; durability: nu
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+export function toolMaxLevel(job: ToolJob): number {
+  return TOOL_LEVELS[job].levels.length
+}
+
+/** level ≥ 1: buying it needs counters[counter] ≥ at */
+export function toolUnlock(job: ToolJob, level: number): { counter: CounterId; at: number } {
+  return { counter: TOOL_LEVELS[job].counter, at: TOOL_LEVELS[job].levels[level - 1].at }
+}
+
+/** one-time price of tool level ≥ 1 */
+export function toolCost(job: ToolJob, level: number, meta: MetaState): number {
+  return Math.round(TOOL_LEVELS[job].levels[level - 1].cost * multiplier(meta, 'cost'))
+}
+
+/** the largest tiles-per-press a level-2 tool may be set to */
+export function toolNMax(tiles: number): number {
+  return Math.max(1, Math.ceil(tiles * TOOL_N_RATIO))
 }
 
 export function digSeedDrop(): { crop: CropId; chance: number } {

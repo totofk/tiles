@@ -15,6 +15,8 @@ function memoryStore(): KeyValueStore & { data: Map<string, string> } {
 }
 
 const HOUR = 3600 * 1000
+/** v4 fields every migrated save starts with: no farm tools, 1 tile per level-2 press */
+const noTools = { tools: { water: 0, harvest: 0, plant: 0 }, toolN: { water: 1, harvest: 1, plant: 1 } }
 
 describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
@@ -57,6 +59,7 @@ describe('serialize / deserialize', () => {
           counters: { harvests: 17, sales: 20, mines: 7, digs: 0, waters: 0, plants: 0 },
           seeds: {},
           autoBuySeeds: true,
+          ...noTools,
         },
       },
     })
@@ -81,6 +84,7 @@ describe('serialize / deserialize', () => {
           counters: { harvests: 2, sales: 2, mines: 2, digs: 0, waters: 0, plants: 0 },
           seeds: {},
           autoBuySeeds: true,
+          ...noTools,
         },
       },
     })
@@ -111,6 +115,7 @@ describe('serialize / deserialize', () => {
       loan: null,
       seeds: {},
       autoBuySeeds: true,
+      ...noTools,
     })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
     expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
