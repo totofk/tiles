@@ -10,6 +10,7 @@ import {
 } from './balance'
 import { advanceFurnace } from './furnace'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
+import { workersAct } from './workers'
 
 /** a tile with its crop removed (harvest or rot); keeps the soil moisture */
 export function clearedTile(tile: Tile): Tile {
@@ -44,7 +45,7 @@ function stepLoan(loan: Loan | null): Loan | null {
 }
 
 function stepOnce(state: GameState): GameState {
-  const { run, meta } = state
+  const { run, meta } = workersAct(state)
   const max = energyMax(run.upgrades.energyMax, meta)
   let energy = Math.min(max, run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta))
   const rounded = Math.round(energy)

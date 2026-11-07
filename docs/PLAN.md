@@ -448,6 +448,21 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 8 (task 49): `assignWorker(job, −1)` at 0 fails `NOTHING_TO_DO`**; hire order LOCKED, POOL_FULL, NO_CASH;
   certificate order ALREADY_OWNED, LOCKED, NOT_ENOUGH_ITEMS, NO_CASH. "Visible" = `hireUnlocked` /
   `certificateUnlocked` (the same check that makes the buy fail `LOCKED`).
+- **Batch 8 (task 50): a waterer only waters a tile that would run dry before its next turn** (moisture ≤
+  `workerActionTicks() × moistureDrainPerTick`, driest first), not every tile "below its tier's full moisture". With
+  PLAN's rule a waterer always finds a tile below full, so it acts every 5 s whatever the tier: measured 240 waters /
+  💰276 wages at tier 0 and the same at copper over 1200 ticks, which contradicts DECISIONS "a copper can's worker …
+  needs half the actions, i.e. half the wages". With the due rule: 198 waters at tier 0, 90 at copper (halved), and a
+  second waterer idles for free. The harvester keeps the tool's target (ripe longest first). `workerTargets` /
+  `workerUnpaid` are the selectors.
+- **Batch 8 (task 50): worker actions reuse `water` / `harvest` with an `energy` argument of 0** (default
+  `ACTION_ENERGY_COST`), so counters, the copper tier and its PRNG draw are the player's; the wage is charged after
+  the action in `workersAct` (cash ≥ wage checked first), and `lifetime.energySpent` is not touched. Workers act at the
+  start of the tick, before moisture drains, so a tile the player watered (full) or harvested (no longer ripe) in that
+  tick is never a target. No tuning was needed: `WORKER_ACTION_TICKS` 5 and `WORKER_WAGE` 1 pass the 80 % check
+  (`tests/workers.test.ts`: 9 pumpkin tiles, 1200 ticks, net cash/min incl. standing crops — manual 110.4, 1 waterer +
+  1 harvester with the player only tilling/planting 96.8 = 87.7 %; with a copper can 101.7 = 92.1 %). Carrot, measured
+  once the same way and not pinned: 59.6 % / 72.3 % (copper), the research's "carrot automation is marginal".
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1045,7 +1060,7 @@ v7 fixture first; chain v1–v7 → v8; backup key).
     waters), harvest 💰150 + 20 stone (visible after 40 harvests); hire button visible after 30 harvests;
     `assignWorker(job, ±1)`. Typed errors (`LOCKED`, `NO_CERTIFICATE`, `POOL_FULL`, `NO_FREE_WORKER`,
     `NOT_ENOUGH_ITEMS`, `NO_CASH`). New counter `wagesPaid` (+ lifetime). Every number in balance.ts.
-50. [ ] Worker tick inside `step`: every `WORKER_ACTION_TICKS` (5) each assigned worker does its job's existing
+50. [x] Worker tick inside `step`: every `WORKER_ACTION_TICKS` (5) each assigned worker does its job's existing
     action once on the best target (water: driest tile below its tier's full moisture; harvest: ripe longest first)
     if a target exists and cash ≥ `WORKER_WAGE` (1), paying the wage at that moment; no target or no cash = idle,
     no charge. No player energy. The job's copper tier applies (same action). Closed-form or loop — but step(s, n)

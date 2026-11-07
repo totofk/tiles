@@ -82,6 +82,7 @@ export function nextRandom(rngState: number): [number, number] {
 }
 
 // Farm actions validate in this order: BAD_TILE, tile status, license/seeds/cash (plant), NO_ENERGY.
+// `energy` = what the action costs the player (0 when a worker does it).
 function farmAction(
   state: GameState,
   i: number,
@@ -94,21 +95,22 @@ function farmAction(
     harvested?: CropId
     rngState?: number
   },
+  energy = ACTION_ENERGY_COST,
 ): ActionResult {
   const { run } = state
   if (!Number.isInteger(i) || i < 0 || i >= run.tiles.length) return fail('BAD_TILE')
   const error = check(run.tiles[i])
   if (error) return fail(error)
-  if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
+  if (run.energy < energy) return fail('NO_ENERGY')
   const { tile, cashDelta = 0, counters, seeds = run.seeds, harvested, rngState = run.rngState } = apply(run.tiles[i])
   return withRun(state, {
-    energy: run.energy - ACTION_ENERGY_COST,
+    energy: run.energy - energy,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
     counters: { ...run.counters, ...counters },
     seeds,
     rngState,
-    lifetime: addLifetime(run, ACTION_ENERGY_COST, harvested ? cashDelta : 0, harvested),
+    lifetime: addLifetime(run, energy, harvested ? cashDelta : 0, harvested),
   })
 }
 
@@ -157,19 +159,20 @@ export function plant(state: GameState, i: number, cropId: CropId): ActionResult
   )
 }
 
-export function water(state: GameState, i: number): ActionResult {
+export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   return farmAction(
     state,
     i,
     (t) => (t.status === 'planted' ? null : 'NOT_PLANTED'),
     (t) => ({ tile: { ...t, moisture: waterMoisture(run.toolTier.water) }, counters: { waters: run.counters.waters + 1 } }),
+    energy,
   )
 }
 
 // Harvest sells instantly: there is no inventory and no separate sell action. A copper sickle may yield 2 crops:
 // both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1).
-export function harvest(state: GameState, i: number): ActionResult {
+export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   return farmAction(
     state,
     i,
@@ -190,6 +193,7 @@ export function harvest(state: GameState, i: number): ActionResult {
         rngState,
       }
     },
+    energy,
   )
 }
 
