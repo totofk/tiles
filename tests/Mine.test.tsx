@@ -26,7 +26,7 @@ describe('Mine panel', () => {
   it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
     setup({})
     expect(text()).toContain('Vein Lv0: 🪨 100 %')
-    expect(screen.getByText(/^Lv1: 🪨 80 % · ⚫ 20 % — 40 🪨 \+ 💰100$/)).toBeTruthy()
+    expect(screen.getByText(/^Lv1: 🪨 80 % · ⚫ 20 % — 25 🪨 \+ 💰100$/)).toBeTruthy()
     const iron = screen.getByText(/iron ore/)
     expect(iron.textContent).toBe('🔒 Lv2: iron ore — needs Furnace (coming)')
     expect(iron.textContent).not.toMatch(/%|💰|🪨|\d\s/)

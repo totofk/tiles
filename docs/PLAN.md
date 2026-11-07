@@ -321,6 +321,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   (tick 579, checked only) and asserted on a saving variant of the pinned bot (tick 594)**; the pinned bot itself sells
   its stone each time storage fills and never has 20 stone and 💰50 at once by tick 600.
   "Normal session" for (c) and (e) is 1200 ticks (20 min).
+- **Batch 6.1 sim (task 32): the `saveForStorage` bot now buys as soon as it can pay**, not only once storage is full,
+  and after storage Lv1 it keeps its stone for vein Lv1 the same way; it runs 1200 ticks instead of 600 so vein Lv1
+  fits in the session. Its batch-6 assertion "bought = affordable" is gone: the bot buys only on idle energy, so the
+  buy lands a few ticks after the first affordable tick (324 → 330). The "fits storage" rule test also asserts vein
+  Lv1 costs more stone than the starting storage, so the order storage → vein is enforced, not only allowed.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -621,7 +626,7 @@ idle energy like the batch-3 bot under both mine-license policies. It never borr
 Question: can the player actually buy storage → vein Lv1, and is the Mine panel readable?
 No save-shape change (numbers and UI only).
 
-32. [ ] Storage stone cost +5 per level: 15 / 20 / 25 / 30 / 35 (cash stays 50 × 1.6ⁿ). Vein Lv1 = 25 stone + 100
+32. [x] Storage stone cost +5 per level: 15 / 20 / 25 / 30 / 35 (cash stays 50 × 1.6ⁿ). Vein Lv1 = 25 stone + 100
     cash (so storage Lv1 comes first). Test: every stone/ore price ≤ the storage capacity the player has when it
     becomes buyable (each storage level vs capacity before it; vein Lv1 vs capacity after storage Lv1). Sim: the
     stone-keeping mine-early bot buys storage Lv1 then vein Lv1 — report both ticks in "## Batch 6.1 results".
@@ -629,3 +634,14 @@ No save-shape change (numbers and UI only).
     only, e.g. "Mastery Lv 0/10 · 5/10 xp"); drop-table and storage text at readable contrast (≥ 4.5:1); coal named
     in the drop table ("⚫ Coal 20 %"); the offline banner says "1 tick" / "N ticks"; the next vein level shows an
     Upgrade button (disabled with the reason when unaffordable).
+
+## Batch 6.1 results
+- **Task 32, prices:** storage stone 15 / 20 / 25 / 30 / 35 (cash 50 / 80 / 128 / 205 / 328, unchanged), vein Lv1
+  25 stone + 💰100. `tests/mining.test.ts` "every stone price fits the storage…" checks each storage price against the
+  capacity before it (20 / 30 / 40 / 50 / 60) and vein Lv1 against the capacity after storage Lv1 (30, and > 20).
+- **Task 32, sim** (`tests/sim.test.ts`, "batch 6.1: stone-keeping mine-early bot", 1200 ticks): storage Lv1
+  affordable at **tick 324**, bought at **tick 330**; vein Lv1 bought at **tick 753**. Lowest of any value 0, final
+  cash 906, no loan. The batch-6 blocker "storage Lv2+ and vein Lv1 unpayable" is closed.
+- Checked only, not bought (the other bots never buy storage): storage Lv1 now becomes affordable at tick 534
+  (batch-3 pumpkin-first bot), 324 (batch-3 mine-early bot), 495 / 360 (four-crop session, pumpkin-first / mine-early;
+  was 516 / 579). Every batch-3 greedy pin (final cash 394 / 132) is unchanged.

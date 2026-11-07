@@ -75,9 +75,10 @@ export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
 const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }, { stone: 0.8, coal: 0.2 }]
 /** price of vein level index + 1, paid in stone from storage and cash */
-const VEIN_UPGRADES: ReadonlyArray<{ stone: number; cash: number }> = [{ stone: 40, cash: 100 }]
-// Storage upgrade (the stone sink): +SLOTS capacity per level; level 1 costs the base, both prices ×growth per level.
-const STORAGE = { slots: 10, stone: 20, cash: 50, growth: 1.6, maxLevel: 5 }
+const VEIN_UPGRADES: ReadonlyArray<{ stone: number; cash: number }> = [{ stone: 25, cash: 100 }]
+// Storage upgrade (the stone sink): +slots capacity per level; level 1 costs the base, stone +stoneStep per level
+// (so each price fits the capacity before it), cash ×growth per level.
+const STORAGE = { slots: 10, stone: 15, stoneStep: 5, cash: 50, growth: 1.6, maxLevel: 5 }
 
 // Farm tools (PLAN.md batch 5 starting numbers): per job, the counter that unlocks each level and the level's
 // one-time price; levels[0] is level 1. Level 2 does toolN tiles per press, 1 … ceil(tiles × TOOL_N_RATIO).
@@ -243,8 +244,10 @@ export function storageSlotsPerLevel(): number {
 
 /** whole-number price to go from `level` to level + 1 */
 export function storageCost(level: number, meta: MetaState): { stone: number; cash: number } {
-  const f = STORAGE.growth ** level
-  return { stone: Math.round(STORAGE.stone * f), cash: Math.round(STORAGE.cash * f * multiplier(meta, 'cost')) }
+  return {
+    stone: STORAGE.stone + STORAGE.stoneStep * level,
+    cash: Math.round(STORAGE.cash * STORAGE.growth ** level * multiplier(meta, 'cost')),
+  }
 }
 
 export function toolMaxLevel(job: ToolJob): number {

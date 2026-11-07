@@ -53,9 +53,9 @@ describe('Mine upgrades in the Upgrades tab', () => {
     const state = withRun({ mineLicense: true, cash: 50, inventory: { stone: 20 } })
     render(<Upgrades state={state} act={act} />)
     const [storage, vein] = row('Mine') as HTMLButtonElement[]
-    expect(storage.textContent).toBe('📦 Storage Lv 0/5+10 slots · 🪨20 💰50')
+    expect(storage.textContent).toBe('📦 Storage Lv 0/5+10 slots · 🪨15 💰50')
     expect(storage.disabled).toBe(false)
-    expect(vein.textContent).toContain('🪨40 💰100')
+    expect(vein.textContent).toContain('🪨25 💰100')
     expect(vein.disabled).toBe(true)
     fireEvent.click(storage)
     const fn = act.mock.calls[0][0] as (s: GameState) => ReturnType<typeof buyStorage>

@@ -15,7 +15,7 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
+import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
@@ -82,6 +82,7 @@ function runBot(
   const licenseBought: Partial<Record<CropId, number>> = {}
   let storageAffordable: number | undefined
   let storageBought: number | undefined
+  let veinBought: number | undefined
   // net cash and energy per activity; licenses are one-off capital and excluded from both
   const farm = { cash: 0, energy: 0 }
   const mine = { cash: 0, energy: 0 }
@@ -115,11 +116,15 @@ function runBot(
       if (!tryAct(buyMineLicense(s), null)) return false
       m.mineLicenseBought ??= tick
     }
-    // the pinned runs only check storage; saveForStorage keeps a full storage of stone until it can buy level 1
+    // the pinned runs only check storage; saveForStorage keeps its stone (and stops mining when storage is full)
+    // until it buys storage level 1, then vein level 1
     if (buyStorage(s).ok) storageAffordable ??= tick
-    if (saveForStorage && s.run.storageLevel === 0 && bagCount(s.run) >= s.run.bagCapacity) {
-      if (!tryAct(buyStorage(s), null)) return false
-      storageBought ??= tick
+    if (saveForStorage && s.run.storageLevel === 0) {
+      if (tryAct(buyStorage(s), null)) storageBought = tick
+      else if (bagCount(s.run) >= s.run.bagCapacity) return false
+    } else if (saveForStorage && s.run.vein.level === 0) {
+      if (tryAct(upgradeVein(s), null)) veinBought = tick
+      else if (bagCount(s.run) >= s.run.bagCapacity) return false
     }
     if (bagCount(s.run) >= s.run.bagCapacity) tryAct(sellItem(s, 'stone', s.run.inventory.stone ?? 0), mine)
     if (!s.run.pickaxe) {
@@ -181,6 +186,7 @@ function runBot(
     licenseBought,
     storageAffordable,
     storageBought,
+    veinBought,
     lowest,
     masteryXp: s.run.mastery.wooden ?? 0,
     minCash,
@@ -597,14 +603,16 @@ describe.each([
   })
 })
 
-describe('batch 6: storage level 1 in mine-early play, 600 ticks', () => {
-  // mine-early as pinned above, but it keeps a full storage of stone (stops mining) until it can buy storage level 1
-  const summary = runBot(true, { saveForStorage: true })
+describe('batch 6.1: stone-keeping mine-early bot buys storage Lv1, then vein Lv1', () => {
+  // mine-early as pinned above, but it keeps its stone (stops mining when storage is full) until it buys
+  // storage level 1, then vein level 1
+  const summary = runBot(true, { saveForStorage: true, ticks: 1200 })
   console.log('storage summary', JSON.stringify(summary, null, 1))
 
-  it('(d) storage level 1 is affordable within ~600 ticks', () => {
-    expect(summary.storageAffordable).toBeLessThanOrEqual(600)
-    expect(summary.storageBought).toBe(summary.storageAffordable)
+  it('(d) storage level 1 is bought within ~600 ticks, vein level 1 after it within the session', () => {
+    expect(summary.storageBought).toBeLessThanOrEqual(600)
+    expect(summary.veinBought).toBeGreaterThan(summary.storageBought!)
+    expect(summary.veinBought).toBeLessThanOrEqual(1200)
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
   })
 })
