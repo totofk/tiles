@@ -302,24 +302,52 @@ It repays in full once the payment still leaves a radish seed's worth of cash.
   the fee alone makes borrow → repay a loss. A player who never repays keeps the 💰30, because v0 has no forced
   collection, but one loan at a time limits that to a single +30.
 
-## Batch 5 — dig for seeds, hand mining, mastery, vein Lv1, seed stock (tasks 21–25)
-Question: does mining feel like progress now (visible goals, mastery), and can a broke player always recover?
-Decisions: DECISIONS.md "Round-2 research outcome". Save v4 with v3 → v4 migration tested on a real v3 fixture.
+## Batch 5 — farm tools, seed stock, dig for seeds (tasks 21–25)
+Question: does tending the farm stop being tedious (no hunting tile by tile), and can a broke player always recover?
+Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatibility". Save v4.
 
-21. [ ] Seed stock + Carrot rename: `run.seeds: Partial<Record<CropId, number>>` (seed pouch, not in the bag),
-    `buySeeds(crop, n)`, planting consumes 1 seed; `run.autoBuySeeds` (default true) buys one when stock is 0.
-    Display name Radish → Carrot (id unchanged). Shop: seed rows with stock, ×1 / ×10, auto-buy toggle.
-22. [ ] Dig for seeds: `dig()` in a farm module — 1 energy, 20 % radish seed via the seeded PRNG, `counters.digs`
-    (rename the existing mining counter to `mines` in the migration). Dug seeds go to the pouch and cannot be sold.
-    "🪏 Dig for seeds" button in the Farm view with the last result ("found 🥕 seed" / "nothing").
-23. [ ] Mining rework: stone = 2 hits (`run.vein.progress`), hand mining after the license (1 hit/energy), pickaxe
-    2 hits/energy, durability 25. Per-tool mastery (`meta`-free, in run: `mastery: Record<ToolId, xp>`), thresholds
-    and preserve formula from DECISIONS; global `counters.mines`. Vein Lv1 upgrade (40 stone + 100 cash → 80/20
-    stone/coal, coal sells 4). Typed errors as before. Mine panel: crack on half-mined stone, drop table with the
-    next level greyed + cost, mastery bar with "lasts ~N uses".
-24. [ ] Loan: debt grows only on live ticks — offline catch-up must not grow it (pass a flag into `step`/`catchUp`
-    or split the debt update out). Test with the fake clock.
-25. [ ] Sim: bot digs for seeds when broke, hand-mines then crafts pickaxes once licensed, buys vein Lv1. Assert
-    cash/energy order dig < hand < pickaxe Lv0 < pickaxe Lv10 < farming and max mining < 0.9 × farming; the round-2
-    soft-lock state (cash 1, 9 tilled, empty bag, no pickaxe, no loan taken) recovers via digging alone; nothing
-    negative over 1200 ticks. Write "## Batch 5 results" with the measured numbers.
+21. [ ] Save v4 + seed stock + rename. Follow CLAUDE.md "Save compatibility": v3 → v4 migration, a real v3 fixture
+    in `tests/fixtures/`, chain test from every fixture (v1, v2, v3) to v4, and `storage.ts` keeps the raw old save
+    under `tiles.save.backup.v<old>` before migrating. Counters: the existing `digs` (mine actions) moves to `mines`
+    in the migration; new `digs` (soil) starts at 0; add `waters` and `plants`. `run.seeds` pouch (not in the bag),
+    `buySeeds(crop, n)`, planting uses 1 seed, `run.autoBuySeeds` (default true) buys one when stock is 0. Radish
+    displays as **Carrot** (id stays `radish`).
+22. [ ] Dig for seeds: farm action `digForSeeds()` — 1 energy, `DIG_SEED_CHANCE` 0.2 radish seed via the seeded PRNG,
+    `counters.digs++`, available from tick 0, no license. Dug seeds go to the pouch and cannot be sold (no
+    sell-seed action exists at all). Farm view button "🪏 Dig for seeds" with the last result.
+23. [ ] Farm tools core (`src/core/tools.ts`): for each job water / harvest / plant a tool level 0–3. Level 1 =
+    1 tile per press, level 2 = n tiles per press with `run.toolN[job]` set by the player (1 … ceil(tiles ×
+    `TOOL_N_RATIO`), ratio 1/3), level 3 = all eligible tiles. Tiles chosen by priority: harvest = ripe longest
+    first, water = driest first, plant = first empty tilled tile (selected crop). Per tile the cost is exactly the
+    manual action (1 energy, a seed); when energy/seeds/cash run out it does as many as it can and returns
+    `{ done, wanted, stoppedBy }`. Each level is unlocked by the job's counter and bought once (numbers below).
+24. [ ] Farm tools UI + UI fixes: tool buttons above the farm ("Water 1" / "Water 3 −/+" / "Water all"), locked
+    tools listed in the Upgrades tab with their milestone progress, toast "Watered 5/9 — out of energy", seed
+    pouch rows in Shop (stock, ×1 / ×10, auto-buy toggle). Fix batch-4 nits: farm must fit the viewport height on
+    wide-but-short screens (1920×824: no scroll, size tiles by min(width, height)); all side-panel tabs visible at
+    ≥ 1024 px (no › overflow); Upgrades tab icon inline like the others.
+25. [ ] Loan + sim: debt grows only on live ticks — offline catch-up does not grow it (fake-clock test). Sim:
+    (a) a tool press equals the same manual actions in sequence (same state after, any level); (b) the round-2
+    soft-lock state (cash 1, 9 tilled, empty bag, no pickaxe, no loan) recovers by digging for seeds alone;
+    (c) dig cash/energy (seed valued at buy price) < farming cash/energy; (d) cash never negative over 1200 ticks
+    with a bot that buys tools when unlocked; greedy batch-3 numbers unchanged when tools are not used. Write
+    "## Batch 5 results" (milestone ticks when each tool level becomes affordable).
+
+Starting numbers (unlock counter / price), tune via the sim so level 1 lands within ~5 minutes:
+water 20 / 40 → 60 / 120 → 150 / 300; harvest 15 / 50 → 50 / 150 → 120 / 350; plant 15 / 40 → 50 / 120 → 120 / 300.
+Names: Watering Can → Garden Hose → Water Cart; Sickle → Scythe → Reaper; Dibber → Seed Drill → Seed Spreader.
+
+## Batch 6 — mining progress (tasks 26–30)
+Question: does mining feel like progress now (visible goals, mastery)?
+Decisions: DECISIONS.md "Round-2 research outcome" (mining parts). Save v5, same compatibility rules.
+
+26. [ ] Stone = 2 hits (`run.vein.progress`, crack shown at 1/2). After the mine license, hand mining works with no
+    pickaxe (1 hit per energy); pickaxe = 2 hits per energy. Wooden pickaxe durability 25. `counters.mines` counts
+    mine actions.
+27. [ ] Per-tool mastery: `run.mastery: Record<ToolTier | 'hand', xp>`, 1 xp per mine action with that tool,
+    thresholds 10/25/45/70/100/140/190/250/320/400 (next tier ×2). Preserve chance 1 − 1/(1 + 0.4·L), cap 0.8.
+28. [ ] Vein Lv1: 40 stone + 100 cash → 80 % stone / 20 % coal, coal sells 4 (`ItemId` gains `coal`).
+29. [ ] Mine panel: drop table with % for the current vein, next level greyed with its cost, mastery bar with
+    "lasts ~N uses", crack on half-mined stone, sell from the panel when the bag is full.
+30. [ ] Sim: cash/energy order dig < hand mining < pickaxe Lv0 < pickaxe Lv10 < farming, max mining < 0.9 × farming
+    (vein Lv1 included); nothing negative over 1200 ticks. Write "## Batch 6 results".

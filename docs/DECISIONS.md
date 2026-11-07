@@ -88,7 +88,7 @@ These override the PRD where they differ. Source PRD: `docs/PRD.md`.
   planned after the research returns.
 
 ## Round-2 research outcome (2026-11-07, docs/research/round2-mining.md, Fable)
-Accepted by Toon after the research; batch 5 implements these.
+Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Dig (soil) ≠ mine.** *Dig* = a farm action, button "🪏 Dig for seeds" in the Farm view (not a tile tap), free from
   tick 0, 1 energy, 20 % chance of a radish seed. Dug seeds cannot be sold, only planted. This is the anti-soft-lock
   floor: a broke player with energy always gets back to farming. Dig mastery: **undecided**, revisit after playtest.
@@ -110,3 +110,27 @@ Accepted by Toon after the research; batch 5 implements these.
 - **Hierarchy the sim must prove (cash per energy):** dig (~0.4, seeds valued at buy price) < hand mining (1.0) <
   pickaxe Lv0 (~1.5) < pickaxe Lv10 (~1.9; ~2.3 on vein Lv1) < farming (~2.7). Assert max mining < 0.9 × farming.
 - **Later:** logging (chop wood), dig mastery.
+
+## Farm tools (2026-11-07, player feedback: "too lazy to watch tile by tile")
+- One-time upgrades per job — **water, harvest, plant** — each with three levels: **1 tile per press → n tiles per
+  press → all tiles**. Till has no tool (a tile is tilled once). Unlocked by the job's milestone counter, bought once.
+- Level 2: the player sets n (1 … ⌈tiles × 1/3⌉; ratio in `balance.ts`, may become 1/2). Tiles are picked by
+  priority, never by row (rows change with layout and tile count): harvest ripe-longest first, water driest first,
+  plant first empty tilled tile.
+- A tool press costs exactly what the manual actions cost (1 energy per tile, seeds). It saves taps, not resources,
+  so the cash/energy hierarchy is unchanged. Short on energy/seeds/cash → do as many as possible and say so.
+- Names: Watering Can → Garden Hose → Water Cart; Sickle → Scythe → Reaper; Dibber → Seed Drill → Seed Spreader.
+  ("Sprinkler" stays reserved for post-forge automation.)
+- Workers (research: docs/research/workers.md) come later and remove the press itself; tools first keeps the
+  ladder manual → tooling → automation.
+
+## Save compatibility (2026-11-07)
+- Players never restart because of a patch. Balance numbers live in `balance.ts`, not the save, so rebalancing
+  needs no migration; only shape changes do.
+- Every shape change: bump `SAVE_VERSION`, add `migrateVn`, keep a real fixture of every past version and test the
+  chain from each fixture to the latest. Migrations never take earned things away; when a field changes meaning,
+  convert in the player's favour (e.g. old `digs` = mine actions → `mines`, new soil `digs` starts at 0).
+- Before migrating, `storage.ts` keeps the raw old save under `tiles.save.backup.v<old>` so a buggy migration can
+  be repaired by a later patch.
+- Hermes verifies on the live build: capture a save from the current Pages build before deploy, reload it after.
+- A save reset happens only when Toon decides it; prestige wiping `run` but keeping `meta` is design, not a reset.

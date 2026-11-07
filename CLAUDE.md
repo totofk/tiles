@@ -13,3 +13,7 @@ Commands: `pnpm dev` (user-run only), `pnpm test`, `pnpm build`, `pnpm lint`.
 
 Architecture rule: `src/core/**` is pure TypeScript — no React, no DOM, no Date.now().
 Time enters only as tick counts passed into `step()`. All tunable numbers live in `src/core/balance.ts`.
+
+Save compatibility: players never restart because of a patch. Any change to the save shape bumps
+`SAVE_VERSION`, adds a migration, keeps a real fixture of every past version in `tests/fixtures/` and tests the
+chain from each fixture to the latest. Details in `docs/DECISIONS.md` "Save compatibility".
