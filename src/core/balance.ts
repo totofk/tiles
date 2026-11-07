@@ -2,9 +2,9 @@
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import type { ItemId } from './data/items'
+import { PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
-import type { CounterId, MetaState, MultiplierKey, PickaxeTier } from './state'
+import type { CounterId, MetaState, MultiplierKey } from './state'
 
 export const START_TILES = 9
 export const TILE_CAP = 24
@@ -59,6 +59,14 @@ const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durabili
 /** a stone drops after this many hits; mining by hand (no pickaxe, or a blunt one) deals HAND_HITS per action */
 const STONE_HITS = 2
 const HAND_HITS = 1
+// Pickaxe mastery: cumulative xp for Lv1 … Lv10 of the first tier; each later tier multiplies them by the factor.
+const MASTERY_THRESHOLDS = [10, 25, 45, 70, 100, 140, 190, 250, 320, 400]
+const MASTERY_TIER_FACTOR = 2
+/** preserve chance (durability not used) = 1 − 1/(1 + PER_LEVEL × L), so lifetime = durability × (1 + 0.4·L) */
+const PRESERVE_PER_LEVEL = 0.4
+/** each mastered tier adds this to every tier's preserve chance */
+const MASTERED_PRESERVE_BONUS = 0.05
+const PRESERVE_CAP = 0.8
 export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
@@ -179,6 +187,24 @@ export function stoneHits(): number {
 /** hits per mine action; null = by hand */
 export function mineHits(tier: PickaxeTier | null): number {
   return tier ? PICKAXES[tier].hits : HAND_HITS
+}
+
+/** cumulative xp for Lv1 … max of this tier */
+export function masteryThresholds(tier: PickaxeTier): number[] {
+  return MASTERY_THRESHOLDS.map((xp) => xp * MASTERY_TIER_FACTOR ** PICKAXE_TIERS.indexOf(tier))
+}
+
+export function masteryMaxLevel(): number {
+  return MASTERY_THRESHOLDS.length
+}
+
+export function masteryLevel(tier: PickaxeTier, xp: number): number {
+  return masteryThresholds(tier).filter((at) => xp >= at).length
+}
+
+/** chance a pickaxe mine action keeps its durability; mastered tiers add their bonus, then the cap applies */
+export function preserveChance(level: number, masteredTiers: number): number {
+  return Math.min(PRESERVE_CAP, 1 - 1 / (1 + PRESERVE_PER_LEVEL * level) + MASTERED_PRESERVE_BONUS * masteredTiers)
 }
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {

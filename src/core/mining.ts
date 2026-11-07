@@ -2,14 +2,17 @@ import { fail, isAmount, nextRandom, withRun, type ActionResult } from './action
 import {
   ACTION_ENERGY_COST,
   itemSellPrice,
+  masteryLevel,
+  masteryMaxLevel,
   mineHits,
   mineLicenseCost,
   pickaxeRecipe,
+  preserveChance,
   stoneHits,
   veinDrops,
   woodCost,
 } from './balance'
-import { ITEM_IDS, type ItemId } from './data/items'
+import { ITEM_IDS, type ItemId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -66,9 +69,27 @@ export function activePickaxe(run: RunState): Pickaxe | null {
   return run.pickaxe && run.pickaxe.durability > 0 ? run.pickaxe : null
 }
 
+/** chance this run's mine action with a pickaxe of `tier` keeps its durability */
+export function pickaxePreserve(tier: PickaxeTier, run: RunState): number {
+  return preserveChance(masteryLevel(tier, run.mastery[tier] ?? 0), run.masteredTiers.length)
+}
+
+/** mine actions a fresh pickaxe of this tier lasts on average at the run's mastery: durability / (1 − preserve) */
+export function expectedUses(tier: PickaxeTier, run: RunState): number {
+  return pickaxeRecipe(tier).durability / (1 - pickaxePreserve(tier, run))
+}
+
+/** +1 xp for the tier; reaching max mastery adds it to masteredTiers once */
+function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery' | 'masteredTiers'> {
+  const xp = (run.mastery[tier] ?? 0) + 1
+  const mastered = masteryLevel(tier, xp) >= masteryMaxLevel() && !run.masteredTiers.includes(tier)
+  return { mastery: { ...run.mastery, [tier]: xp }, masteredTiers: mastered ? [...run.masteredTiers, tier] : run.masteredTiers }
+}
+
 // The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL, NO_ENERGY.
 // Hits add to the current stone; at stoneHits() it drops one roll of the vein table and the rest carries over.
-// A pickaxe loses 1 durability per action and goes blunt at 0 (kept, mines by hand until repaired).
+// A pickaxe action rolls preserve first (mastery level before this action's xp), else loses 1 durability; at 0 it
+// goes blunt (kept, mines by hand until repaired). Only pickaxe actions earn mastery xp.
 export function dig(state: GameState): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
@@ -77,14 +98,17 @@ export function dig(state: GameState): ActionResult {
   const pickaxe = activePickaxe(run)
   const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
   const drop = hits >= stoneHits()
-  const [r, rngState] = drop ? nextRandom(run.rngState) : [0, run.rngState]
+  const [keep, afterKeep] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
+  const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
+  const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
     rngState,
-    pickaxe: pickaxe ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
+    pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
     vein: { ...run.vein, progress: drop ? hits - stoneHits() : hits },
     inventory: drop ? addItems(run, pickDrop(veinDrops(run.vein.level), r), 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
+    ...(pickaxe && gainMastery(run, pickaxe.tier)),
   })
 }
 

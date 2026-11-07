@@ -6,11 +6,17 @@ import {
   cropGrowTicks,
   cropRotGraceTicks,
   energyMax,
+  masteryLevel,
+  masteryMaxLevel,
+  masteryThresholds,
   moistureDrainPerTick,
+  pickaxeRecipe,
+  preserveChance,
   tileCost,
   upgradeCost,
 } from '../src/core/balance'
 import { CROP_IDS } from '../src/core/data/crops'
+import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { createInitialMeta, createInitialState } from '../src/core/state'
 
 const meta = createInitialMeta()
@@ -67,5 +73,39 @@ describe('balance', () => {
     const boosted = createInitialMeta()
     boosted.multipliers.growTime = 0.5
     expect(cropGrowTicks('radish', boosted, 0)).toBe(cropGrowTicks('radish', meta, 0) / 2)
+  })
+})
+
+describe('pickaxe mastery', () => {
+  const lv10Lifetime = (tier: PickaxeTier) => pickaxeRecipe(tier).durability / (1 - preserveChance(masteryMaxLevel(), 0))
+
+  it('wooden thresholds, levels 0 … 10', () => {
+    expect(masteryThresholds('wooden')).toEqual([10, 25, 45, 70, 100, 140, 190, 250, 320, 400])
+    expect([9, 10, 24, 25, 399, 400, 9999].map((xp) => masteryLevel('wooden', xp))).toEqual([0, 1, 1, 2, 9, 10, 10])
+  })
+
+  it('later tiers double the previous tier thresholds', () => {
+    PICKAXE_TIERS.slice(1).forEach((tier, i) =>
+      expect(masteryThresholds(tier)).toEqual(masteryThresholds(PICKAXE_TIERS[i]).map((xp) => 2 * xp)),
+    )
+  })
+
+  it('preserve chance 1 − 1/(1 + 0.4·L), +5 % per mastered tier, capped at 0.8', () => {
+    expect(preserveChance(0, 0)).toBe(0)
+    expect(preserveChance(1, 0)).toBeCloseTo(1 - 1 / 1.4)
+    expect(preserveChance(10, 0)).toBeCloseTo(0.8)
+    expect(preserveChance(1, 1)).toBeCloseTo(1 - 1 / 1.4 + 0.05)
+    expect(preserveChance(0, 2)).toBeCloseTo(0.1)
+    expect(preserveChance(9, 1)).toBe(0.8)
+    expect(preserveChance(10, 3)).toBe(0.8)
+  })
+
+  // The tier rule (DECISIONS.md round 4): a new tier must outlast the previous tier at Lv10, so a new tier at Lv0
+  // never feels like a downgrade. With only wood it documents the rule for the furnace batch.
+  it('each tier base durability exceeds the previous tier Lv10 lifetime (wood Lv10 = 125 uses)', () => {
+    expect(lv10Lifetime('wooden')).toBeCloseTo(125)
+    PICKAXE_TIERS.slice(1).forEach((tier, i) =>
+      expect(pickaxeRecipe(tier).durability).toBeGreaterThan(lv10Lifetime(PICKAXE_TIERS[i])),
+    )
   })
 })

@@ -1,6 +1,6 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
 import { STARTING_CROP, type CropId } from './data/crops'
-import type { ItemId } from './data/items'
+import type { ItemId, PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
 
@@ -60,7 +60,7 @@ export type RunState = {
 /** debt is a float (it grows every tick); the player pays it rounded up, see debtDue */
 export type Loan = { principal: number; debt: number }
 
-export type PickaxeTier = 'wooden'
+export type { PickaxeTier }
 export type Pickaxe = { tier: PickaxeTier; durability: number }
 
 /** sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds */

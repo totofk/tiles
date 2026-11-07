@@ -10,7 +10,17 @@ import {
   veinDrops,
   woodCost,
 } from '../src/core/balance'
-import { activePickaxe, buyMineLicense, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
+import {
+  activePickaxe,
+  buyMineLicense,
+  buyWood,
+  craftPickaxe,
+  dig,
+  expectedUses,
+  pickaxePreserve,
+  repairPickaxe,
+  sellItem,
+} from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 
 function withRun(run: Partial<GameState['run']>): GameState {
@@ -132,6 +142,48 @@ describe('dig', () => {
     let s = miner({ energy: 1e6 })
     for (let i = 0; i < 20; i++) s = okState(dig(s))
     expect(s.run.inventory).toEqual({ stone: 20 })
+  })
+})
+
+describe('pickaxe mastery', () => {
+  const mineN = (s: GameState, n: number) => {
+    for (let i = 0; i < n; i++) s = okState(dig(s))
+    return s
+  }
+
+  it('1 xp per pickaxe mine action, none by hand or with a blunt pickaxe', () => {
+    expect(mineN(miner({ energy: 1e6 }), 3).run.mastery).toEqual({ wooden: 3 })
+    expect(mineN(withRun({ mineLicense: true, energy: 1e6 }), 3).run.mastery).toEqual({})
+    const blunt = miner({ pickaxe: { tier: 'wooden', durability: 0 }, mastery: { wooden: 5 } })
+    expect(okState(dig(blunt)).run.mastery).toEqual({ wooden: 5 })
+  })
+
+  it('at Lv0 (the first 10 actions) every pickaxe action uses durability', () => {
+    expect(mineN(miner({ energy: 1e6 }), 10).run.pickaxe?.durability).toBe(10)
+  })
+
+  it('mastery preserves durability: at Lv10 about 1 action in 5 uses it', () => {
+    const s = mineN(miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1000 }, mastery: { wooden: 400 } }), 1000)
+    const used = 1000 - s.run.pickaxe!.durability
+    expect(used).toBeGreaterThan(150)
+    expect(used).toBeLessThan(250)
+  })
+
+  it('reaching Lv10 adds the tier to masteredTiers once', () => {
+    const s = okState(dig(miner({ mastery: { wooden: 399 } })))
+    expect(s.run.mastery.wooden).toBe(400)
+    expect(s.run.masteredTiers).toEqual(['wooden'])
+    expect(okState(dig(s)).run.masteredTiers).toEqual(['wooden'])
+    expect(okState(dig(miner({ mastery: { wooden: 398 } }))).run.masteredTiers).toEqual([])
+  })
+
+  it('expectedUses = base durability / (1 − preserve): 25 at Lv0, 125 at Lv10, mastered bonus inside the cap', () => {
+    const run = (r: Partial<GameState['run']>) => withRun(r).run
+    expect(expectedUses('wooden', run({}))).toBe(25)
+    expect(expectedUses('wooden', run({ mastery: { wooden: 10 } }))).toBeCloseTo(35)
+    expect(expectedUses('wooden', run({ mastery: { wooden: 400 } }))).toBeCloseTo(125)
+    expect(expectedUses('wooden', run({ mastery: { wooden: 400 }, masteredTiers: ['wooden'] }))).toBeCloseTo(125)
+    expect(pickaxePreserve('wooden', run({ masteredTiers: ['wooden'] }))).toBeCloseTo(0.05)
   })
 })
 

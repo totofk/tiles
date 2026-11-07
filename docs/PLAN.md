@@ -267,6 +267,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   by hand. Mine-early's pinned final cash moved **116 → 132**: durability 25 plus one repair (2 wood) replace the 3rd
   craft over its 43 mines. Every other pinned number (milestones, lowest cash, counters, pumpkin-first) is unchanged;
   `balance.ts` was not retuned. Mine-early mining cash/energy is now 1.53 (was 1.16), farming 3.34.
+- **Batch 6: pickaxe tiers are listed in `data/items.ts` (`PICKAXE_TIERS`)**; a tier's index n multiplies its mastery
+  thresholds by 2^n (`masteryThresholds(tier)`). `PickaxeTier` moved there and `state.ts` re-exports it.
+- **Batch 6: a pickaxe mine action rolls preserve first, at the mastery level before that action's xp**, then the drop
+  roll (if a stone drops). It always rolls, even at Lv0 where the chance is 0. Preserve =
+  `min(0.8, 1 − 1/(1 + 0.4·L) + 0.05 × masteredTiers)` (`preserveChance`, read for a run through `pickaxePreserve`).
+  Reaching Lv10 adds the tier to `masteredTiers` once. With mastery, the mine-early bot still repairs once in its 43
+  mines, so its pins did not move again.
+- **Batch 6: `expectedUses(tier, run)` (in `mining.ts`) is the lifetime of a fresh pickaxe of that tier**: the tier's
+  base durability / (1 − preserve), per DECISIONS.md ("25 at Lv0 → 125 at Lv10"), not the remaining uses of the
+  pickaxe in hand. It returns a float; the UI rounds it for "lasts ~N uses".
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -479,7 +489,7 @@ compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; 
     pickaxe (1 hit per energy); pickaxe = 2 hits per energy. Wooden pickaxe durability 25. Durability 0 = **blunt**:
     the pickaxe stays owned but cannot mine until repaired (`repairPickaxe`, wooden = 2 wood; craft stays 3 wood);
     hand mining still works while blunt. `counters.mines` counts mine actions.
-27. [ ] Pickaxe mastery **per tier** (only wood exists now): `run.mastery: Partial<Record<PickaxeTier, xp>>`, 1 xp per
+27. [x] Pickaxe mastery **per tier** (only wood exists now): `run.mastery: Partial<Record<PickaxeTier, xp>>`, 1 xp per
     mine action with that pickaxe (hand mining earns none), thresholds 10/25/45/70/100/140/190/250/320/400, next tier
     thresholds ×2 (balance fn). Preserve chance 1 − 1/(1 + 0.4·L). **Mastered reward:** a tier reaching Lv10 is added
     to `run.masteredTiers`; each mastered tier gives +5 % preserve chance to every pickaxe tier, permanently. Total
