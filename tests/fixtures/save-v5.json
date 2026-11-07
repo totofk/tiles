@@ -1,0 +1,138 @@
+{
+  "version": 5,
+  "savedAtMs": 1762540000000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 292,
+      "energy": 0,
+      "tiles": [
+        {
+          "status": "planted",
+          "growth": 180,
+          "moisture": 0.19999999999999857,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 57,
+          "moisture": 0.24999999999999856,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 51,
+          "moisture": 0.29999999999999855,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 150,
+          "moisture": 0.5499999999999986,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 123,
+          "moisture": 0.9499999999999998,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 114,
+          "moisture": 0.09999999999999859,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 96,
+          "moisture": 0.3999999999999985,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 90,
+          "moisture": 0.4999999999999985,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        },
+        {
+          "status": "planted",
+          "growth": 81,
+          "moisture": 0.6499999999999989,
+          "ticksSinceMature": 0,
+          "cropId": "pumpkin"
+        }
+      ],
+      "licenses": [
+        "radish",
+        "pumpkin"
+      ],
+      "upgrades": {
+        "energyMax": 0,
+        "energyRegen": 0,
+        "sellPrice": 0,
+        "fertilizer": 0
+      },
+      "counters": {
+        "harvests": 38,
+        "sales": 38,
+        "mines": 48,
+        "digs": 0,
+        "waters": 113,
+        "plants": 47
+      },
+      "tick": 771,
+      "mineLicense": true,
+      "pickaxe": {
+        "tier": "wooden",
+        "durability": 18
+      },
+      "inventory": {
+        "stone": 5,
+        "wood": 0,
+        "coal": 2
+      },
+      "bagCapacity": 30,
+      "storageLevel": 1,
+      "vein": {
+        "level": 1,
+        "progress": 0
+      },
+      "mastery": {
+        "wooden": 46
+      },
+      "masteredTiers": [],
+      "rngState": 3627444286,
+      "loan": null,
+      "seeds": {},
+      "autoBuySeeds": true,
+      "tools": {
+        "water": 0,
+        "harvest": 0,
+        "plant": 0
+      },
+      "toolN": {
+        "water": 1,
+        "harvest": 1,
+        "plant": 1
+      }
+    }
+  }
+}
