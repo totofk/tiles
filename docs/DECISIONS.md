@@ -279,3 +279,26 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **no-cors POST:** the game cannot read the reply, so "Sent" means "the request left"; network errors keep the text.
 - **Context is a summary, not the save** (build, save version, screen, UA, one-line game summary).
 - **Reset lives in 📊 Stats under Feedback** with a two-press in-game confirm and a `tiles.save.backup.reset` copy.
+
+## Crop market, timeline, deed meter (batch 12, 2026-11-08, Toon go)
+
+- **Why now, before more content:** real players idle after two workers and one holds 💰1M+ (Toon's field report).
+  Every planned batch adds automation, so the economy is fixed first. Research: docs/research/cash-sinks.md,
+  fields-market.md, pacing-liveops.md, orders.md, prestige.md.
+- **Market = glut per crop, 30 min half-life, 50 % floor (PRD §4.2), depth 120 tiles.** A 24-tile one-crop farm
+  sits at ~90 %; spreading crops keeps prices up. Items (stone/coal/ore) stay out of the market. The price is
+  always shown before the sale (a hidden curve read as a trap in Graveyard Keeper; a visible bar read as a
+  puzzle in Slime Rancher).
+- **Rich players are not touched:** no cash is taken, nothing is priced by wealth. New late content is gated by
+  materials (bars cannot be bought with cash); the deed meter shows what a big lifetime total will be worth
+  when prestige ("Sell the farm", deeds = ⌊√(lifetime cash ÷ 10,000)⌋) opens.
+- **Feedback without a backend:** milestones (tick reached) are recorded in the save from v12 on; Stats shows a
+  timeline and a "Copy report"; Export/Import save (base64) lets a player paste their save. Milestones are a table
+  of predicates over state, so a new feature adds one row, never a special case. Nothing is back-dated.
+- **Meta stores levels, not multipliers** (prestige research): multipliers are derived in balance.ts so prestige
+  can be rebalanced without a migration.
+- **Iron stays hidden** behind `?dev=iron` until batch 13 (early-game pacing) is live.
+- **Plan after this (Toon, 2026-11-08):** 13 pacing (certificates need the job's Lv3 tool, repriced certificates
+  and hire, hand-picked ×1.25) and lifting the iron gate; 14 orders board + ⭐; 15 iron farm tools; 16 gold;
+  17 Workshop + sprinklers (coal pump); 18–19 Fields; 20 prestige. No playtest pauses: players' feedback is read
+  back from their reports. Sim pin: no unlock step longer than 60 game-minutes.

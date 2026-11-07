@@ -1969,3 +1969,74 @@ UI only: no save bump (`SAVE_VERSION` 11), no `balance.ts` change, iron dev-gate
   At 375 the `.app` bottom padding (tab bar 56 + 16) keeps the Danger zone above the fixed tab bar; at ≥ 1024 the
   panel scrolls on its own (`overflow-y: auto`). Armed, the button stretches to the content width (343 / 284 / 358).
   No new tab.
+
+## Batch 12 — crop market, milestone timeline + save export, deed meter (tasks 72–75)
+
+Why (Toon, 2026-11-08): real players idle with two workers and one already holds 💰1M+; more automation would only
+inflate cash further. Economy first: a market that answers oversupply, a timeline so players' pasted saves show
+where pacing is slow, and a deed meter that turns a big pile into a score. Save v11 → v12. Numbers from
+docs/research/fields-market.md, pacing-liveops.md, prestige.md (copied in this batch's docs commit).
+Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renumber only if PLAN.md says otherwise.
+
+- [ ] 72. **Market core + milestones + save v12.** FIRST commit `tests/fixtures/save-v11.json`, a realistic save
+    made by the current code (licenses, workers staffed, iron unlocked through the core even though the UI hides
+    it, furnace mid-cycle).
+    - `run.market: Record<CropId, number>` = glut per crop (units, float ≥ 0). Every crop unit sold by any path
+      (player tap, tool press, worker harvest, double harvest) is priced at the glut BEFORE that unit's sale is
+      added, then adds 1. Selling n units in one action = price each unit in sequence (or the exact closed sum);
+      a test pins that selling 2 at once = selling 1 then 1.
+    - Decay once per tick inside `step`: `glut ×= MARKET_DECAY` where `MARKET_DECAY = 0.5 ** (1 / MARKET_HALF_LIFE_TICKS)`,
+      `MARKET_HALF_LIFE_TICKS = 1800`; snap below the existing residue epsilon to 0.
+    - `marketFactor(crop, glut) = max(MARKET_FLOOR, 1 − 0.5 × glut / marketDepthGlut(crop))`, `MARKET_FLOOR = 0.5`,
+      `marketDepthGlut(crop) = MARKET_DEPTH_TILES / (CROP_BASE[crop].growTicks × (1 − MARKET_DECAY))`,
+      `MARKET_DEPTH_TILES = 120` (the steady-state glut of a 120-tile farm of that crop; base grow ticks, so
+      fertilizer speeds harvests and therefore glut — intended). Crop sale price =
+      `Math.round(cropSellPrice(...) × marketFactor)`; items (stone, coal, ore) are NOT in the market.
+    - `marketRecoveryTicks(crop, glut)` = ticks until the factor is back ≥ 0.99 with no more sales (closed form via
+      log; UI uses it for "recovers in ~N min").
+    - `run.milestones: Partial<Record<MilestoneId, number>>` (tick reached). Milestones are a table of
+      predicates over state in `src/core/data/milestones.ts`; one pure `recordMilestones(prev, next)` runs after
+      every action and at the end of every `step` tick batch, writing the tick only when absent and the predicate
+      just became true. Set: firstHarvest, sales25, each crop license, each farm tool level, each copper/iron farm
+      tool tier, each certificate, hire2/hire4/hire6, mineLicense, vein1/2/3, furnace, firstBar, copper/iron
+      pickaxe, tiles12/16/20/24, cash1k/10k/100k/1M (lifetime cashEarned), and `trackingStarted` (written by the
+      migration with the save's current tick). A milestone already true at migration time is NOT back-dated: it stays
+      absent and the timeline says "before tracking".
+    - `meta.upgrades: Record<MetaUpgradeId, number>` (levels, all 0) replaces the stored `meta.multipliers`;
+      `multiplier(meta, key)` derives from levels through a balance.ts table (all 1 at level 0). Migration: if every
+      stored multiplier is 1 (always true today) drop it; if any is not 1, keep it as `meta.legacyMultipliers` and
+      multiply it in (never take value away) and add a test for that branch.
+    - Save v12: chain v1–v11 → v12 with the backup key: market all 0, milestones `{ trackingStarted: tick }`,
+      meta.upgrades all 0. step(s, n) = n × step(s, 1) with market decay and milestones (test with workers on).
+- [ ] 73. **Market UI.** Wherever a crop's price shows (Shop seed rows, Crop to plant, ⓘ tips, harvest toast) show
+    the current price and factor: `🍋 💰99 (90 %)` with ▼ when < 100 %, plus "recovers in ~N min" in the ⓘ tip, and a
+    thin 3-colour depth bar per crop (green ≥ 85 %, yellow ≥ 65 %, red below) on the Shop crop rows. The harvest toast
+    shows the real cash received. The away banner shows "market: lemon 72 % → 95 %" for crops that moved > 5 points.
+    Compact at 375 px; compute layout from CSS and check overlap with neighbours at 375 / 1024 / 1440 px.
+- [ ] 74. **📊 Stats: timeline, report, export/import, deed meter.**
+    - "Timeline" list: one line per reached milestone, `Lemon license — 1h 12m` (play time from tick 0), ordered by
+      tick; milestones reached before tracking show once as "… N earlier milestones before tracking".
+    - "Copy report" button: copies ≤ 30 lines of plain text (build hash and save version as 11.1's feedback context
+      uses, play time, cash, lifetime cash, tiles, workers per job, vein level, market factors, then the timeline).
+      If 11.1's feedback form exists, append the same timeline to its context block (reuse one pure
+      `reportLines(state)` in core; never the raw save).
+    - "Export save": copies the raw `tiles.save` JSON as base64 to the clipboard (and shows it in a read-only
+      textarea for phones). "Import save": paste box + the same two-press confirm 11.1 uses for reset; the current
+      save is copied to `tiles.save.backup.import` first; the pasted save goes through the normal load + migration
+      path; invalid input = an error line, nothing changes.
+    - Deed meter row: `Lifetime cash 💰1,040,000 → 10 deeds when "Sell the farm" opens`, from
+      `deedsFor(lifetimeCash) = floor(sqrt(lifetimeCash / DEED_DIVISOR))`, `DEED_DIVISOR = 10000` in balance.ts.
+      Prestige itself is NOT in this batch; the row is a meter only.
+    - Compact at 375 px; no 7th tab.
+- [ ] 75. **Sim + balance (`tests/sim.test.ts` "batch 12").**
+    - Market pins: pure-function check of the steady-state factor for t tiles of one crop: 24 → 0.88–0.92,
+      120 → 0.50; the 24-tile lemon farm with fertilizer Lv5 reported (expect ~0.80).
+    - Income: the existing ladder bots re-run with the market on; report cash/hour before vs after for the 24-tile
+      lemon farm (manual and with workers) and for the best 2-crop split the bot can find on 24 tiles.
+    - Hierarchy: mining cash/energy must stay below farming cash/energy WITH the market on. If the pin fails, raise
+      `MARKET_DEPTH_TILES` (up to 240) until it passes; never touch mining numbers. Report the value used.
+    - No-stall pin: the ladder bot from tick 0 to its last unlock never waits more than 60 game-minutes between two
+      consecutive milestones. If a pre-existing step fails it, do NOT retune old numbers: mark the test with the
+      measured gap, list it under Deviations, and keep it passing at the measured value + 10 %.
+    - Every price still ≤ the storage the player holds at that moment (existing pins pass unchanged).
+    - Tune only batch-12 numbers; report every change as a deviation.
