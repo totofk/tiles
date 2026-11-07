@@ -430,6 +430,23 @@ button:disabled {
   background: #eee;
   color: #444;
 }
+.bank p {
+  margin: 4px 0 8px;
+}
+.bank-debt {
+  font-weight: 600;
+}
+.bank-debt small {
+  display: block;
+  font-weight: normal;
+  color: #555;
+}
+.hud-debt {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #ffcdd2;
+  font-size: 13px;
+}
 
 /* deliberately small and far from the game controls; still behind a confirm */
 .reset {

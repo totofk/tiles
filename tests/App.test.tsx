@@ -42,7 +42,16 @@ describe('mobile tab bar', () => {
     const labels = within(screen.getByRole('navigation'))
       .getAllByRole('button')
       .map((b) => b.textContent)
-    expect(labels).toEqual(['🌱 Farm', '⛏️ Mine', '🛒 Shop', '⬆️ Upgrades'])
+    expect(labels).toEqual(['🌱 Farm', '⛏️ Mine', '🛒 Shop', '⬆️ Upgrades', '🏦 Bank'])
+  })
+
+  it('the Bank tab borrows and the HUD shows the debt badge', () => {
+    render(<App />)
+    expect(screen.queryByTitle('Bank debt')).toBeNull()
+    fireEvent.click(mobileTab(/Bank/))
+    expect(selected(panelTab(/Bank/))).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /Borrow/ }))
+    expect(screen.getByTitle('Bank debt').textContent).toBe('🏦 −💰33')
   })
 
   it('shows one view at a time and selects the panel tab', () => {

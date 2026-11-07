@@ -1,4 +1,5 @@
 import { energyMax } from '../core/balance'
+import { debtDue } from '../core/bank'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 
@@ -12,6 +13,11 @@ export function Hud({ state }: { state: GameState }) {
         ⚡ {Math.floor(run.energy)} / {max}
         <Bar value={run.energy / max} kind="energy" />
       </span>
+      {run.loan && (
+        <span className="hud-debt" title="Bank debt">
+          🏦 −💰{debtDue(run.loan)}
+        </span>
+      )}
       <span>⏱ {run.tick}</span>
     </header>
   )

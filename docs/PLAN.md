@@ -167,6 +167,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 4.5: the loan principal and the "repay 💰N" step (`LOAN_REPAY_STEP` 10, added to `balance.ts`) follow the
   `cost` meta multiplier**, so a loan always buys the same number of seeds. Fee, rate and cap are ratios of the
   principal and take no multiplier. The bank's errors join the shared `ActionError` union, so `ERROR_TEXT` covers them.
+- **Batch 4.5 UI: the HUD debt badge reads "🏦 −💰N"** (debt rounded up) and sits before the tick counter. The
+  mobile tab bar now has five buttons; at 375 px each is ~75 px wide. Not checked in a browser (no dev server in
+  headless runs).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -261,7 +264,7 @@ Numbers are placeholders, retuned after docs/research/round2-mining.md.
     capped at debt and cash; loan cleared at 0). `step` grows debt by principal × `LOAN_RATE_PER_TICK` per tick,
     capped at principal × `LOAN_DEBT_CAP` (2.0). Typed errors: LOAN_ACTIVE, NO_LOAN, NOT_ENOUGH_CASH. Save v3 with
     v2 → v3 migration (`loan: null`) tested on a real v2 fixture.
-19. [ ] Bank tab in the side panel (and the mobile tab bar): borrow button with principal + fee + growth explained
+19. [x] Bank tab in the side panel (and the mobile tab bar): borrow button with principal + fee + growth explained
     in one line, current debt with its cap, a "time until cap" hint, repay 💰N / repay all. HUD shows a small debt
     badge while a loan is active.
 20. [ ] Tests: the round-2 soft-lock state (cash 1, 9 tilled tiles, empty bag, no pickaxe) recovers via a loan —
