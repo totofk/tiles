@@ -5,7 +5,10 @@ import {
   TILE_CAP,
   cropGrowTicks,
   cropRotGraceTicks,
+  cropSeedCost,
+  cropSellPrice,
   energyMax,
+  licenseCost,
   masteryLevel,
   masteryMaxLevel,
   masteryThresholds,
@@ -53,6 +56,18 @@ describe('balance', () => {
   it('radish needs about two waterings per cycle', () => {
     const ticksPerFill = 1 / moistureDrainPerTick(meta)
     expect(Math.ceil(cropGrowTicks('radish', meta, 0) / ticksPerFill)).toBe(2)
+  })
+
+  it('crops in CROP_IDS order cost more to license (carrot < chilli < pumpkin < lemon)', () => {
+    expect(CROP_IDS).toEqual(['radish', 'chilli', 'pumpkin', 'lemon'])
+    const costs = CROP_IDS.map((id) => licenseCost(id, meta))
+    expect(costs).toEqual([0, 50, 100, 400])
+    expect(CROP_IDS.map((id) => [cropSeedCost(id, meta), cropSellPrice(id, meta, 0), cropGrowTicks(id, meta, 0)])).toEqual([
+      [2, 10, 100],
+      [5, 25, 160],
+      [10, 60, 240],
+      [20, 110, 360],
+    ])
   })
 
   it('tile cost grows geometrically and is Infinity at the cap', () => {

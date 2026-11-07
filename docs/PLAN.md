@@ -300,6 +300,10 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   is full"** = while `dig` returns `BAG_FULL`, a "Sell all 🪨 ⚫ 💰N" button under Dig sells every stone and coal in one
   tap (wood stays, it is crafting material); the per-item rows are unchanged. The 375 px layout is CSS only (stacked
   rows, 12–14 px text) and was not checked in a browser (no dev server in headless runs).
+- **Batch 6 crops (task 30):** `CROP_IDS` is in license order (carrot, chilli, pumpkin, lemon), so the Shop lists the
+  🔒 license cards that way. The batch-3 greedy, tool and dig bots keep planting only carrot and pumpkin (their numbers
+  are pinned); chilli and lemon enter the sim through task 31's per-crop and progression bots. The frozen `RunV4` type
+  still names the live `CropId`, which only widens; no save shape changed and `SAVE_VERSION` stays 5.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -526,7 +530,7 @@ compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; 
     with no numbers; mastery bar with "lasts ~N uses" (expected uses incl. preserve), "Mastered ✓ +5 % all pickaxes"
     badge; crack on half-mined stone; blunt state + Repair button with its cost; sell from the panel when storage
     is full. Usable at 375 px.
-30. [ ] Two crops: **Chilli 🌶️** (seed 5 → sells 25, 160 ticks, license 50) and **Lemon 🍋** (seed 20 → sells 110,
+30. [x] Two crops: **Chilli 🌶️** (seed 5 → sells 25, 160 ticks, license 50) and **Lemon 🍋** (seed 20 → sells 110,
     360 ticks, license 400). Starting numbers; licenses in Shop, seeds in the pouch like the others, dig table stays
     carrot only. No save-shape change beyond the CropId union (old saves load unchanged — test it).
 31. [ ] Sim (two-tier hierarchy, decided 2026-11-07): (a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming;

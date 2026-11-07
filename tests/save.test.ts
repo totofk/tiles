@@ -8,7 +8,7 @@ import { takeLoan } from '../src/core/bank'
 import { dig } from '../src/core/mining'
 import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
-import { awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
+import { SAVE_VERSION, awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
 import { BAD_SAVE_KEY, SAVE_KEY, backupKey, loadGame, saveGame, type KeyValueStore } from '../src/save/storage'
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
@@ -167,6 +167,34 @@ describe('serialize / deserialize', () => {
     expect(deserialize('{not json')).toBeNull()
     expect(deserialize('null')).toBeNull()
     expect(deserialize(JSON.stringify({ version: 1, savedAtMs: 0, state: {} }))).toBeNull()
+  })
+})
+
+describe('batch 6 crops: chilli and lemon widen CropId only', () => {
+  it('needs no SAVE_VERSION bump: every past fixture still lands on v5 with its crops untouched', () => {
+    expect(SAVE_VERSION).toBe(5)
+    for (const raw of [v1, v2, v3, v4]) {
+      const old = JSON.parse(raw).state.run
+      const run = deserialize(raw)!.state.run
+      expect(run.licenses).toEqual(old.licenses)
+      expect(run.seeds).toEqual(old.seeds ?? {})
+      expect(run.tiles.slice(0, old.tiles.length).map((t) => t.cropId)).toEqual(old.tiles.map((t: { cropId?: string }) => t.cropId))
+    }
+  })
+
+  it('a v5 save written before the new crops loads unchanged', () => {
+    const before = JSON.parse(serialize(step(createInitialState(), 42), 7))
+    expect(before.state.run.licenses).toEqual(['radish'])
+    expect(deserialize(JSON.stringify(before))).toEqual(before)
+  })
+
+  it('a v5 save with chilli and lemon licenses, pouch seeds and planted tiles round-trips', () => {
+    const s = createInitialState()
+    const tiles = s.run.tiles.map((t, i) =>
+      i === 0 ? { ...t, status: 'planted' as const, cropId: 'chilli' as const } : i === 1 ? { ...t, status: 'planted' as const, cropId: 'lemon' as const } : t,
+    )
+    const state = { ...s, run: { ...s.run, licenses: ['radish' as const, 'chilli' as const, 'lemon' as const], seeds: { chilli: 2, lemon: 1 }, tiles } }
+    expect(deserialize(serialize(state, 0))?.state).toEqual(state)
   })
 })
 

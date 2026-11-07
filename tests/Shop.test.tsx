@@ -21,6 +21,29 @@ function setup(run: Partial<GameState['run']>) {
 }
 const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
 
+describe('Shop seeds', () => {
+  it('lists every crop in license order: owned ones as seed buttons, the rest as 🔒 license cards', () => {
+    setup({ cash: 60, licenses: ['radish', 'pumpkin'] })
+    const row = btn(/Carrot/).parentElement!
+    expect([...row.querySelectorAll('button')].map((b) => b.textContent)).toEqual([
+      '🥕 Carrotseed 💰2',
+      '🔒 Chillilicense 💰50',
+      '🎃 Pumpkinseed 💰10',
+      '🔒 Lemonlicense 💰400',
+    ])
+    expect(btn(/Chilli/).disabled).toBe(false)
+    expect(btn(/Lemon/).disabled).toBe(true)
+  })
+
+  it('buying the chilli license adds a 🌶️ pouch row', () => {
+    const t = setup({ cash: 50 })
+    fireEvent.click(btn(/Chilli/))
+    t.rerender()
+    expect(t.get().run.licenses).toEqual(['radish', 'chilli'])
+    expect(screen.getByText(/🌶️ Chilli × 0/)).toBeTruthy()
+  })
+})
+
 describe('Shop seed pouch', () => {
   it('shows a row per licensed crop with its stock; ×1 and ×10 fill the pouch', () => {
     const seed = cropSeedCost('radish', createInitialState().meta)

@@ -5,7 +5,7 @@ import type { GameState, Tile } from '../core/state'
 import { growthProgress, isDry, isMature, ticksUntilRot } from '../core/tile'
 import { Bar } from './Bar'
 
-export const CROP_EMOJI: Record<CropId, string> = { radish: '🥕', pumpkin: '🎃' }
+export const CROP_EMOJI: Record<CropId, string> = { radish: '🥕', chilli: '🌶️', pumpkin: '🎃', lemon: '🍋' }
 // display only: the rot countdown turns red in the last quarter of the grace window
 const ROT_WARN_FRACTION = 0.25
 
