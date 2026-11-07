@@ -1,9 +1,20 @@
 import { fail, withRun, type ActionResult } from './actions'
-import { barTicks, furnaceCost, furnaceQueueCap, furnaceVeinLevel, smeltFuel, smeltOre, type FuelId } from './balance'
+import {
+  barTicks,
+  batchBars,
+  fireCapTicks,
+  fuelTicks,
+  furnaceCost,
+  furnaceTrayCap,
+  furnaceVeinLevel,
+  oreSlotCap,
+  smeltOre,
+  type FuelId,
+} from './balance'
 import { bagCount, pay } from './mining'
-import type { Furnace, GameState } from './state'
+import type { Furnace, GameState, RunState } from './state'
 
-// The furnace is a machine: building, smelting and collecting cost no energy, and it rolls no RNG.
+// The furnace is a machine: building, fuelling, loading and collecting cost no energy, and it rolls no RNG.
 
 // Order: ALREADY_OWNED, LOCKED (vein below furnaceVeinLevel), NOT_ENOUGH_ITEMS, NO_CASH.
 export function buildFurnace(state: GameState): ActionResult {
@@ -13,50 +24,82 @@ export function buildFurnace(state: GameState): ActionResult {
   return pay(state, furnaceCost(state.meta), { furnace: { ...run.furnace, built: true } })
 }
 
-// One job, inputs paid now (they leave storage). Full = queued jobs + tray bars at the cap, so the tray can never
-// outgrow it. Order: NO_FURNACE, QUEUE_FULL, NOT_ENOUGH_ORE, NOT_ENOUGH_FUEL.
-export function enqueueSmelt(state: GameState, fuel: FuelId): ActionResult {
+/** ore one cycle needs at the furnace's batch level */
+export function cycleOre(f: Furnace): number {
+  return smeltOre() * batchBars(f.levels.batch)
+}
+
+/** whole items of this fuel that fit under the fire cap now */
+export function fuelRoom(f: Furnace, fuel: FuelId): number {
+  return Math.floor((fireCapTicks(f.levels.fireCap) - f.fire) / fuelTicks(fuel))
+}
+
+/**
+ * The "fill" press: moves as many whole items of this fuel from storage into the fire as fit under the cap (never
+ * over it), at most `max`; partial when storage runs short. Order: NO_FURNACE, FULL, NO_FUEL.
+ */
+export function addFuel(state: GameState, fuel: FuelId, max = Infinity): ActionResult {
   const { run } = state
   const f = run.furnace
   if (!f.built) return fail('NO_FURNACE')
-  if (f.queue + f.ready >= furnaceQueueCap()) return fail('QUEUE_FULL')
-  const ore = smeltOre()
-  const burn = smeltFuel(fuel)
-  if ((run.inventory.copperOre ?? 0) < ore) return fail('NOT_ENOUGH_ORE')
-  if ((run.inventory[fuel] ?? 0) < burn) return fail('NOT_ENOUGH_FUEL')
-  const inventory = { ...run.inventory, copperOre: run.inventory.copperOre! - ore, [fuel]: run.inventory[fuel]! - burn }
-  return withRun(state, { inventory, furnace: { ...f, queue: f.queue + 1 } })
+  const room = fuelRoom(f, fuel)
+  if (room < 1) return fail('FULL')
+  const n = Math.min(room, run.inventory[fuel] ?? 0, max)
+  if (n < 1) return fail('NO_FUEL')
+  return withRun(state, {
+    inventory: { ...run.inventory, [fuel]: run.inventory[fuel]! - n },
+    furnace: { ...f, fire: f.fire + n * fuelTicks(fuel) },
+  })
+}
+
+/** Moves copper ore from storage into the ore slot, as much as fits, at most `max`. Order: NO_FURNACE, FULL, NO_ORE. */
+export function loadOre(state: GameState, max = Infinity): ActionResult {
+  const { run } = state
+  const f = run.furnace
+  if (!f.built) return fail('NO_FURNACE')
+  const room = oreSlotCap() - f.ore
+  if (room < 1) return fail('FULL')
+  const n = Math.min(room, run.inventory.copperOre ?? 0, max)
+  if (n < 1) return fail('NO_ORE')
+  return withRun(state, { inventory: { ...run.inventory, copperOre: run.inventory.copperOre! - n }, furnace: { ...f, ore: f.ore + n } })
+}
+
+/** a cycle progresses this tick: fire lit, a cycle's ore in the slot, tray room for its bars */
+export function smelting(f: Furnace): boolean {
+  return f.fire > 0 && f.ore >= cycleOre(f) && f.ready + batchBars(f.levels.batch) <= furnaceTrayCap()
 }
 
 /**
- * Closed form for any tick count, so one call over n ticks equals n calls of 1 (offline catch-up included):
- * t = progress + ticks; done = min(queue, ⌊t / barTicks⌋); progress = t mod barTicks while jobs remain, else 0.
+ * One tick inside step(). A plain furnace burns a tick of fire whenever it is lit, ore or not (wasted when no cycle
+ * progresses); a smart one burns only while smelting. A completed cycle takes its ore and adds batch bars to the tray.
+ * Called once per tick, so step(s, n) equals n × step(s, 1) by construction.
  */
-export function advanceFurnace(f: Furnace, ticks: number): Furnace {
-  if (f.queue === 0 || ticks <= 0) return f
-  const t = f.progress + ticks
-  const done = Math.min(f.queue, Math.floor(t / barTicks()))
-  const queue = f.queue - done
-  return { ...f, queue, ready: f.ready + done, progress: queue > 0 ? t - done * barTicks() : 0 }
-}
-
-/** the auto-smelt toggle; free, needs the furnace */
-export function setAutoSmelt(state: GameState, on: boolean): ActionResult {
-  if (!state.run.furnace.built) return fail('NO_FURNACE')
-  return withRun(state, { autoSmelt: on })
-}
-
-/**
- * Runs inside step() after the furnace advanced, when the toggle is on: collects the tray into storage (as much as
- * fits), then queues coal jobs while ore, coal and room last. Coal only, so wood kept for repairs is never burnt.
- * Uses only what is already in storage; deterministic, no RNG.
- */
-export function autoSmelt(state: GameState): GameState {
-  if (!state.run.autoSmelt) return state
-  const collected = collectBars(state)
-  let s = collected.ok ? collected.state : state
-  for (let r = enqueueSmelt(s, 'coal'); r.ok; r = enqueueSmelt(s, 'coal')) s = r.state
-  return s
+export function tickFurnace(run: RunState): RunState {
+  const f = run.furnace
+  if (f.fire <= 0) return run
+  const lifetime = run.lifetime
+  if (!smelting(f)) {
+    if (f.smart) return run
+    return {
+      ...run,
+      furnace: { ...f, fire: f.fire - 1 },
+      lifetime: { ...lifetime, fireBurnt: lifetime.fireBurnt + 1, fireWasted: lifetime.fireWasted + 1 },
+    }
+  }
+  const progress = f.progress + 1
+  const done = progress >= barTicks()
+  const bars = done ? batchBars(f.levels.batch) : 0
+  return {
+    ...run,
+    furnace: {
+      ...f,
+      fire: f.fire - 1,
+      progress: done ? 0 : progress,
+      ore: done ? f.ore - cycleOre(f) : f.ore,
+      ready: f.ready + bars,
+    },
+    lifetime: { ...lifetime, fireBurnt: lifetime.fireBurnt + 1, barsSmelted: lifetime.barsSmelted + bars },
+  }
 }
 
 // Moves as many tray bars into storage as fit. Order: NO_FURNACE, NOTHING_TO_DO (tray empty), BAG_FULL.

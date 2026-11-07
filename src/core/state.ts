@@ -62,8 +62,6 @@ export type RunState = {
   /** material tier per job, 0 basic … toolTierMax (1 copper); changes what every action of the job does */
   toolTier: Record<ToolJob, number>
   workers: Workers
-  /** the furnace queues coal jobs and collects its tray by itself inside step() */
-  autoSmelt: boolean
 }
 
 /** pool = hired; assigned per job ≤ pool in total; a job takes workers only once its certificate is bought */
@@ -79,16 +77,34 @@ export type Pickaxe = { tier: PickaxeTier; durability: number }
 export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number }
 export type CounterId = keyof Counters
 
-/** queue = jobs paid for and not done (the first one is in progress), ready = bars waiting in the output tray */
-export type Furnace = { built: boolean; queue: number; progress: number; ready: number }
+/**
+ * fire = burn ticks left (filled with fuel); ore = copper ore in the ore slot (leaves it when a cycle completes);
+ * progress = ticks into the current cycle; ready = bars waiting in the output tray; smart = fire burns only while a
+ * cycle progresses; levels = bought fire-capacity and batch levels (0 = base)
+ */
+export type Furnace = {
+  built: boolean
+  fire: number
+  ore: number
+  progress: number
+  ready: number
+  smart: boolean
+  levels: { fireCap: number; batch: number }
+}
 
-/** cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash */
+/**
+ * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
+ * fireBurnt / fireWasted = furnace burn ticks in total / with no cycle progressing; barsSmelted = bars the furnace made
+ */
 export type Lifetime = {
   cashEarned: number
   energySpent: number
   bars: number
   harvests: Partial<Record<CropId, number>>
   wagesPaid: number
+  fireBurnt: number
+  fireWasted: number
+  barsSmelted: number
 }
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
@@ -130,8 +146,8 @@ export function createInitialState(): GameState {
       bagCapacity: BAG_CAPACITY_START,
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
-      furnace: { built: false, queue: 0, progress: 0, ready: 0 },
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0 },
+      furnace: createFurnace(),
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0 },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,
@@ -142,7 +158,11 @@ export function createInitialState(): GameState {
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
       workers: { pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] },
-      autoSmelt: false,
     },
   }
+}
+
+/** a furnace not yet built: no fire, empty slot and tray, base levels */
+export function createFurnace(): Furnace {
+  return { built: false, fire: 0, ore: 0, progress: 0, ready: 0, smart: false, levels: { fireCap: 0, batch: 0 } }
 }

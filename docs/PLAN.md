@@ -503,6 +503,28 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   desktop Farm tab, the desktop collapsed-panel fallback and mobile; tablet is neither (desktop = ≥ 1024 px since
   7.2), so `stacked` is `matchMedia('(min-width: 1024px)')`, the same flag that picks the Farm tab.
 - **Batch 8.1: widths computed from `app.css`, not measured in a browser** (no dev server in headless runs).
+- **Batch 9 (task 57): the auto-smelt removal moved from task 58/59 into task 57** (core `setAutoSmelt` / `autoSmelt`,
+  `run.autoSmelt`, the furnace checkbox, its tip and the 📊 "Auto-smelt" row): the v9 migration drops the field, so
+  everything that read it goes in the same commit. To keep the build green the 🔥 Furnace card got a minimal bridge
+  (summary "fire n/cap · ore n · n ready", buttons Load ore / Fill with 🌲 / Fill with ⚫ / Collect); task 59 replaces
+  it with the gauge, counts, hints and upgrades.
+- **Batch 9 (task 57): v9 also carries `lifetime.fireBurnt`, `fireWasted` (burn ticks) and `barsSmelted`**, bumped in
+  `tickFurnace`, so task 59's Stats ("fire wasted", "bars smelted") and away banner ("fuel burnt") need no v10.
+  Migration: 0, 0 and bars collected + tray + queue (every paid job counts as smelted).
+- **Batch 9 (task 57): furnace errors are `FULL`, `NO_ORE`, `NO_FUEL`** (the plan's names) and replace `QUEUE_FULL`,
+  `NOT_ENOUGH_ORE`, `NOT_ENOUGH_FUEL`, which nothing uses any more.
+- **Batch 9 (task 57): `addFuel(state, fuel, max = ∞)` and `loadOre(state, max = ∞)` take an optional item limit**:
+  the press fills; the loaders (one coal / one cycle of ore, task 58) and the sim bot pass a limit.
+- **Batch 9 (task 57): the furnace advances one tick per `step` tick (`tickFurnace(run)`), no closed form**: `step`
+  already loops single ticks, so step(s, n) = n × step(s, 1) holds by construction (tested for every case the plan
+  lists); 8 h of catch-up is 28 800 cheap calls.
+- **Batch 9 (task 57): the sim ladder bot loads k cycles of ore with exactly k coal** (k ≤ the old 5-job cap counting
+  loaded cycles + tray), the fuelled-furnace form of "enqueue coal jobs while it can": the fire then never burns without
+  ore, so every batch-7 / 7.1 / 8 pin (ticks, final cash, wages, counters) is unchanged. The batch-8 "8 h offline" check
+  now loads the furnace by hand before leaving (auto-smelt is gone); task 58 adds the loaders.
+- **Batch 9 (tasks 57–58): one v9 bump finished across the two commits** (`counters.bars` and `workers.assigned.ore /
+  fuel` join `migrateV8` in task 58). No build ships between them, so no save exists in the half-way shape; this is
+  how batch 8 folded the auto-smelt flag into the v8 bump.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1262,7 +1284,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
     grow, water, rot, tool, energy and every furnace bar) jump once per 1 s tick. Add `transition: width 1s linear`
     while the value grows; when it goes DOWN (harvest → 0, new bar, refill) the bar jumps with no transition (no
     backwards slide). Honour `prefers-reduced-motion: reduce` (no transition).
-- [ ] 57. **Save v9 + fuelled furnace core** (`src/core/furnace.ts`). Replace the paid-up-front queue with:
+- [x] 57. **Save v9 + fuelled furnace core** (`src/core/furnace.ts`). Replace the paid-up-front queue with:
     `furnace = { built, fire, ore, progress, ready, smart, levels: { fireCap, batch } }`.
     - `fire` is in burn ticks. One fire unit = FIRE_UNIT_TICKS (30); wood = 1 unit, coal = 2 units; one smelt cycle
       = BAR_TICKS (60) of fire = 2 units, so cost per bar stays coal 1 or wood 2 as today. Start fire cap 10 units.
@@ -1327,3 +1349,24 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
   where the value drops, so harvest → 0, a new cycle or any drain jumps; `prefers-reduced-motion: reduce` turns the
   transition off. Applies to every `Bar` (grow, water + its over-1 band, rot, tool, energy, furnace, mastery).
   `tests/Bar.test.tsx`.
+
+### Fuelled furnace + save v9 (task 57)
+- **Fixture first:** `tests/fixtures/save-v8.json` (own commit) is the real v7 fixture loaded by the batch-8.1 code and
+  played 402 ticks with its real actions: water + harvest certificates, 3 hires (2 water, 1 harvest), lemons planted,
+  copper ore mined, coal jobs queued, a collect; auto-smelt switched on last. Furnace queue 2, progress 30, ready 3.
+- **Shape:** `furnace = { built, fire, ore, progress, ready, smart, levels: { fireCap, batch } }` (`createFurnace()`),
+  `run.autoSmelt` gone, lifetime + `fireBurnt`, `fireWasted`, `barsSmelted`. `RunV8` is frozen in `serialize.ts`.
+  `migrateV8`: ready = tray + queue (the v8 fixture: 3 + 2 = 5; a migrated tray may exceed the cap once, which only
+  blocks smelting until collected, tested), fire 0, ore 0, progress 0, plain, base levels. Chain v1…v8 → v9; backup key per version.
+- **Numbers (`balance.ts`):** fire in burn ticks, unit 30; wood 1 unit, coal 2; a cycle burns `barTicks` 60 (coal 1 or
+  wood 2 per bar, unchanged); fire cap 10 / 20 / 40 units by level; batch 1 / 2 / 3 bars per cycle (ore 2 × batch);
+  tray 5; ore slot 10. Read through `fireUnitTicks`, `fuelUnits`, `fuelTicks`, `fireCapUnits`, `fireCapTicks`,
+  `batchBars`, `furnaceTrayCap`, `oreSlotCap`, `smeltOre`, `smeltFuel`, `barTicks`.
+- **Rules (`furnace.ts`):** `smelting(f)` = fire > 0, ore ≥ `cycleOre(f)`, ready + batch ≤ tray cap. `tickFurnace`:
+  smelting → fire − 1, progress + 1, on 60 the cycle's ore leaves the slot and batch bars enter the tray; lit but not
+  smelting → a plain furnace burns 1 (counted wasted), a smart one nothing. Fire running out pauses the cycle where it
+  stands. `addFuel` order NO_FURNACE, FULL (not one item fits under the cap), NO_FUEL; `loadOre` NO_FURNACE, FULL,
+  NO_ORE; both partial when storage runs short. `fuelRoom(f, fuel)` = whole items that fit now.
+- **Bridge UI** (until task 59): the Furnace grid keeps 3 columns, so at 1024 (Mine column content 209 px, buttons
+  ≈ 66 px) "Fill with 🌲" wraps inside its button; buttons grow, nothing overlaps.
+- **Sim:** all batch-7 / 7.1 / 8 pins replay unchanged (see Deviations for the bot's matched loading).

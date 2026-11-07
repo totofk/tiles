@@ -7,9 +7,14 @@ import type { UpgradeId } from '../core/data/upgrades'
 import { createInitialState, createTile, type Counters, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 8
+export const SAVE_VERSION = 9
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
+type RunV8 = Omit<RunV7, 'lifetime'> & {
+  lifetime: RunV7['lifetime'] & { wagesPaid: number }
+  workers: { pool: number; assigned: { water: number; harvest: number }; certificates: ('water' | 'harvest')[] }
+  autoSmelt: boolean
+}
 type RunV7 = RunV6 & { toolTier: Record<ToolJob, number> }
 type RunV6 = Omit<RunV5, 'vein' | 'mastery' | 'masteredTiers'> & {
   vein: { level: number; progress: number; rock: ItemId }
@@ -60,8 +65,9 @@ type SaveV4 = { version: 4; savedAtMs: number; state: { meta: GameState['meta'];
 type SaveV5 = { version: 5; savedAtMs: number; state: { meta: GameState['meta']; run: RunV5 } }
 type SaveV6 = { version: 6; savedAtMs: number; state: { meta: GameState['meta']; run: RunV6 } }
 type SaveV7 = { version: 7; savedAtMs: number; state: { meta: GameState['meta']; run: RunV7 } }
-type SaveV8 = { version: 8; savedAtMs: number; state: GameState }
-export type Save = SaveV8
+type SaveV8 = { version: 8; savedAtMs: number; state: { meta: GameState['meta']; run: RunV8 } }
+type SaveV9 = { version: 9; savedAtMs: number; state: GameState }
+export type Save = SaveV9
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -190,27 +196,51 @@ function migrateV7(save: SaveV7): SaveV8 {
   }
 }
 
+// v8 → v9: fuelled furnace. Every paid queued job becomes a ready bar (its ore and fuel were already paid; the tray may
+// exceed its cap once, it only blocks smelting until collected), so bars smelted = collected + tray + queue. No fire,
+// empty ore slot, plain furnace at base levels; the free auto-smelt toggle is dropped (no earned value).
+function migrateV8(save: SaveV8): SaveV9 {
+  const { meta, run } = save.state
+  const { autoSmelt, furnace, lifetime, ...rest } = run
+  void autoSmelt
+  const ready = furnace.ready + furnace.queue
+  return {
+    version: 9,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...rest,
+        furnace: { built: furnace.built, fire: 0, ore: 0, progress: 0, ready, smart: false, levels: { fireCap: 0, batch: 0 } },
+        lifetime: { ...lifetime, fireBurnt: 0, fireWasted: 0, barsSmelted: lifetime.bars + ready },
+      },
+    },
+  }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))))
+      return migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))))))
     case 2:
-      return migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2))))))
+      return migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2)))))))
     case 3:
-      return migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3)))))
+      return migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3))))))
     case 4:
-      return migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4))))
+      return migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4)))))
     case 5:
-      return migrateV7(migrateV6(migrateV5(data as SaveV5)))
+      return migrateV8(migrateV7(migrateV6(migrateV5(data as SaveV5))))
     case 6:
-      return migrateV7(migrateV6(data as SaveV6))
+      return migrateV8(migrateV7(migrateV6(data as SaveV6)))
     case 7:
-      return migrateV7(data as SaveV7)
+      return migrateV8(migrateV7(data as SaveV7))
     case 8:
-      return data as SaveV8
+      return migrateV8(data as SaveV8)
+    case 9:
+      return data as SaveV9
     default:
       return null
   }
@@ -234,7 +264,7 @@ export function offlineTicks(elapsedMs: number): number {
 }
 
 // Loan debt grows on live ticks only (DECISIONS.md round-2 outcome). Only step() runs during catch-up (workers and
-// auto-smelt included, and they never borrow or repay), so its debt growth is the only change to the loan, and
+// the furnace included, and they never borrow or repay), so its debt growth is the only change to the loan, and
 // putting the old loan back undoes exactly that.
 export function catchUp(state: GameState, elapsedMs: number): GameState {
   const after = step(state, offlineTicks(elapsedMs))

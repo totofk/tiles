@@ -5,9 +5,10 @@ import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
 import { itemSellPrice, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
-import { createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
+const built = { ...createFurnace(), built: true }
 const WOOD = ITEMS.wood.emoji
 const STONE = ITEMS.stone.emoji
 const ORE = ITEMS.copperOre.emoji
@@ -57,7 +58,7 @@ describe('Mine panel', () => {
     expect(screen.getByText(/^Lv2: /).textContent).toBe(`Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % — ${STONE}30 ⚫10 💰200`)
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }).textContent).toBe('Upgrade vein to Lv2 — Build the furnace first')
     cleanup()
-    setup({ ...rich, furnace: { built: true, queue: 0, progress: 0, ready: 0 } })
+    setup({ ...rich, furnace: built })
     expect((screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
@@ -100,7 +101,7 @@ describe('Mine panel', () => {
   })
 
   it('with the furnace built, offers the copper pickaxe (disabled with the reason) and shows it once crafted', () => {
-    const furnace = { built: true, queue: 0, progress: 0, ready: 0 }
+    const furnace = built
     setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 4 } })
     const craft = screen.getByRole('button', { name: /^Craft copper pickaxe/ }) as HTMLButtonElement
     expect(craft.textContent).toBe(`Craft copper pickaxe (${BAR}5 💰50) — Not enough items`)
@@ -114,37 +115,28 @@ describe('Mine panel', () => {
     expect(screen.queryByRole('button', { name: /^Craft copper pickaxe/ })).toBeNull()
   })
 
-  it('furnace: a pointer to the Shop until built, then a collapsible section that smelts and collects', () => {
+  it('furnace: a pointer to the Shop until built, then a collapsible section that loads ore, fills fuel and collects', () => {
     setup({ vein: { level: 1, progress: 0, rock: 'stone' } })
     expect(text()).toContain('🔥 Furnace — buy it in the 🛒 Shop')
     cleanup()
-    const t = setup({ furnace: { built: true, queue: 0, progress: 0, ready: 1 }, inventory: { copperOre: 3, coal: 1, wood: 1 } })
+    const t = setup({ furnace: { ...built, ready: 1 }, inventory: { copperOre: 3, coal: 1 } })
     const summary = () => document.querySelector('.mine-furnace summary')!.textContent
-    expect(summary()).toBe('🔥 Furnace · 0 queued · 1 ready')
-    const smelt = (fuel: RegExp) => screen.getByRole('button', { name: fuel }) as HTMLButtonElement
+    expect(summary()).toBe('🔥 Furnace · fire 0/10 · ore 0 · 1 ready')
+    const button = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
     // short reasons on their own line, so a ≈ 100 px button stays two lines; stock items never split
-    expect(smelt(new RegExp(`^Smelt with ${WOOD}2`)).textContent).toBe(`Smelt with ${WOOD}2no fuel`)
-    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 1'])
-    fireEvent.click(smelt(/^Smelt with ⚫1/))
+    expect(button(new RegExp(`^Fill with ${WOOD}`)).textContent).toBe(`Fill with ${WOOD}no fuel`)
+    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 0'])
+    fireEvent.click(button(/^Load/))
+    fireEvent.click(button(/^Fill with ⚫/))
     t.rerender()
-    expect(t.get().run.furnace.queue).toBe(1)
-    expect(summary()).toBe('🔥 Furnace · 1 queued · 1 ready · next bar 60s')
-    expect(smelt(/^Smelt with ⚫1/).textContent).toBe('Smelt with ⚫1no ore')
-    fireEvent.click(screen.getByRole('button', { name: /^Collect 1/ }))
+    expect(t.get().run.furnace).toMatchObject({ ore: 3, fire: 60 })
+    expect(summary()).toBe('🔥 Furnace · fire 2/10 · ore 3 · 1 ready')
+    expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreno ore`)
+    fireEvent.click(button(/^Collect 1/))
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
     // bars have no sell buttons
     t.rerender()
     expect(within(screen.getByText(/Copper bar ×1/).parentElement!).queryByRole('button')).toBeNull()
-  })
-
-  it('furnace: the auto-smelt toggle starts off and switches run.autoSmelt', () => {
-    const t = setup({ furnace: { built: true, queue: 0, progress: 0, ready: 0 } })
-    const toggle = screen.getByRole('checkbox', { name: /Auto-smelt/ }) as HTMLInputElement
-    expect(toggle.checked).toBe(false)
-    fireEvent.click(toggle)
-    t.rerender()
-    expect(t.get().run.autoSmelt).toBe(true)
-    expect((screen.getByRole('checkbox', { name: /Auto-smelt/ }) as HTMLInputElement).checked).toBe(true)
   })
 
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {

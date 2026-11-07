@@ -61,11 +61,18 @@ export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 export type Price = { cash: number } & Partial<Record<ItemId, number>>
 // Furnace (round-5 research): built once vein level `vein` is owned.
 const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
-// One smelt job = `ore` copper ore + one fuel choice → 1 copper bar after barTicks. The furnace holds queueCap jobs,
-// counting the bars still waiting in its output tray.
-const SMELT = { ore: 2, fuel: { coal: 1, wood: 2 }, barTicks: 60, queueCap: 5 }
-export type FuelId = keyof typeof SMELT.fuel
-export const FUEL_IDS = Object.keys(SMELT.fuel) as FuelId[]
+// Fuelled furnace (batch 9): fire is kept in burn ticks, one fire unit = FIRE_UNIT_TICKS; a fuel item adds FUEL_UNITS.
+// A smelt cycle burns barTicks of fire and turns `ore` × batch copper ore from the ore slot (oreSlot ore) into batch
+// bars; it needs tray room for them (ready + batch ≤ trayCap). One cycle = 2 units = 1 coal or 2 wood, as before.
+const SMELT = { ore: 2, barTicks: 60, trayCap: 5, oreSlot: 10 }
+const FIRE_UNIT_TICKS = 30
+const FUEL_UNITS = { coal: 2, wood: 1 }
+export type FuelId = keyof typeof FUEL_UNITS
+export const FUEL_IDS = Object.keys(FUEL_UNITS) as FuelId[]
+/** fire capacity in units per fire-capacity level (index = level) */
+const FIRE_CAP_UNITS = [10, 20, 40]
+/** bars per cycle per batch level (index = level) */
+const BATCH_BARS = [1, 2, 3]
 // craft = price of a new one, repair = price to fix a blunt one (below craft), hits = rock hits per mine action.
 // Each tier's durability must beat the previous tier's Lv10 lifetime (balance test).
 const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: number; hits: number }> = {
@@ -251,18 +258,54 @@ export function smeltOre(): number {
   return SMELT.ore
 }
 
-/** units of this fuel per bar */
+/** items of this fuel one cycle burns (coal 1, wood 2) */
 export function smeltFuel(fuel: FuelId): number {
-  return SMELT.fuel[fuel]
+  return SMELT.barTicks / fuelTicks(fuel)
 }
 
+/** fire ticks one cycle burns */
 export function barTicks(): number {
   return SMELT.barTicks
 }
 
-/** queued jobs + bars waiting in the tray */
-export function furnaceQueueCap(): number {
-  return SMELT.queueCap
+/** burn ticks per fire unit */
+export function fireUnitTicks(): number {
+  return FIRE_UNIT_TICKS
+}
+
+/** fire units one item of this fuel adds (wood 1, coal 2) */
+export function fuelUnits(fuel: FuelId): number {
+  return FUEL_UNITS[fuel]
+}
+
+/** burn ticks one item of this fuel adds */
+export function fuelTicks(fuel: FuelId): number {
+  return FUEL_UNITS[fuel] * FIRE_UNIT_TICKS
+}
+
+/** fire capacity in units at this fire-capacity level */
+export function fireCapUnits(level: number): number {
+  return FIRE_CAP_UNITS[level]
+}
+
+/** fire capacity in burn ticks at this fire-capacity level */
+export function fireCapTicks(level: number): number {
+  return FIRE_CAP_UNITS[level] * FIRE_UNIT_TICKS
+}
+
+/** bars one cycle makes at this batch level */
+export function batchBars(level: number): number {
+  return BATCH_BARS[level]
+}
+
+/** bars the output tray holds */
+export function furnaceTrayCap(): number {
+  return SMELT.trayCap
+}
+
+/** copper ore the furnace's ore slot holds */
+export function oreSlotCap(): number {
+  return SMELT.oreSlot
 }
 
 export function pickaxeDurability(tier: PickaxeTier): number {

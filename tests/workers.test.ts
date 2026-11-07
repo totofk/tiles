@@ -294,8 +294,8 @@ describe('workers vs manual, 9 pumpkin tiles, 1200 ticks', () => {
 })
 
 describe('new runs', () => {
-  it('start with no workers, no certificates, no wages paid and auto-smelt off', () => {
+  it('start with no workers, no certificates and no wages paid', () => {
     expect(init.run.workers).toEqual({ pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] })
-    expect([init.run.lifetime.wagesPaid, init.run.autoSmelt, freeWorkers(init.run)]).toEqual([0, false, 0])
+    expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
   })
 })

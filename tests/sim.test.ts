@@ -7,6 +7,7 @@ import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tool
 import {
   ACTION_ENERGY_COST,
   OFFLINE_CAP_TICKS,
+  barTicks,
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
@@ -14,6 +15,7 @@ import {
   itemSellPrice,
   licenseCost,
   furnaceCost,
+  furnaceTrayCap,
   mineLicenseCost,
   pickaxeCraftCost,
   pickaxeRepairCost,
@@ -26,7 +28,7 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { buildFurnace, collectBars, enqueueSmelt, setAutoSmelt } from '../src/core/furnace'
+import { addFuel, buildFurnace, collectBars, loadOre } from '../src/core/furnace'
 import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
@@ -82,7 +84,8 @@ const lowestValue = ({ run }: GameState) =>
     ...Object.values(run.inventory),
     ...Object.values(run.seeds),
     run.pickaxe?.durability ?? 0,
-    run.furnace.queue,
+    run.furnace.fire,
+    run.furnace.ore,
     run.furnace.ready,
     run.furnace.progress,
   )
@@ -92,13 +95,31 @@ type LadderStep = 'storageLv1' | 'veinLv1' | 'furnace' | 'storageLv2' | 'veinLv2
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
+/** cycles loaded in the furnace (ore in the slot, fuelled with them); the old queue */
+const cyclesLoaded = ({ run }: GameState) => Math.floor(run.furnace.ore / smeltOre())
 /** keep `bars` bars plus the ore and coal to smelt the ones not yet in storage, the furnace or its tray */
 const keepBars =
   (bars: number) =>
-  ({ run }: GameState): Price => {
-    const toSmelt = Math.max(0, bars - (run.inventory.copperBar ?? 0) - run.furnace.queue - run.furnace.ready)
+  (s: GameState): Price => {
+    const { run } = s
+    const toSmelt = Math.max(0, bars - (run.inventory.copperBar ?? 0) - cyclesLoaded(s) - run.furnace.ready)
     return { cash: 0, copperBar: bars, copperOre: smeltOre() * toSmelt, coal: smeltFuel('coal') * toSmelt }
   }
+/**
+ * batch 9: what the batch-7 bot's "enqueue coal jobs while it can" does on the fuelled furnace: load k cycles of ore
+ * and exactly k coal together, k ≤ the old 5-job cap (cycles loaded + tray), so the fire never burns without ore
+ */
+function smeltCoalJobs(s: GameState): ActionResult {
+  const { inventory, furnace } = s.run
+  const k = Math.min(
+    Math.floor((inventory.copperOre ?? 0) / smeltOre()),
+    Math.floor((inventory.coal ?? 0) / smeltFuel('coal')),
+    furnaceTrayCap() - cyclesLoaded(s) - furnace.ready,
+  )
+  if (k < 1) return { ok: false, error: 'NOTHING_TO_DO' }
+  const ore = loadOre(s, k * smeltOre())
+  return ore.ok ? addFuel(ore.state, 'coal', k * smeltFuel('coal')) : ore
+}
 const LADDER: Goal[] = [
   { name: 'storageLv1', done: (s) => s.run.storageLevel >= 1, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
   { name: 'veinLv1', done: (s) => s.run.vein.level >= 1, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
@@ -212,7 +233,7 @@ function runBot(
       if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
       const next = goals.find((g) => !g.done(s))
       if (smeltsFor(next)) {
-        while (tryAct(enqueueSmelt(s, 'coal'), null));
+        tryAct(smeltCoalJobs(s), null)
         tryAct(collectBars(s), null)
       }
       if (bagCount(s.run) >= s.run.bagCapacity) {
@@ -988,15 +1009,18 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
     expect(s.run.lifetime.wagesPaid).toBe(end.run.lifetime.wagesPaid)
   })
 
-  it('8 h offline with workers and auto-smelt: more cash, and every bar the stock and queue allow', () => {
-    const r = setAutoSmelt(end, true)
-    if (!r.ok) throw new Error(r.error)
-    const before = r.state
+  // batch 9: auto-smelt is gone; the player loads ore and fills the fire with coal before leaving
+  it('8 h offline with workers and a loaded furnace: more cash, and every bar the loaded ore, fire and tray allow', () => {
+    const loaded = loadOre(end)
+    const ored = loaded.ok ? loaded.state : end
+    const fuelled = addFuel(ored, 'coal')
+    const before = fuelled.ok ? fuelled.state : ored
     const { inventory, furnace } = before.run
-    const ore = inventory.copperOre ?? 0
+    const ore = furnace.ore
     const coal = inventory.coal ?? 0
     const bars = (s: GameState) => (s.run.inventory.copperBar ?? 0) + s.run.furnace.ready
-    const allowed = bars(before) + furnace.queue + Math.min(Math.floor(ore / smeltOre()), Math.floor(coal / smeltFuel('coal')))
+    const allowed =
+      bars(before) + Math.min(Math.floor(ore / smeltOre()), Math.floor(furnace.fire / barTicks()), furnaceTrayCap() - furnace.ready)
     const t0 = performance.now()
     const after = catchUp(before, OFFLINE_CAP_TICKS * 1000)
     const runtimeMs = performance.now() - t0
@@ -1004,7 +1028,7 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
       cash: [before.run.cash, after.run.cash],
       bars: [bars(before), bars(after)],
       allowed,
-      stock: { ore, coal, queue: furnace.queue, ready: furnace.ready, storage: `${bagCount(before.run)}/${before.run.bagCapacity}` },
+      stock: { ore, coal, fire: furnace.fire, ready: furnace.ready, storage: `${bagCount(before.run)}/${before.run.bagCapacity}` },
       wagesPaid: after.run.lifetime.wagesPaid - before.run.lifetime.wagesPaid,
       runtimeMs: Math.round(runtimeMs),
     }

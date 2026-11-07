@@ -4,16 +4,22 @@ import {
   BAG_CAPACITY_START,
   OFFLINE_CAP_TICKS,
   barTicks,
+  batchBars,
+  fireCapTicks,
+  fireCapUnits,
+  fireUnitTicks,
+  fuelUnits,
   furnaceCost,
-  furnaceQueueCap,
+  furnaceTrayCap,
   furnaceVeinLevel,
   isSellable,
+  oreSlotCap,
   smeltFuel,
   smeltOre,
 } from '../src/core/balance'
-import { advanceFurnace, buildFurnace, collectBars, enqueueSmelt, setAutoSmelt } from '../src/core/furnace'
+import { addFuel, buildFurnace, collectBars, loadOre, smelting } from '../src/core/furnace'
 import { bagCount, sellItem } from '../src/core/mining'
-import { createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, type Furnace, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { catchUp } from '../src/save/serialize'
 
@@ -35,7 +41,7 @@ describe('buildFurnace', () => {
     expect([furnaceCost(meta), furnaceVeinLevel()]).toEqual([{ stone: 20, coal: 5, cash: 150 }, 1])
     const s = withRun({ cash: 160, inventory: { stone: 21, coal: 5 }, vein: veinLv1 })
     const next = okState(buildFurnace(s))
-    expect(next.run.furnace).toEqual({ built: true, queue: 0, progress: 0, ready: 0 })
+    expect(next.run.furnace).toEqual({ ...createFurnace(), built: true })
     expect([next.run.cash, next.run.inventory, next.run.energy]).toEqual([10, { stone: 1, coal: 0 }, s.run.energy])
     expect(buildFurnace(next)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
@@ -55,56 +61,124 @@ describe('buildFurnace', () => {
   })
 })
 
-const built = { built: true, queue: 0, progress: 0, ready: 0 }
+const built: Furnace = { ...createFurnace(), built: true }
 const smelter = (run: Partial<GameState['run']> = {}) => withRun({ furnace: built, ...run })
+const furnace = (f: Partial<Furnace>) => smelter({ furnace: { ...built, ...f } })
+/** n single steps, the reference every step(s, n) must equal */
+function oneByOne(s: GameState, n: number): GameState {
+  for (let i = 0; i < n; i++) s = step(s, 1)
+  return s
+}
 
-describe('enqueueSmelt', () => {
-  it('pays 2 copper ore + 1 coal or 2 wood now, queues one job, no energy', () => {
-    expect([smeltOre(), smeltFuel('coal'), smeltFuel('wood'), barTicks(), furnaceQueueCap()]).toEqual([2, 1, 2, 60, 5])
-    const s = smelter({ inventory: { copperOre: 5, coal: 1, wood: 2 } })
-    const coal = okState(enqueueSmelt(s, 'coal'))
-    expect([coal.run.inventory, coal.run.furnace.queue, coal.run.energy]).toEqual([{ copperOre: 3, coal: 0, wood: 2 }, 1, s.run.energy])
-    const wood = okState(enqueueSmelt(coal, 'wood'))
-    expect([wood.run.inventory, wood.run.furnace.queue]).toEqual([{ copperOre: 1, coal: 0, wood: 0 }, 2])
-  })
-
-  it('validates furnace, full queue (queued + tray), ore, fuel in that order', () => {
-    const rich = { inventory: { copperOre: 99, coal: 99, wood: 99 } }
-    expect(enqueueSmelt(withRun(rich), 'coal')).toEqual({ ok: false, error: 'NO_FURNACE' })
-    expect(enqueueSmelt(smelter({ ...rich, furnace: { ...built, queue: 5 } }), 'coal')).toEqual({ ok: false, error: 'QUEUE_FULL' })
-    expect(enqueueSmelt(smelter({ ...rich, furnace: { ...built, queue: 3, ready: 2 } }), 'coal')).toEqual({ ok: false, error: 'QUEUE_FULL' })
-    expect(enqueueSmelt(smelter({ inventory: { copperOre: 1, coal: 9 } }), 'coal')).toEqual({ ok: false, error: 'NOT_ENOUGH_ORE' })
-    expect(enqueueSmelt(smelter({ inventory: { copperOre: 2, wood: 1, coal: 9 } }), 'wood')).toEqual({ ok: false, error: 'NOT_ENOUGH_FUEL' })
-    expect(enqueueSmelt(smelter({ inventory: { copperOre: 2, wood: 9 } }), 'coal')).toEqual({ ok: false, error: 'NOT_ENOUGH_FUEL' })
+describe('fuelled furnace: balance', () => {
+  it('2 ore per bar, a cycle burns 60 ticks = 2 units = 1 coal or 2 wood; cap 10 units, tray 5, ore slot 10', () => {
+    expect([smeltOre(), barTicks(), fireUnitTicks(), fuelUnits('coal'), fuelUnits('wood')]).toEqual([2, 60, 30, 2, 1])
+    expect([smeltFuel('coal'), smeltFuel('wood')]).toEqual([1, 2])
+    expect([fireCapUnits(0), fireCapTicks(0), batchBars(0), furnaceTrayCap(), oreSlotCap()]).toEqual([10, 300, 1, 5, 10])
   })
 })
 
-describe('advanceFurnace / step', () => {
-  it('finishes one bar per 60 ticks into the tray, then idles with progress 0', () => {
-    const f = { ...built, queue: 2 }
-    expect(advanceFurnace(f, 59)).toEqual({ ...built, queue: 2, progress: 59 })
-    expect(advanceFurnace(f, 60)).toEqual({ ...built, queue: 1, ready: 1, progress: 0 })
-    expect(advanceFurnace(f, 150)).toEqual({ ...built, queue: 0, ready: 2, progress: 0 })
-    expect(advanceFurnace(built, 500)).toBe(built)
+describe('addFuel', () => {
+  it('fills with as many whole items as fit under the cap, partial when storage runs short, no energy', () => {
+    const s = smelter({ inventory: { coal: 9, wood: 3 } })
+    const coal = okState(addFuel(s, 'coal'))
+    expect([coal.run.furnace.fire, coal.run.inventory.coal, coal.run.energy]).toEqual([300, 4, s.run.energy])
+    expect(addFuel(coal, 'coal')).toEqual({ ok: false, error: 'FULL' })
+    const short = okState(addFuel(smelter({ inventory: { wood: 3 } }), 'wood'))
+    expect([short.run.furnace.fire, short.run.inventory.wood]).toEqual([90, 0])
   })
 
-  it('one call over n ticks equals n calls of 1 tick, for the helper and for step()', () => {
-    const f = { ...built, queue: 4, progress: 13, ready: 1 }
-    for (const n of [0, 1, 46, 47, 107, 200, 1000]) {
-      let one = f
-      for (let i = 0; i < n; i++) one = advanceFurnace(one, 1)
-      expect(advanceFurnace(f, n)).toEqual(one)
+  it('never goes over the cap: a part-burnt fire takes wood where a coal no longer fits', () => {
+    const s = furnace({ fire: 250 })
+    expect(addFuel({ ...s, run: { ...s.run, inventory: { coal: 5, wood: 5 } } }, 'coal')).toEqual({ ok: false, error: 'FULL' })
+    const wood = okState(addFuel({ ...s, run: { ...s.run, inventory: { coal: 5, wood: 5 } } }, 'wood'))
+    expect([wood.run.furnace.fire, wood.run.inventory.wood]).toEqual([280, 4])
+  })
+
+  it('max limits the items added (one coal for a loader)', () => {
+    const one = okState(addFuel(smelter({ inventory: { coal: 9 } }), 'coal', 1))
+    expect([one.run.furnace.fire, one.run.inventory.coal]).toEqual([60, 8])
+  })
+
+  it('validates furnace, full fire, no fuel in that order', () => {
+    expect(addFuel(withRun({ inventory: { coal: 9 } }), 'coal')).toEqual({ ok: false, error: 'NO_FURNACE' })
+    expect(addFuel(furnace({ fire: 300 }), 'wood')).toEqual({ ok: false, error: 'FULL' })
+    expect(addFuel(smelter({ inventory: { wood: 9 } }), 'coal')).toEqual({ ok: false, error: 'NO_FUEL' })
+  })
+})
+
+describe('loadOre', () => {
+  it('moves copper ore from storage into the slot, as much as fits, at most max', () => {
+    const s = smelter({ inventory: { copperOre: 14 } })
+    const full = okState(loadOre(s))
+    expect([full.run.furnace.ore, full.run.inventory.copperOre]).toEqual([10, 4])
+    expect(loadOre(full)).toEqual({ ok: false, error: 'FULL' })
+    const two = okState(loadOre(s, 2))
+    expect([two.run.furnace.ore, two.run.inventory.copperOre]).toEqual([2, 12])
+  })
+
+  it('validates furnace, full slot, no ore in that order', () => {
+    expect(loadOre(withRun({ inventory: { copperOre: 9 } }))).toEqual({ ok: false, error: 'NO_FURNACE' })
+    expect(loadOre(furnace({ ore: 10 }))).toEqual({ ok: false, error: 'FULL' })
+    expect(loadOre(smelter())).toEqual({ ok: false, error: 'NO_ORE' })
+  })
+})
+
+describe('fuelled furnace: step', () => {
+  it('one cycle burns 60 ticks of fire and turns 2 ore into a bar; the ore leaves the slot when the cycle completes', () => {
+    const s = furnace({ fire: 60, ore: 3 })
+    expect(step(s, 59).run.furnace).toEqual({ ...built, fire: 1, ore: 3, progress: 59 })
+    const done = step(s, 60)
+    expect(done.run.furnace).toEqual({ ...built, fire: 0, ore: 1, progress: 0, ready: 1 })
+    expect(done.run.lifetime).toMatchObject({ fireBurnt: 60, fireWasted: 0, barsSmelted: 1 })
+  })
+
+  it('a plain furnace burns whenever lit: no ore or a full tray wastes fire, bounded by one tank', () => {
+    const noOre = step(furnace({ fire: 300 }), 1000)
+    expect(noOre.run.furnace).toEqual(built)
+    expect(noOre.run.lifetime).toMatchObject({ fireBurnt: 300, fireWasted: 300, barsSmelted: 0 })
+    const trayFull = step(furnace({ fire: 100, ore: 4, ready: 5 }), 10)
+    expect(trayFull.run.furnace).toEqual({ ...built, fire: 90, ore: 4, ready: 5 })
+    expect(trayFull.run.lifetime.fireWasted).toBe(10)
+  })
+
+  it('a smart furnace burns only while a cycle progresses', () => {
+    expect(step(furnace({ fire: 300, smart: true }), 1000).run.furnace).toEqual({ ...built, fire: 300, smart: true })
+    const s = furnace({ fire: 300, ore: 2, smart: true })
+    const after = step(s, 1000)
+    expect(after.run.furnace).toEqual({ ...built, fire: 240, ready: 1, smart: true })
+    expect(after.run.lifetime).toMatchObject({ fireBurnt: 60, fireWasted: 0 })
+  })
+
+  it('fire running out mid-cycle pauses it; new fuel resumes it where it stopped', () => {
+    const paused = step(furnace({ fire: 30, ore: 2 }), 100)
+    expect(paused.run.furnace).toEqual({ ...built, ore: 2, progress: 30 })
+    const refuelled = okState(addFuel({ ...paused, run: { ...paused.run, inventory: { wood: 1 } } }, 'wood'))
+    expect(step(refuelled, 30).run.furnace).toEqual({ ...built, ready: 1 })
+  })
+
+  it('batch level 1: a cycle takes 4 ore and makes 2 bars for the same fire, and needs tray room for both', () => {
+    const levels = { fireCap: 0, batch: 1 }
+    expect(step(furnace({ fire: 60, ore: 4, levels }), 60).run.furnace).toEqual({ ...built, levels, ready: 2 })
+    expect(smelting({ ...built, levels, fire: 60, ore: 3 })).toBe(false)
+    expect(smelting({ ...built, levels, fire: 60, ore: 4, ready: 4 })).toBe(false)
+    expect(smelting({ ...built, levels, fire: 60, ore: 4, ready: 3 })).toBe(true)
+  })
+
+  it('step(s, n) equals n × step(s, 1): fire out mid-cycle, ore out, tray filling, smart, and 8 h of catch-up', () => {
+    const cases: Partial<Furnace>[] = [
+      { fire: 90, ore: 10 }, // fire runs out mid-cycle
+      { fire: 300, ore: 3, progress: 17 }, // ore runs out, then the fire burns away
+      { fire: 300, ore: 10, ready: 3 }, // tray fills, then wasted fire
+      { fire: 300, ore: 5, smart: true }, // smart: stops burning when ore runs out
+      { fire: 1200, ore: 10, levels: { fireCap: 2, batch: 2 } },
+    ]
+    for (const f of cases) {
+      const s = furnace(f)
+      for (const n of [1, 59, 60, 61, 200, 1300]) expect(step(s, n)).toEqual(oneByOne(s, n))
     }
-    const s = smelter({ furnace: f })
-    let ticked = s
-    for (let i = 0; i < 300; i++) ticked = step(ticked, 1)
-    expect(step(s, 300)).toEqual(ticked)
-    expect(ticked.run.furnace).toEqual({ ...built, queue: 0, progress: 0, ready: 5 })
-  })
-
-  it('8 h of offline catch-up with a full queue gives 5 bars and progress 0', () => {
-    const s = smelter({ furnace: { ...built, queue: 5 } })
-    expect(catchUp(s, OFFLINE_CAP_TICKS * 1000).run.furnace).toEqual({ ...built, queue: 0, progress: 0, ready: 5 })
+    const s = furnace({ fire: 300, ore: 10 })
+    expect(catchUp(s, OFFLINE_CAP_TICKS * 1000).run.furnace).toEqual({ ...built, ready: 5 })
   })
 })
 
@@ -119,63 +193,6 @@ describe('collectBars', () => {
   it('validates furnace, empty tray, full storage in that order', () => {
     expect(collectBars(withRun({ furnace: { ...built, built: false, ready: 1 } }))).toEqual({ ok: false, error: 'NO_FURNACE' })
     expect(collectBars(smelter())).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
-  })
-})
-
-describe('auto-smelt', () => {
-  it('is a free toggle once the furnace is built, off in a new run', () => {
-    expect(createInitialState().run.autoSmelt).toBe(false)
-    expect(setAutoSmelt(withRun({}), true)).toEqual({ ok: false, error: 'NO_FURNACE' })
-    const on = okState(setAutoSmelt(smelter({ cash: 7 }), true))
-    expect([on.run.autoSmelt, on.run.cash]).toEqual([true, 7])
-    expect(okState(setAutoSmelt(on, false)).run.autoSmelt).toBe(false)
-  })
-
-  it('off: step never queues or collects', () => {
-    const s = smelter({ inventory: { copperOre: 4, coal: 2 }, furnace: { ...built, ready: 1 } })
-    expect(step(s, 10).run.inventory).toEqual(s.run.inventory)
-    expect(step(s, 10).run.furnace).toEqual(s.run.furnace)
-  })
-
-  it('on: queues coal jobs while ore, coal and room last, never wood, and collects bars into storage', () => {
-    const s = smelter({ autoSmelt: true, inventory: { copperOre: 7, coal: 2, wood: 6 } })
-    const next = step(s, 1)
-    expect(next.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 6 })
-    expect(next.run.furnace.queue).toBe(2)
-    const done = step(s, 2 * barTicks() + 1)
-    expect(done.run.furnace).toEqual(built)
-    expect(done.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 6, copperBar: 2 })
-    expect(done.run.lifetime.bars).toBe(2)
-  })
-
-  it('collects first, so a full tray frees room for new jobs; a full storage leaves bars in the tray', () => {
-    const tray = smelter({ autoSmelt: true, furnace: { ...built, ready: 5 }, inventory: { copperOre: 2, coal: 1 } })
-    const next = step(tray, 1)
-    expect([next.run.inventory.copperBar, next.run.furnace.ready, next.run.furnace.queue]).toEqual([5, 0, 1])
-    const full = smelter({ autoSmelt: true, furnace: { ...built, ready: 2 }, inventory: { stone: BAG_CAPACITY_START } })
-    expect(step(full, 3).run.furnace.ready).toBe(2)
-  })
-
-  it('uses only what is in storage: step(s, n) equals n × step(s, 1), with ore arriving between ticks', () => {
-    const s = smelter({ autoSmelt: true, inventory: { copperOre: 9, coal: 3, wood: 4 }, furnace: { ...built, queue: 1, progress: 30 } })
-    let one = s
-    for (let i = 0; i < 400; i++) one = step(one, 1)
-    expect(step(s, 400)).toEqual(one)
-    // 1 queued + 3 coal jobs = 4 bars; 3 ore left (no coal for them), wood untouched
-    expect(one.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 4, copperBar: 4 })
-    // coal that arrives later (e.g. from mining between ticks) is picked up on the next tick
-    const more: GameState = { ...one, run: { ...one.run, inventory: { ...one.run.inventory, coal: 1 } } }
-    let a = more
-    for (let i = 0; i < 100; i++) a = step(a, 1)
-    expect(step(more, 100)).toEqual(a)
-    expect(a.run.inventory).toMatchObject({ copperOre: 1, coal: 0, copperBar: 5 })
-  })
-
-  it('8 h of offline catch-up smelts everything storage allows', () => {
-    const s = smelter({ autoSmelt: true, inventory: { copperOre: 20, coal: 10 } })
-    const after = catchUp(s, OFFLINE_CAP_TICKS * 1000)
-    expect(after.run.inventory).toEqual({ copperOre: 0, coal: 0, copperBar: 10 })
-    expect(after.run.furnace).toEqual(built)
   })
 })
 

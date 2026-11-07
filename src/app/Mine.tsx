@@ -3,7 +3,8 @@ import type { ActionError, ActionResult } from '../core/actions'
 import {
   FUEL_IDS,
   barTicks,
-  furnaceQueueCap,
+  fireCapUnits,
+  fireUnitTicks,
   furnaceVeinLevel,
   smeltFuel,
   smeltOre,
@@ -25,7 +26,7 @@ import {
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
-import { collectBars, enqueueSmelt, setAutoSmelt } from '../core/furnace'
+import { addFuel, collectBars, loadOre } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -41,8 +42,6 @@ import {
 } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
-import { Info } from './Info'
-import { TIPS } from './tips'
 import { ERROR_TEXT, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
@@ -50,8 +49,8 @@ const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
-/** smelt-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
-const SMELT_SHORT: Partial<Record<ActionError, string>> = { NOT_ENOUGH_ORE: 'no ore', NOT_ENOUGH_FUEL: 'no fuel', QUEUE_FULL: 'full', BAG_FULL: 'storage full' }
+/** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
+const SMELT_SHORT: Partial<Record<ActionError, string>> = { NO_ORE: 'no ore', NO_FUEL: 'no fuel', FULL: 'full', BAG_FULL: 'storage full' }
 const STOCK_LABEL = { copperOre: 'ore', coal: 'coal', wood: 'wood' }
 
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free */
@@ -67,24 +66,33 @@ function sellAll(s: GameState): ActionResult {
   }, { ok: true, state: s })
 }
 
-/** collapsible so the Mine panel stays short at 375 px; the summary line alone says what the furnace is doing */
+/** a disabled furnace button's short reason */
+function reason(r: ActionResult) {
+  return !r.ok && <small>{SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error]}</small>
+}
+
+/**
+ * Collapsible so the Mine panel stays short at 375 px; the summary line alone says what the furnace is doing.
+ * Minimal batch-9 controls (load ore, fill with each fuel, collect); task 59 brings the fire gauge and upgrades.
+ */
 function Furnace({ state, act }: { state: GameState; act: Act }) {
   const { run } = state
   const f = run.furnace
   const collect = collectBars(state)
+  const ore = loadOre(state)
   const have = (id: ItemId) => run.inventory[id] ?? 0
+  const fire = Math.ceil(f.fire / fireUnitTicks())
   return (
     <details className="mine-furnace">
       <summary>
-        🔥 Furnace · {f.queue} queued · {f.ready} ready
-        {f.queue > 0 && <small> · next bar {barTicks() - f.progress}s</small>}
+        🔥 Furnace · fire {fire}/{fireCapUnits(f.levels.fireCap)} · ore {f.ore} · {f.ready} ready
       </summary>
-      {f.queue > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
+      {f.progress > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
       <small>
         {ITEMS.copperOre.emoji}
         {smeltOre()} + {ITEMS.coal.emoji}
         {smeltFuel('coal')} or {ITEMS.wood.emoji}
-        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
+        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}1 · {barTicks()} s ·{' '}
         {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
           <Fragment key={id}>
             {i > 0 && ' · '}
@@ -95,26 +103,23 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
         ))}
       </small>
       <div className="mine-furnace-actions">
+        <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
+          Load {ITEMS.copperOre.emoji} ore
+          {reason(ore)}
+        </button>
         {FUEL_IDS.map((fuel) => {
-          const r = enqueueSmelt(state, fuel)
+          const r = addFuel(state, fuel)
           return (
-            <button key={fuel} disabled={!r.ok} onClick={() => act((s) => enqueueSmelt(s, fuel))}>
-              Smelt with {`${ITEMS[fuel].emoji}${smeltFuel(fuel)}`}
-              {!r.ok && <small>{SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error]}</small>}
+            <button key={fuel} disabled={!r.ok} onClick={() => act((s) => addFuel(s, fuel))}>
+              Fill with {ITEMS[fuel].emoji}
+              {reason(r)}
             </button>
           )
         })}
         <button disabled={!collect.ok} onClick={() => act(collectBars)}>
           Collect {f.ready} {ITEMS.copperBar.emoji}
-          {!collect.ok && f.ready > 0 && <small>{SMELT_SHORT[collect.error] ?? ERROR_TEXT[collect.error]}</small>}
+          {f.ready > 0 && reason(collect)}
         </button>
-      </div>
-      <div className="pouch-auto">
-        <label>
-          <input type="checkbox" checked={run.autoSmelt} onChange={(e) => act((s) => setAutoSmelt(s, e.target.checked))} />
-          Auto-smelt with {ITEMS.coal.emoji} coal and collect
-        </label>
-        <Info text={TIPS.autoSmelt} />
       </div>
     </details>
   )

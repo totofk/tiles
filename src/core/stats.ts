@@ -109,7 +109,6 @@ export function stats(state: GameState): Stats {
       value: `${pool} hired · ${freeWorkers(run)} free`,
       source: WORKER_JOBS.map((job) => `${job} ${assigned[job]}`).join(' · '),
     },
-    { label: 'Auto-smelt', value: run.furnace.built ? (run.autoSmelt ? 'on' : 'off') : 'no furnace' },
   ]
   return { totals, multipliers }
 }

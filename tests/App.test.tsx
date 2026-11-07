@@ -177,7 +177,7 @@ describe('loan debt with a fake clock', () => {
 
   it('the welcome-back banner says how many bars the furnace finished while away', () => {
     const s = createInitialState()
-    const furnace = { built: true, queue: 3, progress: 0, ready: 0 }
+    const furnace = { ...s.run.furnace, built: true, fire: 300, ore: 6 }
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, furnace } }, Date.now() - 150_000))
     render(<App />)
     expect(screen.getByRole('status').textContent).toMatch(/ticks simulated · 🔥 2 bars ready/)

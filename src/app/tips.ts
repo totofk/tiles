@@ -54,7 +54,6 @@ export const TIPS = {
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
   furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
-  autoSmelt: 'The furnace queues ore with coal by itself and moves finished bars into storage, also while you are away. Never burns wood, so repair wood is safe. Free.',
   hire: 'Adds one worker to your pool; put them on a job with + and −. Workers act on their own clock without your energy, also while you are away. Each action costs a small wage, paid only when they work; with no cash they wait. Each hire costs more than the last, up to a cap.',
 }
 

@@ -217,7 +217,7 @@ describe('upgradeVein', () => {
     const lv1 = { level: 1, progress: 0, rock: 'stone' as const }
     const s = miner({ cash: 200, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: lv1 })
     expect(upgradeVein(s)).toEqual({ ok: false, error: 'NO_FURNACE' })
-    const next = okState(upgradeVein({ ...s, run: { ...s.run, furnace: { built: true, queue: 0, progress: 0, ready: 0 } } }))
+    const next = okState(upgradeVein({ ...s, run: { ...s.run, furnace: { ...s.run.furnace, built: true } } }))
     expect([next.run.vein.level, next.run.cash, next.run.inventory]).toEqual([2, 0, { stone: 0, coal: 0 }])
     expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3, coal: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
   })
