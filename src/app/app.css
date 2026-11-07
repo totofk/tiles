@@ -408,6 +408,16 @@ button:disabled {
 .bar > span {
   display: block;
   height: 100%;
+  /* eases between two 1 s ticks while the value grows; Bar adds .bar-down when it drops, so a reset jumps */
+  transition: width 1s linear;
+}
+.bar-down > span {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar > span {
+    transition: none;
+  }
 }
 .bar-grow > span {
   background: #43a047;
@@ -505,12 +515,37 @@ button:disabled {
   gap: 4px;
   font-size: 14px;
 }
-.mine-furnace summary {
+/* every collapsible card (🔥 Furnace, 👷 Workers): a pressable header. display: flex hides the native marker, so a
+   ▸ / ▾ chevron follows `open` instead (the webkit marker is hidden too, or Safari would show both) */
+details > summary {
   min-height: 44px;
   display: flex;
   align-items: center;
   gap: 4px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
   cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details > summary::before {
+  content: '▸';
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+details[open] > summary::before {
+  content: '▾';
+}
+details > summary:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+details > summary:focus-visible {
+  outline: 2px solid #8a7a5c;
+  outline-offset: 2px;
 }
 /* 👷 card: closed it is one 44 px line, so the farm grid keeps its height (see PLAN "Batch 8 results" for widths) */
 .workers {
@@ -518,13 +553,6 @@ button:disabled {
   flex-direction: column;
   gap: 4px;
   font-size: 14px;
-}
-.workers summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
 }
 .worker-row {
   display: flex;

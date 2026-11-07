@@ -1255,7 +1255,7 @@ UI only; no `src/core/**`, `balance.ts` or save change (save stays v8). 374 test
 Toon's playtest feedback on the live batch-8.1 build: the free auto-smelt toggle is too easy; the furnace should need
 fuel that burns away; furnace upgrades and furnace workers replace the toggle. Plus three UI items. Save v8 → v9.
 
-- [ ] 56. **UI polish first (no core).** (a) The 🔥 Furnace and 👷 Workers `<summary>` headers do not look pressable
+- [x] 56. **UI polish first (no core).** (a) The 🔥 Furnace and 👷 Workers `<summary>` headers do not look pressable
     (`display: flex` on `summary` hides the native ▸ marker; app.css `.mine-furnace summary`, `.workers summary`):
     add a ▸ / ▾ chevron (U+25B8 / U+25BE) on the left that follows `open`, a light button-like background + radius,
     and a hover/focus state, the same for every collapsible card. (b) **Smooth bars:** progress bars (`.bar > span`:
@@ -1308,3 +1308,22 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
     smart; 8 h offline with both loaders on a plain vs smart furnace (waste ≤ one tank on plain when ore runs out);
     every copper-bar price ≤ what the player can hold; cash never negative; all older pins still pass. Tune only the
     batch-9 numbers in balance.ts and report every change as a deviation.
+
+## Batch 9 results
+
+### UI polish (task 56)
+- **Collapsible headers:** one `details > summary` rule for every card (🔥 Furnace, 👷 Workers): `list-style: none` +
+  `::-webkit-details-marker` hidden, a `::before` chevron ▸ / ▾ (U+25B8 / U+25BE, 1em wide, a flex item before the
+  text) that follows `[open]`, padding 0 8 px, radius 8, a light `rgba(0,0,0,.05)` fill, `.1` on hover, a 2 px outline
+  on `:focus-visible`. Widths, computed at 14 px (≈ 7 px/char, 18 px/emoji): summary text room = content − 16 padding −
+  14 chevron − 4 gap. **Furnace** (Mine column, `.mine` padding 8): 1024 → 225.3 − 16 = 209.3 → text 175.3; 1440 →
+  316.8 − 16 → 266.8; 375 → 343 → 309. The summary already wrapped to two lines at 1024 before (≈ 228 px of text); two
+  14 px lines ≈ 34 px stay inside the 44 px min-height, so the card does not grow. **Workers** ("👷 Workers · free 6 / 6"
+  + "unpaid" ≈ 221 px): Farm tab 284 → 250 (1024), 358 → 324 (1440), 359 → 325 (375) — one line everywhere. Chevron
+  and fill sit inside the summary box, so nothing moves into a neighbour; only the focus outline (2 + 2 px, no layout)
+  draws past the box, inside the 4–6 px gaps of `.workers` / `.mine`.
+- **Smooth bars:** `.bar > span { transition: width 1s linear }`; `Bar` keeps the previous value in state (React's
+  previous-props pattern, StrictMode-safe, no ref read in render) and adds `.bar-down` (`transition: none`) on the render
+  where the value drops, so harvest → 0, a new cycle or any drain jumps; `prefers-reduced-motion: reduce` turns the
+  transition off. Applies to every `Bar` (grow, water + its over-1 band, rot, tool, energy, furnace, mastery).
+  `tests/Bar.test.tsx`.
