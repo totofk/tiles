@@ -397,6 +397,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   stops mining), smelts with coal and collects while the copper pickaxe is the goal.
 - **Batch 7: 375 px numbers are computed from the CSS, not measured in a browser** (no dev server, same reason as
   batch 6.2).
+- **Batch 7: the first five commits (v5 fixture … copper pickaxe) carry a Co-Authored-By trailer; the later ones do
+  not.** The batch 6.2 rule (no AI attribution) was noticed mid-batch; rewriting the unpushed messages
+  (`git filter-branch --msg-filter`) needed an approval the headless run could not get, so they are left as is.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
