@@ -134,3 +134,30 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   be repaired by a later patch.
 - Hermes verifies on the live build: capture a save from the current Pages build before deploy, reload it after.
 - A save reset happens only when Toon decides it; prestige wiping `run` but keeping `meta` is design, not a reset.
+
+## Round-4 research outcome (progression, 2026-11-07, docs/research/progression.md, Fable)
+- **Layer ownership:** convenience tools (batch 5) own taps per press · material tiers own what a tool can do ·
+  mastery owns the running cost of a consumable (durability) · workers own who presses · milestone upgrades own
+  global rates (price, grow time, energy). A new upgrade must name the axis it owns; two layers never share one.
+- **Ingot tool upgrades = a distinct effect per job, not a flat energy cut** (flat cuts duplicate energy upgrades and
+  need fractional energy). Starting direction for copper/iron/gold: watering can moisture ×2/×4/×8, sickle
+  double-harvest 10/20/30 %, dibber seed-keep 20/35/50 %, pickaxe deeper veins in one hit + durability 200/500/1200.
+  Numbers are set with the furnace batch.
+- **Ore from deeper veins sells for ≤ 1;** its value comes from smelting, so new pickaxe tiers never lift mining
+  cash/energy above farming.
+- **Mastery stays per pickaxe tier (Toon), with a mastered reward:** each tier mastered (Lv10) adds +5 % preserve
+  chance to every pickaxe tier, permanently, inside the 80 % cap. No reset-feels-like-downgrade problem as long as
+  every new tier's base durability exceeds the previous tier's Lv10 lifetime (wood Lv10 = 125 < copper 200).
+  Prestige carry-over of the reward: decided with prestige.
+- **No farm-job mastery, no dig mastery, no shovel tiers** (Fable): per-job counters are shown as the job's
+  experience on the tool card instead.
+- **Durability 0 = blunt, not destroyed** (Toon: break-and-vanish is too harsh): repair costs less than crafting
+  (wooden: 2 wood vs 3); later tiers repair with their ingot.
+- **Cash/energy hierarchy has two tiers** (the sim measures carrot farming at ~2.0, not the 2.7 estimate): hand
+  mining and pickaxe Lv0 stay below carrot farming; pickaxe Lv10 and vein upgrades stay below pumpkin farming —
+  mastery takes ~35–45 min, by which time the pumpkin license is affordable. Mining is for materials, not money.
+- **Batch order:** 6 mining progress → 7 furnace + ingot tool upgrades → 8 workers (manual play with more energy and
+  the n/all tools carries the farm until then; Toon). Furnace/crafting details are designed after batch 6 playtest.
+- **Crops:** Chilli 🌶️ and Lemon 🍋 join carrot and pumpkin (batch 6, starting numbers; order carrot < chilli <
+  pumpkin < lemon by cash/energy and license cost).
+- **Stone sink:** Storage upgrade (+10 slots, 20 stone + 50 cash, ×1.6 per level, max 5); "Bag" displays as "📦 Storage". Worker certificates add more stone sinks later.

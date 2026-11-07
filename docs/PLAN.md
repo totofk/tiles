@@ -450,17 +450,35 @@ Other batch 5 checks:
   cash, final cash (394 / 116) and counters.
 - **Loan offline:** debt no longer grows during `catchUp` (reload and hidden-tab return); it still grows on live ticks.
 
-## Batch 6 — mining progress (tasks 26–30)
-Question: does mining feel like progress now (visible goals, mastery)?
-Decisions: DECISIONS.md "Round-2 research outcome" (mining parts). Save v5, same compatibility rules.
+## Batch 6 — mining progress + two new crops (tasks 26–31)
+Question: does mining feel like progress now (visible goals, mastery, repairs), and do more crops give the farm a next goal?
+Decisions: DECISIONS.md "Round-2 research outcome", "Round-4 research outcome (progression)". Save v5, same
+compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; chain v1–v4 → v5; backup key).
 
 26. [ ] Stone = 2 hits (`run.vein.progress`, crack shown at 1/2). After the mine license, hand mining works with no
-    pickaxe (1 hit per energy); pickaxe = 2 hits per energy. Wooden pickaxe durability 25. `counters.mines` counts
-    mine actions.
-27. [ ] Per-tool mastery: `run.mastery: Record<ToolTier | 'hand', xp>`, 1 xp per mine action with that tool,
-    thresholds 10/25/45/70/100/140/190/250/320/400 (next tier ×2). Preserve chance 1 − 1/(1 + 0.4·L), cap 0.8.
-28. [ ] Vein Lv1: 40 stone + 100 cash → 80 % stone / 20 % coal, coal sells 4 (`ItemId` gains `coal`).
-29. [ ] Mine panel: drop table with % for the current vein, next level greyed with its cost, mastery bar with
-    "lasts ~N uses", crack on half-mined stone, sell from the panel when the bag is full.
-30. [ ] Sim: cash/energy order dig < hand mining < pickaxe Lv0 < pickaxe Lv10 < farming, max mining < 0.9 × farming
-    (vein Lv1 included); nothing negative over 1200 ticks. Write "## Batch 6 results".
+    pickaxe (1 hit per energy); pickaxe = 2 hits per energy. Wooden pickaxe durability 25. Durability 0 = **blunt**:
+    the pickaxe stays owned but cannot mine until repaired (`repairPickaxe`, wooden = 2 wood; craft stays 3 wood);
+    hand mining still works while blunt. `counters.mines` counts mine actions.
+27. [ ] Pickaxe mastery **per tier** (only wood exists now): `run.mastery: Partial<Record<PickaxeTier, xp>>`, 1 xp per
+    mine action with that pickaxe (hand mining earns none), thresholds 10/25/45/70/100/140/190/250/320/400, next tier
+    thresholds ×2 (balance fn). Preserve chance 1 − 1/(1 + 0.4·L). **Mastered reward:** a tier reaching Lv10 is added
+    to `run.masteredTiers`; each mastered tier gives +5 % preserve chance to every pickaxe tier, permanently. Total
+    preserve capped at 0.8. Balance test encodes the tier rule: base durability of tier k+1 > Lv10 lifetime of tier k
+    (wood Lv10 = 125 uses) — with one tier it documents the rule for the furnace batch.
+28. [ ] Vein Lv1: 40 stone + 100 cash → 80 % stone / 20 % coal, coal sells 4 (`ItemId` gains `coal`). **Storage
+    upgrade:** +10 capacity per level, level 1 = 20 stone + 50 cash, ×1.6 both per level, max 5, in the Upgrades tab
+    once the mine license is owned. Display rename "Bag" → "📦 Storage" everywhere (code ids `bagCapacity`,
+    `inventory` unchanged). The seed pouch stays separate.
+29. [ ] Mine panel: drop table with % for the current vein; a greyed row "🔒 Lv2: iron ore — needs Furnace (coming)"
+    with no numbers; mastery bar with "lasts ~N uses" (expected uses incl. preserve), "Mastered ✓ +5 % all pickaxes"
+    badge; crack on half-mined stone; blunt state + Repair button with its cost; sell from the panel when storage
+    is full. Usable at 375 px.
+30. [ ] Two crops: **Chilli 🌶️** (seed 5 → sells 25, 160 ticks, license 50) and **Lemon 🍋** (seed 20 → sells 110,
+    360 ticks, license 400). Starting numbers; licenses in Shop, seeds in the pouch like the others, dig table stays
+    carrot only. No save-shape change beyond the CropId union (old saves load unchanged — test it).
+31. [ ] Sim (two-tier hierarchy, decided 2026-11-07): (a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming;
+    (b) pickaxe Lv10 and vein Lv1 + Lv10 (repair cost included) < 0.9 × **pumpkin** farming, both farming values
+    measured by the sim (watering counted); (c) farming cash/energy order carrot < chilli < pumpkin < lemon, and
+    each license affordable in order within a normal session (report ticks); (d) storage level 1 affordable within
+    ~600 ticks of mine-early play; (e) nothing negative over 1200 ticks; batch-3 greedy numbers stay pinned. Retune
+    crop numbers only if (c) fails. Write "## Batch 6 results" with every measured cash/energy value.
