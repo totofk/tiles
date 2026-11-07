@@ -152,10 +152,54 @@ Question: does digging while crops grow remove the "idle" feeling, without out-e
 13. [x] Mining UI: a "Mine" panel under the farm (dig button with pickaxe durability bar, bag N/cap, item rows with
     sell buttons, craft/buy buttons). Shop: mine license. Fix the three UI nits: unaffordable cards unreadable
     (dim the button, not the price), "💰 75" wrapping in the HUD, Reset button too easy (small, bottom, confirm).
-14. [ ] Sim: bot farms 9 tiles and digs whenever energy is idle and no farm action is possible. Assert: cash never
+14. [x] Sim: bot farms 9 tiles and digs whenever energy is idle and no farm action is possible. Assert: cash never
     negative; mining cash per energy spent < farming cash per energy spent (report both); mine license affordable
     within ~150 ticks; first pickaxe never leaves cash below 0. Record tuned numbers under "Batch 3 results".
 
 Starting numbers (tune via the sim): mine license 50, wood 4 each, wooden pickaxe = 3 wood, durability 20,
 stone sells 2, bag capacity 20, `sellPrice` +10 %/level cost 80 × 1.6^level (unlock 25 sales), `fertilizer`
 −10 % grow time/level cost 120 × 1.7^level (unlock 15 harvests), both max level 5.
+
+## Batch 3 results
+The sim passes on the **starting numbers above, unchanged**. `balance.ts` changes in batch 3: START_TILES 9,
+ENERGY_MAX_BASE 10, and the new mining and upgrade numbers exactly as listed. Wood resells for 2 (below its buy
+price of 4). Everything else is as in Batch 1 results.
+
+Greedy bot (`tests/sim.test.ts`): it farms first on 9 tiles (same priority as batch 1, no upgrades or tiles bought).
+When no farm action is possible and energy ≥ 1, it digs: buy the license, buy wood and craft a pickaxe when it has
+none, sell all stone when the bag is full. It runs with two mine-license policies:
+- **pumpkin-first:** buys the mine license only once the pumpkin license is owned.
+- **mine-early:** buys the mine license as soon as it is affordable while energy is idle (what a player is likely to do).
+
+| Milestone (tick) | Batch 1 (6 tiles, energy 20) | pumpkin-first | mine-early |
+|---|---|---|---|
+| first radish harvest | 100 | 100 | 100 |
+| mine license affordable | — | 124 | 124 |
+| mine license bought | — | 455 | 129 |
+| first dig | — | 464 | 147 |
+| pumpkin license affordable | 200 | 200 | 336 |
+| pumpkin license bought | 201 | 207 | **337** |
+| first pumpkin planted | 300 | 215 | 354 |
+| first pumpkin harvest | 540 | 455 | 594 |
+
+| At tick 600 | pumpkin-first | mine-early |
+|---|---|---|
+| lowest cash | 2 | 0 |
+| final cash | 394 | 116 |
+| harvests / sales / digs | 31 / 31 / 19 | 30 / 70 / 43 |
+| **farming cash per energy** | **3.15** (536 / 170) | **1.22** (202 / 166) |
+| **mining cash per energy** | **1.37** ((−12 + 38) / 19) | **1.16** ((44 + 6) / 43) |
+
+Cash per energy is net. Farming = harvest income − seeds, per farm action. Mining = stone sold − wood bought, plus
+unsold bag items at their sell price, per dig. Licenses (pumpkin 100, mine 50) are one-off capital, left out of both.
+
+Findings for round-2 playtest:
+- **Buying the mine license early delays the pumpkin license by ~130 ticks** (207 → 337). Before ~250 it cannot pay
+  for itself: 50 license + 12 wood, while digging nets ~1.4 per idle energy, about 11 digs by tick 250. No mining
+  price in a sane range fixes that. Pumpkin by ~250 holds only if the player saves for the pumpkin first. The test
+  asserts ≤ 250 for pumpkin-first and ≤ 350 for mine-early.
+- **Mining stays below farming per energy under both policies, but only just under mine-early** (1.16 vs 1.22),
+  because farming per energy is low while the farm is all radish. Once pumpkins run, farming is ~2.3× mining.
+  Lowering stone to 1 would give ~0.4 per dig (barely pays for the pickaxe), so stone stays at 2 until playtest.
+- With energy 10 the farm alone uses ~170 of the ~210 energy in 600 ticks. Mining fills the other ~20–40.
+
