@@ -658,7 +658,7 @@ No save-shape change (numbers and UI only).
 Question: can the player tell where to buy things and what each upgrade does, and are the farm tool buttons easy to
 reach? UI only — no core numbers, no save-shape change (badge "seen" state lives in `tiles.ui`).
 
-34. [ ] Tab rule: 🛒 Shop = things you buy to own (seeds, licenses, farm tools Watering Can … Seed Spreader with their
+34. [x] Tab rule: 🛒 Shop = things you buy to own (seeds, licenses, farm tools Watering Can … Seed Spreader with their
     milestone progress, wood, tiles); ⬆️ Upgrades = numbers that go up, grouped ⚡ Energy / 🌱 Farm / ⛏ Mine (energy
     max + regen; sell price, fertilizer; storage, vein). Every row shows its effect as "now → next" (e.g. "Energy max
     15 → 20", "Sell price +10 % → +20 %"); maxed rows say "max".

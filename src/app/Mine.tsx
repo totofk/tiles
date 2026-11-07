@@ -35,7 +35,7 @@ const LOCKED_VEIN_TEXT = '🔒 Lv2: iron ore — needs Furnace (coming)'
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL: ItemId[] = ITEM_IDS.filter((id) => id !== 'wood')
 
-function dropText(level: number): string {
+export function dropText(level: number): string {
   const drops = veinDrops(level)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)

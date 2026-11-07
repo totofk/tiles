@@ -516,6 +516,10 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
 }
+/* upgrade rows carry a "now → next" line, so they get the full width */
+.shop-row.one-col {
+  grid-template-columns: minmax(0, 1fr);
+}
 .shop-row button {
   padding: 6px;
   display: flex;

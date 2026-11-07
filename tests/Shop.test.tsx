@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
-import { cropSeedCost } from '../src/core/balance'
+import { cropSeedCost, toolCost } from '../src/core/balance'
 import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -41,6 +41,39 @@ describe('Shop seeds', () => {
     t.rerender()
     expect(t.get().run.licenses).toEqual(['radish', 'chilli'])
     expect(screen.getByText(/🌶️ Chilli × 0/)).toBeTruthy()
+  })
+})
+
+describe('Farm tools in the Shop', () => {
+  const toolRow = () => [...screen.getByRole('heading', { name: 'Farm tools' }).nextElementSibling!.querySelectorAll('button')]
+  const tool = (name: string) => btn(new RegExp(`^${name}`))
+
+  it('lists all 9 tool levels, locked ones with their milestone progress', () => {
+    const s = createInitialState()
+    setup({ counters: { ...s.run.counters, harvests: 7 } })
+    expect(toolRow().map((b) => b.firstChild?.textContent)).toEqual([
+      'Watering Can', 'Garden Hose', 'Water Cart', 'Sickle', 'Scythe', 'Reaper', 'Dibber', 'Seed Drill', 'Seed Spreader',
+    ])
+    expect(toolRow().every((b) => b.disabled)).toBe(true)
+    expect(tool('Sickle').textContent).toContain('harvest 7/15')
+    expect(tool('Watering Can').textContent).toContain('water 0/20')
+  })
+
+  it('buys only the next level: level k needs k − 1', () => {
+    const s = createInitialState()
+    // harvests far past every threshold, but no Sickle yet
+    const t = setup({ cash: 1000, counters: { ...s.run.counters, harvests: 500 } })
+    expect(tool('Sickle').disabled).toBe(false)
+    expect(tool('Sickle').textContent).toContain(`💰${toolCost('harvest', 1, s.meta)}`)
+    expect(tool('Scythe').disabled).toBe(true)
+    expect(tool('Scythe').textContent).toContain('needs Sickle')
+    fireEvent.click(tool('Sickle'))
+    t.rerender()
+    expect(t.get().run.tools.harvest).toBe(1)
+    expect(t.get().run.cash).toBe(1000 - toolCost('harvest', 1, s.meta))
+    expect(tool('Sickle').textContent).toContain('owned')
+    expect(tool('Sickle').disabled).toBe(true)
+    expect(tool('Scythe').disabled).toBe(false)
   })
 })
 
