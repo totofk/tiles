@@ -21,6 +21,7 @@ describe('stats(state)', () => {
       { label: 'Soil digs', value: '0' },
       { label: 'Waterings', value: '0' },
       { label: 'Plantings', value: '0' },
+      { label: 'Copper bars collected', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Wages paid', value: '💰0' },
@@ -40,7 +41,7 @@ describe('stats(state)', () => {
       { label: 'Harvest tier', value: '0 % double harvest', source: 'basic' },
       { label: 'Plant tier', value: '0 % seed kept', source: 'basic' },
       { label: 'Drop table', value: `${ITEMS.stone.emoji} Stone 100 %`, source: 'Vein Lv0' },
-      { label: 'Workers', value: '0 hired · 0 free', source: 'water 0 · harvest 0' },
+      { label: 'Workers', value: '0 hired · 0 free', source: 'water 0 · harvest 0 · ore 0 · fuel 0' },
     ])
   })
 

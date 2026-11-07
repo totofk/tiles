@@ -73,8 +73,11 @@ export type Loan = { principal: number; debt: number }
 export type { PickaxeTier }
 export type Pickaxe = { tier: PickaxeTier; durability: number }
 
-/** sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds */
-export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number }
+/**
+ * sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds;
+ * bars = copper bars collected from the furnace tray
+ */
+export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number; bars: number }
 export type CounterId = keyof Counters
 
 /**
@@ -138,7 +141,7 @@ export function createInitialState(): GameState {
       tiles: Array.from({ length: START_TILES }, createTile),
       licenses: [STARTING_CROP],
       upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
-      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0 },
+      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0 },
       tick: 0,
       mineLicense: false,
       pickaxe: null,
@@ -157,7 +160,7 @@ export function createInitialState(): GameState {
       tools: { water: 0, harvest: 0, plant: 0 },
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
-      workers: { pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] },
+      workers: { pool: 0, assigned: { water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] },
     },
   }
 }

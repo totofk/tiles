@@ -1,4 +1,5 @@
 import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
+import { ITEMS } from '../core/data/items'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
 import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
@@ -7,7 +8,12 @@ import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
 import type { Act } from './useGame'
 
-export const WORKER_JOB_LABEL: Record<WorkerJob, string> = { water: '💧 Water', harvest: '🌾 Harvest' }
+export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
+  water: '💧 Water',
+  harvest: '🌾 Harvest',
+  ore: `${ITEMS.copperOre.emoji} Ore`,
+  fuel: `${ITEMS.coal.emoji} Fuel`,
+}
 
 /** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */
 function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {

@@ -139,7 +139,25 @@ const WORKER_WAGE = 1
 const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number }> = {
   water: { price: { cash: 100 }, counter: 'waters', at: 40 },
   harvest: { price: { stone: 20, cash: 150 }, counter: 'harvests', at: 40 },
+  // furnace loaders (batch 9): gated by copper bars collected, paid in bars
+  ore: { price: { copperBar: 3, cash: 100 }, counter: 'bars', at: 10 },
+  fuel: { price: { copperBar: 8, cash: 200 }, counter: 'bars', at: 30 },
 }
+// Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
+// (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.
+const FURNACE_UPGRADES: Record<'fireCap' | 'batch' | 'smart', ReadonlyArray<Price>> = {
+  fireCap: [
+    { copperBar: 4, cash: 150 },
+    { copperBar: 8, cash: 300 },
+  ],
+  batch: [
+    { copperBar: 6, cash: 200 },
+    { copperBar: 12, cash: 400 },
+  ],
+  smart: [{ copperBar: 10, cash: 400 }],
+}
+export type FurnaceUpgradeId = keyof typeof FURNACE_UPGRADES
+export const FURNACE_UPGRADE_IDS = Object.keys(FURNACE_UPGRADES) as FurnaceUpgradeId[]
 
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
@@ -306,6 +324,16 @@ export function furnaceTrayCap(): number {
 /** copper ore the furnace's ore slot holds */
 export function oreSlotCap(): number {
   return SMELT.oreSlot
+}
+
+export function furnaceUpgradeMaxLevel(id: FurnaceUpgradeId): number {
+  return FURNACE_UPGRADES[id].length
+}
+
+/** price to go from `level` to level + 1; null at the max level */
+export function furnaceUpgradeCost(id: FurnaceUpgradeId, level: number, meta: MetaState): Price | null {
+  const cost = FURNACE_UPGRADES[id][level]
+  return cost ? scalePrice(cost, meta) : null
 }
 
 export function pickaxeDurability(tier: PickaxeTier): number {

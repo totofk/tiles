@@ -525,6 +525,24 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 9 (tasks 57–58): one v9 bump finished across the two commits** (`counters.bars` and `workers.assigned.ore /
   fuel` join `migrateV8` in task 58). No build ships between them, so no save exists in the half-way shape; this is
   how batch 8 folded the auto-smelt flag into the v8 bump.
+- **Batch 9 (task 58): new counter `counters.bars` (bars collected)**, the plan's "add a counter if CERTIFICATES needs
+  a CounterId": `collectBars` bumps it (a loader's collect too), v9 starts it from `lifetime.bars`; `CountersV4` is now
+  frozen in `serialize.ts`. 📊 Stats gets a "Copper bars collected" counter row, and "Copper bars smelted" now reads
+  `lifetime.barsSmelted` (it showed `lifetime.bars`, i.e. collected). The batch-7 counters pin gains `bars: 5` (the
+  copper pickaxe's bars); every other value is unchanged.
+- **Batch 9 (task 58): the ore / fuel rows already show in the 👷 Workers card** through the shared `JobRow`
+  ("🔶 Ore", "⚫ Fuel" from `ITEMS.*.emoji`, certificate price + "bars n/10" gate, −/n/+ once certified) with an ⓘ tip
+  each: `WORKER_JOB_LABEL` and `WORKER_TIPS` are `Record<WorkerJob, …>`, so the build needs them. Task 59 lays them out.
+- **Batch 9 (task 58): starting prices (Hermes picks, task 61 tunes):** fire cap 🥉4 + 💰150, 🥉8 + 💰300; batch
+  🥉6 + 💰200, 🥉12 + 💰400; smart 🥉10 + 💰400 (above the fuel certificate's 🥉8 + 💰200). Every bar price ≤ 40
+  (storage Lv2, the storage the furnace path needs; tested). The ore slot stays 10 at every batch level (batch 3 = 6
+  ore a cycle: one cycle + 4 loaded).
+- **Batch 9 (task 58): furnace jobs have no tile target**, so `workerTargets(state, job)` is typed for water/harvest
+  only and a loader's "something to do" check is its own action (`workerAction` returns null = idle, unpaid);
+  `workerUnpaid` uses the same check for every job. Task 60's `workerTargets(state)` will need to replace or rename
+  the current two-argument one.
+- **Batch 9 (task 58): the sim ladder bot staffs farm jobs only** (`FARM_JOBS`), so the batch-8 worker pins replay
+  unchanged; loader bots are task 61.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1301,7 +1319,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
       job becomes a ready bar (fuel and ore were already paid, nothing is lost; the tray may exceed its cap once);
       fire 0, ore 0, smart false, levels at base; `autoSmelt` is dropped (it was a free toggle, no earned value).
       Chain v1–v8 → v9 with a backup key.
-- [ ] 58. **Furnace workers, certificates, upgrades** (core). Two new `WorkerJob`s, using the same pool, wage and
+- [x] 58. **Furnace workers, certificates, upgrades** (core). Two new `WorkerJob`s, using the same pool, wage and
     action clock as batch 8:
     - **Ore loader** (`ore`): one action = collect the tray into storage if it has bars and storage has room, else
       load one cycle of ore. Acts only when it has something to do (no wage for idle presses). Certificate: 🥉3 bars
@@ -1370,3 +1388,19 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
 - **Bridge UI** (until task 59): the Furnace grid keeps 3 columns, so at 1024 (Mine column content 209 px, buttons
   ≈ 66 px) "Fill with 🌲" wraps inside its button; buttons grow, nothing overlaps.
 - **Sim:** all batch-7 / 7.1 / 8 pins replay unchanged (see Deviations for the bot's matched loading).
+
+### Furnace loaders, certificates, upgrades (task 58)
+- **Jobs:** `WORKER_JOBS = water, harvest, ore, fuel`, same pool, wage (💰1 at the action) and 5-tick clock; they act
+  in that order at the start of the tick, before the furnace burns. **Ore loader:** collects the tray (as much as
+  storage takes) when it has bars and storage room, else loads one cycle (`cycleOre` = 2 × batch) when storage has it
+  and the slot has room. **Fuel loader:** one coal when `fuelRoom(f, 'coal') ≥ 1` (room ≥ 2 units) and storage has
+  coal; never wood. Nothing to do = idle, no wage (`workerAction` null). Tested: each branch, idle cases, both loaders
+  on a plain furnace burning on after the ore ran out (wasted > 0) vs smart (wasted 0, coal kept), step(s, n) =
+  n × step(s, 1) over 900 ticks plain and smart, 8 h catch-up < 3 s.
+- **Certificates:** ore 🥉3 + 💰100, visible / buyable at 10 bars collected; fuel 🥉8 + 💰200 at 30 (`counters.bars`).
+- **Upgrades:** `buyFurnaceUpgrade(state, 'fireCap' | 'batch' | 'smart')`, order NO_FURNACE, MAX_LEVEL,
+  NOT_ENOUGH_ITEMS, NO_CASH; `furnaceUpgradeLevel(f, id)`, `furnaceUpgradeCost(id, level, meta)` (null at max),
+  `furnaceUpgradeMaxLevel(id)` (2, 2, 1), `FURNACE_UPGRADE_IDS`. Fire cap 10 → 20 → 40 units, batch 1 → 2 → 3 bars per
+  cycle for the same fire, smart = burns only while smelting.
+- **Save:** v9's final shape adds `counters.bars` (= lifetime.bars) and `workers.assigned.ore / fuel` = 0; the real v8
+  fixture test asserts the whole migrated run (bars 13, so its ore certificate is already open).

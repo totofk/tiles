@@ -9,6 +9,7 @@ import v7 from './fixtures/save-v7.json?raw'
 import v8 from './fixtures/save-v8.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
+import { certificateUnlocked, freeWorkers } from '../src/core/workers'
 import { dig } from '../src/core/mining'
 import { createFurnace, createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -30,7 +31,9 @@ const noFurnace = { furnace: createFurnace(), lifetime: expect.any(Object) }
 /** the only v7 field: every job at the basic tier */
 const noCopper = { toolTier: { water: 0, harvest: 0, plant: 0 } }
 /** v8 fields every migrated save starts with (plus lifetime.wagesPaid 0); v9 dropped autoSmelt */
-const noWorkers = { workers: { pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] } }
+const noWorkers = { workers: { pool: 0, assigned: { water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] } }
+/** v9 counters: + bars (collected), migrated from lifetime.bars (0 before the v6 furnace) */
+const v9Counters = (c: object, bars = 0) => ({ counters: { ...c, bars } })
 /** v9 lifetime totals a migrated save starts with: no fire burnt, bars smelted 0 (no furnace before v6) */
 const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0 }
 type OldFurnace = { built: boolean; queue: number; progress: number; ready: number }
@@ -49,16 +52,29 @@ describe('serialize / deserialize', () => {
   it('migrates a real v8 save (built by the batch-8.1 code) to v9: queued jobs become ready bars, auto-smelt dropped', () => {
     const old = JSON.parse(v8)
     expect(old.version).toBe(8)
-    const { autoSmelt, furnace, lifetime, ...kept } = old.state.run
+    const { autoSmelt, furnace, lifetime, counters, workers, ...kept } = old.state.run
     expect(autoSmelt).toBe(true)
     expect(furnace).toEqual({ built: true, queue: 2, progress: 30, ready: 3 })
-    expect(old.state.run.workers).toEqual({ pool: 3, assigned: { water: 2, harvest: 1 }, certificates: ['water', 'harvest'] })
+    expect(workers).toEqual({ pool: 3, assigned: { water: 2, harvest: 1 }, certificates: ['water', 'harvest'] })
     const save = deserialize(v8)!
     expect(save).toEqual({
       version: 9,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...kept, furnace: v9Furnace(furnace), lifetime: v9Lifetime(lifetime, furnace) } },
+      state: {
+        meta: old.state.meta,
+        run: {
+          ...kept,
+          ...v9Counters(counters, lifetime.bars),
+          workers: { ...workers, assigned: { ...workers.assigned, ore: 0, fuel: 0 } },
+          furnace: v9Furnace(furnace),
+          lifetime: v9Lifetime(lifetime, furnace),
+        },
+      },
     })
+    // the bars gate starts from the bars already collected, so the ore loader certificate (10 bars) is open
+    expect(save.state.run.counters.bars).toBe(13)
+    expect(certificateUnlocked(save.state.run, 'ore')).toBe(true)
+    expect(freeWorkers(save.state.run)).toBe(0)
     // nothing paid is lost: 3 in the tray + 2 queued = 5 ready bars, bars smelted 13 collected + 5
     expect(save.state.run.furnace).toEqual({ ...createFurnace(), built: true, ready: 5 })
     expect(save.state.run.lifetime.barsSmelted).toBe(18)
@@ -94,7 +110,13 @@ describe('serialize / deserialize', () => {
       savedAtMs: old.savedAtMs,
       state: {
         meta: old.state.meta,
-        run: { ...old.state.run, ...noWorkers, furnace: v9Furnace(furnace), lifetime: { ...v9Lifetime(lifetime, furnace), wagesPaid: 0 } },
+        run: {
+          ...old.state.run,
+          ...noWorkers,
+          ...v9Counters(old.state.run.counters, lifetime.bars),
+          furnace: v9Furnace(furnace),
+          lifetime: { ...v9Lifetime(lifetime, furnace), wagesPaid: 0 },
+        },
       },
     })
     // the 2 paid jobs are ready bars and the run plays on
@@ -108,7 +130,7 @@ describe('serialize / deserialize', () => {
       ...s,
       run: {
         ...s.run,
-        workers: { pool: 3, assigned: { water: 2, harvest: 1 }, certificates: ['water' as const, 'harvest' as const] },
+        workers: { pool: 4, assigned: { water: 2, harvest: 1, ore: 1, fuel: 0 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const] },
         lifetime: { ...s.run.lifetime, wagesPaid: 57 },
       },
     }
@@ -147,7 +169,14 @@ describe('serialize / deserialize', () => {
       savedAtMs: old.savedAtMs,
       state: {
         meta: old.state.meta,
-        run: { ...old.state.run, ...noCopper, ...noWorkers, furnace: v9Furnace(furnace), lifetime: { ...v9Lifetime(lifetime, furnace), wagesPaid: 0 } },
+        run: {
+          ...old.state.run,
+          ...noCopper,
+          ...noWorkers,
+          ...v9Counters(old.state.run.counters, lifetime.bars),
+          furnace: v9Furnace(furnace),
+          lifetime: { ...v9Lifetime(lifetime, furnace), wagesPaid: 0 },
+        },
       },
     })
     // the queued job is a ready bar beside the one in the tray, and the run plays on
@@ -163,7 +192,10 @@ describe('serialize / deserialize', () => {
     expect(save).toEqual({
       version: 9,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, vein: { level: 1, progress: 0, rock: 'stone' }, ...noFurnace, ...noCopper, ...noWorkers } },
+      state: {
+        meta: old.state.meta,
+        run: { ...old.state.run, vein: { level: 1, progress: 0, rock: 'stone' }, ...noFurnace, ...noCopper, ...noWorkers, ...v9Counters(old.state.run.counters) },
+      },
     })
     // the migrated run (saved at 0 energy) mines again after regen and plays on
     expect(dig(step(save.state, 3)).ok).toBe(true)
@@ -232,7 +264,10 @@ describe('serialize / deserialize', () => {
     expect(save).toEqual({
       version: 9,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, ...noMiningProgress, ...noFurnace, ...noCopper, ...noWorkers } },
+      state: {
+        meta: old.state.meta,
+        run: { ...old.state.run, ...noMiningProgress, ...noFurnace, ...noCopper, ...noWorkers, ...v9Counters(old.state.run.counters) },
+      },
     })
     expect(save.state.run.bagCapacity).toBe(old.state.run.bagCapacity)
     // the migrated pickaxe keeps working and loses durability as before
@@ -253,7 +288,7 @@ describe('serialize / deserialize', () => {
         meta: old.state.meta,
         run: {
           ...old.state.run,
-          counters: { harvests: 17, sales: 20, mines: 7, digs: 0, waters: 0, plants: 0 },
+          counters: { harvests: 17, sales: 20, mines: 7, digs: 0, waters: 0, plants: 0, bars: 0 },
           seeds: {},
           autoBuySeeds: true,
           ...noTools,
@@ -280,7 +315,7 @@ describe('serialize / deserialize', () => {
         run: {
           ...old.state.run,
           loan: null,
-          counters: { harvests: 2, sales: 2, mines: 2, digs: 0, waters: 0, plants: 0 },
+          counters: { harvests: 2, sales: 2, mines: 2, digs: 0, waters: 0, plants: 0, bars: 0 },
           seeds: {},
           autoBuySeeds: true,
           ...noTools,
@@ -305,7 +340,7 @@ describe('serialize / deserialize', () => {
     expect(run.tiles.slice(0, 6)).toEqual(old.run.tiles)
     expect(run.tiles.slice(6)).toEqual([createTile(), createTile(), createTile()])
     expect(run.upgrades).toEqual({ ...old.run.upgrades, sellPrice: 0, fertilizer: 0 })
-    expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0 })
+    expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0 })
     expect(run).toMatchObject({
       inventory: {},
       pickaxe: null,
@@ -411,7 +446,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     const store = memoryStore()
     const s = createInitialState()
     const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
-    const workers = { pool: 1, assigned: { water: 1, harvest: 0 }, certificates: ['water' as const] }
+    const workers = { pool: 1, assigned: { water: 1, harvest: 0, ore: 0, fuel: 0 }, certificates: ['water' as const] }
     const saved = { ...s, run: { ...s.run, cash: 50, tiles: [dry, ...s.run.tiles.slice(1)], workers, lifetime: { ...s.run.lifetime, wagesPaid: 7 } } }
     saveGame(store, saved, () => 0)
     const loaded = loadGame(store, () => 60_000)

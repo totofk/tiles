@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, plant, till, water, type ActionResult } from '../src/core/actions'
 import {
+  BAG_CAPACITY_START,
   OFFLINE_CAP_TICKS,
   certificateCost,
   certificateUnlock,
@@ -15,7 +16,9 @@ import {
   workerWage,
 } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
-import { createInitialState, type Counters, type GameState, type Tile } from '../src/core/state'
+import type { WorkerJob } from '../src/core/data/workers'
+import { collectBars } from '../src/core/furnace'
+import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { catchUp } from '../src/save/serialize'
@@ -43,8 +46,8 @@ function okState(r: ActionResult): GameState {
   return r.state
 }
 
-const workers = (pool: number, water = 0, harvest = 0, certificates: ('water' | 'harvest')[] = ['water', 'harvest']) => ({
-  workers: { pool, assigned: { water, harvest }, certificates },
+const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0) => ({
+  workers: { pool, assigned: { water, harvest, ore, fuel }, certificates },
 })
 
 describe('workers: balance', () => {
@@ -107,7 +110,7 @@ describe('assignWorker', () => {
     const certified = withRun(workers(2, 0, 0, ['water']))
     const one = okState(assignWorker(certified, 'water', 1))
     const two = okState(assignWorker(one, 'water', 1))
-    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ water: 2, harvest: 0 }, 0])
+    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ water: 2, harvest: 0, ore: 0, fuel: 0 }, 0])
     expect(assignWorker(two, 'water', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const back = okState(assignWorker(two, 'water', -1))
     expect([back.run.workers.assigned.water, freeWorkers(back.run)]).toEqual([1, 1])
@@ -118,7 +121,7 @@ describe('assignWorker', () => {
     const s = withRun(workers(1, 1, 0))
     expect(assignWorker(s, 'harvest', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const moved = okState(assignWorker(okState(assignWorker(s, 'water', -1)), 'harvest', 1))
-    expect(moved.run.workers.assigned).toEqual({ water: 0, harvest: 1 })
+    expect(moved.run.workers.assigned).toEqual({ water: 0, harvest: 1, ore: 0, fuel: 0 })
   })
 })
 
@@ -293,9 +296,100 @@ describe('workers vs manual, 9 pumpkin tiles, 1200 ticks', () => {
   })
 })
 
+// ---- Batch 9 (task 58): furnace loaders ----
+
+const ALL: WorkerJob[] = ['water', 'harvest', 'ore', 'fuel']
+/** a built furnace with `ore` / `fuel` loaders, the next tick a worker tick, cash to spare */
+function smeltery(f: Partial<Furnace>, inventory: GameState['run']['inventory'], { ore = 0, fuel = 0, cash = 100 } = {}): GameState {
+  return withRun({ cash, inventory, furnace: { ...createFurnace(), built: true, ...f }, ...workers(ore + fuel, 0, 0, ALL, ore, fuel) })
+}
+const wage = workerWage(meta)
+
+describe('furnace loaders: certificates', () => {
+  it('ore loader 🥉3 + 💰100 after 10 bars collected; fuel loader 🥉8 + 💰200 after 30', () => {
+    expect([certificateCost('ore', meta), certificateUnlock('ore')]).toEqual([{ copperBar: 3, cash: 100 }, { counter: 'bars', at: 10 }])
+    expect([certificateCost('fuel', meta), certificateUnlock('fuel')]).toEqual([{ copperBar: 8, cash: 200 }, { counter: 'bars', at: 30 }])
+    expect(buyCertificate(withRun({ cash: 500, inventory: { copperBar: 9 } }, { bars: 9 }), 'ore')).toEqual({ ok: false, error: 'LOCKED' })
+    const ore = okState(buyCertificate(withRun({ cash: 500, inventory: { copperBar: 9 } }, { bars: 10 }), 'ore'))
+    expect([ore.run.cash, ore.run.inventory.copperBar, ore.run.workers.certificates]).toEqual([400, 6, ['ore']])
+    expect(buyCertificate(withRun({ cash: 500, inventory: { copperBar: 9 } }, { bars: 29 }), 'fuel')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyCertificate(withRun({ cash: 500, inventory: { copperBar: 7 } }, { bars: 30 }), 'fuel')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+  })
+
+  it('collecting bars (by hand or by a loader) counts toward the gate', () => {
+    const s = smeltery({ ready: 3 }, {})
+    expect(okState(collectBars(s)).run.counters.bars).toBe(3)
+    expect(workersAct(smeltery({ ready: 3 }, {}, { ore: 1 })).run.counters.bars).toBe(3)
+  })
+})
+
+describe('furnace loaders: workersAct', () => {
+  it('ore loader: collects the tray when it has bars and storage has room, for one wage', () => {
+    const next = workersAct(smeltery({ ready: 2 }, { copperOre: 6 }, { ore: 1 }))
+    expect([next.run.furnace.ready, next.run.inventory.copperBar, next.run.furnace.ore, next.run.cash]).toEqual([0, 2, 0, 100 - wage])
+  })
+
+  it('ore loader: with nothing to collect (or storage full) loads one cycle of ore', () => {
+    const next = workersAct(smeltery({}, { copperOre: 5 }, { ore: 1 }))
+    expect([next.run.furnace.ore, next.run.inventory.copperOre, next.run.cash]).toEqual([2, 3, 100 - wage])
+    const full = smeltery({ ready: 1 }, { copperOre: BAG_CAPACITY_START }, { ore: 1 })
+    expect(workersAct(full).run.furnace).toMatchObject({ ready: 1, ore: 2 })
+    // batch level 2: one cycle = 6 ore
+    expect(workersAct(smeltery({ levels: { fireCap: 0, batch: 2 } }, { copperOre: 7 }, { ore: 1 })).run.furnace.ore).toBe(6)
+  })
+
+  it('ore loader idles unpaid with nothing to do: no ore for a cycle, slot full, no furnace', () => {
+    for (const s of [
+      smeltery({}, { copperOre: 1 }, { ore: 1 }),
+      smeltery({ ore: 9 }, { copperOre: 5 }, { ore: 1 }),
+      { ...smeltery({}, { copperOre: 5 }, { ore: 1 }), run: { ...smeltery({}, { copperOre: 5 }, { ore: 1 }).run, furnace: createFurnace() } },
+    ]) {
+      expect(workersAct(s)).toBe(s)
+      expect(workerUnpaid({ ...s, run: { ...s.run, cash: 0 } }, 'ore')).toBe(false)
+    }
+    expect(workerUnpaid({ ...smeltery({}, { copperOre: 5 }, { ore: 1 }), run: { ...smeltery({}, { copperOre: 5 }, { ore: 1 }).run, cash: 0 } }, 'ore')).toBe(true)
+  })
+
+  it('fuel loader: one coal per action while the fire has room for 2 units, never wood; idle unpaid otherwise', () => {
+    const next = workersAct(smeltery({}, { coal: 3, wood: 5 }, { fuel: 1 }))
+    expect([next.run.furnace.fire, next.run.inventory.coal, next.run.inventory.wood, next.run.cash]).toEqual([60, 2, 5, 100 - wage])
+    const two = workersAct(smeltery({}, { coal: 3 }, { fuel: 2 }))
+    expect(two.run.furnace.fire).toBe(120)
+    for (const s of [smeltery({ fire: 241 }, { coal: 3 }, { fuel: 1 }), smeltery({}, { wood: 9 }, { fuel: 1 })]) expect(workersAct(s)).toBe(s)
+    expect(workersAct(smeltery({ fire: 240 }, { coal: 3 }, { fuel: 1 })).run.furnace.fire).toBe(300)
+  })
+
+  it('both loaders keep a plain furnace going, and it burns on (wasted) when the ore runs out', () => {
+    const s = smeltery({}, { copperOre: 4, coal: 10 }, { ore: 1, fuel: 1, cash: 1000 })
+    const after = step(s, 600)
+    expect(after.run.inventory.copperBar).toBe(2)
+    expect(after.run.lifetime.barsSmelted).toBe(2)
+    expect(after.run.lifetime.fireWasted).toBeGreaterThan(0)
+    // smart: the same stock wastes nothing, and the fuel loader stops once the fire is full
+    const smart = step({ ...s, run: { ...s.run, furnace: { ...s.run.furnace, smart: true } } }, 600)
+    expect(smart.run.inventory.copperBar).toBe(2)
+    expect(smart.run.lifetime.fireWasted).toBe(0)
+    expect(smart.run.inventory.coal).toBeGreaterThan(after.run.inventory.coal!)
+  })
+
+  it('step(s, n) equals n × step(s, 1) with both loaders, plain and smart, and 8 h of catch-up stays fast', () => {
+    const base = smeltery({ ready: 4, ore: 1, fire: 45, progress: 20 }, { copperOre: 13, coal: 7, wood: 3 }, { ore: 1, fuel: 1, cash: 30 })
+    for (const smart of [false, true]) {
+      const s = { ...base, run: { ...base.run, furnace: { ...base.run.furnace, smart } } }
+      let one = s
+      for (let i = 0; i < 900; i++) one = step(one, 1)
+      expect(step(s, 900)).toEqual(one)
+      const t0 = performance.now()
+      const after = catchUp(s, OFFLINE_CAP_TICKS * 1000)
+      expect(performance.now() - t0).toBeLessThan(3000)
+      expect(after.run.cash).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
 describe('new runs', () => {
   it('start with no workers, no certificates and no wages paid', () => {
-    expect(init.run.workers).toEqual({ pool: 0, assigned: { water: 0, harvest: 0 }, certificates: [] })
+    expect(init.run.workers).toEqual({ pool: 0, assigned: { water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
   })
 })

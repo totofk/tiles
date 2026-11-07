@@ -6,10 +6,12 @@ import {
   fuelTicks,
   furnaceCost,
   furnaceTrayCap,
+  furnaceUpgradeCost,
   furnaceVeinLevel,
   oreSlotCap,
   smeltOre,
   type FuelId,
+  type FurnaceUpgradeId,
 } from './balance'
 import { bagCount, pay } from './mining'
 import type { Furnace, GameState, RunState } from './state'
@@ -113,6 +115,23 @@ export function collectBars(state: GameState): ActionResult {
   return withRun(state, {
     inventory: { ...run.inventory, copperBar: (run.inventory.copperBar ?? 0) + n },
     furnace: { ...f, ready: f.ready - n },
+    counters: { ...run.counters, bars: run.counters.bars + n },
     lifetime: { ...run.lifetime, bars: run.lifetime.bars + n },
   })
+}
+
+/** levels bought of this furnace upgrade (smart: 0 or 1) */
+export function furnaceUpgradeLevel(f: Furnace, id: FurnaceUpgradeId): number {
+  return id === 'smart' ? Number(f.smart) : f.levels[id]
+}
+
+// Fire capacity / batch: one level up; smart: once. Paid in bars + cash from storage, no energy.
+// Order: NO_FURNACE, MAX_LEVEL, NOT_ENOUGH_ITEMS, NO_CASH.
+export function buyFurnaceUpgrade(state: GameState, id: FurnaceUpgradeId): ActionResult {
+  const f = state.run.furnace
+  if (!f.built) return fail('NO_FURNACE')
+  const cost = furnaceUpgradeCost(id, furnaceUpgradeLevel(f, id), state.meta)
+  if (!cost) return fail('MAX_LEVEL')
+  const furnace: Furnace = id === 'smart' ? { ...f, smart: true } : { ...f, levels: { ...f.levels, [id]: f.levels[id] + 1 } }
+  return pay(state, cost, { furnace })
 }

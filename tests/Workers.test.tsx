@@ -28,7 +28,9 @@ const LABEL = { Water: '💧 Water', Harvest: '🌾 Harvest' }
 /** the job's row, found by its exact label (tips also say "water") */
 const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.worker-row') as HTMLElement
 const summary = () => document.querySelector('summary')!.textContent
-const certified = (pool: number, water = 0, harvest = 0) => ({ workers: { pool, assigned: { water, harvest }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] } })
+const certified = (pool: number, water = 0, harvest = 0) => ({
+  workers: { pool, assigned: { water, harvest, ore: 0, fuel: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+})
 
 describe('👷 Workers card', () => {
   it('a fresh run: free 0 / 0, both certificates with their price and gate progress, no hire button', () => {

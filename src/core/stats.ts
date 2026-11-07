@@ -31,6 +31,7 @@ const COUNTER_LABELS: Record<CounterId, string> = {
   digs: 'Soil digs',
   waters: 'Waterings',
   plants: 'Plantings',
+  bars: 'Copper bars collected',
 }
 
 const times = (f: number) => `×${Math.round(f * 100) / 100}`
@@ -73,7 +74,7 @@ export function stats(state: GameState): Stats {
       label: `${CROPS[id].name} harvests${since}`,
       value: `${lifetime.harvests[id] ?? 0}`,
     })),
-    { label: 'Copper bars smelted', value: `${lifetime.bars}` },
+    { label: 'Copper bars smelted', value: `${lifetime.barsSmelted}` },
     { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
   ]
   const { pool, assigned } = run.workers

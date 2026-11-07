@@ -4,7 +4,7 @@ import type { CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
-import { createInitialState, createTile, type Counters, type GameState, type Loan, type Tile } from '../core/state'
+import { createInitialState, createTile, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
 export const SAVE_VERSION = 9
@@ -29,13 +29,14 @@ type RunV5 = Omit<RunV4, 'vein'> & {
   mastery: { wooden?: number }
   masteredTiers: 'wooden'[]
 }
+type CountersV4 = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number }
 type RunV4 = {
   cash: number
   energy: number
   tiles: Tile[]
   licenses: CropId[]
   upgrades: Record<UpgradeId, number>
-  counters: Counters
+  counters: CountersV4
   tick: number
   mineLicense: boolean
   /** never 0: a v4 pickaxe vanished at 0 durability */
@@ -198,10 +199,11 @@ function migrateV7(save: SaveV7): SaveV8 {
 
 // v8 → v9: fuelled furnace. Every paid queued job becomes a ready bar (its ore and fuel were already paid; the tray may
 // exceed its cap once, it only blocks smelting until collected), so bars smelted = collected + tray + queue. No fire,
-// empty ore slot, plain furnace at base levels; the free auto-smelt toggle is dropped (no earned value).
+// empty ore slot, plain furnace at base levels; the free auto-smelt toggle is dropped (no earned value). The furnace
+// loaders start with no workers; their gate counter `bars` (bars collected) starts from lifetime.bars.
 function migrateV8(save: SaveV8): SaveV9 {
   const { meta, run } = save.state
-  const { autoSmelt, furnace, lifetime, ...rest } = run
+  const { autoSmelt, furnace, lifetime, counters, workers, ...rest } = run
   void autoSmelt
   const ready = furnace.ready + furnace.queue
   return {
@@ -211,6 +213,8 @@ function migrateV8(save: SaveV8): SaveV9 {
       meta,
       run: {
         ...rest,
+        counters: { ...counters, bars: lifetime.bars },
+        workers: { ...workers, assigned: { ...workers.assigned, ore: 0, fuel: 0 } },
         furnace: { built: furnace.built, fire: 0, ore: 0, progress: 0, ready, smart: false, levels: { fireCap: 0, batch: 0 } },
         lifetime: { ...lifetime, fireBurnt: 0, fireWasted: 0, barsSmelted: lifetime.bars + ready },
       },

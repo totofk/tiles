@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
+  FURNACE_UPGRADE_IDS,
   OFFLINE_CAP_TICKS,
   barTicks,
   batchBars,
+  certificateCost,
+  furnaceUpgradeCost,
+  furnaceUpgradeMaxLevel,
   fireCapTicks,
   fireCapUnits,
   fireUnitTicks,
@@ -17,7 +21,7 @@ import {
   smeltFuel,
   smeltOre,
 } from '../src/core/balance'
-import { addFuel, buildFurnace, collectBars, loadOre, smelting } from '../src/core/furnace'
+import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, furnaceUpgradeLevel, loadOre, smelting } from '../src/core/furnace'
 import { bagCount, sellItem } from '../src/core/mining'
 import { createFurnace, createInitialState, type Furnace, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -182,11 +186,57 @@ describe('fuelled furnace: step', () => {
   })
 })
 
+describe('furnace upgrades', () => {
+  it('fire cap 10 → 20 → 40 units, batch 1 → 2 → 3 bars, smart once; prices in bars + cash, smart above the fuel certificate', () => {
+    expect([fireCapUnits(1), fireCapUnits(2), batchBars(1), batchBars(2)]).toEqual([20, 40, 2, 3])
+    expect(FURNACE_UPGRADE_IDS.map((id) => furnaceUpgradeMaxLevel(id))).toEqual([2, 2, 1])
+    expect([0, 1, 2].map((l) => furnaceUpgradeCost('fireCap', l, meta))).toEqual([{ copperBar: 4, cash: 150 }, { copperBar: 8, cash: 300 }, null])
+    expect([0, 1, 2].map((l) => furnaceUpgradeCost('batch', l, meta))).toEqual([{ copperBar: 6, cash: 200 }, { copperBar: 12, cash: 400 }, null])
+    const smart = furnaceUpgradeCost('smart', 0, meta)!
+    const fuelCert = certificateCost('fuel', meta)
+    expect(smart.copperBar!).toBeGreaterThan(fuelCert.copperBar!)
+    expect(smart.cash).toBeGreaterThan(fuelCert.cash)
+  })
+
+  it('every bar price fits the storage the player has once the furnace is built (storage Lv2: 40)', () => {
+    for (const id of FURNACE_UPGRADE_IDS)
+      for (let l = 0; l < furnaceUpgradeMaxLevel(id); l++) {
+        const { cash, ...items } = furnaceUpgradeCost(id, l, meta)!
+        expect(cash).toBeGreaterThan(0)
+        expect(Object.values(items).reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(40)
+      }
+  })
+
+  it('buys one level at a time from storage + cash, no energy; smart sets the flag', () => {
+    const s = smelter({ cash: 2000, inventory: { copperBar: 40 } })
+    const cap1 = okState(buyFurnaceUpgrade(s, 'fireCap'))
+    expect([cap1.run.furnace.levels, cap1.run.cash, cap1.run.inventory.copperBar, cap1.run.energy]).toEqual([{ fireCap: 1, batch: 0 }, 1850, 36, s.run.energy])
+    const cap2 = okState(buyFurnaceUpgrade(cap1, 'fireCap'))
+    expect(buyFurnaceUpgrade(cap2, 'fireCap')).toEqual({ ok: false, error: 'MAX_LEVEL' })
+    expect(furnaceUpgradeLevel(cap2.run.furnace, 'fireCap')).toBe(2)
+    const smart = okState(buyFurnaceUpgrade(cap2, 'smart'))
+    expect([smart.run.furnace.smart, furnaceUpgradeLevel(smart.run.furnace, 'smart')]).toEqual([true, 1])
+    expect(buyFurnaceUpgrade(smart, 'smart')).toEqual({ ok: false, error: 'MAX_LEVEL' })
+    const batch = okState(buyFurnaceUpgrade(smart, 'batch'))
+    expect(batch.run.furnace.levels).toEqual({ fireCap: 2, batch: 1 })
+    // a bigger fire cap takes more fuel
+    const filled = okState(addFuel({ ...batch, run: { ...batch.run, inventory: { coal: 99 } } }, 'coal'))
+    expect(filled.run.furnace.fire).toBe(1200)
+  })
+
+  it('validates furnace, max level, items, cash in that order', () => {
+    expect(buyFurnaceUpgrade(withRun({ cash: 1e6, inventory: { copperBar: 99 } }), 'batch')).toEqual({ ok: false, error: 'NO_FURNACE' })
+    expect(buyFurnaceUpgrade(furnace({ smart: true }), 'smart')).toEqual({ ok: false, error: 'MAX_LEVEL' })
+    expect(buyFurnaceUpgrade(smelter({ cash: 1e6, inventory: { copperBar: 5 } }), 'batch')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyFurnaceUpgrade(smelter({ cash: 199, inventory: { copperBar: 6 } }), 'batch')).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
 describe('collectBars', () => {
   it('moves tray bars into storage, as many as fit, and counts them', () => {
     const s = smelter({ furnace: { ...built, ready: 3 }, inventory: { stone: BAG_CAPACITY_START - 2 } })
     const next = okState(collectBars(s))
-    expect([next.run.inventory.copperBar, next.run.furnace.ready, next.run.lifetime.bars]).toEqual([2, 1, 2])
+    expect([next.run.inventory.copperBar, next.run.furnace.ready, next.run.lifetime.bars, next.run.counters.bars]).toEqual([2, 1, 2, 2])
     expect(collectBars(next)).toEqual({ ok: false, error: 'BAG_FULL' })
   })
 

@@ -38,6 +38,8 @@ import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../src/core/workers'
 
 const TICKS = 600
+/** the batch-8 worker jobs the ladder bot staffs */
+const FARM_JOBS: WorkerJob[] = ['water', 'harvest']
 
 type Milestones = {
   firstRadishHarvest?: number
@@ -269,9 +271,9 @@ function runBot(
   }
 
   // batch 8: certificates (water first), then every affordable hire; a free worker goes to water while water has no
-  // more workers than harvest, else to harvest
+  // more workers than harvest, else to harvest. Farm jobs only: the batch-9 furnace loaders are task 61's bots.
   const staff = (tick: number) => {
-    for (const job of WORKER_JOBS)
+    for (const job of FARM_JOBS)
       if (tryAct(buyCertificate(s, job), null)) {
         workerTicks.firstCertificate ??= tick
         workerTicks[`${job}Certificate`] = tick
@@ -646,7 +648,7 @@ const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
 // perMin = net cash per minute over the whole run (worker sales − wages included, which per-energy cannot show).
 function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState().run.toolTier, assigned = { water: 0, harvest: 0 }) {
   const init = createInitialState()
-  const workers = { pool: assigned.water + assigned.harvest, assigned, certificates: [...WORKER_JOBS] }
+  const workers = { pool: assigned.water + assigned.harvest, assigned: { ...assigned, ore: 0, fuel: 0 }, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], toolTier, workers } }
   const farm = { cash: 0, energy: 0 }
   for (let t = 0; t < ticks; t++) {
@@ -849,7 +851,8 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
     expect(t).toEqual({ storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1776, copperPickaxe: 2172 })
     expect(summary.finalCash).toBe(5980)
     expect(summary.rngState).toBe(1328891991)
-    expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116 })
+    // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
+    expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116, bars: 5 })
   })
 })
 
