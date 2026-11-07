@@ -1,6 +1,7 @@
 import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
 import { ITEMS } from '../core/data/items'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
+import { ironHidden } from './devFlags'
 import type { GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers,hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
 import { Info } from './Info'
@@ -73,7 +74,7 @@ export function Workers({ state, act }: { state: GameState; act: Act }) {
         👷 Workers · free {freeWorkers(run)} / {pool}
         {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
       </summary>
-      {WORKER_JOBS.map((job) => (
+      {WORKER_JOBS.filter((job) => !(job === 'mine' && ironHidden(run.vein.level) && !run.workers.certificates.includes(job))).map((job) => (
         <JobRow key={job} state={state} act={act} job={job} />
       ))}
       {hireUnlocked(run) && (

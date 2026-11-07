@@ -262,3 +262,10 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Iron needs a copper pickaxe or better**; the furnace smelts one ore kind at a time (player picks); iron costs
   twice the fire of copper per bar.
 - **Iron farm tools are a later batch** (moisture 4, 20 % double harvest, 35 % seed keep were the round-4 numbers).
+
+## Iron dev-gate (after batch 11, Toon)
+
+- **Iron ships switched off on the live site.** `src/app/devFlags.ts`: without `?dev=iron` (remembered in localStorage
+  `tiles.dev`, cleared by `?dev=off`) the upgrade to vein Lv3, the iron-rock hint, the locked ⛏️ mine-worker row and
+  zero iron stats are hidden, and the vein line shows the old "🔒 Lv3: iron ore — coming" teaser. UI only: core, save
+  v11 and every number are unchanged; a player already on vein Lv3 sees everything. Remove the gate when iron is ready.

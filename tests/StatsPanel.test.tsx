@@ -1,9 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { Stats } from '../src/app/Stats'
 import { createInitialState, type GameState } from '../src/core/state'
 import { stats } from '../src/core/stats'
+import { setDevFlags } from '../src/app/devFlags'
+
+// these tests describe iron as players will see it; the live gate (devFlags) is tested in devFlags.test.ts and below
+beforeEach(() => setDevFlags(['iron']))
 
 afterEach(cleanup)
 

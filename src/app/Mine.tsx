@@ -54,10 +54,13 @@ import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 import { Info, Item } from './Info'
 import { FURNACE_TIPS } from './tips'
+import { ironHidden, ironVein } from './devFlags'
 import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
 const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: gold ore — coming`
+/** the teaser while iron is gated off (devFlags): the same line the copper-only build showed */
+const lockedIronText = (level: number) => `🔒 Lv${level}: iron ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
@@ -83,8 +86,6 @@ function sellAll(s: GameState): ActionResult {
   }, { ok: true, state: s })
 }
 
-/** the vein at this level drops iron ore: the ore-kind picker and the iron pickaxe show from here */
-const ironVein = (level: number) => (veinDrops(level).ironOre ?? 0) > 0
 
 /** a disabled furnace button's short reason */
 function shortReason(r: ActionResult) {
@@ -235,7 +236,9 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
   // a rock the pickaxe in hand is too weak for is mined as stone: show it as "🔷 as ⛰️" with stone's hits
   const minedAs = minedRock(run.vein.rock, active)
   const rock = ITEMS[run.vein.rock].emoji + (minedAs === run.vein.rock ? '' : ` as ${ITEMS[minedAs].emoji}`)
-  const nextVein = veinUpgradeCost(run.vein.level, meta)
+  // iron gated off (devFlags): the upgrade to the first iron vein, its rock hint and the gold teaser hide
+  const ironGate = ironHidden(run.vein.level) && ironVein(run.vein.level + 1)
+  const nextVein = ironGate ? null : veinUpgradeCost(run.vein.level, meta)
   const veinCheck = upgradeVein(state)
   const veinItems = nextVein ? ITEM_IDS.reduce((n, id) => n + (nextVein[id] ?? 0), 0) : 0
   // items the next level costs beyond what storage holds can never be gathered, so say what to buy instead
@@ -245,7 +248,7 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
       ? `Needs 📦 ${veinItems} storage`
       : ERROR_TEXT[veinCheck.error]
   // rocks of this level or the next that the pickaxe in hand mines as stone (iron ore below a copper pickaxe)
-  const tooHard = ITEM_IDS.filter((id) => (veinDrops(run.vein.level + 1)[id] ?? 0) > 0 && minedRock(id, active) !== id)
+  const tooHard = ironGate ? [] : ITEM_IDS.filter((id) => (veinDrops(run.vein.level + 1)[id] ?? 0) > 0 && minedRock(id, active) !== id)
   const fullValue = SELL_WHEN_FULL.reduce(
     (sum, id) => sum + (run.inventory[id] ?? 0) * itemSellPrice(id, meta, run.upgrades.sellPrice),
     0,
@@ -310,7 +313,7 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
             {ITEMS.stone.emoji} stone
           </span>
         ))}
-        <span className="mine-vein-next">{LOCKED_VEIN_TEXT}</span>
+        <span className="mine-vein-next">{ironGate ? lockedIronText(run.vein.level + 1) : LOCKED_VEIN_TEXT}</span>
       </div>
       {run.furnace.built ? (
         <Furnace state={state} act={act} />
