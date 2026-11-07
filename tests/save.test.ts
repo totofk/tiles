@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import v1 from './fixtures/save-v1.json?raw'
 import v2 from './fixtures/save-v2.json?raw'
 import v3 from './fixtures/save-v3.json?raw'
+import v4 from './fixtures/save-v4.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { createInitialState, createTile } from '../src/core/state'
@@ -42,6 +43,12 @@ describe('serialize / deserialize', () => {
     expect(deserialize(JSON.stringify(v4))?.version).toBe(4)
     expect(deserialize(JSON.stringify({ ...v4, version: 5 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...v4, version: undefined }))).toBeNull()
+  })
+
+  it('loads a real v4 save (built by the batch-5 code) as is', () => {
+    const old = JSON.parse(v4)
+    expect(old.state.run).toMatchObject({ mineLicense: true, pickaxe: { tier: 'wooden', durability: 11 }, inventory: { stone: 7 } })
+    expect(deserialize(v4)).toEqual(old)
   })
 
   it('migrates a real v3 save (built by the batch-4.5 code) to v4: digs → mines, new fields start empty', () => {
