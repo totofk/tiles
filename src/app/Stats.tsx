@@ -1,5 +1,6 @@
 import type { GameState } from '../core/state'
 import { stats, type StatRow } from '../core/stats'
+import { DangerZone } from './DangerZone'
 import { ironHidden } from './devFlags'
 import { FeedbackCard } from './FeedbackCard'
 import type { PanelProps } from './panelTabs'
@@ -38,12 +39,13 @@ export function Stats({ state }: { state: GameState }) {
   )
 }
 
-/** the 📊 Stats tab: the stats, then 💬 Feedback */
-export function StatsTab({ state, feedback, setFeedback }: PanelProps) {
+/** the 📊 Stats tab: the stats, 💬 Feedback, then the Danger zone with Reset */
+export function StatsTab({ state, feedback, setFeedback, reset }: PanelProps) {
   return (
     <>
       <Stats state={state} />
       <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
+      <DangerZone reset={reset} />
     </>
   )
 }

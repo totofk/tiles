@@ -6,8 +6,8 @@ import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
-import { awayText, catchUp, offlineTicks } from '../save/serialize'
-import { loadGame, saveGame, wallClock } from '../save/storage'
+import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
+import { RESET_BACKUP_KEY, loadGame, saveGame, wallClock } from '../save/storage'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
   NO_ENERGY: 'Not enough energy',
@@ -130,6 +130,11 @@ export function useGame() {
   )
 
   const reset = useCallback(() => {
+    try {
+      localStorage.setItem(RESET_BACKUP_KEY, serialize(stateRef.current, wallClock()))
+    } catch {
+      // storage blocked: the reset still goes ahead, as it did before the backup existed
+    }
     const fresh = createInitialState()
     commit(fresh)
     saveGame(localStorage, fresh)

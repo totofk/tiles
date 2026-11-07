@@ -94,8 +94,7 @@ body {
 /* on mobile the bottom tab bar picks the panel tab */
 .panel-head,
 .panel-open,
-.panel-close,
-.reset-panel {
+.panel-close {
   display: none;
 }
 .tabbar {
@@ -159,12 +158,8 @@ body {
     grid-area: farm;
   }
   .tabbar,
-  .reset-farm,
   .panel-toggle {
     display: none;
-  }
-  .reset-panel {
-    display: block;
   }
   .panel-head {
     display: flex;
@@ -1048,17 +1043,30 @@ details > summary:focus-visible {
   overflow: hidden;
 }
 
-/* deliberately small and far from the game controls; still behind a confirm */
+/* 📊 Stats "Danger zone": last in the tab, below 💬 Feedback; small until armed, then a full-width red button */
+.danger {
+  display: flex;
+  flex-direction: column;
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+}
 .reset {
-  align-self: center;
-  min-height: 32px;
-  margin-top: 40px;
+  align-self: flex-start;
   padding: 0 8px;
   border: none;
   background: none;
   color: #9b2c2c;
-  font-size: 12px;
+  font-size: 14px;
   text-decoration: underline;
+}
+.reset.armed {
+  align-self: stretch;
+  border: 1px solid #9b2c2c;
+  background: #c62828;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
 }
 
 /* above the tab bar and the slide-over, so it shows in every layout */

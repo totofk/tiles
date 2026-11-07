@@ -6,6 +6,8 @@ export const SAVE_KEY = 'tiles.save'
 export const BAD_SAVE_KEY = 'tiles.save.bad'
 /** the raw save of an older version, kept before migrating so a buggy migration can be repaired later */
 export const backupKey = (version: number) => `${SAVE_KEY}.backup.v${version}`
+/** the run as it was just before the 📊 Stats reset (overwritten by the next reset) */
+export const RESET_BACKUP_KEY = `${SAVE_KEY}.backup.reset`
 
 function rawVersion(raw: string): unknown {
   try {

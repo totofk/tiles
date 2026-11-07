@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { createInitialState } from '../src/core/state'
-import { serialize } from '../src/save/serialize'
-import { SAVE_KEY } from '../src/save/storage'
+import { deserialize, serialize } from '../src/save/serialize'
+import { RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -281,9 +281,18 @@ describe('layout content', () => {
     expect((screen.getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('half-written idea')
   })
 
-  it('keeps Reset save in the side panel and the Farm view', () => {
+  it('Reset save lives only in 📊 Stats; two presses back the run up to tiles.save.backup.reset and reset', () => {
+    const s = createInitialState()
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 777 } }, Date.now()))
+    const confirm = vi.spyOn(window, 'confirm')
     render(<App />)
-    const resets = screen.getAllByRole('button', { name: 'Reset save' })
-    expect(resets.map((b) => b.closest('.panel, .farm')?.className)).toEqual(['farm', 'panel'])
+    expect(screen.queryByRole('button', { name: 'Reset save' })).toBeNull()
+    fireEvent.click(panelTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: 'Reset save' }))
+    expect(localStorage.getItem(RESET_BACKUP_KEY)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Press again to erase everything' }))
+    expect(deserialize(localStorage.getItem(RESET_BACKUP_KEY)!)!.state.run.cash).toBe(777)
+    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.cash).toBe(s.run.cash)
+    expect(confirm).not.toHaveBeenCalled()
   })
 })

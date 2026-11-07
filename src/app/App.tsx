@@ -74,20 +74,7 @@ export default function App() {
     )
   }
 
-  // shown at the bottom of the side panel, and of the Farm view on mobile (CSS picks one)
-  const resetButton = (where: 'panel' | 'farm') => (
-    <button
-      className={`reset reset-${where}`}
-      onClick={() => {
-        if (!window.confirm('Reset save? All progress is lost.')) return
-        reset()
-      }}
-    >
-      Reset save
-    </button>
-  )
-
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback, reset }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
@@ -138,7 +125,6 @@ export default function App() {
             <Workers state={state} act={act} />
           </>
         )}
-        {resetButton('farm')}
       </section>
       <aside className="panel">
         <div className="panel-head">
@@ -167,7 +153,6 @@ export default function App() {
           </button>
         </div>
         <Panel {...panelProps} />
-        {resetButton('panel')}
       </aside>
       <nav className="tabbar">
         {mobileTabs.map((t) => (

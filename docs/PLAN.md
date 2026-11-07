@@ -643,6 +643,22 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 11 (task 69): the miner's "farm cap" is cash per hour vs the three farm workers**, since a worker spends no
   player energy; the player's own presses use the batch-6/7 cash-per-energy bench on vein Lv3.
 - **Batch 11 (task 69): no `balance.ts` change.**
+- **Batch 11.1 (task 70): the feedback draft and the cooldown live in `App`** (passed to the 📊 Stats tab through
+  `PanelProps`), not in the Stats component: App renders only the open tab, so a tab switch unmounts Stats and its state.
+- **Batch 11.1 (task 70): the 30 s cooldown starts on a send that went out (or a filled honeypot), not on a failed one**,
+  so Retry after a network error is not blocked.
+- **Batch 11.1 (task 70): `feedbackSummary(state, hideIron)` takes the gate as a parameter** (core cannot read
+  `devFlags`); with it on, the line drops the mine worker, its one iron-only field. The furnace ore kind is never in the
+  line. The summary line is labelled `Game:` in the context block.
+- **Batch 11.1 (task 70): the cooldown countdown reads `Date.now()` from a 1 s interval into state**, not during render:
+  `react-hooks/purity` rejects an impure call in render.
+- **Batch 11.1 (task 70): `src/globals.d.ts` declares `__BUILD__`**; `vite.config.ts` falls back to `GITHUB_SHA` only
+  when `git rev-parse` fails (the Pages workflow checks out the repo, so CI normally gets the hash from git too).
+- **Batch 11.1 (task 71): the reset backup is the live run** (`serialize(stateRef.current)`), not the raw `tiles.save`
+  string, which can be up to 1 s older. A blocked storage skips the backup and still resets, as before. The feedback
+  draft is not cleared by a reset (it is not part of the save).
+- **Batch 11.1 (task 71): the unarmed Reset is a 14 px red link** (12 px before; it now sits alone in its own card); armed it
+  becomes a full-width red button.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1905,10 +1921,51 @@ on the form that Toon installs — not part of this repo).
       lifted to the Stats tab is fine; not saved).
     - Tests: the field mapping + context block (pure function `buildFeedbackBody`), honeypot, cooldown, blank
       required fields, error path (mock fetch). No real network in tests.
-- [ ] 71. **Reset moves under Feedback, with an in-game confirm.** Remove the Farm-panel "Reset save" link and
+- [x] 71. **Reset moves under Feedback, with an in-game confirm.** Remove the Farm-panel "Reset save" link and
     `window.confirm`. In 📊 Stats, a "Danger zone" row below Feedback: first press turns the button into a red
     "Press again to erase everything" for 5 s (then reverts); the second press copies the current save to
     `tiles.save.backup.reset` (overwrite) and resets as before. Keyboard: Esc cancels the armed state. Tests for
     arm → revert after 5 s, arm → confirm, backup written.
     Layout: both cards compact at 375 px (Stats tab under the mobile tab bar) and inside the desktop panel at 1024 /
     1440; textarea `resize: vertical`, max-width 100 %; no overlap with neighbours; no 7th tab.
+
+## Batch 11.1 results
+
+UI only: no save bump (`SAVE_VERSION` 11), no `balance.ts` change, iron dev-gate unchanged.
+
+### 💬 Feedback card (task 70)
+
+- `src/app/feedback.ts`: form URL and entry ids, `FEEDBACK_KINDS` (`Feedback` / `Idea` / `Bug report`), `TITLE_MAX` 80,
+  `DETAILS_MAX` 2000, `COOLDOWN_MS` 30 000, pure `buildFeedbackBody(draft, context)`, `canSend`, `cooldownLeft`,
+  `sendFeedback(draft, context, post = fetch)` → `'sent' | 'failed'` (no throw; a filled honeypot → `'sent'`, no fetch).
+- `src/app/FeedbackCard.tsx`: segmented kind buttons (`aria-pressed`), title / details with `n/max` counters, optional
+  contact, off-screen `website` honeypot (`tabIndex -1`, `autoComplete off`, `aria-hidden`), Send disabled until both
+  required fields are non-blank and during the cooldown ("Send (wait N s)"); "Sent — thank you" clears the fields; a
+  network error keeps them, says "Could not send — check your connection" and the button reads Retry.
+- Context block after `---`: `Build` (Vite `define __BUILD__` from `git rev-parse --short HEAD`, else `GITHUB_SHA`,
+  else `dev`), `Save: v11`, `Screen: w×h @dpr`, `UA`, `Time` (ISO), `Game: feedbackSummary(state, ironHidden(vein))`.
+  `feedbackSummary` (core, `stats.ts`): cash, licenses, tool level + tier per job, pickaxe, workers per job, vein level,
+  furnace plain/smart + levels, play time. Gated: no "iron", no mine worker (tested).
+- The 📊 Stats tab is `StatsTab` = `Stats` + `FeedbackCard` + `DangerZone`; the draft survives a tab switch (App test).
+
+### Reset in 📊 Stats (task 71)
+
+- The Farm-view and side-panel "Reset save" links and `window.confirm` are gone (and their `.reset-farm` /
+  `.reset-panel` CSS). `src/app/DangerZone.tsx`: first press → red "Press again to erase everything" for `ARM_MS`
+  5000, then back; second press resets; Esc disarms (timer and keydown listener keyed on the armed state).
+- `useGame.reset` first writes the live run to `tiles.save.backup.reset` (`RESET_BACKUP_KEY`, `storage.ts`), overwriting.
+- Tests: arm → revert at 5 s, arm → confirm, Esc (DangerZone.test); App: Reset only in Stats, backup holds the old
+  run (cash 777) and `tiles.save` the fresh one, no `window.confirm`.
+
+### Layout (computed from `app.css`, no browser)
+
+- Panel content width: **375 px** 343 (app 8 + panel 8 padding each side); **768–1023** slide-over 364 (380 − 16);
+  **1024** 284 (panel column clamp floor 300 − 16); **1440** 358 (26vw = 374 − 16).
+- Kind buttons: 3 × `minmax(0, 1fr)`, gap 6 → 110 / 91 / 115 px at 375 / 1024 / 1440; "Bug report" at 14 px is
+  ≈ 78 px with padding and border, so it fits on one line at 1024 (`nowrap`). Inputs and textarea `width: 100%`
+  (border-box), textarea `resize: vertical`, 16 px text (no iOS focus zoom).
+- Stacking: Stats rows → 💬 Feedback (margin-top 12) → Danger zone (margin-top 24, top rule), one flex column, so
+  nothing overlaps; the honeypot is absolutely positioned at left −10 000 px (negative overflow does not scroll).
+  At 375 the `.app` bottom padding (tab bar 56 + 16) keeps the Danger zone above the fixed tab bar; at ≥ 1024 the
+  panel scrolls on its own (`overflow-y: auto`). Armed, the button stretches to the content width (343 / 284 / 358).
+  No new tab.
