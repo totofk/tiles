@@ -60,6 +60,31 @@ body {
   display: flex;
   flex-direction: column;
 }
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.panel-tabs {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+.panel-tabs button {
+  flex: 1;
+  padding: 0 8px;
+}
+.panel-tabs [aria-selected='true'] {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  font-weight: 600;
+}
+.panel-toggle {
+  min-width: 44px;
+  font-size: 20px;
+}
+/* on mobile the bottom tab bar picks the panel tab */
+.panel-head,
 .panel-open,
 .panel-close,
 .reset-panel {
@@ -121,11 +146,15 @@ body {
     grid-area: farm;
   }
   .tabbar,
-  .reset-farm {
+  .reset-farm,
+  .panel-toggle {
     display: none;
   }
   .reset-panel {
     display: block;
+  }
+  .panel-head {
+    display: flex;
   }
 }
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -174,6 +203,17 @@ body {
   }
   .panel {
     grid-area: panel;
+  }
+  .panel-toggle {
+    display: block;
+  }
+  /* collapsed: the panel shrinks to its expand button and the farm column takes the width */
+  .panel-collapsed {
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) auto;
+  }
+  .panel-collapsed > .panel > :not(.panel-head),
+  .panel-collapsed .panel-head > :not(.panel-toggle) {
+    display: none;
   }
 }
 

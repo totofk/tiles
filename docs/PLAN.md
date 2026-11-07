@@ -147,6 +147,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 4: the Farm view shows "Planting: 🥕 Radish"**, because on mobile the seed picker sits in the Shop view and
   a tap on a tilled tile plants the selected crop (the round-1 "radish became pumpkin" report).
 - **Batch 4: the locked Mine card also has the buy button** for the mine license (same action as the Shop card).
+- **Batch 4: buy wood is in both Shop and the Mine panel.** Shop holds wood per the task; the Mine panel keeps its
+  button next to "craft" so a mobile player does not switch views to craft a pickaxe. The Shop shows wood only after
+  the mine license (it replaces the license card there). The unlock toast now says "New upgrade: …".
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -224,7 +227,7 @@ UI only: no change to `src/core/**` numbers or the save format.
     Farm + Mine side by side and the side panel as a slide-over; < 768 px one view at a time with a bottom tab bar
     and a sticky HUD. Farm tiles scale with the space (square, readable at 375 px and 1440 px). Before the mine
     license the Mine column/tab shows a locked card with the license price.
-16. [ ] Side panel with tabs **Shop / Upgrades** (Bank added in batch 4.5): split the current Shop into Shop
+16. [x] Side panel with tabs **Shop / Upgrades** (Bank added in batch 4.5): split the current Shop into Shop
     (seeds, licenses, wood, tiles) and Upgrades (energy max, regen, sell price, fertilizer; milestone-hidden ones
     stay hidden). Collapse/expand button on desktop; when collapsed the farm grows. Toasts stay visible in every
     layout.

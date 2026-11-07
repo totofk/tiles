@@ -4,7 +4,7 @@ import { isMature, tapTile } from '../core/tile'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
-import { Shop } from './Shop'
+import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { useGame } from './useGame'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
@@ -17,6 +17,9 @@ export default function App() {
   const { state, act, reset, toast, banner, dismissBanner } = useGame()
   const [cropId, setCropId] = useState<CropId>(STARTING_CROP)
   const [view, setView] = useState<View>('farm')
+  const [tab, setTab] = useState<PanelTabId>('shop')
+  // desktop only: a collapsed panel gives its width to the farm
+  const [collapsed, setCollapsed] = useState(false)
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
@@ -50,14 +53,23 @@ export default function App() {
     </button>
   )
 
-  const tabs: { view: View; label: string }[] = [
-    { view: 'farm', label: '🌱 Farm' },
-    { view: 'mine', label: '⛏️ Mine' },
-    { view: 'panel', label: '🛒 Shop' },
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId }
+  const Panel = PANEL_TABS.find((t) => t.id === tab)!.Panel
+  const mobileTabs = [
+    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm') },
+    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine') },
+    ...PANEL_TABS.map((t) => ({
+      label: t.label,
+      active: view === 'panel' && tab === t.id,
+      select: () => {
+        setView('panel')
+        setTab(t.id)
+      },
+    })),
   ]
 
   return (
-    <main className={`app${slideOpen ? ' slide-open' : ''}`} data-view={view}>
+    <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed ? ' panel-collapsed' : ''}`} data-view={view}>
       <div className="top">
         <Hud state={state} />
         <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
@@ -81,15 +93,32 @@ export default function App() {
         {resetButton('farm')}
       </section>
       <aside className="panel">
-        <button className="panel-close" aria-label="Close panel" onClick={() => setSlideOpen(false)}>
-          ✕
-        </button>
-        <Shop state={state} cropId={cropId} onSelectCrop={setCropId} act={act} />
+        <div className="panel-head">
+          <div className="panel-tabs" role="tablist">
+            {PANEL_TABS.map((t) => (
+              <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <button
+            className="panel-toggle"
+            aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed(!collapsed)}
+          >
+            {collapsed ? '‹' : '›'}
+          </button>
+          <button className="panel-close" aria-label="Close panel" onClick={() => setSlideOpen(false)}>
+            ✕
+          </button>
+        </div>
+        <Panel {...panelProps} />
         {resetButton('panel')}
       </aside>
       <nav className="tabbar">
-        {tabs.map((t) => (
-          <button key={t.view} aria-pressed={view === t.view} onClick={() => setView(t.view)}>
+        {mobileTabs.map((t) => (
+          <button key={t.label} aria-pressed={t.active} onClick={t.select}>
             {t.label}
           </button>
         ))}

@@ -1,41 +1,10 @@
-import { buyLicense, buyTile, buyUpgrade } from '../core/actions'
-import {
-  TILE_CAP,
-  cropSeedCost,
-  energyMax,
-  energyRegenPerTick,
-  growTimeFactor,
-  licenseCost,
-  mineLicenseCost,
-  sellPriceFactor,
-  tileCost,
-  upgradeCost,
-  upgradeMaxLevel,
-  upgradeUnlocked,
-} from '../core/balance'
+import { buyLicense, buyTile } from '../core/actions'
+import { TILE_CAP, cropSeedCost, licenseCost, mineLicenseCost, tileCost, woodCost } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
-import { UPGRADES, UPGRADE_IDS, type UpgradeId } from '../core/data/upgrades'
-import { buyMineLicense } from '../core/mining'
-import type { GameState, MetaState } from '../core/state'
+import { buyMineLicense, buyWood } from '../core/mining'
+import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import type { Act } from './useGame'
-
-const pct = (f: number) => `${Math.round(f * 100)} %`
-
-function effect(id: UpgradeId, level: number, meta: MetaState): string {
-  switch (id) {
-    case 'energyMax':
-      return `max ${energyMax(level, meta)} → ${energyMax(level + 1, meta)}`
-    case 'energyRegen': {
-      const fmt = (l: number) => energyRegenPerTick(l, meta).toFixed(2)
-      return `regen ${fmt(level)}/s → ${fmt(level + 1)}/s`
-    }
-    case 'sellPrice':
-      return `prices ${pct(sellPriceFactor(level))} → ${pct(sellPriceFactor(level + 1))}`
-    case 'fertilizer':
-      return `grow time ${pct(growTimeFactor(level))} → ${pct(growTimeFactor(level + 1))}`
-  }
-}
 
 type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act }
 
@@ -66,21 +35,14 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
         })}
       </div>
 
-      <h2>Upgrades</h2>
+      <h2>Supplies</h2>
       <div className="shop-row">
-        {UPGRADE_IDS.filter((id) => upgradeUnlocked(id, run.counters)).map((id) => {
-          const level = run.upgrades[id]
-          const max = upgradeMaxLevel(id)
-          const cost = upgradeCost(id, level, meta)
-          const maxed = level >= max
-          return (
-            <button key={id} disabled={maxed || run.cash < cost} onClick={() => act((s) => buyUpgrade(s, id))}>
-              {UPGRADES[id].name} Lv {level}/{max}
-              <small>{maxed ? 'max level' : `${effect(id, level, meta)} · 💰${cost}`}</small>
-            </button>
-          )
-        })}
-        {!run.mineLicense && (
+        {run.mineLicense ? (
+          <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
+            🪵 Wood
+            <small>💰{woodCost(meta)}</small>
+          </button>
+        ) : (
           <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
             ⛏️ Mine license
             <small>💰{mineLicenseCost(meta)}</small>

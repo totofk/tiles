@@ -58,7 +58,7 @@ export function useGame() {
       const fresh = UPGRADE_IDS.filter((id) => upgradeUnlocked(id, s.run.counters) && !upgradeUnlocked(id, prev))
       stateRef.current = s
       setState(s)
-      if (fresh.length) showToast(`New in shop: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`)
+      if (fresh.length) showToast(`New upgrade: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`)
     },
     [showToast],
   )
