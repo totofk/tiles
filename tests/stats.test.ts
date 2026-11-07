@@ -26,6 +26,7 @@ describe('stats(state)', () => {
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Fire wasted', value: '0 units' },
       { label: 'Wages paid', value: '💰0' },
+      { label: 'Plants by workers', value: '0' },
     ])
     const meta = createInitialState().meta
     expect(multipliers).toEqual([

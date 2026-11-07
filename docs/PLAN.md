@@ -1570,7 +1570,7 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
     so `workerTargets` (batch 9) covers it. Certificate 🥉10 + 💰300, visible after 60 plants. Save v10 per CLAUDE.md:
     FIRST commit `tests/fixtures/save-v9.json` from the current code; chain v1–v9 → v10 (plant assigned 0, no
     certificate). step(s, n) = n × step(s, 1) with all three farm workers on.
-- [ ] 63. **UI.** Plant row in the Workers card (certificate, −/count/+, ⓘ) in the same order as the tool rows:
+- [x] 63. **UI.** Plant row in the Workers card (certificate, −/count/+, ⓘ) in the same order as the tool rows:
     Plant / Water / Harvest, then the furnace jobs. Target ring + flash (🌱) on planted tiles. Stats: plants by
     workers. Away banner: plants by workers. Compact at 375 px.
 - [ ] 64. **Sim + balance.** With plant + water + harvest workers on pumpkin and lemon: cash/hour vs manual, and 8 h
@@ -1605,3 +1605,22 @@ seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot
   backup test). Tested: the v9 fixture's whole migrated run, its smelt finishing after the load, the certificate visible
   but not owned; plant / till / auto-buy / no seed / seed + wage − 1 / full farm / copper dibber = player roll / target
   order; step(s, 900) = 900 × step(s, 1) with plant + water + harvest on, and 8 h from that state never below 0.
+
+### UI (task 63)
+- **👷 Workers card:** rows in `WORKER_JOBS` order, **🌱 Plant / 💧 Water / 🌾 Harvest / 🔶 Ore / ⚫ Fuel**, through the
+  shared `JobRow`: certificate "🥉10 💰300" with "plants n/60" while locked, then −/n/+, "unpaid", ⓘ (`WORKER_TIPS.plant`,
+  no numbers). A planter on untilled soil with cash 0 shows "unpaid" (tested).
+- **Grid:** `.cell-target-plant` = the same 2 px dashed ring in green `#2e7d32` (on the tan untilled / tilled tiles a
+  planter targets); the flash pops `WORKER_JOB_EMOJI.plant` = `PLANT_EMOJI` 🌱 (Unicode 6.0, one constant in
+  `useGame.ts` next to `FIRE_EMOJI`, used by the row label, the pop and the banner).
+- **📊 Stats:** Lifetime "Plants by workers" after "Wages paid" (`lifetime.workerPlants`). **Away banner:** "· 🌱 N planted"
+  right after the catch-up summary, only when non-zero (diff of `workerPlants` before vs after).
+- **Layout, computed from `app.css`, not measured** (14 px ≈ 7 px/char, 12 px ≈ 6.5, 13 px buttons ≈ 6.5, emoji ≈ 18).
+  Workers rows sit in the Farm tab (content **284 px** at 1024, **358** at 1440) or below the grid at 375 (**359**).
+  - Certificate row: label span = max("🌱 Plant" ≈ 57, "plants 59/60" ≈ 78) = 78 + button ("Certificate" ≈ 72 or
+    "🥉10 💰300" ≈ 71, + 16 padding + 2 border ≈ 90) + ⓘ 28 + 2 gaps of 4 ≈ **204 px**: one line at all three widths.
+  - Staffed row: 57 + − 44 + n 16 + + 44 + "unpaid" 51 + ⓘ 28 + 5 × 4 ≈ **260 px** ≤ 284 / 358 / 359 (the "🌾 Harvest"
+    row, label ≈ 74, stays the widest row as before). `.worker-row` wraps, so nothing can overflow into a neighbour.
+  - The open card grows by one 44 px row + 4 px gap; closed it is the same 44 px summary (summary text unchanged).
+  - Ring and pop take no layout (outline + absolute pop, task 60), so tiles and the grid do not move at any width.
+  - Banner: the text span wraps inside the flex banner, ✕ stays right; one more part only lengthens the wrapped text.

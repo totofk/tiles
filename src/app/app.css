@@ -410,6 +410,9 @@ button:disabled {
 .cell-target-harvest {
   outline-color: #6d4c41;
 }
+.cell-target-plant {
+  outline-color: #2e7d32;
+}
 /* an author outline (the ring) would hide the browser's focus ring, so focus draws its own over it */
 .cell:focus-visible {
   outline: 2px solid #8a7a5c;

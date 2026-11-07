@@ -44,20 +44,24 @@ export const ERROR_TEXT: Record<ActionError, string> = {
 }
 
 export const FIRE_EMOJI = '🔥'
+/** the plant worker's icon (Workers row, tile pop, away banner) */
+export const PLANT_EMOJI = '🌱'
 
 /**
- * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (fire burnt,
- * bars smelted, workers' wages; each only when non-zero) and the bars waiting in the tray.
+ * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the
+ * planters planted, fire burnt, bars smelted, workers' wages; each only when non-zero) and the bars waiting in the tray.
  */
 export function bannerText(awayMs: number, before: GameState, after: GameState): string {
   const was = before.run.lifetime
   const now = after.run.lifetime
+  const planted = now.workerPlants - was.workerPlants
   const burnt = Math.ceil((now.fireBurnt - was.fireBurnt) / fireUnitTicks())
   const smelted = now.barsSmelted - was.barsSmelted
   const ready = after.run.furnace.ready
   const wages = now.wagesPaid - was.wagesPaid
   return [
     awayText(awayMs),
+    planted > 0 && `${PLANT_EMOJI} ${planted} planted`,
     burnt > 0 && `${FIRE_EMOJI} fire burnt ${burnt}`,
     smelted > 0 && `${ITEMS.copperBar.emoji} ${smelted} smelted`,
     ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,

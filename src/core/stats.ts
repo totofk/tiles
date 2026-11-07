@@ -79,6 +79,7 @@ export function stats(state: GameState): Stats {
     // fire units burnt with no cycle progressing (a plain furnace lit with no ore or a full tray)
     { label: 'Fire wasted', value: `${Math.ceil(lifetime.fireWasted / fireUnitTicks())} units` },
     { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
+    { label: 'Plants by workers', value: `${lifetime.workerPlants}` },
   ]
   const { pool, assigned } = run.workers
 

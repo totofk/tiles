@@ -88,6 +88,24 @@ describe('👷 Workers card', () => {
     expect(summary()).toBe('👷 Workers · free 0 / 2unpaid')
   })
 
+  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs; the plant certificate shows its price and gate', () => {
+    setup({}, { plants: 12 })
+    const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.firstChild!.textContent)
+    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`])
+    const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
+    expect(plant.textContent).toContain('plants 12/60')
+    expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
+  })
+
+  it('a certified planter gets [−] n [+] like the other jobs', () => {
+    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: ['plant'] } })
+    fireEvent.click(btn(/One more on Plant/))
+    t.rerender()
+    expect(t.get().run.workers.assigned.plant).toBe(1)
+    // the fresh farm's untilled soil is work for it, and cash 0 cannot pay the wage
+    expect(summary()).toBe('👷 Workers · free 0 / 1unpaid')
+  })
+
   it('sits below the grid in the mobile Farm view', () => {
     render(<App />)
     expect(within(document.querySelector<HTMLElement>('.farm')!).getByText(/👷 Workers/)).toBeTruthy()
@@ -114,6 +132,24 @@ describe('worker targets on the grid (task 60)', () => {
     rerender(<FarmGrid state={watered} onTap={() => {}} acted={[{ job: 'water', tile: 1 }]} />)
     expect(where('cell-flash')).toEqual([1])
     expect(cells()[1].querySelector('.cell-pop')!.textContent).toBe('💧')
+  })
+
+  it('a planter rings the empty tile it plants next (green) and its flash pops 🌱', () => {
+    const tilled = { ...s.run.tiles[0], status: 'tilled' as const }
+    const planted = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 1, ticksSinceMature: 0 }
+    const state: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        cash: 10,
+        tiles: s.run.tiles.map((_, i) => (i === 2 ? tilled : planted)),
+        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: ['plant'] },
+      },
+    }
+    const { rerender } = render(<FarmGrid state={state} onTap={() => {}} />)
+    expect(where('cell-target-plant')).toEqual([2])
+    rerender(<FarmGrid state={state} onTap={() => {}} acted={[{ job: 'plant', tile: 2 }]} />)
+    expect(cells()[2].querySelector('.cell-pop')!.textContent).toBe('🌱')
   })
 
   it('in the app the ringed tile flashes on the tick the worker acts, and stops a tick later', () => {
@@ -144,5 +180,12 @@ describe('HUD and away banner', () => {
     const paid = (wagesPaid: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, wagesPaid } } })
     expect(bannerText(60_000, s, s)).toBe('Away for 1m — 60 ticks simulated')
     expect(bannerText(60_000, paid(3), paid(15))).toBe('Away for 1m — 60 ticks simulated · wages paid 💰12')
+  })
+
+  it('the away banner counts the crops the planters planted while away, first', () => {
+    const s = createInitialState()
+    const at = (workerPlants: number, wagesPaid: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, workerPlants, wagesPaid } } })
+    expect(bannerText(60_000, at(4, 0), at(4, 0))).toBe('Away for 1m — 60 ticks simulated')
+    expect(bannerText(60_000, at(4, 0), at(13, 20))).toBe('Away for 1m — 60 ticks simulated · 🌱 9 planted · wages paid 💰20')
   })
 })

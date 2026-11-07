@@ -6,10 +6,10 @@ import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireUnl
 import { Info } from './Info'
 import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
-import type { Act } from './useGame'
+import { PLANT_EMOJI, type Act } from './useGame'
 
 /** the job's icon: its row label and the pop on a tile a farm worker acts on */
-export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = { plant: '🌱', water: '💧', harvest: '🌾', ore: ITEMS.copperOre.emoji, fuel: ITEMS.coal.emoji }
+export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = { plant: PLANT_EMOJI, water: '💧', harvest: '🌾', ore: ITEMS.copperOre.emoji, fuel: ITEMS.coal.emoji }
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   plant: `${WORKER_JOB_EMOJI.plant} Plant`,
   water: `${WORKER_JOB_EMOJI.water} Water`,
