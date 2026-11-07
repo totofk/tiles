@@ -291,6 +291,15 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   Storage L1 costs 20 stone at capacity 20 (payable only with nothing else in storage); L2 costs 32 stone at capacity 30,
   so it can never be paid, and neither can L3–L5 (51/82/131 stone at 40/50/60). Vein Lv1 needs 40 stone = capacity 40 =
   storage L2, so **vein Lv1 is unreachable in play**. A sim that sets vein Lv1 directly would hide this.
+- **Batch 6 Mine panel (task 29):** the drop % is each `veinDrops` weight over their sum, rounded. Below the current vein
+  ("Vein Lv0: 🪨 100 %") the next level shows greyed with its drops and cost while one exists ("Lv1: 🪨 80 % · ⚫ 20 % —
+  40 🪨 + 💰100", per DECISIONS "next vein level greyed with its cost"); the iron row is a UI constant in `Mine.tsx` and
+  always shows, with no numbers. The mastery row (level, a bar to the next threshold, "lasts ~N uses" =
+  `expectedUses` rounded) shows for the pickaxe in hand; the "+5 %" on the badge is read through the new
+  `masteredPreserveBonus()`. The crack is text on the Dig button ("🪨 cracked 1/2"). **"Sell from the panel when storage
+  is full"** = while `dig` returns `BAG_FULL`, a "Sell all 🪨 ⚫ 💰N" button under Dig sells every stone and coal in one
+  tap (wood stays, it is crafting material); the per-item rows are unchanged. The 375 px layout is CSS only (stacked
+  rows, 12–14 px text) and was not checked in a browser (no dev server in headless runs).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -513,7 +522,7 @@ compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; 
     upgrade:** +10 capacity per level, level 1 = 20 stone + 50 cash, ×1.6 both per level, max 5, in the Upgrades tab
     once the mine license is owned. Display rename "Bag" → "📦 Storage" everywhere (code ids `bagCapacity`,
     `inventory` unchanged). The seed pouch stays separate.
-29. [ ] Mine panel: drop table with % for the current vein; a greyed row "🔒 Lv2: iron ore — needs Furnace (coming)"
+29. [x] Mine panel: drop table with % for the current vein; a greyed row "🔒 Lv2: iron ore — needs Furnace (coming)"
     with no numbers; mastery bar with "lasts ~N uses" (expected uses incl. preserve), "Mastered ✓ +5 % all pickaxes"
     badge; crack on half-mined stone; blunt state + Repair button with its cost; sell from the panel when storage
     is full. Usable at 375 px.

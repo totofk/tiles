@@ -211,6 +211,11 @@ export function preserveChance(level: number, masteredTiers: number): number {
   return Math.min(PRESERVE_CAP, 1 - 1 / (1 + PRESERVE_PER_LEVEL * level) + MASTERED_PRESERVE_BONUS * masteredTiers)
 }
 
+/** preserve chance each mastered tier adds to every tier */
+export function masteredPreserveBonus(): number {
+  return MASTERED_PRESERVE_BONUS
+}
+
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
 }
