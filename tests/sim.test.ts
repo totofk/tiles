@@ -586,6 +586,10 @@ describe.each([
     expect([...ticks].sort((x, y) => x! - y!)).toEqual(ticks)
   })
 
+  it('(d) storage level 1 becomes affordable within ~600 ticks (checked, not bought)', () => {
+    expect(summary.storageAffordable).toBeLessThanOrEqual(600)
+  })
+
   it('(e) nothing goes negative and it never borrows', () => {
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
     expect(summary.borrowed).toBe(false)

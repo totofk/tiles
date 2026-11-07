@@ -317,8 +317,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   `saveForStorage`); the defaults are the pinned batch-3 bot. It records "license affordable" only for the license it is
   saving for (the next one in order), which for the pinned bots is the old pumpkin milestone. Storage affordability
   is checked with `buyStorage(...).ok` and never bought except by the `saveForStorage` variant, so the pins hold.
-- **Batch 6 sim: "(d) storage Lv1 within ~600 ticks of mine-early play" is met by a saving variant (tick 594), not by the
-  pinned bot**, which sells its stone each time storage fills and never has 20 stone and 💰50 at once by tick 600.
+- **Batch 6 sim: "(d) storage Lv1 within ~600 ticks of mine-early play" is measured on the four-crop mine-early session
+  (tick 579, checked only) and asserted on a saving variant of the pinned bot (tick 594)**; the pinned bot itself sells
+  its stone each time storage fills and never has 20 stone and 💰50 at once by tick 600.
   "Normal session" for (c) and (e) is 1200 ticks (20 min).
 
 
@@ -600,14 +601,17 @@ idle energy like the batch-3 bot under both mine-license policies. It never borr
 | final cash at 1200 | 840 | 860 |
 | harvests / mines | 45 / 79 | 46 / 79 |
 
-- **(c)** each license is affordable in order inside the session; lemon at ~630–660 (~11 min).
-- **(d) storage level 1:** the pinned 600-tick mine-early bot (it sells all stone when storage is full) never holds 20
-  stone and 💰50 at once by tick 600. A mine-early variant that keeps a full storage of stone (and stops mining) until
-  it can pay buys storage Lv1 at **tick 594**. Lowest cash 0.
+- **(c)** each license is affordable inside the session; lemon at ~630–660 (~11 min). The order itself is by
+  construction (the bot saves for the next license only, and the costs rise 50 < 100 < 400); the measured check is
+  "≤ 1200".
+- **(d) storage level 1:** the four-crop mine-early session above reaches it at **tick 579** with no change to its
+  play (checked only). The pinned 600-tick mine-early bot (carrot and pumpkin only, sells all stone when storage is
+  full) never holds 20 stone and 💰50 at once by tick 600; a variant of it that keeps a full storage of stone (and
+  stops mining) until it can pay buys storage Lv1 at **tick 594**. Lowest cash 0.
 - **(e)** cash, energy, storage, pouch and durability never go below 0 in either session bot or the storage variant.
-- **Finding, chilli first delays pumpkin:** buying chilli at 125 moves the pumpkin license from 207 to 311
-  (pumpkin-first). Chilli pays 4.0 per energy against carrot's 2.1, so the delay is a choice the player makes, not a
-  trap.
+- **Finding, chilli first delays pumpkin:** with chilli bought at 125, the pumpkin license is affordable at 311 in the
+  pumpkin-first session, against 200 (bought 207) in the carrot-and-pumpkin-only batch-3 bot. The runs differ in
+  length and licenses, so this is not measured as a gain or a loss.
 - **Open blocker (from the task 28 finding, not fixed): storage Lv2+ and vein Lv1 are still unpayable in play.**
   Storage L2 costs 32 stone at capacity 30 and vein Lv1 needs 40 stone at capacity 30. The vein Lv1 rate above is
   measured by setting the vein level directly. The stone prices are DECISIONS.md numbers and outside task 31's
