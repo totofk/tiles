@@ -20,6 +20,11 @@ const ERROR_TEXT: Record<ActionError, string> = {
   TILE_CAP: 'No more tiles to buy',
   ALREADY_OWNED: 'Already owned',
   LOCKED: 'Not unlocked yet',
+  NO_MINE_LICENSE: 'Buy the mine license first',
+  NO_PICKAXE: 'No pickaxe',
+  BAG_FULL: 'Bag is full — sell something',
+  NOT_ENOUGH_ITEMS: 'Not enough items',
+  BAD_AMOUNT: 'Invalid amount',
 }
 
 const TOAST_MS = 2000

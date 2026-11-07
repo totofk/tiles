@@ -28,6 +28,11 @@ export type ActionError =
   | 'TILE_CAP'
   | 'ALREADY_OWNED'
   | 'LOCKED'
+  | 'NO_MINE_LICENSE'
+  | 'NO_PICKAXE'
+  | 'BAG_FULL'
+  | 'NOT_ENOUGH_ITEMS'
+  | 'BAD_AMOUNT'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 

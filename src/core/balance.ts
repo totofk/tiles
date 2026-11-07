@@ -2,7 +2,8 @@
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import type { CounterId, MetaState, MultiplierKey } from './state'
+import type { ItemId } from './data/items'
+import type { CounterId, MetaState, MultiplierKey, PickaxeTier } from './state'
 
 export const START_TILES = 9
 export const TILE_CAP = 24
@@ -45,6 +46,19 @@ const UPGRADE_UNLOCK: Partial<Record<UpgradeId, { counter: CounterId; at: number
 
 const TILE_BASE_COST = 100
 const TILE_COST_GROWTH = 1.5
+
+const MINE_LICENSE_COST = 50
+const WOOD_BUY_COST = 4
+// wood sells below its buy price, so buying and reselling wood never makes money
+const ITEM_SELL_PRICE: Record<ItemId, number> = { wood: 2, stone: 2 }
+const PICKAXES: Record<PickaxeTier, { wood: number; durability: number }> = {
+  wooden: { wood: 3, durability: 20 },
+}
+export const BAG_CAPACITY_START = 20
+/** run.rngState for a new run and for migrated v1 saves */
+export const INITIAL_RNG_SEED = 0x2f6b1a3d
+/** drop weights per vein level (index = level); weights need not sum to 1 */
+const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }]
 
 export function multiplier(meta: MetaState, key: MultiplierKey): number {
   return meta.multipliers[key]
@@ -113,6 +127,26 @@ export function sellPriceFactor(level: number): number {
 /** fertilizer upgrade: multiplier on base grow time */
 export function growTimeFactor(level: number): number {
   return 1 - FERTILIZER_PER_LEVEL * level
+}
+
+export function mineLicenseCost(meta: MetaState): number {
+  return Math.round(MINE_LICENSE_COST * multiplier(meta, 'cost'))
+}
+
+export function woodCost(meta: MetaState): number {
+  return Math.round(WOOD_BUY_COST * multiplier(meta, 'cost'))
+}
+
+export function itemSellPrice(itemId: ItemId, meta: MetaState, sellPriceLevel: number): number {
+  return sellPrice(ITEM_SELL_PRICE[itemId], meta, sellPriceLevel)
+}
+
+export function pickaxeRecipe(tier: PickaxeTier): { wood: number; durability: number } {
+  return PICKAXES[tier]
+}
+
+export function veinDrops(level: number): Partial<Record<ItemId, number>> {
+  return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
 }
 
 /** cost of the next tile; Infinity once TILE_CAP tiles are owned */

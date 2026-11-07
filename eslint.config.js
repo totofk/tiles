@@ -25,7 +25,11 @@ export default defineConfig([
         },
       ],
       'no-restricted-globals': ['error', 'window', 'document', 'localStorage', 'navigator'],
-      'no-restricted-properties': ['error', { object: 'Date', property: 'now', message: 'Time enters core only as ticks.' }],
+      'no-restricted-properties': [
+        'error',
+        { object: 'Date', property: 'now', message: 'Time enters core only as ticks.' },
+        { object: 'Math', property: 'random', message: 'Use the seeded PRNG in run.rngState.' },
+      ],
       'no-restricted-syntax': [
         'error',
         { selector: "NewExpression[callee.name='Date']", message: 'Time enters core only as ticks.' },

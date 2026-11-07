@@ -1,5 +1,6 @@
-import { START_TILES, STARTING_CASH, energyMax } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
 import { STARTING_CROP, type CropId } from './data/crops'
+import type { ItemId } from './data/items'
 import type { UpgradeId } from './data/upgrades'
 
 export type TileStatus = 'untilled' | 'tilled' | 'planted'
@@ -27,7 +28,18 @@ export type RunState = {
   counters: Counters
   /** total ticks simulated this run */
   tick: number
+  mineLicense: boolean
+  pickaxe: Pickaxe | null
+  /** every item counts toward bagCapacity */
+  inventory: Partial<Record<ItemId, number>>
+  bagCapacity: number
+  vein: { level: number }
+  /** mulberry32 state (uint32); advanced by actions that roll, so runs replay exactly */
+  rngState: number
 }
+
+export type PickaxeTier = 'wooden'
+export type Pickaxe = { tier: PickaxeTier; durability: number }
 
 /** sales = units sold for cash (each harvest sells 1 crop) */
 export type Counters = { harvests: number; sales: number; digs: number }
@@ -66,6 +78,12 @@ export function createInitialState(): GameState {
       upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
       counters: { harvests: 0, sales: 0, digs: 0 },
       tick: 0,
+      mineLicense: false,
+      pickaxe: null,
+      inventory: {},
+      bagCapacity: BAG_CAPACITY_START,
+      vein: { level: 0 },
+      rngState: INITIAL_RNG_SEED,
     },
   }
 }

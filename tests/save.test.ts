@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import v1 from './fixtures/save-v1.json?raw'
-import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
 import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
@@ -39,6 +39,14 @@ describe('serialize / deserialize', () => {
     expect(run.tiles.slice(6)).toEqual([createTile(), createTile(), createTile()])
     expect(run.upgrades).toEqual({ ...old.run.upgrades, sellPrice: 0, fertilizer: 0 })
     expect(run.counters).toEqual({ harvests: 0, sales: 0, digs: 0 })
+    expect(run).toMatchObject({
+      inventory: {},
+      pickaxe: null,
+      mineLicense: false,
+      bagCapacity: BAG_CAPACITY_START,
+      vein: { level: 0 },
+      rngState: INITIAL_RNG_SEED,
+    })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
     expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
     // the migrated state plays on

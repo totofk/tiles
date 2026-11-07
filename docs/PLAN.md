@@ -120,6 +120,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   could hold 7–8 bought tiles, and `tileCost` would drop below its base price for them). It also **clamps current
   energy to the new, lower max**, and sets the new upgrade levels to 0 (`sellPrice`, `fertilizer`). Without that,
   `buyUpgrade` would read `undefined` and buy level NaN.
+  Fields v1 lacks are taken from a new run's defaults (`createInitialState().run`), so a migrated run has no mine
+  license, no pickaxe, an empty bag, vein 0 and `rngState = INITIAL_RNG_SEED`.
+- **Batch 3: `sales` counts units sold**, not sell calls: a harvest is 1 sale, "sell all" of 7 stone is 7, the same
+  as "sell 1" tapped 7 times. Mining therefore pulls the `sellPrice` unlock (25 sales) earlier.
+- **Batch 3: `sellPrice` raises item prices too** (stone and wood), not only crops. It scales both activities alike,
+  so the "mining < farming per energy" ratio is unchanged.
+- **Batch 3: wood takes bag space** (one bag for all items): `buyWood` returns `BAG_FULL` when the bag is full.
+  Wood resells for 2, below its buy price of 4 (even at `sellPrice` level 5 it sells for 3), so there is no money loop.
+- **Batch 3: `craftPickaxe` with a pickaxe already in hand returns `ALREADY_OWNED`** so wood is not wasted.
+  Buy, craft, license and sell cost no energy; only `dig` does. `buyWood` does not need the mine license.
+- **Batch 3: amounts are validated.** `buyWood(n)` and `sellItem(id, n)` return `BAD_AMOUNT` unless n is an
+  integer ≥ 1. ESLint now also bans `Math.random` in core and in serialize.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -129,7 +141,7 @@ Question: does digging while crops grow remove the "idle" feeling, without out-e
     tap guard after harvest (UI constant), watering allowed any time. Update `tile.ts` helpers + tests.
 11. [x] Rebalance: START_TILES 9, ENERGY_MAX_BASE 10. Milestone counters in run state + `sellPrice` and `fertilizer`
     upgrades (hidden until unlocked). Save version 2 with migration from v1 (fill new fields with defaults).
-12. [ ] Mining core: `src/core/mining.ts` + `data/items.ts` — mine license, buy wood, craft wooden pickaxe (durability),
+12. [x] Mining core: `src/core/mining.ts` + `data/items.ts` — mine license, buy wood, craft wooden pickaxe (durability),
     dig (energy + durability → 1 drop from the vein table via seeded PRNG in run state), inventory with capacity,
     sell item. Typed errors: NO_MINE_LICENSE, NO_PICKAXE, BAG_FULL, NOT_ENOUGH_ITEMS, …
 13. [ ] Mining UI: a "Mine" panel under the farm (dig button with pickaxe durability bar, bag N/cap, item rows with

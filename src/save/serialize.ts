@@ -1,11 +1,13 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
 import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../core/balance'
-import { createTile, type GameState, type RunState } from '../core/state'
+import { createInitialState, createTile, type GameState, type RunState } from '../core/state'
 import { step } from '../core/step'
 
 export const SAVE_VERSION = 2
 
-type RunV1 = Omit<RunState, 'counters' | 'upgrades'> & { upgrades: { energyMax: number; energyRegen: number } }
+type RunV1 = Pick<RunState, 'cash' | 'energy' | 'tiles' | 'licenses' | 'tick'> & {
+  upgrades: { energyMax: number; energyRegen: number }
+}
 type SaveV1 = { version: 1; savedAtMs: number; state: { meta: GameState['meta']; run: RunV1 } }
 type SaveV2 = { version: 2; savedAtMs: number; state: GameState }
 export type Save = SaveV2
@@ -15,24 +17,20 @@ export function serialize(state: GameState, savedAtMs: number): string {
   return JSON.stringify(save)
 }
 
-// v1 → v2: new upgrades at 0, counters 0, start grew to START_TILES tiles (pad with untilled),
-// energy max dropped, so clamp current energy to the new max.
+// v1 → v2: fields v1 lacks take a new run's defaults (new upgrades 0, counters 0, empty bag, no pickaxe,
+// no mine license, vein 0, INITIAL_RNG_SEED). Start grew to START_TILES tiles (pad with untilled) and
+// energy max dropped, so current energy is clamped to the new max.
 function migrateV1(save: SaveV1): SaveV2 {
   const { meta, run } = save.state
-  const upgrades = { ...run.upgrades, sellPrice: 0, fertilizer: 0 }
+  const fresh = createInitialState().run
+  const upgrades = { ...fresh.upgrades, ...run.upgrades }
   const tiles = [...run.tiles, ...Array.from({ length: Math.max(0, START_TILES - run.tiles.length) }, createTile)]
   return {
     version: 2,
     savedAtMs: save.savedAtMs,
     state: {
       meta,
-      run: {
-        ...run,
-        energy: Math.min(run.energy, energyMax(upgrades.energyMax, meta)),
-        tiles,
-        upgrades,
-        counters: { harvests: 0, sales: 0, digs: 0 },
-      },
+      run: { ...fresh, ...run, energy: Math.min(run.energy, energyMax(upgrades.energyMax, meta)), tiles, upgrades },
     },
   }
 }
