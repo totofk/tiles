@@ -141,9 +141,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   queries pick what shows, so the tablet slide-over and the desktop column are the same `<aside>`. The 375 / 768 /
   1440 px layouts were not checked in a browser (no dev server in headless runs).
 - **Batch 4: the tablet slide-over's open state is not persisted.** It is an overlay and always starts closed;
-  `tiles.ui` keeps only the desktop collapse flag, which the slide-over ignores.
+  of the panel's open/closed state, `tiles.ui` keeps only the desktop collapse flag, which the slide-over ignores.
 - **Batch 4: farm tiles are `aspect-ratio: 1` with a 96 px floor**, so a tile with long text on a narrow screen grows
-  taller instead of clipping. Columns: 3 below 768 px, ⌈√tiles⌉ above (9 → 3, 16 → 4, 24 → 5), tiles capped at 200 px.
+  taller instead of clipping. Columns: 3 below 768 px, ⌈√tiles⌉ above (9 → 3, 16 → 4, 24 → 5), tiles capped at 260 px.
+  Desktop side columns scale with the viewport (`clamp(…vw…)`), so the farm is ~450 px wide at 1024 px and ~670 px
+  at 1440 px (9 tiles ≈ 147 / 219 px); collapsing the panel at 1440 px grows them to the 260 px cap.
 - **Batch 4: the Farm view shows "Planting: 🥕 Radish"**, because on mobile the seed picker sits in the Shop view and
   a tap on a tilled tile plants the selected crop (the round-1 "radish became pumpkin" report).
 - **Batch 4: the locked Mine card also has the buy button** for the mine license (same action as the Shop card).

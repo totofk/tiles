@@ -7,8 +7,8 @@
 :root {
   --bg: #f4efe4;
   --tabbar-h: 56px;
-  /* farm tiles grow with the column up to this size */
-  --tile-max: 200px;
+  /* farm tiles grow with the column up to this size (a collapsed panel at 1440 px reaches it; 3 rows fit 900 px) */
+  --tile-max: 260px;
 }
 
 body {
@@ -194,7 +194,8 @@ body {
 /* ---- desktop: Mine | Farm | side panel across the full width ---- */
 @media (min-width: 1024px) {
   .app {
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(300px, 380px);
+    /* side columns scale with the viewport so the farm stays the widest column (~450 px at 1024, ~670 at 1440) */
+    grid-template-columns: clamp(220px, 22vw, 320px) minmax(0, 1fr) clamp(260px, 26vw, 380px);
     grid-template-areas:
       'top top top'
       'mine farm panel';
@@ -209,7 +210,7 @@ body {
   }
   /* collapsed: the panel shrinks to its expand button and the farm column takes the width */
   .panel-collapsed {
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) auto;
+    grid-template-columns: clamp(220px, 22vw, 320px) minmax(0, 1fr) auto;
   }
   .panel-collapsed > .panel > :not(.panel-head),
   .panel-collapsed .panel-head > :not(.panel-toggle) {
