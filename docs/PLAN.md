@@ -1245,5 +1245,7 @@ UI only; no `src/core/**`, `balance.ts` or save change (save stays v8). 374 test
   panel 52 (36 px toggle + 2 × 8) = 666.7 → grid box **≈ 445 px** at 1024 (was ≈ 549; 9 tiles ≈ 144 px each), and
   1440 − 80 − 316.8 − 52 = 991.2 → **≈ 769 px** at 1440.
 - **Mobile (< 768 px), 375 px:** unchanged — the fixed one-row bar above the tab bar, water / harvest / plant, ⋯ +
-  popover (≈ 325 of 375 px, 7.1). Tips there are ≤ 280 px wide, ≥ 8 px from each edge. Tablet (768–1023) keeps the
-  vertical bar + popover (see Deviations).
+  popover (≈ 325 of 375 px, 7.1). Tips there are ≤ 280 px wide, ≥ 8 px from each edge. The flip checks only the
+  viewport bottom (− 8 px), so a tip opened just above the 56 px tab bar (or the tool bar) may draw over them: it is
+  z-index 5, on top, and closes on the next tap or scroll, so they are covered only while it is open. Tablet
+  (768–1023) keeps the vertical bar + popover (see Deviations).

@@ -30,10 +30,17 @@ describe('ⓘ info button', () => {
     render(<Info text="Grows fast." />)
     const btn = screen.getByRole('button', { name: 'More info' })
     const tip = screen.getByRole('tooltip', { hidden: true })
+    // the tip is measured at 0,0, so its width is not cut by where its row sits
+    let measuredAt: string[] = []
+    tip.getBoundingClientRect = () => {
+      measuredAt = [tip.style.top, tip.style.left]
+      return { width: 200, height: 40 } as DOMRect
+    }
     fireEvent.pointerEnter(btn, { pointerType: 'touch' })
     expect(tip.hidden).toBe(true)
     fireEvent.pointerEnter(btn, { pointerType: 'mouse' })
     expect(tip.hidden).toBe(false)
+    expect(measuredAt).toEqual(['0px', '0px'])
     // jsdom rects are all 0: below the ⓘ (0 + 4 gap), clamped to the 8 px left margin
     expect([tip.style.top, tip.style.left]).toEqual(['4px', '8px'])
     fireEvent.pointerLeave(btn, { pointerType: 'mouse' })

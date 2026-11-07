@@ -88,7 +88,8 @@ export function Info({ text }: { text: string }) {
       >
         ⓘ
       </button>
-      <span ref={tip} id={id} className="tip" role="tooltip" hidden={!shown} style={pos ?? undefined}>
+      {/* measured at 0,0 before placing: at its static spot near the right edge its shrink-to-fit width would be cut */}
+      <span ref={tip} id={id} className="tip" role="tooltip" hidden={!shown} style={pos ?? { top: 0, left: 0 }}>
         {text}
       </span>
     </>
