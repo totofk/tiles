@@ -255,6 +255,7 @@ function runBot(
     minCash,
     finalCash: s.run.cash,
     finalTick: s.run.tick,
+    rngState: s.run.rngState,
     counters: s.run.counters,
     bagValue,
     fieldValue,
@@ -734,6 +735,15 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
     expect(summary.borrowed).toBe(false)
     expect(summary.finalTick).toBe(HOUR_TICKS)
+  })
+
+  // pinned from the batch-7 code before copper farm tools: a run with every toolTier at 0 must replay exactly,
+  // PRNG position included
+  it('pins the Batch 7 results (ticks, final cash, counters, PRNG state)', () => {
+    expect(t).toEqual({ storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1776, copperPickaxe: 2172 })
+    expect(summary.finalCash).toBe(5980)
+    expect(summary.rngState).toBe(1328891991)
+    expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116 })
   })
 })
 

@@ -4,6 +4,7 @@ import v2 from './fixtures/save-v2.json?raw'
 import v3 from './fixtures/save-v3.json?raw'
 import v4 from './fixtures/save-v4.json?raw'
 import v5 from './fixtures/save-v5.json?raw'
+import v6 from './fixtures/save-v6.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { dig } from '../src/core/mining'
@@ -45,6 +46,18 @@ describe('serialize / deserialize', () => {
       },
     }
     expect(deserialize(serialize(state, 0))?.state).toEqual(state)
+  })
+
+  it('loads a real v6 save (built by the batch-7 code): furnace queue and tray, vein Lv2, copper pickaxe, tools Lv2', () => {
+    const old = JSON.parse(v6)
+    expect(old.state.run).toMatchObject({
+      furnace: { built: true, queue: 1, ready: 1 },
+      vein: { level: 2 },
+      pickaxe: { tier: 'copper' },
+      mastery: { copper: 15 },
+      tools: { water: 2, harvest: 2, plant: 2 },
+    })
+    expect(deserialize(v6)).toEqual(old)
   })
 
   it('migrates a real v5 save (built by the batch-6.2 code) to v6: everything kept, furnace not built', () => {
