@@ -11,7 +11,7 @@ import {
   smeltFuel,
   smeltOre,
 } from '../src/core/balance'
-import { advanceFurnace, buildFurnace, collectBars, enqueueSmelt } from '../src/core/furnace'
+import { advanceFurnace, buildFurnace, collectBars, enqueueSmelt, setAutoSmelt } from '../src/core/furnace'
 import { bagCount, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -119,6 +119,63 @@ describe('collectBars', () => {
   it('validates furnace, empty tray, full storage in that order', () => {
     expect(collectBars(withRun({ furnace: { ...built, built: false, ready: 1 } }))).toEqual({ ok: false, error: 'NO_FURNACE' })
     expect(collectBars(smelter())).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+  })
+})
+
+describe('auto-smelt', () => {
+  it('is a free toggle once the furnace is built, off in a new run', () => {
+    expect(createInitialState().run.autoSmelt).toBe(false)
+    expect(setAutoSmelt(withRun({}), true)).toEqual({ ok: false, error: 'NO_FURNACE' })
+    const on = okState(setAutoSmelt(smelter({ cash: 7 }), true))
+    expect([on.run.autoSmelt, on.run.cash]).toEqual([true, 7])
+    expect(okState(setAutoSmelt(on, false)).run.autoSmelt).toBe(false)
+  })
+
+  it('off: step never queues or collects', () => {
+    const s = smelter({ inventory: { copperOre: 4, coal: 2 }, furnace: { ...built, ready: 1 } })
+    expect(step(s, 10).run.inventory).toEqual(s.run.inventory)
+    expect(step(s, 10).run.furnace).toEqual(s.run.furnace)
+  })
+
+  it('on: queues coal jobs while ore, coal and room last, never wood, and collects bars into storage', () => {
+    const s = smelter({ autoSmelt: true, inventory: { copperOre: 7, coal: 2, wood: 6 } })
+    const next = step(s, 1)
+    expect(next.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 6 })
+    expect(next.run.furnace.queue).toBe(2)
+    const done = step(s, 2 * barTicks() + 1)
+    expect(done.run.furnace).toEqual(built)
+    expect(done.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 6, copperBar: 2 })
+    expect(done.run.lifetime.bars).toBe(2)
+  })
+
+  it('collects first, so a full tray frees room for new jobs; a full storage leaves bars in the tray', () => {
+    const tray = smelter({ autoSmelt: true, furnace: { ...built, ready: 5 }, inventory: { copperOre: 2, coal: 1 } })
+    const next = step(tray, 1)
+    expect([next.run.inventory.copperBar, next.run.furnace.ready, next.run.furnace.queue]).toEqual([5, 0, 1])
+    const full = smelter({ autoSmelt: true, furnace: { ...built, ready: 2 }, inventory: { stone: BAG_CAPACITY_START } })
+    expect(step(full, 3).run.furnace.ready).toBe(2)
+  })
+
+  it('uses only what is in storage: step(s, n) equals n × step(s, 1), with ore arriving between ticks', () => {
+    const s = smelter({ autoSmelt: true, inventory: { copperOre: 9, coal: 3, wood: 4 }, furnace: { ...built, queue: 1, progress: 30 } })
+    let one = s
+    for (let i = 0; i < 400; i++) one = step(one, 1)
+    expect(step(s, 400)).toEqual(one)
+    // 1 queued + 3 coal jobs = 4 bars; 3 ore left (no coal for them), wood untouched
+    expect(one.run.inventory).toEqual({ copperOre: 3, coal: 0, wood: 4, copperBar: 4 })
+    // coal that arrives later (e.g. from mining between ticks) is picked up on the next tick
+    const more: GameState = { ...one, run: { ...one.run, inventory: { ...one.run.inventory, coal: 1 } } }
+    let a = more
+    for (let i = 0; i < 100; i++) a = step(a, 1)
+    expect(step(more, 100)).toEqual(a)
+    expect(a.run.inventory).toMatchObject({ copperOre: 1, coal: 0, copperBar: 5 })
+  })
+
+  it('8 h of offline catch-up smelts everything storage allows', () => {
+    const s = smelter({ autoSmelt: true, inventory: { copperOre: 20, coal: 10 } })
+    const after = catchUp(s, OFFLINE_CAP_TICKS * 1000)
+    expect(after.run.inventory).toEqual({ copperOre: 0, coal: 0, copperBar: 10 })
+    expect(after.run.furnace).toEqual(built)
   })
 })
 

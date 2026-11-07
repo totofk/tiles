@@ -463,6 +463,10 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   (`tests/workers.test.ts`: 9 pumpkin tiles, 1200 ticks, net cash/min incl. standing crops — manual 110.4, 1 waterer +
   1 harvester with the player only tilling/planting 96.8 = 87.7 %; with a copper can 101.7 = 92.1 %). Carrot, measured
   once the same way and not pinned: 59.6 % / 72.3 % (copper), the research's "carrot automation is marginal".
+- **Batch 8 (task 51): auto-smelt runs at the end of each tick, after the furnace advanced:** it collects the tray
+  first (as much as storage takes), then queues coal jobs, so a job it queues starts on the next tick, like a manual
+  one. With storage full the bars stay in the tray and keep counting toward the cap, so the furnace waits instead of
+  smelting into nowhere. `setAutoSmelt(on)` fails `NO_FURNACE` before the furnace is built.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1066,7 +1070,7 @@ v7 fixture first; chain v1–v7 → v8; backup key).
     no charge. No player energy. The job's copper tier applies (same action). Closed-form or loop — but step(s, n)
     must equal n × step(s, 1) and 8 h offline must stay fast (test both). Worker actions bump the same counters as
     the player's (they count toward unlocks) and the PRNG draws of the copper sickle stay in action order.
-51. [ ] Auto-smelt: a toggle on the furnace (available once it is built, off by default). When on, the furnace
+51. [x] Auto-smelt: a toggle on the furnace (available once it is built, off by default). When on, the furnace
     enqueues a job whenever ore ≥ 2, coal ≥ 1 and the queue has room (coal only — never wood, so repair wood is never
     eaten), and moves finished bars into storage when there is room. Runs in `step` and offline, deterministic.
 52. [ ] Workers UI: a 👷 Workers card in the 🌾 Farm tab on desktop and below the grid in the mobile Farm view:

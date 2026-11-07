@@ -8,7 +8,7 @@ import {
   loanDebtPerTick,
   moistureDrainPerTick,
 } from './balance'
-import { advanceFurnace } from './furnace'
+import { advanceFurnace, autoSmelt } from './furnace'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { workersAct } from './workers'
 
@@ -58,7 +58,7 @@ function stepOnce(state: GameState): GameState {
     loan: stepLoan(run.loan),
     furnace: advanceFurnace(run.furnace, 1),
   }
-  return { meta, run: nextRun }
+  return autoSmelt({ meta, run: nextRun })
 }
 
 /** advance `ticks` whole seconds; pure, never mutates `state` */

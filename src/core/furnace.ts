@@ -40,6 +40,25 @@ export function advanceFurnace(f: Furnace, ticks: number): Furnace {
   return { ...f, queue, ready: f.ready + done, progress: queue > 0 ? t - done * barTicks() : 0 }
 }
 
+/** the auto-smelt toggle; free, needs the furnace */
+export function setAutoSmelt(state: GameState, on: boolean): ActionResult {
+  if (!state.run.furnace.built) return fail('NO_FURNACE')
+  return withRun(state, { autoSmelt: on })
+}
+
+/**
+ * Runs inside step() after the furnace advanced, when the toggle is on: collects the tray into storage (as much as
+ * fits), then queues coal jobs while ore, coal and room last. Coal only, so wood kept for repairs is never burnt.
+ * Uses only what is already in storage; deterministic, no RNG.
+ */
+export function autoSmelt(state: GameState): GameState {
+  if (!state.run.autoSmelt) return state
+  const collected = collectBars(state)
+  let s = collected.ok ? collected.state : state
+  for (let r = enqueueSmelt(s, 'coal'); r.ok; r = enqueueSmelt(s, 'coal')) s = r.state
+  return s
+}
+
 // Moves as many tray bars into storage as fit. Order: NO_FURNACE, NOTHING_TO_DO (tray empty), BAG_FULL.
 export function collectBars(state: GameState): ActionResult {
   const { run } = state
