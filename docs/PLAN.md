@@ -481,6 +481,14 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 8 (task 52): `loadGame` returns `wagesPaid`** (paid during its catch-up) beside `awayMs` / `ticks`, so the
   welcome-back banner on reload can say "wages paid 💰N"; the visibility path diffs the state before `catchUp`. Not a
   save-shape change.
+- **Batch 8 (task 53): the sim player leaves a job to the workers once one is assigned to it** (`bestFarmAction` skips
+  harvest / water then). Otherwise the greedy player, acting between ticks, reaches every dry or ripe tile first and
+  the workers only idle; "the player only planting" is read as this. Without workers nothing is skipped.
+- **Batch 8 (task 53): `runBot` counts a tick's own cash change as farming** (worker sales − wages, the only cash
+  `step` moves); without workers it is 0, so every older number is unchanged. The ≥ 80 % check uses `runCropBot` with
+  workers from tick 0 (certificates owned, cash 1000), not the ladder bot, so it compares like with like.
+- **Batch 8 (task 53): the bot hires to the cap (6) "when affordable"**, though 2 workers cover 9 tiles; the extra
+  four idle for free (wages are per action), so they cost only their hire price. Reported, not tuned.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1094,7 +1102,7 @@ v7 fixture first; chain v1–v7 → v8; backup key).
     wages paid, auto-smelt state. Also (Toon's device showed ▯ for 🪨 in the Furnace price, like 🪵): every emoji
     from Unicode 12+ (🪨 stone, 🪏 dig, any other — list them) moves to one shared constant with an emoji from
     Unicode ≤ 11, the way batch 7.2 did wood (`ITEMS.*.emoji`); the 👷 icon is fine (Unicode 6).
-53. [ ] Sim + results: a bot that buys certificates and hires when affordable, assigns water first. Assert: cash never
+53. [x] Sim + results: a bot that buys certificates and hires when affordable, assigns water first. Assert: cash never
     negative, including cash 0 with every worker assigned (they idle); a 9-tile pumpkin farm with workers on water +
     harvest and the player only planting nets ≥ 80 % of the manual rate (report both); an 8 h offline catch-up with
     workers and auto-smelt ends with more cash and ≥ the bars the queue allows; mining stays below farming; the
@@ -1137,3 +1145,35 @@ No `balance.ts` number changed in tasks 52–53; save stays v8.
   bar a copper-coloured metal piece (the bronze medal); untilled ground is weeds, a tilled tile a planting hole, and
   dig for seeds is by hand. Everything else in `src/` is Unicode ≤ 9 (🥕 🛒 9.0, 🌶️ 7.0, the rest 6.0 or older, ⓘ ⋯ ≥ ≤
   are text symbols). 👷 is Unicode 6.0.
+
+### Sim (task 53, `tests/sim.test.ts` "batch 8", measured)
+- **Workers ladder bot** = the batch-7.1 copper ladder bot (four crops, mine-early) + each tick after the license buy:
+  buy any certificate it can, hire while affordable (to the cap), put free workers on water while water has no more
+  than harvest. 3600 ticks, pinned: **water certificate tick 628, first hire 643, pool 3 at 1024**, harvest
+  certificate 1141, pool 6 (cap) by the hour (3 water / 3 harvest). Cash never below 0, no loan.
+- **Same bot without vs with workers** (7.1 pins vs batch 8): final cash 6119 → **3452** (6 hires, 2 certificates,
+  💰379 wages); the freed energy mines: mine actions 519 → **868**, so the ladder runs faster — copper pickaxe 2172 →
+  1644, last copper tool 3075 → 2361.
+- **Cash per minute, one crop on 9 tiles, 1200 ticks** (`runCropBot`: net cash incl. standing crops; workers = 1
+  water + 1 harvest from tick 0, the player only tills and plants):
+
+  | Crop | manual | workers | share | wages | copper can: manual | workers | share | wages |
+  |---|---|---|---|---|---|---|---|---|
+  | pumpkin | 110.4 | 96.8 | **87.7 %** | 234 | 110.4 | 101.7 | **92.2 %** | 126 |
+  | carrot | 42.3 | 25.2 | 59.5 % | 296 | 42.3 | 30.6 | 72.2 % | 189 |
+
+  Pumpkin passes the ≥ 80 % check (asserted, with and without the copper can); carrot automation stays marginal
+  (reported, not asserted). The sim's greedy order gives the same numbers as task 50's `pumpkinRate` bench.
+- **8 h offline** (catch-up from the workers ladder bot's end state, tick 3600, 6 workers, auto-smelt turned on;
+  storage 38/40, 4 ore, 9 coal, 4 bars in the tray): cash 💰3452 → **💰4537** (+1085), bars 4 → **6** (= every bar the
+  stock allows: 4 + min(⌊4/2⌋, 9)), wages paid **💰15**, catch-up runtime **15 ms** (one run, this machine). Only 15
+  worker actions: nobody plants while away, so the workers harvest what stands and then idle for free.
+- **Cash 0 with every worker assigned:** 600 ticks from that state, cash stays exactly 0 and no wage is paid.
+- **Mining vs farming:** in the workers ladder run farming earns **24.9** cash per player energy (worker income net of
+  wages counted as farming, it costs no energy) vs mining **1.54** (batch-7 ladder without workers: 9.23 vs 1.43). No
+  balance number changed, so the batch 6 / 7 / 7.1 benches (mining < 0.9 × farming) are unchanged and still pass.
+- **Unchanged pins:** batch-7 and 7.1 ladder bots (no worker hired, auto-smelt off) replay exactly: ticks, final cash
+  5980 / 6119, counters, PRNG state.
+- **Reading:** workers do keep a pumpkin farm running at ≈ 88 % of hand play, and the energy they free goes to the
+  mine (+67 % mine actions), not nowhere. Offline value is capped by the missing planter: away, the farm stops after
+  one harvest round.

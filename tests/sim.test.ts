@@ -6,6 +6,7 @@ import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
   ACTION_ENERGY_COST,
+  OFFLINE_CAP_TICKS,
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
@@ -25,11 +26,14 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { buildFurnace, collectBars, enqueueSmelt } from '../src/core/furnace'
+import { buildFurnace, collectBars, enqueueSmelt, setAutoSmelt } from '../src/core/furnace'
+import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
+import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
+import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../src/core/workers'
 
 const TICKS = 600
 
@@ -47,15 +51,17 @@ type Milestones = {
 // Greedy farmer: one best farm action at a time, by priority, across all tiles (lowest index first).
 // "Dry" = moisture exactly 0 (step snaps float residue to 0); mature crops are never watered.
 // `crops` = what to plant, best first (each tried on every tile before the next).
+// Batch 8: a job with a worker on it is left to the workers (the player never harvests / waters it).
 function bestFarmAction(s: GameState, crops: CropId[] = ['pumpkin', 'radish']): { state: GameState; kind: string } | null {
   const tiles = s.run.tiles
   const growing = (i: number) => {
     const { cropId, growth } = tiles[i]
     return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer)
   }
+  const byPlayer = (job: WorkerJob) => s.run.workers.assigned[job] === 0
   const tries: Array<[string, (i: number) => ActionResult | null]> = [
-    ['harvest', (i) => harvest(s, i)],
-    ['water', (i) => (tiles[i].moisture === 0 && growing(i) ? water(s, i) : null)],
+    ['harvest', (i) => (byPlayer('harvest') ? harvest(s, i) : null)],
+    ['water', (i) => (byPlayer('water') && tiles[i].moisture === 0 && growing(i) ? water(s, i) : null)],
     ...crops.map((crop): [string, (i: number) => ActionResult] => [`plant:${crop}`, (i) => plant(s, i, crop)]),
     ['till', (i) => till(s, i)],
   ]
@@ -135,10 +141,24 @@ function runBot(
     saveForStorage = false,
     ladder = false,
     copperTools = false,
-  }: { ticks?: number; licenses?: CropId[]; crops?: CropId[]; saveForStorage?: boolean; ladder?: boolean; copperTools?: boolean } = {},
+    workers = false,
+    onEnd,
+  }: {
+    ticks?: number
+    licenses?: CropId[]
+    crops?: CropId[]
+    saveForStorage?: boolean
+    ladder?: boolean
+    copperTools?: boolean
+    /** batch 8: buys each certificate and hires whenever affordable, puts free workers on water first */
+    workers?: boolean
+    /** receives the state at the cut-off */
+    onEnd?: (s: GameState) => void
+  } = {},
 ) {
   const goals = copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar', number>> = {}
+  const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   let s = createInitialState()
   const m: Milestones = {}
   let minCash = s.run.cash
@@ -227,6 +247,25 @@ function runBot(
     return true
   }
 
+  // batch 8: certificates (water first), then every affordable hire; a free worker goes to water while water has no
+  // more workers than harvest, else to harvest
+  const staff = (tick: number) => {
+    for (const job of WORKER_JOBS)
+      if (tryAct(buyCertificate(s, job), null)) {
+        workerTicks.firstCertificate ??= tick
+        workerTicks[`${job}Certificate`] = tick
+      }
+    while (tryAct(hireWorker(s), null)) {
+      workerTicks.firstHire ??= tick
+      if (s.run.workers.pool >= 3) workerTicks.pool3 ??= tick
+    }
+    while (freeWorkers(s.run) > 0) {
+      const { assigned, certificates } = s.run.workers
+      const job: WorkerJob = certificates.includes('water') && (assigned.water <= assigned.harvest || !certificates.includes('harvest')) ? 'water' : 'harvest'
+      if (!tryAct(assignWorker(s, job, 1), null)) break
+    }
+  }
+
   let borrowed = false
   for (let t = 0; t < ticks; t++) {
     borrowed ||= s.run.loan !== null
@@ -240,6 +279,7 @@ function runBot(
     milestones()
     const want = nextLicense()
     if (want && tryAct(buyLicense(s, want), null)) licenseBought[want] ??= tick
+    if (workers) staff(tick)
     while (s.run.energy >= ACTION_ENERGY_COST) {
       const next = bestFarmAction(s, crops)
       if (next) {
@@ -251,7 +291,10 @@ function runBot(
       } else if (!mineOnce(tick)) break
     }
     milestones()
+    // the only cash a tick moves is the workers' (harvest sales − wages): farming income bought without energy
+    const before = s.run.cash
     s = step(s, 1)
+    farm.cash += s.run.cash - before
     seen()
     if (s.run.furnace.ready > 0) ladderTicks.firstBar ??= s.run.tick
   }
@@ -266,8 +309,11 @@ function runBot(
     0,
   )
   borrowed ||= s.run.loan !== null
+  onEnd?.(s)
   return {
     borrowed,
+    workerTicks,
+    wagesPaid: s.run.lifetime.wagesPaid,
     milestones: { ...m, pumpkinLicenseAffordable: licenseAffordable.pumpkin, pumpkinLicenseBought: licenseBought.pumpkin },
     licenseAffordable,
     licenseBought,
@@ -575,9 +621,12 @@ const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
 // One crop on the 9 starting tiles for a session, license owned and cash to spare (so seeds never block it), farmed
 // by the greedy bot's own priority. Same accounting as runBot: harvest income − seeds per farm action (till, plant,
 // water, harvest all count 1 energy), plus the crops standing at the cut-off at sell price × growth progress.
-function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState().run.toolTier) {
+// Batch 8: `assigned` puts workers on jobs from tick 0 (certificates owned); the player then only tills and plants, and
+// perMin = net cash per minute over the whole run (worker sales − wages included, which per-energy cannot show).
+function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState().run.toolTier, assigned = { water: 0, harvest: 0 }) {
   const init = createInitialState()
-  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], toolTier } }
+  const workers = { pool: assigned.water + assigned.harvest, assigned, certificates: [...WORKER_JOBS] }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], toolTier, workers } }
   const farm = { cash: 0, energy: 0 }
   for (let t = 0; t < ticks; t++) {
     while (s.run.energy >= ACTION_ENERGY_COST) {
@@ -591,7 +640,17 @@ function runCropBot(crop: CropId, ticks = SESSION, toolTier = createInitialState
   }
   const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
   const { harvests, waters } = s.run.counters
-  return { ...farm, field, harvests, waters, watersPerHarvest: waters / harvests, cashPerEnergy: (farm.cash + field) / farm.energy }
+  const perMin = (s.run.cash - 1000 + field) / (ticks / 60)
+  return {
+    ...farm,
+    field,
+    harvests,
+    waters,
+    watersPerHarvest: waters / harvests,
+    cashPerEnergy: (farm.cash + field) / farm.energy,
+    perMin,
+    wages: s.run.lifetime.wagesPaid,
+  }
 }
 
 // Steady-state mining at a fixed mastery level: energy is refilled before every mine action and the mastery xp put back
@@ -836,5 +895,122 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
     expect(summary.borrowed).toBe(false)
     expect(summary.finalTick).toBe(HOUR_TICKS)
+  })
+})
+
+// ---- Batch 8: workers + auto-smelt ----
+
+describe('batch 8: workers vs manual, one crop on 9 tiles, 1200 ticks (runCropBot, net cash per minute)', () => {
+  const W = { water: 1, harvest: 1 }
+  const farming = Object.fromEntries(
+    (['radish', 'pumpkin'] as const).map((c) => [
+      c,
+      {
+        manual: runCropBot(c),
+        workers: runCropBot(c, SESSION, undefined, W),
+        copperCan: { manual: runCropBot(c, SESSION, { ...ALL_COPPER, harvest: 0, plant: 0 }), workers: runCropBot(c, SESSION, { ...ALL_COPPER, harvest: 0, plant: 0 }, W) },
+      },
+    ]),
+  )
+  const rates = Object.fromEntries(
+    Object.entries(farming).map(([c, f]) => [
+      c,
+      {
+        manual: f.manual.perMin,
+        workers: f.workers.perMin,
+        share: f.workers.perMin / f.manual.perMin,
+        wages: f.workers.wages,
+        copperCan: { manual: f.copperCan.manual.perMin, workers: f.copperCan.workers.perMin, share: f.copperCan.workers.perMin / f.copperCan.manual.perMin, wages: f.copperCan.workers.wages },
+      },
+    ]),
+  )
+  console.log('batch 8 cash/min manual vs workers', JSON.stringify(rates, null, 1))
+
+  it('pumpkin: water + harvest workers with the player only planting net ≥ 80 % of the manual rate (with a copper can too)', () => {
+    expect(rates.pumpkin.share).toBeGreaterThanOrEqual(0.8)
+    expect(rates.pumpkin.copperCan.share).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('the player spends energy only on tilling and planting when workers water and harvest', () => {
+    const { manual, workers } = farming.pumpkin
+    expect(workers.energy).toBeLessThan(manual.energy / 2)
+    expect(workers.wages).toBeGreaterThan(0)
+  })
+})
+
+describe('batch 8: ladder bot with workers (certificates and hires when affordable, water first), 3600 ticks', () => {
+  let end = createInitialState()
+  const summary = runBot(true, {
+    ticks: HOUR_TICKS,
+    licenses: LICENSE_ORDER,
+    crops: PLANT_ORDER,
+    ladder: true,
+    copperTools: true,
+    workers: true,
+    onEnd: (s) => (end = s),
+  })
+  const { workerTicks, ladderTicks, finalCash, wagesPaid, farmingCashPerEnergy, miningCashPerEnergy, counters } = summary
+  console.log('batch 8 workers ladder', JSON.stringify({ workerTicks, ladderTicks, finalCash, wagesPaid, farmingCashPerEnergy, miningCashPerEnergy, counters, workers: end.run.workers }, null, 1))
+
+  it('reaches the first certificate, the first hire and a pool of 3 within the hour, in that order', () => {
+    const order = [workerTicks.firstCertificate, workerTicks.firstHire, workerTicks.pool3]
+    for (const tick of order) expect(tick).toBeLessThanOrEqual(HOUR_TICKS)
+    expect([...order].sort((a, b) => a! - b!)).toEqual(order)
+  })
+
+  it('pins the Batch 8 results (worker ticks, final cash, wages)', () => {
+    expect(workerTicks).toEqual({ firstCertificate: 628, waterCertificate: 628, harvestCertificate: 1141, firstHire: 643, pool3: 1024 })
+    expect([finalCash, wagesPaid]).toEqual([3452, 379])
+  })
+
+  it('nothing goes negative and it never borrows', () => {
+    expect(summary.lowest).toBeGreaterThanOrEqual(0)
+    expect(summary.borrowed).toBe(false)
+    expect(summary.finalTick).toBe(HOUR_TICKS)
+  })
+
+  it('mining stays below farming (cash per player energy, worker income net of wages counted as farming)', () => {
+    expect(miningCashPerEnergy).toBeLessThan(farmingCashPerEnergy)
+  })
+
+  it('cash 0 with every worker assigned: they idle, nothing is charged, cash stays 0', () => {
+    let s: GameState = { ...end, run: { ...end.run, cash: 0 } }
+    while (freeWorkers(s.run) > 0) {
+      const r = assignWorker(s, 'water', 1)
+      if (!r.ok) break
+      s = r.state
+    }
+    expect(freeWorkers(s.run)).toBe(0)
+    for (let t = 0; t < 600; t++) {
+      s = step(s, 1)
+      expect(s.run.cash).toBe(0)
+    }
+    expect(s.run.lifetime.wagesPaid).toBe(end.run.lifetime.wagesPaid)
+  })
+
+  it('8 h offline with workers and auto-smelt: more cash, and every bar the stock and queue allow', () => {
+    const r = setAutoSmelt(end, true)
+    if (!r.ok) throw new Error(r.error)
+    const before = r.state
+    const { inventory, furnace } = before.run
+    const ore = inventory.copperOre ?? 0
+    const coal = inventory.coal ?? 0
+    const bars = (s: GameState) => (s.run.inventory.copperBar ?? 0) + s.run.furnace.ready
+    const allowed = bars(before) + furnace.queue + Math.min(Math.floor(ore / smeltOre()), Math.floor(coal / smeltFuel('coal')))
+    const t0 = performance.now()
+    const after = catchUp(before, OFFLINE_CAP_TICKS * 1000)
+    const runtimeMs = performance.now() - t0
+    const offline = {
+      cash: [before.run.cash, after.run.cash],
+      bars: [bars(before), bars(after)],
+      allowed,
+      stock: { ore, coal, queue: furnace.queue, ready: furnace.ready, storage: `${bagCount(before.run)}/${before.run.bagCapacity}` },
+      wagesPaid: after.run.lifetime.wagesPaid - before.run.lifetime.wagesPaid,
+      runtimeMs: Math.round(runtimeMs),
+    }
+    console.log('batch 8 offline 8 h', JSON.stringify(offline))
+    expect(after.run.cash).toBeGreaterThan(before.run.cash)
+    expect(bars(after)).toBeGreaterThanOrEqual(allowed)
+    expect(runtimeMs).toBeLessThan(3000)
   })
 })
