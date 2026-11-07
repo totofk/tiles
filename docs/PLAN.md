@@ -970,7 +970,7 @@ Question: on desktop, is everything the player presses while farming in one plac
 UI only — no core numbers, no save-shape change (tab choice lives in `tiles.ui`). Decision: DECISIONS.md "Farm tab
 (batch 7.2)".
 
-47. [ ] New first side-panel tab **🌾 Farm**, the default tab, in the layout where the side panel sits next to the
+47. [x] New first side-panel tab **🌾 Farm**, the default tab, in the layout where the side panel sits next to the
     farm (desktop). It holds, top to bottom: the tool buttons Water / Harvest / Plant (with the 7.1 n-step popover
     and copper marks), the crop picker (owned crops only; picking sets the crop to plant, replacing the "Planting:"
     selection in 🛒 Shop), the seed pouch rows + auto-buy toggle, and 🪏 Dig for seeds. The right-edge tool bar on

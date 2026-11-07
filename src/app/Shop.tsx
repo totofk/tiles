@@ -1,4 +1,4 @@
-import { buyLicense, buySeeds, buyTile, setAutoBuySeeds } from '../core/actions'
+import { buyLicense, buyTile } from '../core/actions'
 import {
   TILE_CAP,
   cropSeedCost,
@@ -21,14 +21,16 @@ import { buyMineLicense, buyWood } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyCopperTool, buyTool } from '../core/tools'
 import { CROP_EMOJI } from './FarmGrid'
-import { Info, Item } from './Info'
+import { SeedPouch } from './Farm'
+import { Item } from './Info'
 import { COPPER_TIPS, CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
 import type { Act } from './useGame'
 
 /** per press, by level (index 0 = level 1) */
 const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)} tiles`, () => 'all tiles']
 
-type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act }
+/** farmTab: the desktop 🌾 Farm tab holds the crop picker and the pouch, so the Shop only sells */
+type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act; farmTab?: boolean }
 
 /** the job's copper tier, under its three tool levels; locked until the job's tool Lv1 */
 function CopperTool({ state, act, job }: { state: GameState; act: Act; job: ToolJob }) {
@@ -49,7 +51,7 @@ function CopperTool({ state, act, job }: { state: GameState; act: Act; job: Tool
   )
 }
 
-export function Shop({ state, cropId, onSelectCrop, act }: Props) {
+export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Props) {
   const { run, meta } = state
   const tiles = run.tiles.length
   const nextTile = tileCost(tiles, meta)
@@ -62,7 +64,12 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
           const cost = licenseCost(id, meta)
           return (
             <Item key={id} tip={CROP_TIPS[id]}>
-              {run.licenses.includes(id) ? (
+              {run.licenses.includes(id) && farmTab ? (
+                <button className="owned" disabled>
+                  {CROP_EMOJI[id]} {CROPS[id].name}
+                  <small>seed 💰{cropSeedCost(id, meta)}</small>
+                </button>
+              ) : run.licenses.includes(id) ? (
                 <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
                   {CROP_EMOJI[id]} {CROPS[id].name}
                   <small>seed 💰{cropSeedCost(id, meta)}</small>
@@ -78,27 +85,7 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
         })}
       </div>
 
-      <h2>Seed pouch</h2>
-      {run.licenses.map((id) => (
-        <div key={id} className="pouch-row">
-          <span>
-            {CROP_EMOJI[id]} {CROPS[id].name} × {run.seeds[id] ?? 0}
-          </span>
-          {[1, 10].map((n) => (
-            <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
-              Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
-            </button>
-          ))}
-          <Info text={TIPS.pouch} />
-        </div>
-      ))}
-      <div className="pouch-auto">
-        <label>
-          <input type="checkbox" checked={run.autoBuySeeds} onChange={(e) => act((s) => setAutoBuySeeds(s, e.target.checked))} />
-          Auto-buy a seed when the pouch is empty
-        </label>
-        <Info text={TIPS.autoBuy} />
-      </div>
+      {!farmTab && <SeedPouch state={state} act={act} />}
 
       <h2>Supplies</h2>
       <div className="shop-row">

@@ -252,6 +252,34 @@ body {
   .panel-collapsed .panel-head > :not(.panel-toggle) {
     display: none;
   }
+  /* five tabs do not fit 244 px with names (≈ 335 px), so only the open tab shows its name; the others are
+     icon-only (≈ 28 px) and keep the name for screen readers and the hover title */
+  .panel-tabs button:not([aria-selected='true']) .tab-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  /* 🌾 Farm tab: the tool buttons as a wrapping row; the n popover opens below, inside the scrolling panel */
+  .panel .tools {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-self: stretch;
+    margin: 8px 0 0;
+  }
+  .panel .tools > button {
+    flex: 1 0 auto;
+  }
+  .panel .tool-pop {
+    top: calc(100% + 6px);
+    right: auto;
+    left: 0;
+  }
+  .farm-tab h2 {
+    font-size: 15px;
+    margin: 8px 0 4px;
+  }
 }
 
 button {
@@ -586,6 +614,10 @@ button:disabled {
   }
   .farm > :not(.tools) {
     grid-column: 1;
+  }
+  /* the grid keeps the 1fr row even when the Planting line above it is gone (desktop 🌾 Farm tab) */
+  .farm > .farm-fit {
+    grid-row: 2;
   }
   .farm:has(> .tools) {
     padding-bottom: 0;

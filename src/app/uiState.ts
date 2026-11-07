@@ -17,7 +17,7 @@ export type UiState = {
   seen: Record<BadgeTab, string[]>
 }
 
-export const DEFAULT_UI: UiState = { view: 'farm', tab: 'shop', collapsed: false, seen: { shop: [], upgrades: [] } }
+export const DEFAULT_UI: UiState = { view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] } }
 
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
 

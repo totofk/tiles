@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { digForSeeds } from '../core/actions'
-import { digSeedDrop } from '../core/balance'
 import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
+import { DigSeeds } from './Farm'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
@@ -26,21 +25,28 @@ export default function App() {
   const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
-  const [lastDig, setLastDig] = useState<string | null>(null)
 
-  // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css)
+  // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css);
+  // App re-renders every tick, so a resize is picked up within a second
   const media = (q: string) => window.matchMedia?.(q).matches ?? false
-  const panelOnScreen = media('(min-width: 1024px)') ? !collapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
+  const desktop = media('(min-width: 1024px)')
+  const panelOnScreen = desktop ? !collapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
+  // the farm actions sit in the side panel only while it is beside the farm; collapsed, they go back to the farm column
+  const farmTab = desktop && !collapsed
+  const tabs = farmTab ? PANEL_TABS : PANEL_TABS.filter((t) => t.id !== 'farm')
+  // a remembered 🌾 Farm shows 🛒 Shop where there is no Farm tab
+  const shown = tabs.find((t) => t.id === tab) ?? tabs[0]
   const avail = availableKeys(state)
   const unseen = (t: PanelTabId) => (isBadgeTab(t) ? avail[t].filter((k) => !ui.seen[t].includes(k)) : [])
-  const badge = (t: PanelTabId) => !(panelOnScreen && tab === t) && unseen(t).length > 0
+  const badge = (t: PanelTabId) => !(panelOnScreen && shown.id === t) && unseen(t).length > 0
   // opening a tab (or keeping it open while something new appears) marks what it shows as seen;
   // set during render, guarded, so it re-renders once and never on a tick with nothing new
-  const fresh = panelOnScreen ? unseen(tab) : []
-  if (fresh.length > 0 && isBadgeTab(tab))
+  const open = shown.id
+  const fresh = panelOnScreen ? unseen(open) : []
+  if (fresh.length > 0 && isBadgeTab(open))
     setUi((u) => {
-      const add = fresh.filter((k) => !u.seen[tab].includes(k))
-      return add.length ? { ...u, seen: { ...u.seen, [tab]: [...u.seen[tab], ...add] } } : u
+      const add = fresh.filter((k) => !u.seen[open].includes(k))
+      return add.length ? { ...u, seen: { ...u.seen, [open]: [...u.seen[open], ...add] } } : u
     })
   const dot = (t: PanelTabId) => badge(t) && <span className="badge-dot" aria-hidden="true" />
 
@@ -75,15 +81,15 @@ export default function App() {
     </button>
   )
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId }
-  const Panel = PANEL_TABS.find((t) => t.id === tab)!.Panel
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab }
+  const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
     { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: false },
-    ...PANEL_TABS.map((t) => ({
+    ...tabs.map((t) => ({
       label: t.label,
       dot: dot(t.id),
-      active: view === 'panel' && tab === t.id,
+      active: view === 'panel' && shown.id === t.id,
       select: () => {
         setView('panel')
         setTab(t.id)
@@ -110,37 +116,31 @@ export default function App() {
       </div>
       <Mine state={state} act={act} />
       <section className="farm">
-        <p className="planting">
-          Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
-        </p>
-        <Tools state={state} act={act} cropId={cropId} />
+        {!farmTab && (
+          <>
+            <p className="planting">
+              Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
+            </p>
+            <Tools state={state} act={act} cropId={cropId} />
+          </>
+        )}
         <FarmGrid state={state} onTap={onTap} />
-        <p className="dig-seeds">
-          <button
-            onClick={() =>
-              act(digForSeeds, (prev, next) => {
-                const { crop } = digSeedDrop()
-                const found = (next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)
-                setLastDig(found ? `Found a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed!` : 'Nothing this time')
-                return null
-              })
-            }
-          >
-            🪏 Dig for seeds <small>⚡1</small>
-          </button>
-          {lastDig && <span role="status">{lastDig}</span>}
-        </p>
+        {!farmTab && <DigSeeds act={act} />}
         {resetButton('farm')}
       </section>
       <aside className="panel">
         <div className="panel-head">
           <div className="panel-tabs" role="tablist">
-            {PANEL_TABS.map((t) => (
-              <button key={t.id} role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
-                {t.label}
-                {dot(t.id)}
-              </button>
-            ))}
+            {tabs.map((t) => {
+              const [icon, name] = t.label.split(' ')
+              return (
+                <button key={t.id} role="tab" aria-selected={shown.id === t.id} title={name} onClick={() => setTab(t.id)}>
+                  {icon}
+                  <span className="tab-name"> {name}</span>
+                  {dot(t.id)}
+                </button>
+              )
+            })}
           </div>
           <button
             className="panel-toggle"

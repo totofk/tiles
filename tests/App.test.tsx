@@ -184,6 +184,71 @@ describe('loan debt with a fake clock', () => {
   })
 })
 
+describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
+  beforeEach(() => {
+    window.matchMedia = ((q: string) => ({ matches: /min-width: (768|1024)px/.test(q) })) as typeof window.matchMedia
+    const s = createInitialState()
+    const run = {
+      ...s.run,
+      licenses: ['radish' as const, 'chilli' as const],
+      seeds: { chilli: 2 },
+      tools: { water: 1, harvest: 1, plant: 1 },
+      tiles: s.run.tiles.map((t) => ({ ...t, status: 'tilled' as const })),
+    }
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run }, Date.now()))
+  })
+  afterEach(() => Reflect.deleteProperty(window, 'matchMedia'))
+  const panel = () => within(document.querySelector<HTMLElement>('.panel')!)
+  const farm = () => within(document.querySelector<HTMLElement>('.farm')!)
+
+  it('is the first, default tab and holds the tool buttons, crop picker, pouch and dig; the farm column only the grid', () => {
+    render(<App />)
+    expect(panel().getAllByRole('tab').map((t) => t.textContent)).toEqual([
+      '🌾 Farm',
+      '🛒 Shop',
+      '⬆️ Upgrades',
+      '🏦 Bank',
+      '📊 Stats',
+    ])
+    expect(selected(panelTab(/Farm/))).toBe(true)
+    for (const name of [/^Water 1/, /^Harvest 1/, /^Plant 1/]) {
+      expect(panel().getByRole('button', { name })).toBeTruthy()
+      expect(farm().queryByRole('button', { name })).toBeNull()
+    }
+    expect(panel().getByRole('button', { name: /Chilli/, pressed: false })).toBeTruthy()
+    expect(panel().getByRole('heading', { name: 'Seed pouch' })).toBeTruthy()
+    expect(panel().getByRole('button', { name: /Dig for seeds/ })).toBeTruthy()
+    expect(farm().queryByRole('button', { name: /Dig for seeds/ })).toBeNull()
+    expect(screen.queryByText(/^Planting:/)).toBeNull()
+  })
+
+  it('picking a crop changes what Plant plants', () => {
+    render(<App />)
+    fireEvent.click(panel().getByRole('button', { name: /Chilli/ }))
+    expect(panel().getByRole('button', { name: /Chilli/, pressed: true })).toBeTruthy()
+    fireEvent.click(panel().getByRole('button', { name: /^Plant 1/ }))
+    expect(panel().getByText(/Chilli × 1/)).toBeTruthy()
+    expect(farm().getAllByRole('button').filter((b) => b.textContent?.includes('🌶️'))).toHaveLength(1)
+  })
+
+  it('Shop no longer has a crop picker or pouch; owned crops show their seed price', () => {
+    render(<App />)
+    fireEvent.click(panelTab(/Shop/))
+    expect(panel().getByRole('heading', { name: 'Seeds' })).toBeTruthy()
+    expect(panel().queryAllByRole('button', { pressed: true })).toHaveLength(0)
+    expect(panel().queryAllByRole('button', { pressed: false })).toHaveLength(0)
+    expect(panel().queryByRole('heading', { name: 'Seed pouch' })).toBeNull()
+    expect((panel().getByRole('button', { name: /Chilli/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('collapsing the panel puts the tool bar back on the farm column', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse panel' }))
+    expect(farm().getByRole('button', { name: /^Plant 1/ })).toBeTruthy()
+    expect(screen.queryAllByRole('button', { name: /^Plant 1/ })).toHaveLength(1)
+  })
+})
+
 describe('layout content', () => {
   it('shows a locked Mine card with the license price before the mine license', () => {
     render(<App />)
