@@ -9,6 +9,9 @@ import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
 const WOOD = ITEMS.wood.emoji
+const STONE = ITEMS.stone.emoji
+const ORE = ITEMS.copperOre.emoji
+const BAR = ITEMS.copperBar.emoji
 
 function setup(run: Partial<GameState['run']>) {
   const s = createInitialState()
@@ -27,11 +30,11 @@ const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' a
 describe('Mine panel', () => {
   it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
     setup({})
-    expect(text()).toContain('Vein Lv0: 🪨 Stone 100 %')
-    expect(screen.getByText(/^Lv1: 🪨 Stone 80 % · ⚫ Coal 20 % — 🪨25 💰100$/)).toBeTruthy()
+    expect(text()).toContain(`Vein Lv0: ${STONE} Stone 100 %`)
+    expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}25 💰100`)).toBeTruthy()
     const iron = screen.getByText(/iron ore/)
     expect(iron.textContent).toBe('🔒 Lv3: iron ore — coming')
-    expect(iron.textContent).not.toMatch(/%|💰|🪨|\d\s/)
+    expect(iron.textContent).not.toMatch(new RegExp(`%|💰|${STONE}|\\d\\s`))
   })
 
   it('the next vein level has an Upgrade button, disabled with the reason until it is affordable', () => {
@@ -51,7 +54,7 @@ describe('Mine panel', () => {
   it('vein Lv2 is copper ore and needs the furnace: the Upgrade button says so until it is built', () => {
     const rich = { cash: 1e3, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: { level: 1, progress: 0, rock: 'stone' as const } }
     setup(rich)
-    expect(screen.getByText(/^Lv2: /).textContent).toBe('Lv2: 🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 % — 🪨30 ⚫10 💰200')
+    expect(screen.getByText(/^Lv2: /).textContent).toBe(`Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % — ${STONE}30 ⚫10 💰200`)
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }).textContent).toBe('Upgrade vein to Lv2 — Build the furnace first')
     cleanup()
     setup({ ...rich, furnace: { built: true, queue: 0, progress: 0, ready: 0 } })
@@ -60,19 +63,19 @@ describe('Mine panel', () => {
 
   it('at the last vein level shows only the current table and the iron teaser', () => {
     setup({ vein: { level: 2, progress: 0, rock: 'stone' } })
-    expect(text()).toContain('Vein Lv2: 🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 %')
+    expect(text()).toContain(`Vein Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 %`)
     expect(screen.queryByText(/^Lv3: /)).toBeNull()
     expect(screen.getByText(/iron ore/)).toBeTruthy()
   })
 
   it('shows the current rock type and its hits: a copper rock takes 3', () => {
     setup({ vein: { level: 2, progress: 2, rock: 'copperOre' } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🟤 cracked 2/3')
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${ORE} cracked 2/3`)
   })
 
   it('shows a crack on a half-mined stone', () => {
     setup({ vein: { level: 0, progress: 1, rock: 'stone' } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🪨 cracked 1/2')
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${STONE} cracked 1/2`)
   })
 
   it('shows "~N more uses" from the current durability, mastery level + xp, and the badge only once mastered', () => {
@@ -100,7 +103,7 @@ describe('Mine panel', () => {
     const furnace = { built: true, queue: 0, progress: 0, ready: 0 }
     setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 4 } })
     const craft = screen.getByRole('button', { name: /^Craft copper pickaxe/ }) as HTMLButtonElement
-    expect(craft.textContent).toBe('Craft copper pickaxe (🟧5 💰50) — Not enough items')
+    expect(craft.textContent).toBe(`Craft copper pickaxe (${BAR}5 💰50) — Not enough items`)
     expect(craft.disabled).toBe(true)
     cleanup()
     const t = setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 5 }, mastery: { wooden: 33 } })
@@ -134,12 +137,22 @@ describe('Mine panel', () => {
     expect(within(screen.getByText(/Copper bar ×1/).parentElement!).queryByRole('button')).toBeNull()
   })
 
+  it('furnace: the auto-smelt toggle starts off and switches run.autoSmelt', () => {
+    const t = setup({ furnace: { built: true, queue: 0, progress: 0, ready: 0 } })
+    const toggle = screen.getByRole('checkbox', { name: /Auto-smelt/ }) as HTMLInputElement
+    expect(toggle.checked).toBe(false)
+    fireEvent.click(toggle)
+    t.rerender()
+    expect(t.get().run.autoSmelt).toBe(true)
+    expect((screen.getByRole('checkbox', { name: /Auto-smelt/ }) as HTMLInputElement).checked).toBe(true)
+  })
+
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {
     const t = setup({ cash: 0, inventory: { stone: 15, coal: 3, wood: 2 } })
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('Storage is full')
     const meta = t.get().meta
     const value = 15 * itemSellPrice('stone', meta, 0) + 3 * itemSellPrice('coal', meta, 0)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all 🪨 ⚫ 💰${value}$`) }))
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} ⚫ 💰${value}$`) }))
     t.rerender()
     expect(t.get().run.cash).toBe(value)
     expect(t.get().run.inventory).toEqual({ stone: 0, coal: 0, wood: 2 })

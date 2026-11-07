@@ -41,10 +41,12 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
 }
 
-/** the welcome-back banner: the catch-up summary, plus the furnace tray when bars wait in it */
-function bannerText(awayMs: number, s: GameState): string {
+/** the welcome-back banner: the catch-up summary, plus the furnace tray when bars wait in it and the workers' wages */
+export function bannerText(awayMs: number, s: GameState, wagesPaid: number): string {
   const n = s.run.furnace.ready
-  return awayText(awayMs) + (n > 0 ? ` · 🔥 ${n} bar${n === 1 ? '' : 's'} ready` : '')
+  return (
+    awayText(awayMs) + (n > 0 ? ` · 🔥 ${n} bar${n === 1 ? '' : 's'} ready` : '') + (wagesPaid > 0 ? ` · wages paid 💰${wagesPaid}` : '')
+  )
 }
 
 const TOAST_MS = 2000
@@ -61,7 +63,7 @@ export function useGame() {
   const stateRef = useRef(state)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
-  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.state) : null)
+  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.state, boot.wagesPaid) : null)
   const loop = useRef({ last: 0, acc: 0 })
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -145,9 +147,10 @@ export function useGame() {
       hiddenAt = null
       loop.current = { last: performance.now(), acc: 0 }
       if (offlineTicks(awayMs) < 1) return
-      const caught = catchUp(stateRef.current, awayMs)
+      const before = stateRef.current
+      const caught = catchUp(before, awayMs)
       commit(caught)
-      setBanner(bannerText(awayMs, caught))
+      setBanner(bannerText(awayMs, caught, caught.run.lifetime.wagesPaid - before.run.lifetime.wagesPaid))
     }
     const onPageHide = () => saveGame(localStorage, stateRef.current)
     document.addEventListener('visibilitychange', onVisibility)

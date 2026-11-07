@@ -6,6 +6,8 @@ import { growthProgress, isDry, isMature, ticksUntilRot } from '../core/tile'
 import { Bar } from './Bar'
 
 export const CROP_EMOJI: Record<CropId, string> = { radish: '🥕', chilli: '🌶️', pumpkin: '🎃', lemon: '🍋' }
+/** empty tiles; Unicode ≤ 11 like ITEMS.*.emoji (the old 🟫 🟤 are Unicode 12 and show as a box on older fonts) */
+const SOIL_EMOJI = { untilled: '🌿', tilled: '🕳️' }
 // display only: the rot countdown turns red in the last quarter of the grace window
 const ROT_WARN_FRACTION = 0.25
 
@@ -16,10 +18,10 @@ function Cell({ tile, state, onTap }: { tile: Tile; state: GameState; onTap: () 
   const growing = tile.status === 'planted' && !mature
   const dry = growing && isDry(tile)
 
-  let emoji = '🟫'
+  let emoji = SOIL_EMOJI.untilled
   let label = 'Untilled'
   let mod = 'untilled'
-  if (tile.status === 'tilled') [emoji, label, mod] = ['🟤', 'Tilled — plant', 'tilled']
+  if (tile.status === 'tilled') [emoji, label, mod] = [SOIL_EMOJI.tilled, 'Tilled — plant', 'tilled']
   if (growing) {
     const name = `${CROPS[tile.cropId!].name} ${Math.floor(growthProgress(tile, state) * 100)} %`
     ;[emoji, label, mod] = [CROP_EMOJI[tile.cropId!], dry ? `${name} — dry!` : name, dry ? 'dry' : 'growing']

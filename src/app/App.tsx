@@ -10,6 +10,7 @@ import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
+import { Workers } from './Workers'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
 const TAP_GUARD_MS = 400
@@ -125,7 +126,12 @@ export default function App() {
           </>
         )}
         <FarmGrid state={state} onTap={onTap} />
-        {!farmTab && <DigSeeds act={act} />}
+        {!farmTab && (
+          <>
+            <DigSeeds act={act} />
+            <Workers state={state} act={act} />
+          </>
+        )}
         {resetButton('farm')}
       </section>
       <aside className="panel">

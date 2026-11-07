@@ -45,7 +45,7 @@ function CopperTool({ state, act, job }: { state: GameState; act: Act; job: Tool
         disabled={!buyCopperTool(state, job).ok}
         onClick={() => act((s) => buyCopperTool(s, job))}
       >
-        {`🟧 ${TOOLS[job].copper}`}
+        {`${ITEMS.copperBar.emoji} ${TOOLS[job].copper}`}
         <small>{status}</small>
       </button>
     </Item>

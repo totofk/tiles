@@ -219,6 +219,8 @@ describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
     expect(panel().getByRole('heading', { name: 'Seed pouch' })).toBeTruthy()
     expect(panel().getByRole('button', { name: /Dig for seeds/ })).toBeTruthy()
     expect(farm().queryByRole('button', { name: /Dig for seeds/ })).toBeNull()
+    expect(panel().getByText(/👷 Workers/)).toBeTruthy()
+    expect(farm().queryByText(/👷 Workers/)).toBeNull()
     expect(screen.queryByText(/^Planting:/)).toBeNull()
   })
 

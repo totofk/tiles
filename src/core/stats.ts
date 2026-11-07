@@ -17,6 +17,8 @@ import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
 import type { CounterId, GameState } from './state'
 import { toolCount } from './tools'
+import { WORKER_JOBS } from './data/workers'
+import { freeWorkers } from './workers'
 
 /** one Stats tab line; `source` = what sets the value (an upgrade level, mastery, …) */
 export type StatRow = { label: string; value: string; source?: string }
@@ -72,7 +74,9 @@ export function stats(state: GameState): Stats {
       value: `${lifetime.harvests[id] ?? 0}`,
     })),
     { label: 'Copper bars smelted', value: `${lifetime.bars}` },
+    { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
   ]
+  const { pool, assigned } = run.workers
 
   const pickaxe = run.pickaxe
   const multipliers: StatRow[] = [
@@ -100,6 +104,12 @@ export function stats(state: GameState): Stats {
       return { label, value: TIER_EFFECT[job](tier), source: tier ? TOOLS[job].copper : 'basic' }
     }),
     { label: 'Drop table', value: dropText(run.vein.level), source: `Vein Lv${run.vein.level}` },
+    {
+      label: 'Workers',
+      value: `${pool} hired · ${freeWorkers(run)} free`,
+      source: WORKER_JOBS.map((job) => `${job} ${assigned[job]}`).join(' · '),
+    },
+    { label: 'Auto-smelt', value: run.furnace.built ? (run.autoSmelt ? 'on' : 'off') : 'no furnace' },
   ]
   return { totals, multipliers }
 }

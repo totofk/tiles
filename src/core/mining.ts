@@ -34,7 +34,7 @@ function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
 }
 
-/** "🪨 Stone 80 % · ⚫ Coal 20 %" for a vein level */
+/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level */
 export function dropText(level: number): string {
   const drops = veinDrops(level)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)

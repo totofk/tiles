@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Upgrades } from '../src/app/Upgrades'
 import { upgradeCost, upgradeMaxLevel } from '../src/core/balance'
+import { ITEMS } from '../src/core/data/items'
 import { buyStorage } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 
@@ -66,9 +67,10 @@ describe('Mine upgrades in the Upgrades tab', () => {
     const state = withRun({ mineLicense: true, cash: 50, inventory: { stone: 20 } })
     render(<Upgrades state={state} act={act} />)
     const [storage, vein] = row('⛏ Mine')
-    expect(storage.textContent).toBe('📦 Storage Lv 0/5Storage 20 → 30 slots · 🪨15 💰50')
+    const STONE = ITEMS.stone.emoji
+    expect(storage.textContent).toBe(`📦 Storage Lv 0/5Storage 20 → 30 slots · ${STONE}15 💰50`)
     expect(storage.disabled).toBe(false)
-    expect(vein.textContent).toBe('⛏️ Vein Lv 0/2🪨 Stone 100 % → 🪨 Stone 80 % · ⚫ Coal 20 % · 🪨25 💰100')
+    expect(vein.textContent).toBe(`⛏️ Vein Lv 0/2${STONE} Stone 100 % → ${STONE} Stone 80 % · ⚫ Coal 20 % · ${STONE}25 💰100`)
     expect(vein.disabled).toBe(true)
     fireEvent.click(storage)
     const fn = act.mock.calls[0][0] as (s: GameState) => ReturnType<typeof buyStorage>
@@ -80,6 +82,6 @@ describe('Mine upgrades in the Upgrades tab', () => {
     render(<Upgrades state={state} act={noop} />)
     const [storage, vein] = row('⛏ Mine')
     expect(storage.textContent).toContain('Storage 70 slots · max')
-    expect(vein.textContent).toContain('🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 % · max')
+    expect(vein.textContent).toContain(`${ITEMS.stone.emoji} Stone 65 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 15 % · max`)
   })
 })

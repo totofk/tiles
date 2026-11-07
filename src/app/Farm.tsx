@@ -9,6 +9,7 @@ import type { PanelProps } from './panelTabs'
 import { TIPS } from './tips'
 import { Tools } from './Tools'
 import type { Act } from './useGame'
+import { Workers } from './Workers'
 
 /** seed pouch rows + auto-buy: in 🌾 Farm on desktop, in 🛒 Shop where there is no Farm tab */
 export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
@@ -40,6 +41,9 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   )
 }
 
+/** digging by hand; Unicode 6.0 (the old 🪏 is Unicode 13 and shows as a box on older fonts) */
+const DIG_EMOJI = '✋'
+
 export function DigSeeds({ act }: { act: Act }) {
   const [lastDig, setLastDig] = useState<string | null>(null)
   return (
@@ -54,7 +58,7 @@ export function DigSeeds({ act }: { act: Act }) {
           })
         }
       >
-        🪏 Dig for seeds <small>⚡1</small>
+        {DIG_EMOJI} Dig for seeds <small>⚡1</small>
       </button>
       {lastDig && <span role="status">{lastDig}</span>}
     </p>
@@ -78,6 +82,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
       </div>
       <SeedPouch state={state} act={act} />
       <DigSeeds act={act} />
+      <Workers state={state} act={act} />
     </section>
   )
 }

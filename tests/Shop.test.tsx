@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
 import { cropSeedCost, toolCost } from '../src/core/balance'
+import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -19,6 +20,7 @@ function setup(run: Partial<GameState['run']>) {
   const view = render(ui())
   return { get: () => state, rerender: () => view.rerender(ui()) }
 }
+const BAR = ITEMS.copperBar.emoji
 const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
 
 describe('Shop seeds', () => {
@@ -52,11 +54,11 @@ describe('Farm tools in the Shop', () => {
     const s = createInitialState()
     setup({ counters: { ...s.run.counters, harvests: 7 } })
     expect(toolRow().map((b) => b.firstChild?.textContent)).toEqual([
-      'Watering Can', 'Garden Hose', 'Water Cart', '🟧 Copper Can',
-      'Sickle', 'Scythe', 'Reaper', '🟧 Copper Sickle',
-      'Dibber', 'Seed Drill', 'Seed Spreader', '🟧 Copper Dibber',
+      'Watering Can', 'Garden Hose', 'Water Cart', `${BAR} Copper Can`,
+      'Sickle', 'Scythe', 'Reaper', `${BAR} Copper Sickle`,
+      'Dibber', 'Seed Drill', 'Seed Spreader', `${BAR} Copper Dibber`,
     ])
-    expect(tool('🟧 Copper Can').textContent).toContain('needs Watering Can')
+    expect(tool(`${BAR} Copper Can`).textContent).toContain('needs Watering Can')
     expect(toolRow().every((b) => b.disabled)).toBe(true)
     expect(tool('Sickle').textContent).toContain('harvest 7/15')
     expect(tool('Watering Can').textContent).toContain('water 0/20')
@@ -82,16 +84,16 @@ describe('Farm tools in the Shop', () => {
     expect(tool('Scythe').disabled).toBe(false)
   })
 
-  it('the copper row unlocks with the job tool Lv1, shows 🟧4 💰100 and becomes an owned card', () => {
+  it('the copper row unlocks with the job tool Lv1, shows 4 bars 💰100 and becomes an owned card', () => {
     const t = setup({ cash: 100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
-    expect(tool('🟧 Copper Can').textContent).toContain('🟧4 💰100')
-    expect(tool('🟧 Copper Sickle').disabled).toBe(true)
-    fireEvent.click(tool('🟧 Copper Can'))
+    expect(tool(`${BAR} Copper Can`).textContent).toContain(`${BAR}4 💰100`)
+    expect(tool(`${BAR} Copper Sickle`).disabled).toBe(true)
+    fireEvent.click(tool(`${BAR} Copper Can`))
     t.rerender()
     expect(t.get().run.toolTier.water).toBe(1)
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([0, 0])
-    expect(tool('🟧 Copper Can').textContent).toContain('✓ Owned')
-    expect(tool('🟧 Copper Can').classList.contains('owned')).toBe(true)
+    expect(tool(`${BAR} Copper Can`).textContent).toContain('✓ Owned')
+    expect(tool(`${BAR} Copper Can`).classList.contains('owned')).toBe(true)
   })
 })
 

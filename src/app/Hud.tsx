@@ -18,6 +18,7 @@ export function Hud({ state }: { state: GameState }) {
           🏦 −💰{debtDue(run.loan)}
         </span>
       )}
+      {run.workers.pool > 0 && <span title="Workers hired">👷 {run.workers.pool}</span>}
       <span>⏱ {run.tick}</span>
     </header>
   )

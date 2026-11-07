@@ -467,6 +467,20 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   first (as much as storage takes), then queues coal jobs, so a job it queues starts on the next tick, like a manual
   one. With storage full the bars stay in the tray and keep counting toward the cap, so the furnace waits instead of
   smelting into nowhere. `setAutoSmelt(on)` fails `NO_FURNACE` before the furnace is built.
+- **Batch 8 (task 52): the auto-smelt toggle UI lands in task 52**, as a checkbox inside the 🔥 Furnace section of the
+  Mine panel (with an ⓘ). Task 51 shipped the core flag only, so without it the 📊 Stats "Auto-smelt" row would show
+  a state the player cannot change. It sits on the furnace, not in the Workers card: it is the furnace's own switch.
+- **Batch 8 (task 52): the 👷 Workers card is a `<details>` closed by default** (like the Furnace): the summary line
+  "👷 Workers · free N / pool" plus an "unpaid" pill when any job is unpaid, so closed it costs one 44 px row in the
+  Farm tab and below the grid. HUD "👷 N" is the hired pool, shown only once N ≥ 1 (nothing to say before).
+- **Batch 8 (task 52): emoji sweep constants.** Item glyphs stay in `ITEMS.*.emoji`; the two non-item glyphs are UI
+  constants in `src/app/` (`SOIL_EMOJI` in FarmGrid.tsx, `DIG_EMOJI` in Farm.tsx), since they are display only. Unicode
+  12+ glyphs found beyond 🪨 and 🪏: 🟫 (untilled tile), 🟤 (copper ore and tilled tile), 🟧 (copper bar): the whole
+  U+1F7E0–1F7EB coloured circle/square block is Unicode 12. Tests read the constants, so the next swap is one line.
+  The old glyphs stay in earlier batch notes and DECISIONS ("🪏 Dig for seeds", round 2).
+- **Batch 8 (task 52): `loadGame` returns `wagesPaid`** (paid during its catch-up) beside `awayMs` / `ticks`, so the
+  welcome-back banner on reload can say "wages paid 💰N"; the visibility path diffs the state before `catchUp`. Not a
+  save-shape change.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1073,7 +1087,7 @@ v7 fixture first; chain v1–v7 → v8; backup key).
 51. [x] Auto-smelt: a toggle on the furnace (available once it is built, off by default). When on, the furnace
     enqueues a job whenever ore ≥ 2, coal ≥ 1 and the queue has room (coal only — never wood, so repair wood is never
     eaten), and moves finished bars into storage when there is room. Runs in `step` and offline, deterministic.
-52. [ ] Workers UI: a 👷 Workers card in the 🌾 Farm tab on desktop and below the grid in the mobile Farm view:
+52. [x] Workers UI: a 👷 Workers card in the 🌾 Farm tab on desktop and below the grid in the mobile Farm view:
     "free N / pool", one row per job "💧 Water [−] n [+]" / "🌾 Harvest [−] n [+]", a locked row shows its
     certificate price and gate progress, the hire button with its price, an "unpaid" badge on a row whose worker
     skipped for cash. HUD "👷 N"; away banner adds "wages paid 💰N". ⓘ tips (no numbers in text). 📊 Stats: workers,
@@ -1086,3 +1100,40 @@ v7 fixture first; chain v1–v7 → v8; backup key).
     workers and auto-smelt ends with more cash and ≥ the bars the queue allows; mining stays below farming; the
     batch-7/7.1 ladder pins are unchanged when no worker is hired and auto-smelt is off. Report ticks for first
     certificate, first hire, pool 3. Write "## Batch 8 results".
+
+## Batch 8 results
+No `balance.ts` number changed in tasks 52–53; save stays v8.
+
+### UI (task 52)
+- **Where:** `src/app/Workers.tsx` (`Workers`), rendered at the end of the desktop 🌾 Farm tab and, wherever there is
+  no Farm tab (mobile, the 768–1023 px slide-over layout, collapsed desktop), below the grid after Dig for seeds.
+  Closed: "👷 Workers · free N / pool" (+ "unpaid"). Open: one row per job — before its certificate, the job label
+  with its gate progress while locked ("waters 12/40") and a "Certificate" button with its price (disabled until
+  unlocked and affordable); after it, "💧 Water [−] n [+]" with "unpaid" when `workerUnpaid`; then, once hiring is
+  unlocked, "👷 Hire worker 💰price" ("pool full" at the cap). Every row has an ⓘ (`WORKER_TIPS`, `TIPS.hire`, no
+  numbers). HUD "👷 N" (pool) before ⏱. Banner: "… · wages paid 💰N" when N > 0. 📊 Stats: Lifetime "Wages paid";
+  Now "Workers" (hired · free, per-job counts) and "Auto-smelt" (on / off / no furnace). Furnace: auto-smelt checkbox.
+- **Widths, computed from `app.css` at 14 px system-ui, not measured** (≈ 7 px/char at 14 px, ≈ 6.5 at 12 px, ≈ 18 px
+  per emoji, as in 7.2). Room: mobile farm column 375 − 2 × 8 = **359 px**; desktop Farm tab 300 − 2 × 8 = **284 px**
+  at 1024, 374 − 16 = **358 px** at 1440. Job row with workers: "🌾 Harvest" ≈ 71 + [−] 44 + count 2ch ≈ 16 + [+] 44 +
+  "unpaid" ≈ 52 + ⓘ 28 + 5 × 4 gap = **≈ 275 px** (fits 284 with ≈ 9 px spare). Certificate row: label column ≈ 91
+  ("harvests 12/40" at 12 px under the label) + button ≈ 95 ("Certificate" over its price, both lines in the button) +
+  ⓘ 28 + 2 × 4 = **≈ 222 px**. Hire row ≈ 149 px. Rows wrap (`flex-wrap`) rather than overflow if an estimate is off.
+  Closed card = one 44 px summary row + 8 px gap below the grid.
+- **HUD at 375 px, worst case** (4-digit cash, 5-digit tick, bank debt pill, 👷): content 359 − 16 padding = 343 px;
+  💰 1234 ≈ 58 + ⚡ 20 / 20 ≈ 72 + debt pill ≈ 71 + ⏱ 12345 ≈ 67 + 👷 6 ≈ 32 + 4 × 8 gaps = **≈ 332 px** (16 px bold,
+  ≈ 8.8 px/digit) — fits with ≈ 11 px spare.
+- **Emoji sweep (task 52):** every glyph in `src/` checked by code point; Unicode 12+ ones replaced:
+  | Was | Unicode | Now | Unicode | Where (one constant) |
+  |---|---|---|---|---|
+  | 🪨 stone | 13.0 | ⛰️ U+26F0 FE0F | 5.2 | `ITEMS.stone.emoji` (prices, drop table, vein rock, sell all) |
+  | 🟤 copper ore | 12.0 | 🔶 U+1F536 | 6.0 | `ITEMS.copperOre.emoji` (drop table, furnace recipe) |
+  | 🟧 copper bar | 12.0 | 🥉 U+1F949 | 9.0 | `ITEMS.copperBar.emoji` (prices, furnace, Collect, copper tool rows) |
+  | 🟫 untilled tile | 12.0 | 🌿 U+1F33F | 6.0 | `SOIL_EMOJI.untilled` (FarmGrid.tsx) |
+  | 🟤 tilled tile | 12.0 | 🕳️ U+1F573 FE0F | 7.0 | `SOIL_EMOJI.tilled` (FarmGrid.tsx) |
+  | 🪏 dig for seeds | 13.0 | ✋ U+270B | 6.0 | `DIG_EMOJI` (Farm.tsx) |
+
+  Why these: no Unicode ≤ 11 emoji is a rock or a metal bar, so stone is the mountain (rock), ore an orange chunk, the
+  bar a copper-coloured metal piece (the bronze medal); untilled ground is weeds, a tilled tile a planting hole, and
+  dig for seeds is by hand. Everything else in `src/` is Unicode ≤ 9 (🥕 🛒 9.0, 🌶️ 7.0, the rest 6.0 or older, ⓘ ⋯ ≥ ≤
+  are text symbols). 👷 is Unicode 6.0.

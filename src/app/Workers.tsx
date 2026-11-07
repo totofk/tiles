@@ -1,0 +1,74 @@
+import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
+import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
+import type { GameState } from '../core/state'
+import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
+import { Info } from './Info'
+import { priceText } from './Mine'
+import { TIPS, WORKER_TIPS } from './tips'
+import type { Act } from './useGame'
+
+export const WORKER_JOB_LABEL: Record<WorkerJob, string> = { water: '💧 Water', harvest: '🌾 Harvest' }
+
+/** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */
+function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {
+  const { run, meta } = state
+  if (!run.workers.certificates.includes(job)) {
+    const { counter, at } = certificateUnlock(job)
+    return (
+      <div className="worker-row">
+        <span>
+          {WORKER_JOB_LABEL[job]}
+          {!certificateUnlocked(run, job) && (
+            <small>
+              {counter} {run.counters[counter]}/{at}
+            </small>
+          )}
+        </span>
+        <button disabled={!buyCertificate(state, job).ok} onClick={() => act((s) => buyCertificate(s, job))}>
+          Certificate <small>{priceText(certificateCost(job, meta))}</small>
+        </button>
+        <Info text={WORKER_TIPS[job]} />
+      </div>
+    )
+  }
+  const name = WORKER_JOB_LABEL[job].split(' ')[1]
+  return (
+    <div className="worker-row">
+      <span>{WORKER_JOB_LABEL[job]}</span>
+      <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
+        −
+      </button>
+      <span className="worker-n">{run.workers.assigned[job]}</span>
+      <button aria-label={`One more on ${name}`} disabled={!assignWorker(state, job, 1).ok} onClick={() => act((s) => assignWorker(s, job, 1))}>
+        +
+      </button>
+      {workerUnpaid(state, job) && <span className="unpaid">unpaid</span>}
+      <Info text={WORKER_TIPS[job]} />
+    </div>
+  )
+}
+
+/** 👷 card: in the desktop 🌾 Farm tab, below the grid elsewhere; closed by default so the farm column stays short */
+export function Workers({ state, act }: { state: GameState; act: Act }) {
+  const { run, meta } = state
+  const { pool } = run.workers
+  return (
+    <details className="workers">
+      <summary>
+        👷 Workers · free {freeWorkers(run)} / {pool}
+        {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
+      </summary>
+      {WORKER_JOBS.map((job) => (
+        <JobRow key={job} state={state} act={act} job={job} />
+      ))}
+      {hireUnlocked(run) && (
+        <div className="worker-row">
+          <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
+            👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${workerHireCost(pool, meta)}`}</small>
+          </button>
+          <Info text={TIPS.hire} />
+        </div>
+      )}
+    </details>
+  )
+}

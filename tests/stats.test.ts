@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
 import { cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
+import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
 import { stats } from '../src/core/stats'
 
@@ -22,6 +23,7 @@ describe('stats(state)', () => {
       { label: 'Plantings', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Copper bars smelted', value: '0' },
+      { label: 'Wages paid', value: '💰0' },
     ])
     const meta = createInitialState().meta
     expect(multipliers).toEqual([
@@ -37,7 +39,9 @@ describe('stats(state)', () => {
       { label: 'Water tier', value: 'waters to 1 (×1 moist time)', source: 'basic' },
       { label: 'Harvest tier', value: '0 % double harvest', source: 'basic' },
       { label: 'Plant tier', value: '0 % seed kept', source: 'basic' },
-      { label: 'Drop table', value: '🪨 Stone 100 %', source: 'Vein Lv0' },
+      { label: 'Drop table', value: `${ITEMS.stone.emoji} Stone 100 %`, source: 'Vein Lv0' },
+      { label: 'Workers', value: '0 hired · 0 free', source: 'water 0 · harvest 0' },
+      { label: 'Auto-smelt', value: 'no furnace' },
     ])
   })
 
@@ -106,7 +110,7 @@ describe('stats(state)', () => {
     expect(row(multipliers, 'Harvest tool')).toEqual({ label: 'Harvest tool', value: 'all tiles per press', source: 'Reaper' })
     expect(row(multipliers, 'Drop table')).toEqual({
       label: 'Drop table',
-      value: '🪨 Stone 65 % · ⚫ Coal 20 % · 🟤 Copper ore 15 %',
+      value: `${ITEMS.stone.emoji} Stone 65 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 15 %`,
       source: 'Vein Lv2',
     })
   })

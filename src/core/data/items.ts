@@ -7,11 +7,12 @@ export const PICKAXE_TIERS = ['wooden', 'copper'] as const
 export type PickaxeTier = (typeof PICKAXE_TIERS)[number]
 export const PICKAXE_NAMES: Record<PickaxeTier, string> = { wooden: 'Wooden pickaxe', copper: 'Copper pickaxe' }
 
+// Every icon is from Unicode ≤ 11: newer ones (🪵 13, 🪨 13, 🟤 🟧 12) render as an empty box on older emoji fonts.
+// Every item icon in the UI reads this.
 export const ITEMS: Record<ItemId, { name: string; emoji: string }> = {
-  // 🌲 (Unicode 6.0) not 🪵 (13.0): 🪵 renders as an empty box on older emoji fonts; every wood icon reads this
   wood: { name: 'Wood', emoji: '🌲' },
-  stone: { name: 'Stone', emoji: '🪨' },
+  stone: { name: 'Stone', emoji: '⛰️' },
   coal: { name: 'Coal', emoji: '⚫' },
-  copperOre: { name: 'Copper ore', emoji: '🟤' },
-  copperBar: { name: 'Copper bar', emoji: '🟧' },
+  copperOre: { name: 'Copper ore', emoji: '🔶' },
+  copperBar: { name: 'Copper bar', emoji: '🥉' },
 }

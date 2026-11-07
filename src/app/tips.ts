@@ -1,6 +1,7 @@
 import type { CropId } from '../core/data/crops'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
+import type { WorkerJob } from '../core/data/workers'
 
 // ⓘ texts for every Shop and Upgrades row: what it does, what it costs over time. No numbers (those live in balance.ts).
 
@@ -53,4 +54,12 @@ export const TIPS = {
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
   furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
+  autoSmelt: 'The furnace queues ore with coal by itself and moves finished bars into storage, also while you are away. Never burns wood, so repair wood is safe. Free.',
+  hire: 'Adds one worker to your pool; put them on a job with + and −. Workers act on their own clock without your energy, also while you are away. Each action costs a small wage, paid only when they work; with no cash they wait. Each hire costs more than the last, up to a cap.',
+}
+
+/** the job's certificate row: what a worker on this job does */
+export const WORKER_TIPS: Record<WorkerJob, string> = {
+  water: 'A one-time certificate. Waterers water the tile that would dry out soonest, slower than you. Your copper can makes each of their waterings last longer too.',
+  harvest: 'A one-time certificate, paid in cash and stone. Harvesters pick the crop ripe longest first, so nothing rots while you are away. Your copper sickle works for them too.',
 }

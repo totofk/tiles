@@ -25,7 +25,7 @@ import {
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
-import { collectBars, enqueueSmelt } from '../core/furnace'
+import { collectBars, enqueueSmelt, setAutoSmelt } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -41,6 +41,8 @@ import {
 } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
+import { Info } from './Info'
+import { TIPS } from './tips'
 import { ERROR_TEXT, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
@@ -52,7 +54,7 @@ const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 const SMELT_SHORT: Partial<Record<ActionError, string>> = { NOT_ENOUGH_ORE: 'no ore', NOT_ENOUGH_FUEL: 'no fuel', QUEUE_FULL: 'full', BAG_FULL: 'storage full' }
 const STOCK_LABEL = { copperOre: 'ore', coal: 'coal', wood: 'wood' }
 
-/** "🪨20 ⚫5 💰150"; no cash part when it is free */
+/** "⛰️20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
   const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`)
   return [...items, ...(price.cash ? [`💰${price.cash}`] : [])].join(' ')
@@ -79,7 +81,10 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       </summary>
       {f.queue > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
       <small>
-        🟤{smeltOre()} + ⚫{smeltFuel('coal')} or {ITEMS.wood.emoji}{smeltFuel('wood')} → 🟧1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
+        {ITEMS.copperOre.emoji}
+        {smeltOre()} + {ITEMS.coal.emoji}
+        {smeltFuel('coal')} or {ITEMS.wood.emoji}
+        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}1 · {barTicks()} s · holds {furnaceQueueCap()} ·{' '}
         {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
           <Fragment key={id}>
             {i > 0 && ' · '}
@@ -100,8 +105,16 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           )
         })}
         <button disabled={!collect.ok} onClick={() => act(collectBars)}>
-          Collect {f.ready} 🟧{!collect.ok && f.ready > 0 && <small>{SMELT_SHORT[collect.error] ?? ERROR_TEXT[collect.error]}</small>}
+          Collect {f.ready} {ITEMS.copperBar.emoji}
+          {!collect.ok && f.ready > 0 && <small>{SMELT_SHORT[collect.error] ?? ERROR_TEXT[collect.error]}</small>}
         </button>
+      </div>
+      <div className="pouch-auto">
+        <label>
+          <input type="checkbox" checked={run.autoSmelt} onChange={(e) => act((s) => setAutoSmelt(s, e.target.checked))} />
+          Auto-smelt with {ITEMS.coal.emoji} coal and collect
+        </label>
+        <Info text={TIPS.autoSmelt} />
       </div>
     </details>
   )
