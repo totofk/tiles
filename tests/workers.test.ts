@@ -237,11 +237,12 @@ describe('workersAct / step: workers', () => {
 })
 
 // 9 pumpkin tiles for 1200 ticks, cash to spare. Manual = the greedy farmer (harvest, water when dry, plant, till);
-// workers = 1 waterer + 1 harvester while the player only tills and plants. Net cash per minute, standing crops
+// workers = `waterers` + 1 harvester while the player only tills and plants. Net cash per minute, standing crops
 // valued at sell price × growth (same accounting as the sim's runCropBot); workers spend no energy, so per minute.
-function pumpkinRate(workersOn: boolean, waterTier = 0): number {
+function pumpkinRate(waterers: number, waterTier = 0) {
   const ticks = 1200
-  const base = farm([], { cash: 1000, water: workersOn ? 1 : 0, harvest: workersOn ? 1 : 0, energy: init.run.energy })
+  const workersOn = waterers > 0
+  const base = farm([], { cash: 1000, water: waterers, harvest: workersOn ? 1 : 0, energy: init.run.energy })
   // untilled start, as in the sim
   let s = { ...base, run: { ...base.run, tiles: init.run.tiles, toolTier: { ...base.run.toolTier, water: waterTier } } }
   const crop: CropId = 'pumpkin'
@@ -270,18 +271,25 @@ function pumpkinRate(workersOn: boolean, waterTier = 0): number {
     s = step(s, 1)
   }
   const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, meta, 0) * growthProgress(t, s) : 0), 0)
-  return (s.run.cash - start + field) / (ticks / 60)
+  return { perMin: (s.run.cash - start + field) / (ticks / 60), waters: s.run.counters.waters, wages: s.run.lifetime.wagesPaid }
 }
 
 describe('workers vs manual, 9 pumpkin tiles, 1200 ticks', () => {
-  const manual = pumpkinRate(false)
-  const worked = pumpkinRate(true)
-  const copper = { manual: pumpkinRate(false, 1), worked: pumpkinRate(true, 1) }
-  console.log('batch 8 workers vs manual (cash/min)', JSON.stringify({ manual, worked, ratio: worked / manual, copper }))
+  const manual = pumpkinRate(0)
+  const worked = pumpkinRate(1)
+  const copper = { manual: pumpkinRate(0, 1), worked: pumpkinRate(1, 1) }
+  const twoWaterers = pumpkinRate(2)
+  console.log('batch 8 workers vs manual', JSON.stringify({ manual, worked, ratio: worked.perMin / manual.perMin, copper, twoWaterers }))
 
   it('water + harvest workers with the player only planting net ≥ 80 % of the manual rate', () => {
-    expect(worked).toBeGreaterThanOrEqual(0.8 * manual)
-    expect(copper.worked).toBeGreaterThanOrEqual(0.8 * copper.manual)
+    expect(worked.perMin).toBeGreaterThanOrEqual(0.8 * manual.perMin)
+    expect(copper.worked.perMin).toBeGreaterThanOrEqual(0.8 * copper.manual.perMin)
+  })
+
+  it('a copper can halves the waterer actions and wages; a second waterer only idles (costs nothing more)', () => {
+    expect(copper.worked.waters).toBeLessThanOrEqual(0.55 * worked.waters)
+    expect(copper.worked.wages).toBeLessThan(worked.wages)
+    expect(twoWaterers).toEqual(worked)
   })
 })
 
