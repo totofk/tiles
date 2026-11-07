@@ -171,5 +171,5 @@ export function awayText(elapsedMs: number): string {
   const min = Math.floor(elapsedMs / 60_000)
   const away = min >= 60 ? `${Math.floor(min / 60)}h ${min % 60}m` : min >= 1 ? `${min}m` : `${Math.floor(elapsedMs / 1000)}s`
   const capped = ticks === OFFLINE_CAP_TICKS && elapsedMs >= (OFFLINE_CAP_TICKS + 1) * 1000 ? ' (capped at 8h)' : ''
-  return `Away for ${away} — ${ticks} ticks simulated${capped}`
+  return `Away for ${away} — ${ticks} tick${ticks === 1 ? '' : 's'} simulated${capped}`
 }

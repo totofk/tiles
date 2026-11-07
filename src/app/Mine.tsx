@@ -24,6 +24,7 @@ import {
   expectedUses,
   repairPickaxe,
   sellItem,
+  upgradeVein,
 } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
@@ -38,7 +39,7 @@ function dropText(level: number): string {
   const drops = veinDrops(level)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
-    .map((id) => `${ITEMS[id].emoji} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
+    .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
     .join(' · ')
 }
 
@@ -70,6 +71,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
   const repair = repairPickaxe(state)
   const cracked = run.vein.progress > 0
   const nextVein = veinUpgradeCost(run.vein.level, meta)
+  const veinCheck = upgradeVein(state)
   const fullValue = SELL_WHEN_FULL.reduce(
     (sum, id) => sum + (run.inventory[id] ?? 0) * itemSellPrice(id, meta, run.upgrades.sellPrice),
     0,
@@ -109,9 +111,15 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
           Vein Lv{run.vein.level}: {dropText(run.vein.level)}
         </span>
         {nextVein && (
-          <span className="mine-vein-next">
-            Lv{run.vein.level + 1}: {dropText(run.vein.level + 1)} — {nextVein.stone} 🪨 + 💰{nextVein.cash}
-          </span>
+          <>
+            <span className="mine-vein-next">
+              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1)} — {nextVein.stone} 🪨 + 💰{nextVein.cash}
+            </span>
+            <button disabled={!veinCheck.ok} onClick={() => act(upgradeVein)}>
+              Upgrade vein to Lv{run.vein.level + 1}
+              {!veinCheck.ok && <small> — {ERROR_TEXT[veinCheck.error]}</small>}
+            </button>
+          </>
         )}
         <span className="mine-vein-next">{LOCKED_VEIN_TEXT}</span>
       </div>
@@ -123,7 +131,8 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       ) : run.pickaxe ? (
         <div className="mine-pickaxe">
           <span>
-            Wooden pickaxe {run.pickaxe.durability} / {recipe.durability}
+            Wooden pickaxe {run.pickaxe.durability} / {recipe.durability} · lasts ~
+            {Math.round(expectedUses(run.pickaxe.tier, run))} uses
           </span>
           <Bar value={run.pickaxe.durability / recipe.durability} kind="tool" />
         </div>
@@ -135,7 +144,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       {tier && (
         <div className="mine-pickaxe">
           <span>
-            Mastery Lv {level}/{max} · lasts ~{Math.round(expectedUses(tier, run))} uses
+            Mastery Lv {level}/{max} · {level >= max ? xp : `${xp}/${thresholds[level]}`} xp
           </span>
           <Bar value={toNext} kind="grow" />
           {run.masteredTiers.includes(tier) && (

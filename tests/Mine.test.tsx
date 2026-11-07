@@ -25,16 +25,29 @@ const wooden = (durability = pickaxeRecipe('wooden').durability) => ({ tier: 'wo
 describe('Mine panel', () => {
   it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
     setup({})
-    expect(text()).toContain('Vein Lv0: 🪨 100 %')
-    expect(screen.getByText(/^Lv1: 🪨 80 % · ⚫ 20 % — 25 🪨 \+ 💰100$/)).toBeTruthy()
+    expect(text()).toContain('Vein Lv0: 🪨 Stone 100 %')
+    expect(screen.getByText(/^Lv1: 🪨 Stone 80 % · ⚫ Coal 20 % — 25 🪨 \+ 💰100$/)).toBeTruthy()
     const iron = screen.getByText(/iron ore/)
     expect(iron.textContent).toBe('🔒 Lv2: iron ore — needs Furnace (coming)')
     expect(iron.textContent).not.toMatch(/%|💰|🪨|\d\s/)
   })
 
+  it('the next vein level has an Upgrade button, disabled with the reason until it is affordable', () => {
+    setup({ cash: 100, inventory: { stone: 24 } })
+    const upgrade = () => screen.getByRole('button', { name: /^Upgrade vein to Lv1/ }) as HTMLButtonElement
+    expect(upgrade().disabled).toBe(true)
+    expect(upgrade().textContent).toBe('Upgrade vein to Lv1 — Not enough items')
+    cleanup()
+    const affordable = setup({ cash: 100, inventory: { stone: 25 } })
+    fireEvent.click(upgrade())
+    expect(affordable.get().run.vein.level).toBe(1)
+    affordable.rerender()
+    expect(screen.queryByRole('button', { name: /^Upgrade vein/ })).toBeNull()
+  })
+
   it('at the last vein level shows only the current table and the iron teaser', () => {
     setup({ vein: { level: 1, progress: 0 } })
-    expect(text()).toContain('Vein Lv1: 🪨 80 % · ⚫ 20 %')
+    expect(text()).toContain('Vein Lv1: 🪨 Stone 80 % · ⚫ Coal 20 %')
     expect(screen.queryByText(/^Lv2: /)).toBeNull()
     expect(screen.getByText(/iron ore/)).toBeTruthy()
   })
@@ -44,13 +57,15 @@ describe('Mine panel', () => {
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('🪨 cracked 1/2')
   })
 
-  it('shows mastery with "lasts ~N uses" and the mastered badge only once mastered', () => {
-    setup({ pickaxe: wooden() })
-    expect(text()).toContain('Mastery Lv 0/10 · lasts ~25 uses')
+  it('shows "lasts ~N uses" on the durability line, mastery level + xp, and the badge only once mastered', () => {
+    setup({ pickaxe: wooden(), mastery: { wooden: 5 } })
+    expect(text()).toContain('Wooden pickaxe 25 / 25 · lasts ~25 uses')
+    expect(text()).toContain('Mastery Lv 0/10 · 5/10 xp')
     expect(screen.queryByText(/Mastered/)).toBeNull()
     cleanup()
     setup({ pickaxe: wooden(), mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
-    expect(text()).toContain('Mastery Lv 10/10 · lasts ~125 uses')
+    expect(text()).toContain('Wooden pickaxe 25 / 25 · lasts ~125 uses')
+    expect(text()).toContain('Mastery Lv 10/10 · 400 xp')
     expect(screen.getByText('Mastered ✓ +5 % all pickaxes')).toBeTruthy()
   })
 

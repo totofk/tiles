@@ -219,6 +219,7 @@ describe('catch-up', () => {
   it('banner text', () => {
     expect(awayText(12 * 60_000)).toBe('Away for 12m — 720 ticks simulated')
     expect(awayText(5_400)).toBe('Away for 5s — 5 ticks simulated')
+    expect(awayText(1_500)).toBe('Away for 1s — 1 tick simulated')
     expect(awayText(9 * HOUR)).toBe('Away for 9h 0m — 28800 ticks simulated (capped at 8h)')
   })
 })

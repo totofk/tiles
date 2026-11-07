@@ -326,6 +326,8 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   fits in the session. Its batch-6 assertion "bought = affordable" is gone: the bot buys only on idle energy, so the
   buy lands a few ticks after the first affordable tick (324 → 330). The "fits storage" rule test also asserts vein
   Lv1 costs more stone than the starting storage, so the order storage → vein is enforced, not only allowed.
+- **Batch 6.1 UI (task 33): every item in the drop table is named** ("🪨 Stone 100 %"), not only coal, so the rows
+  read alike. The vein Upgrade button sits in the Mine panel as well as the Upgrades tab (both call `upgradeVein`).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -630,7 +632,7 @@ No save-shape change (numbers and UI only).
     cash (so storage Lv1 comes first). Test: every stone/ore price ≤ the storage capacity the player has when it
     becomes buyable (each storage level vs capacity before it; vein Lv1 vs capacity after storage Lv1). Sim: the
     stone-keeping mine-early bot buys storage Lv1 then vein Lv1 — report both ticks in "## Batch 6.1 results".
-33. [ ] Mine panel polish: "lasts ~N uses" moves to the pickaxe durability line (mastery line shows level + xp
+33. [x] Mine panel polish: "lasts ~N uses" moves to the pickaxe durability line (mastery line shows level + xp
     only, e.g. "Mastery Lv 0/10 · 5/10 xp"); drop-table and storage text at readable contrast (≥ 4.5:1); coal named
     in the drop table ("⚫ Coal 20 %"); the offline banner says "1 tick" / "N ticks"; the next vein level shows an
     Upgrade button (disabled with the reason when unaffordable).
@@ -645,3 +647,9 @@ No save-shape change (numbers and UI only).
 - Checked only, not bought (the other bots never buy storage): storage Lv1 now becomes affordable at tick 534
   (batch-3 pumpkin-first bot), 324 (batch-3 mine-early bot), 495 / 360 (four-crop session, pumpkin-first / mine-early;
   was 516 / 579). Every batch-3 greedy pin (final cash 394 / 132) is unchanged.
+- **Task 33:** pickaxe line "Wooden pickaxe 25 / 25 · lasts ~25 uses"; mastery line "Mastery Lv 0/10 · 5/10 xp"
+  ("Lv 10/10 · 400 xp" at max); drop table "🪨 Stone 80 % · ⚫ Coal 20 %"; banner "1 tick simulated" / "N ticks
+  simulated"; "Upgrade vein to Lv1" button, disabled as "— Not enough items" / "— Not enough cash" from
+  `upgradeVein`'s own error. Contrast (WCAG ratio, computed with node from the CSS hex values): the greyed next-vein
+  and iron lines were #888 on white = 3.54:1, now #555 = 7.46:1; storage text was already #555 on white = 7.46:1
+  (6.10:1 on a disabled button), unchanged. Not checked in a browser (no dev server in headless runs).
