@@ -359,7 +359,8 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   crop}, items `copperOre` / `copperBar`. "Equipped pickaxe tier" needed no field: `run.pickaxe.tier` already is it;
   the `PickaxeTier` union widens to `copper` (like `CropId` in batch 6). Lifetime totals live in their own object,
   not in `counters`, because counters drive unlocks and the frozen v4 save type shares their shape. Time played =
-  `run.tick` (already a lifetime tick count), so no new counter.
+  `run.tick` (already a lifetime tick count), so no new counter; it includes offline catch-up ticks (time away
+  counts as played).
 - **Batch 7 (task 37): migrated lifetime totals are lower bounds from the counters that map.** Energy spent =
   harvests + waters + plants + soil digs + mines (1 energy each; tills were never counted). Harvests per crop are
   seeded only when the save holds exactly one license (then every harvest was that crop); otherwise `{}` while the
