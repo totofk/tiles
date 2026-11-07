@@ -49,7 +49,7 @@ describe('step', () => {
   })
 
   it('rots a mature crop once ticksSinceMature exceeds the grace window, not before', () => {
-    const grow = cropGrowTicks('radish', meta)
+    const grow = cropGrowTicks('radish', meta, 0)
     const grace = cropRotGraceTicks('radish', meta)
     const s = withTile({ status: 'planted', cropId: 'radish', growth: grow, moisture: 0 })
     const atGrace = step(s, grace).run.tiles[0]

@@ -4,8 +4,9 @@ import { createInitialState, type GameState, type Tile } from '../src/core/state
 import { step } from '../src/core/step'
 import { growthProgress, isDry, nextTileAction, tapTile, ticksUntilRot } from '../src/core/tile'
 
-const meta = createInitialState().meta
-const grow = cropGrowTicks('radish', meta)
+const s0 = createInitialState()
+const meta = s0.meta
+const grow = cropGrowTicks('radish', meta, 0)
 const tile = (t: Partial<Tile>): Tile => ({ ...createInitialState().run.tiles[0], ...t })
 const planted = (t: Partial<Tile> = {}) => tile({ status: 'planted', cropId: 'radish', ...t })
 
@@ -17,11 +18,11 @@ function withTile(t: Tile): GameState {
 
 describe('nextTileAction', () => {
   it('follows harvest → water → plant → till', () => {
-    expect(nextTileAction(planted({ growth: grow, moisture: 0 }), meta)).toBe('harvest')
-    expect(nextTileAction(planted({ moisture: 0 }), meta)).toBe('water')
-    expect(nextTileAction(planted({ moisture: 0.5 }), meta)).toBe('water')
-    expect(nextTileAction(tile({ status: 'tilled' }), meta)).toBe('plant')
-    expect(nextTileAction(tile({ status: 'untilled' }), meta)).toBe('till')
+    expect(nextTileAction(planted({ growth: grow, moisture: 0 }), s0)).toBe('harvest')
+    expect(nextTileAction(planted({ moisture: 0 }), s0)).toBe('water')
+    expect(nextTileAction(planted({ moisture: 0.5 }), s0)).toBe('water')
+    expect(nextTileAction(tile({ status: 'tilled' }), s0)).toBe('plant')
+    expect(nextTileAction(tile({ status: 'untilled' }), s0)).toBe('till')
   })
 })
 
@@ -32,15 +33,15 @@ describe('helpers', () => {
   })
 
   it('growthProgress is 0..1', () => {
-    expect(growthProgress(tile({ status: 'tilled' }), meta)).toBe(0)
-    expect(growthProgress(planted({ growth: grow / 2 }), meta)).toBe(0.5)
-    expect(growthProgress(planted({ growth: grow }), meta)).toBe(1)
+    expect(growthProgress(tile({ status: 'tilled' }), s0)).toBe(0)
+    expect(growthProgress(planted({ growth: grow / 2 }), s0)).toBe(0.5)
+    expect(growthProgress(planted({ growth: grow }), s0)).toBe(1)
   })
 
   it('ticksUntilRot matches step: the crop is gone after exactly that many ticks', () => {
-    expect(ticksUntilRot(planted(), meta)).toBeNull()
+    expect(ticksUntilRot(planted(), s0)).toBeNull()
     const t = planted({ growth: grow, ticksSinceMature: 0 })
-    const left = ticksUntilRot(t, meta)!
+    const left = ticksUntilRot(t, s0)!
     expect(left).toBe(cropRotGraceTicks('radish', meta) + 1)
     const s = withTile(t)
     expect(step(s, left - 1).run.tiles[0].status).toBe('planted')

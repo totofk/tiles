@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, plant, till, water, type ActionResult } from '../src/core/actions'
-import { ACTION_ENERGY_COST, cropGrowTicks, cropSeedCost, cropSellPrice } from '../src/core/balance'
+import { ACTION_ENERGY_COST, START_TILES, cropGrowTicks, cropRotGraceTicks, cropSeedCost, cropSellPrice } from '../src/core/balance'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 
 function withTile(tile: Partial<Tile>, run: Partial<GameState['run']> = {}): GameState {
@@ -18,7 +18,7 @@ function okState(r: ActionResult): GameState {
 const meta = createInitialState().meta
 const tilled = { status: 'tilled' } as const
 const planted = { status: 'planted', cropId: 'radish' } as const
-const mature = { ...planted, growth: cropGrowTicks('radish', meta) }
+const mature = { ...planted, growth: cropGrowTicks('radish', meta, 0) }
 
 describe('till', () => {
   it('turns an untilled tile into tilled and costs energy', () => {
@@ -30,7 +30,7 @@ describe('till', () => {
   })
   it('rejects bad indexes', () => {
     const s = createInitialState()
-    for (const i of [-1, 6, 1.5, NaN]) expect(till(s, i)).toEqual({ ok: false, error: 'BAD_TILE' })
+    for (const i of [-1, START_TILES, 1.5, NaN]) expect(till(s, i)).toEqual({ ok: false, error: 'BAD_TILE' })
   })
   it('rejects a tile that is not untilled', () => {
     expect(till(withTile(tilled), 0)).toEqual({ ok: false, error: 'NOT_UNTILLED' })
@@ -86,10 +86,23 @@ describe('harvest', () => {
   it('sells a mature crop instantly and leaves the tile tilled', () => {
     const s = withTile(mature)
     const next = okState(harvest(s, 0))
-    expect(next.run.cash).toBe(s.run.cash + cropSellPrice('radish', meta))
+    expect(next.run.cash).toBe(s.run.cash + cropSellPrice('radish', meta, 0))
     expect(next.run.tiles[0]).toMatchObject({ status: 'tilled', growth: 0, ticksSinceMature: 0 })
     expect(next.run.tiles[0].cropId).toBeUndefined()
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
+    expect(next.run.counters).toEqual({ harvests: 1, sales: 1, digs: 0 })
+  })
+  it('applies the sellPrice upgrade (+10 % per level)', () => {
+    const s = withTile(mature, { upgrades: { ...createInitialState().run.upgrades, sellPrice: 2 } })
+    expect(okState(harvest(s, 0)).run.cash).toBe(s.run.cash + Math.round(cropSellPrice('radish', meta, 0) * 1.2))
+  })
+  it('fertilizer shortens grow time (−10 % per level) but not the rot window', () => {
+    const fertilized = { ...createInitialState().run.upgrades, fertilizer: 3 }
+    const grow = cropGrowTicks('radish', meta, 3)
+    expect(grow).toBe(Math.round(cropGrowTicks('radish', meta, 0) * 0.7))
+    expect(harvest(withTile({ ...planted, growth: grow }, { upgrades: fertilized }), 0).ok).toBe(true)
+    expect(harvest(withTile({ ...planted, growth: grow }), 0)).toEqual({ ok: false, error: 'NOT_MATURE' })
+    expect(cropRotGraceTicks('radish', meta)).toBe(2 * cropGrowTicks('radish', meta, 0))
   })
   it('rejects an immature crop', () => {
     expect(harvest(withTile({ ...planted, growth: 1 }), 0)).toEqual({ ok: false, error: 'NOT_MATURE' })
@@ -101,6 +114,6 @@ describe('harvest', () => {
     expect(harvest(withTile(mature, { energy: 0 }), 0)).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
   it('rejects bad indexes', () => {
-    expect(harvest(createInitialState(), 6)).toEqual({ ok: false, error: 'BAD_TILE' })
+    expect(harvest(createInitialState(), START_TILES)).toEqual({ ok: false, error: 'BAD_TILE' })
   })
 })

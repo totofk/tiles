@@ -22,7 +22,7 @@ export default function App() {
       (s) => tapTile(s, i, cropId),
       (prev, next) => {
         const tile = prev.run.tiles[i]
-        if (!isMature(tile, prev.meta)) return null
+        if (!isMature(tile, prev)) return null
         guardUntil.current[i] = now + TAP_GUARD_MS
         return `+💰${next.run.cash - prev.run.cash} ${CROPS[tile.cropId!].name}`
       },

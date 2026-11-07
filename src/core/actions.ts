@@ -8,6 +8,7 @@ import {
   tileCost,
   upgradeCost,
   upgradeMaxLevel,
+  upgradeUnlocked,
 } from './balance'
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
@@ -26,12 +27,13 @@ export type ActionError =
   | 'MAX_LEVEL'
   | 'TILE_CAP'
   | 'ALREADY_OWNED'
+  | 'LOCKED'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
-const fail = (error: ActionError): ActionResult => ({ ok: false, error })
+export const fail = (error: ActionError): ActionResult => ({ ok: false, error })
 
-function withRun(state: GameState, run: Partial<RunState>): ActionResult {
+export function withRun(state: GameState, run: Partial<RunState>): ActionResult {
   return { ok: true, state: { meta: state.meta, run: { ...state.run, ...run } } }
 }
 
@@ -40,18 +42,19 @@ function farmAction(
   state: GameState,
   i: number,
   check: (tile: Tile) => ActionError | null,
-  apply: (tile: Tile) => { tile: Tile; cashDelta?: number },
+  apply: (tile: Tile) => { tile: Tile; cashDelta?: number; counters?: Partial<RunState['counters']> },
 ): ActionResult {
   const { run } = state
   if (!Number.isInteger(i) || i < 0 || i >= run.tiles.length) return fail('BAD_TILE')
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0 } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, counters } = apply(run.tiles[i])
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
+    counters: { ...run.counters, ...counters },
   })
 }
 
@@ -94,15 +97,23 @@ export function harvest(state: GameState, i: number): ActionResult {
     i,
     (t) => {
       if (t.status !== 'planted' || !t.cropId) return 'NOT_PLANTED'
-      return t.growth < cropGrowTicks(t.cropId, state.meta) ? 'NOT_MATURE' : null
+      return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer) ? 'NOT_MATURE' : null
     },
-    (t) => ({ tile: clearedTile(t), cashDelta: cropSellPrice(t.cropId!, state.meta) }),
+    (t) => {
+      const { harvests, sales } = state.run.counters
+      return {
+        tile: clearedTile(t),
+        cashDelta: cropSellPrice(t.cropId!, state.meta, state.run.upgrades.sellPrice),
+        counters: { harvests: harvests + 1, sales: sales + 1 },
+      }
+    },
   )
 }
 
 // Shop actions cost no energy. Buying energyMax raises the cap only; current energy is not refilled.
 export function buyUpgrade(state: GameState, upgradeId: UpgradeId): ActionResult {
   const { run } = state
+  if (!upgradeUnlocked(upgradeId, run.counters)) return fail('LOCKED')
   const level = run.upgrades[upgradeId]
   if (level >= upgradeMaxLevel(upgradeId)) return fail('MAX_LEVEL')
   const cost = upgradeCost(upgradeId, level, state.meta)

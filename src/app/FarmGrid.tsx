@@ -1,6 +1,6 @@
 import { cropRotGraceTicks } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
-import type { GameState, MetaState, Tile } from '../core/state'
+import type { GameState, Tile } from '../core/state'
 import { growthProgress, isDry, isMature, ticksUntilRot } from '../core/tile'
 import { Bar } from './Bar'
 
@@ -8,10 +8,10 @@ export const CROP_EMOJI: Record<CropId, string> = { radish: '🥕', pumpkin: '�
 // display only: the rot countdown turns red in the last quarter of the grace window
 const ROT_WARN_FRACTION = 0.25
 
-function Cell({ tile, meta, onTap }: { tile: Tile; meta: MetaState; onTap: () => void }) {
-  const mature = isMature(tile, meta)
-  const rotIn = ticksUntilRot(tile, meta)
-  const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, meta) : 1
+function Cell({ tile, state, onTap }: { tile: Tile; state: GameState; onTap: () => void }) {
+  const mature = isMature(tile, state)
+  const rotIn = ticksUntilRot(tile, state)
+  const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta) : 1
   const growing = tile.status === 'planted' && !mature
   const dry = growing && isDry(tile)
 
@@ -20,7 +20,7 @@ function Cell({ tile, meta, onTap }: { tile: Tile; meta: MetaState; onTap: () =>
   let mod = 'untilled'
   if (tile.status === 'tilled') [emoji, label, mod] = ['🟤', 'Tilled — plant', 'tilled']
   if (growing) {
-    const name = `${CROPS[tile.cropId!].name} ${Math.floor(growthProgress(tile, meta) * 100)} %`
+    const name = `${CROPS[tile.cropId!].name} ${Math.floor(growthProgress(tile, state) * 100)} %`
     ;[emoji, label, mod] = [CROP_EMOJI[tile.cropId!], dry ? `${name} — dry!` : name, dry ? 'dry' : 'growing']
   }
   if (mature) {
@@ -32,7 +32,7 @@ function Cell({ tile, meta, onTap }: { tile: Tile; meta: MetaState; onTap: () =>
     <button className={`cell cell-${mod}`} onClick={onTap}>
       <span className="cell-emoji">{emoji}</span>
       <span className="cell-label">{label}</span>
-      {growing && <Bar value={growthProgress(tile, meta)} kind="grow" />}
+      {growing && <Bar value={growthProgress(tile, state)} kind="grow" />}
       {tile.status !== 'untilled' && <Bar value={tile.moisture} kind="water" />}
       {mature && (
         <>
@@ -48,7 +48,7 @@ export function FarmGrid({ state, onTap }: { state: GameState; onTap: (i: number
   return (
     <section className="grid">
       {state.run.tiles.map((tile, i) => (
-        <Cell key={i} tile={tile} meta={state.meta} onTap={() => onTap(i)} />
+        <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} />
       ))}
     </section>
   )

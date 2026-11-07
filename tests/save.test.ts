@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { OFFLINE_CAP_TICKS } from '../src/core/balance'
-import { createInitialState } from '../src/core/state'
+import v1 from './fixtures/save-v1.json?raw'
+import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../src/core/balance'
+import { createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
 import { BAD_SAVE_KEY, SAVE_KEY, loadGame, saveGame, type KeyValueStore } from '../src/save/storage'
@@ -16,14 +17,32 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 1, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 2, savedAtMs: 1234, state })
   })
 
-  it('migration switch accepts v1 and rejects unknown, missing or future versions', () => {
-    const v1 = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(v1))?.version).toBe(1)
-    expect(deserialize(JSON.stringify({ ...v1, version: 2 }))).toBeNull()
-    expect(deserialize(JSON.stringify({ ...v1, version: undefined }))).toBeNull()
+  it('migration switch accepts v2 and rejects unknown, missing or future versions', () => {
+    const v2 = JSON.parse(serialize(createInitialState(), 0))
+    expect(deserialize(JSON.stringify(v2))?.version).toBe(2)
+    expect(deserialize(JSON.stringify({ ...v2, version: 3 }))).toBeNull()
+    expect(deserialize(JSON.stringify({ ...v2, version: undefined }))).toBeNull()
+  })
+
+  it('migrates a real v1 save (6 tiles, energy above the new max) to v2', () => {
+    const old = JSON.parse(v1).state
+    const save = deserialize(v1)!
+    expect(save.version).toBe(2)
+    expect(save.savedAtMs).toBe(1_700_000_000_000)
+    const { run, meta } = save.state
+    expect(meta).toEqual(old.meta)
+    expect(run.tiles).toHaveLength(START_TILES)
+    expect(run.tiles.slice(0, 6)).toEqual(old.run.tiles)
+    expect(run.tiles.slice(6)).toEqual([createTile(), createTile(), createTile()])
+    expect(run.upgrades).toEqual({ ...old.run.upgrades, sellPrice: 0, fertilizer: 0 })
+    expect(run.counters).toEqual({ harvests: 0, sales: 0, digs: 0 })
+    expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
+    expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
+    // the migrated state plays on
+    expect(step(save.state, 5).run.tick).toBe(old.run.tick + 5)
   })
 
   it('rejects corrupt text and wrong shapes', () => {

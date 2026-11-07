@@ -20,7 +20,7 @@ function bestAction(s: GameState): { state: GameState; kind: string } | null {
   const tiles = s.run.tiles
   const growing = (i: number) => {
     const { cropId, growth } = tiles[i]
-    return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta)
+    return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer)
   }
   const tries: Array<[string, (i: number) => ActionResult | null]> = [
     ['harvest', (i) => harvest(s, i)],

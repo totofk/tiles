@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
+import { upgradeUnlocked } from '../core/balance'
+import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
 import { awayText, catchUp, offlineTicks } from '../save/serialize'
@@ -17,6 +19,7 @@ const ERROR_TEXT: Record<ActionError, string> = {
   MAX_LEVEL: 'Already at max level',
   TILE_CAP: 'No more tiles to buy',
   ALREADY_OWNED: 'Already owned',
+  LOCKED: 'Not unlocked yet',
 }
 
 const TOAST_MS = 2000
@@ -37,16 +40,23 @@ export function useGame() {
   const loop = useRef({ last: 0, acc: 0 })
   const saveTimer = useRef<number | undefined>(undefined)
 
-  const commit = useCallback((s: GameState) => {
-    stateRef.current = s
-    setState(s)
-  }, [])
-
   const showToast = useCallback((text: string) => {
     setToast(text)
     window.clearTimeout(toastTimer.current)
     toastTimer.current = window.setTimeout(() => setToast(null), TOAST_MS)
   }, [])
+
+  // counters only grow inside a run, so a locked → unlocked transition toasts exactly once
+  const commit = useCallback(
+    (s: GameState) => {
+      const prev = stateRef.current.run.counters
+      const fresh = UPGRADE_IDS.filter((id) => upgradeUnlocked(id, s.run.counters) && !upgradeUnlocked(id, prev))
+      stateRef.current = s
+      setState(s)
+      if (fresh.length) showToast(`New in shop: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`)
+    },
+    [showToast],
+  )
 
   const act: Act = useCallback(
     (fn, okToast) => {

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { buyLicense, buyTile, buyUpgrade, type ActionResult } from '../src/core/actions'
 import {
+  START_TILES,
   TILE_CAP,
   energyMax,
   licenseCost,
   tileCost,
   upgradeCost,
   upgradeMaxLevel,
+  upgradeUnlocked,
 } from '../src/core/balance'
 import { createInitialState, createTile, type GameState } from '../src/core/state'
 
@@ -22,6 +24,7 @@ function okState(r: ActionResult): GameState {
 }
 
 const meta = createInitialState().meta
+const noUpgrades = createInitialState().run.upgrades
 
 describe('buyUpgrade', () => {
   it('pays the cost, raises the level and costs no energy', () => {
@@ -36,7 +39,7 @@ describe('buyUpgrade', () => {
   })
   it('charges the next level price', () => {
     const cost = upgradeCost('energyRegen', 2, meta)
-    const s = withRun({ cash: cost, upgrades: { energyMax: 0, energyRegen: 2 } })
+    const s = withRun({ cash: cost, upgrades: { ...noUpgrades, energyRegen: 2 } })
     expect(okState(buyUpgrade(s, 'energyRegen')).run.cash).toBe(0)
   })
   it('rejects when unaffordable', () => {
@@ -44,8 +47,25 @@ describe('buyUpgrade', () => {
     expect(buyUpgrade(s, 'energyRegen')).toEqual({ ok: false, error: 'NO_CASH' })
   })
   it('rejects at max level', () => {
-    const s = withRun({ cash: 1e12, upgrades: { energyMax: upgradeMaxLevel('energyMax'), energyRegen: 0 } })
+    const s = withRun({ cash: 1e12, upgrades: { ...noUpgrades, energyMax: upgradeMaxLevel('energyMax') } })
     expect(buyUpgrade(s, 'energyMax')).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('milestone upgrades are locked until their counter reaches the threshold', () => {
+    const counters = createInitialState().run.counters
+    expect(buyUpgrade(withRun({ cash: 1e6, counters: { ...counters, sales: 24 } }), 'sellPrice')).toEqual({
+      ok: false,
+      error: 'LOCKED',
+    })
+    expect(buyUpgrade(withRun({ cash: 1e6, counters: { ...counters, sales: 25 } }), 'sellPrice').ok).toBe(true)
+    expect(upgradeUnlocked('fertilizer', { ...counters, harvests: 14 })).toBe(false)
+    expect(upgradeUnlocked('fertilizer', { ...counters, harvests: 15 })).toBe(true)
+    expect(upgradeUnlocked('energyMax', counters)).toBe(true)
+  })
+  it('milestone upgrades cap at level 5 with geometric cost', () => {
+    expect(upgradeMaxLevel('sellPrice')).toBe(5)
+    expect(upgradeMaxLevel('fertilizer')).toBe(5)
+    expect(upgradeCost('sellPrice', 1, meta)).toBe(Math.round(80 * 1.6))
+    expect(upgradeCost('fertilizer', 2, meta)).toBe(Math.round(120 * 1.7 ** 2))
   })
 })
 
@@ -67,14 +87,14 @@ describe('buyLicense', () => {
 
 describe('buyTile', () => {
   it('adds an untilled tile at the geometric price', () => {
-    const cost = tileCost(6, meta)
+    const cost = tileCost(START_TILES, meta)
     const next = okState(buyTile(withRun({ cash: cost })))
-    expect(next.run.tiles).toHaveLength(7)
-    expect(next.run.tiles[6]).toEqual(createTile())
+    expect(next.run.tiles).toHaveLength(START_TILES + 1)
+    expect(next.run.tiles[START_TILES]).toEqual(createTile())
     expect(next.run.cash).toBe(0)
   })
   it('rejects when unaffordable', () => {
-    expect(buyTile(withRun({ cash: tileCost(6, meta) - 1 }))).toEqual({ ok: false, error: 'NO_CASH' })
+    expect(buyTile(withRun({ cash: tileCost(START_TILES, meta) - 1 }))).toEqual({ ok: false, error: 'NO_CASH' })
   })
   it('stops at the tile cap', () => {
     let s = withRun({ cash: 1e12 })

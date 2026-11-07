@@ -110,6 +110,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   fresh, so a newer build's save is not silently overwritten.
 - **`OFFLINE_CAP_TICKS = 8 * 3600` added to `balance.ts`**; no existing number changed.
 - **Upgrade max level 10** added in `balance.ts` so `buyUpgrade` can return `MAX_LEVEL`; no cap was specified before.
+- **Batch 3: `fertilizer` also speeds up crops already in the ground**, and `cropGrowTicks` now rounds to whole ticks.
+  The **rot grace window stays 2× the unfertilized grow time**, so fertilizer never shortens the harvest window.
+- **Batch 3: milestone upgrades are locked in the core too.** `buyUpgrade` returns `LOCKED` before the counter
+  reaches the threshold; hiding them in the shop is not the only gate.
+- **Batch 3: tile helpers (`isMature`, `growthProgress`, `ticksUntilRot`, `nextTileAction`) take `GameState`** instead
+  of `MetaState`, because grow time now depends on the fertilizer level in `run.upgrades`.
+- **Batch 3: the v1 → v2 save migration pads any save with fewer than 9 tiles** (the brief said "6 tiles"; v1 saves
+  could hold 7–8 bought tiles, and `tileCost` would drop below its base price for them). It also **clamps current
+  energy to the new, lower max**, and sets the new upgrade levels to 0 (`sellPrice`, `fertilizer`). Without that,
+  `buyUpgrade` would read `undefined` and buy level NaN.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -117,7 +127,7 @@ Question: does digging while crops grow remove the "idle" feeling, without out-e
 
 10. [x] Fix the "radish became pumpkin" report: crop emoji + name on planted tiles, harvest toast "+💰N <crop>",
     tap guard after harvest (UI constant), watering allowed any time. Update `tile.ts` helpers + tests.
-11. [ ] Rebalance: START_TILES 9, ENERGY_MAX_BASE 10. Milestone counters in run state + `sellPrice` and `fertilizer`
+11. [x] Rebalance: START_TILES 9, ENERGY_MAX_BASE 10. Milestone counters in run state + `sellPrice` and `fertilizer`
     upgrades (hidden until unlocked). Save version 2 with migration from v1 (fill new fields with defaults).
 12. [ ] Mining core: `src/core/mining.ts` + `data/items.ts` — mine license, buy wood, craft wooden pickaxe (durability),
     dig (energy + durability → 1 drop from the vein table via seeded PRNG in run state), inventory with capacity,

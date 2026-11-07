@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "savedAtMs": 1700000000000,
+  "state": {
+    "meta": {
+      "prestigeCount": 0,
+      "multipliers": {
+        "growTime": 1,
+        "sellPrice": 1,
+        "cost": 1,
+        "energy": 1,
+        "moistureDrain": 1
+      }
+    },
+    "run": {
+      "cash": 348,
+      "energy": 24.333333333333332,
+      "tiles": [
+        {
+          "status": "planted",
+          "growth": 25,
+          "moisture": 0.583333333333332,
+          "ticksSinceMature": 0,
+          "cropId": "radish"
+        },
+        {
+          "status": "tilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        },
+        {
+          "status": "untilled",
+          "growth": 0,
+          "moisture": 0,
+          "ticksSinceMature": 0
+        }
+      ],
+      "licenses": [
+        "radish",
+        "pumpkin"
+      ],
+      "upgrades": {
+        "energyMax": 1,
+        "energyRegen": 0
+      },
+      "tick": 25
+    }
+  }
+}

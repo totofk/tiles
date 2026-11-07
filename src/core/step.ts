@@ -15,10 +15,10 @@ export function clearedTile(tile: Tile): Tile {
 
 // Growth checks moisture BEFORE this tick's drain: a full bar (1) buys exactly
 // 1 / moistureDrainPerTick growth ticks.
-function stepTile(tile: Tile, meta: MetaState): Tile {
+function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number): Tile {
   let next = tile
   if (tile.status === 'planted' && tile.cropId) {
-    if (tile.growth < cropGrowTicks(tile.cropId, meta)) {
+    if (tile.growth < cropGrowTicks(tile.cropId, meta, fertilizerLevel)) {
       if (tile.moisture > 0) next = { ...tile, growth: tile.growth + 1 }
     } else {
       const ticksSinceMature = tile.ticksSinceMature + 1
@@ -42,7 +42,7 @@ function stepOnce(state: GameState): GameState {
   const nextRun: RunState = {
     ...run,
     energy,
-    tiles: run.tiles.map((t) => stepTile(t, meta)),
+    tiles: run.tiles.map((t) => stepTile(t, meta, run.upgrades.fertilizer)),
     tick: run.tick + 1,
   }
   return { meta, run: nextRun }

@@ -23,9 +23,15 @@ export type RunState = {
   /** crop ids the player may plant */
   licenses: CropId[]
   upgrades: Record<UpgradeId, number>
+  /** milestone counters; only actions change them, never step() */
+  counters: Counters
   /** total ticks simulated this run */
   tick: number
 }
+
+/** sales = units sold for cash (each harvest sells 1 crop) */
+export type Counters = { harvests: number; sales: number; digs: number }
+export type CounterId = keyof Counters
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
 
@@ -57,7 +63,8 @@ export function createInitialState(): GameState {
       energy: energyMax(0, meta),
       tiles: Array.from({ length: START_TILES }, createTile),
       licenses: [STARTING_CROP],
-      upgrades: { energyMax: 0, energyRegen: 0 },
+      upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
+      counters: { harvests: 0, sales: 0, digs: 0 },
       tick: 0,
     },
   }

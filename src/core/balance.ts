@@ -2,9 +2,9 @@
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import type { MetaState, MultiplierKey } from './state'
+import type { CounterId, MetaState, MultiplierKey } from './state'
 
-export const START_TILES = 6
+export const START_TILES = 9
 export const TILE_CAP = 24
 export const ACTION_ENERGY_COST = 1
 export const STARTING_CASH = 20
@@ -23,14 +23,24 @@ const ROT_GRACE_FACTOR = 2
 
 const MOISTURE_FULL_TICKS = 60
 
-const ENERGY_MAX_BASE = 20
+const ENERGY_MAX_BASE = 10
 const ENERGY_MAX_PER_LEVEL = 5
 const ENERGY_REGEN_BASE = 1 / 3
 const ENERGY_REGEN_PER_LEVEL = 0.25 // +25% of base per level
+const SELL_PRICE_PER_LEVEL = 0.1 // +10% sell price per level
+const FERTILIZER_PER_LEVEL = 0.1 // -10% grow time per level
 
 const UPGRADE_BASE: Record<UpgradeId, { cost: number; growth: number; maxLevel: number }> = {
   energyMax: { cost: 50, growth: 1.6, maxLevel: 10 },
   energyRegen: { cost: 75, growth: 1.7, maxLevel: 10 },
+  sellPrice: { cost: 80, growth: 1.6, maxLevel: 5 },
+  fertilizer: { cost: 120, growth: 1.7, maxLevel: 5 },
+}
+
+/** upgrades hidden from the shop until a run counter reaches `at` */
+const UPGRADE_UNLOCK: Partial<Record<UpgradeId, { counter: CounterId; at: number }>> = {
+  sellPrice: { counter: 'sales', at: 25 },
+  fertilizer: { counter: 'harvests', at: 15 },
 }
 
 const TILE_BASE_COST = 100
@@ -40,20 +50,27 @@ export function multiplier(meta: MetaState, key: MultiplierKey): number {
   return meta.multipliers[key]
 }
 
-export function cropGrowTicks(cropId: CropId, meta: MetaState): number {
-  return CROP_BASE[cropId].growTicks * multiplier(meta, 'growTime')
+/** whole ticks; fertilizer shortens growth of crops already in the ground too */
+export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number): number {
+  return Math.round(CROP_BASE[cropId].growTicks * growTimeFactor(fertilizerLevel) * multiplier(meta, 'growTime'))
 }
 
+/** based on the unfertilized grow time, so fertilizer never shortens the harvest window */
 export function cropRotGraceTicks(cropId: CropId, meta: MetaState): number {
-  return ROT_GRACE_FACTOR * cropGrowTicks(cropId, meta)
+  return ROT_GRACE_FACTOR * cropGrowTicks(cropId, meta, 0)
 }
 
 export function cropSeedCost(cropId: CropId, meta: MetaState): number {
   return Math.round(CROP_BASE[cropId].seedCost * multiplier(meta, 'cost'))
 }
 
-export function cropSellPrice(cropId: CropId, meta: MetaState): number {
-  return Math.round(CROP_BASE[cropId].sellPrice * multiplier(meta, 'sellPrice'))
+/** applies the sellPrice upgrade and the meta multiplier to a base price */
+function sellPrice(base: number, meta: MetaState, sellPriceLevel: number): number {
+  return Math.round(base * sellPriceFactor(sellPriceLevel) * multiplier(meta, 'sellPrice'))
+}
+
+export function cropSellPrice(cropId: CropId, meta: MetaState, sellPriceLevel: number): number {
+  return sellPrice(CROP_BASE[cropId].sellPrice, meta, sellPriceLevel)
 }
 
 export function licenseCost(cropId: CropId, meta: MetaState): number {
@@ -81,6 +98,21 @@ export function upgradeCost(upgradeId: UpgradeId, level: number, meta: MetaState
 
 export function upgradeMaxLevel(upgradeId: UpgradeId): number {
   return UPGRADE_BASE[upgradeId].maxLevel
+}
+
+export function upgradeUnlocked(upgradeId: UpgradeId, counters: Record<CounterId, number>): boolean {
+  const unlock = UPGRADE_UNLOCK[upgradeId]
+  return !unlock || counters[unlock.counter] >= unlock.at
+}
+
+/** sellPrice upgrade: multiplier on base sell prices */
+export function sellPriceFactor(level: number): number {
+  return 1 + SELL_PRICE_PER_LEVEL * level
+}
+
+/** fertilizer upgrade: multiplier on base grow time */
+export function growTimeFactor(level: number): number {
+  return 1 - FERTILIZER_PER_LEVEL * level
 }
 
 /** cost of the next tile; Infinity once TILE_CAP tiles are owned */
