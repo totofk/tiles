@@ -43,7 +43,7 @@ describe('stats(state)', () => {
       { label: 'Harvest tier', value: '0 % double harvest', source: 'basic' },
       { label: 'Plant tier', value: '0 % seed kept', source: 'basic' },
       { label: 'Drop table', value: `${ITEMS.stone.emoji} Stone 100 %`, source: 'Vein Lv0' },
-      { label: 'Workers', value: '0 hired · 0 free', source: 'plant 0 · water 0 · harvest 0 · ore 0 · fuel 0' },
+      { label: 'Workers', value: '0 hired · 0 free', source: 'plant 0 · water 0 · harvest 0 · ore 0 · fuel 0 · mine 0' },
     ])
   })
 
@@ -85,7 +85,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, ironBars: 0, ironBarsSmelted: 0 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row

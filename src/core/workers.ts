@@ -12,7 +12,7 @@ import {
 } from './balance'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
-import { pay } from './mining'
+import { activePickaxe, dig, pay } from './mining'
 import type { GameState, RunState } from './state'
 // step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { step } from './step'
@@ -33,9 +33,11 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 /**
  * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of the
  * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
- * (coal only: wood stays for pickaxe repairs). null = nothing to do, so the worker idles unpaid.
+ * (coal only: wood stays for pickaxe repairs). Miner: one press of the Mine button with no energy (the active pickaxe's
+ * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
+ * failed press (storage full) idles too. null = nothing to do, so the worker idles unpaid.
  */
-const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => ActionResult | null> = {
+const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => ActionResult | null> = {
   ore: (s) => {
     const { run } = s
     const f = run.furnace
@@ -49,6 +51,7 @@ const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     const f = s.run.furnace
     return f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1 ? addFuel(s, 'coal', 1) : null
   },
+  mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
 }
 
 /**
@@ -65,10 +68,10 @@ function jobTiles(state: GameState, job: TileJob): number[] {
   return targets.filter((i) => state.run.tiles[i].moisture <= due)
 }
 
-/** the next action of a worker on this job and the tile it touches (none for furnace jobs); null = nothing to do */
+/** the next action of a worker on this job and the tile it touches (none for furnace and mine jobs); null = nothing to do */
 function workerAction(state: GameState, job: WorkerJob): { result: ActionResult; tile?: number } | null {
   if (!isTileJob(job)) {
-    const result = FURNACE_WORK[job](state)
+    const result = NO_TILE_WORK[job](state)
     return result && { result }
   }
   const [tile] = jobTiles(state, job)
@@ -105,6 +108,7 @@ function workRound(state: GameState): { state: GameState; touched: WorkerTarget[
         ...run.lifetime,
         wagesPaid: run.lifetime.wagesPaid + wage,
         workerPlants: run.lifetime.workerPlants + run.counters.plants - s.run.counters.plants,
+        workerMines: run.lifetime.workerMines + run.counters.mines - s.run.counters.mines,
       }
       s = { ...a.result.state, run: { ...run, cash: run.cash - wage, lifetime } }
     }
@@ -132,10 +136,10 @@ export function hireUnlocked(run: RunState): boolean {
   return run.counters[counter] >= at
 }
 
-/** the job's certificate shows (and can be bought) once its unlock counter is reached */
+/** the job's certificate shows (and can be bought) once its unlock counter is reached and its vein level owned */
 export function certificateUnlocked(run: RunState, job: WorkerJob): boolean {
-  const { counter, at } = certificateUnlock(job)
-  return run.counters[counter] >= at
+  const { counter, at, vein = 0 } = certificateUnlock(job)
+  return run.counters[counter] >= at && run.vein.level >= vein
 }
 
 // Order: LOCKED, POOL_FULL, NO_CASH.
@@ -182,7 +186,7 @@ export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
 /**
  * Runs at the start of a tick, before moisture drains and before the furnace burns, so a tile the player just watered
  * (full) or harvested (no longer ripe) is never a target. On every workerActionTicks-th tick each assigned worker does
- * one action (workRound: till or plant an empty tile / driest due tile / ripe longest / collect or load ore / one coal), paying the wage at that
+ * one action (workRound: till or plant an empty tile / driest due tile / ripe longest / collect or load ore / one coal / one mine press), paying the wage at that
  * moment. Nothing to do or cash < wage = it idles, no charge; never debt.
  */
 export function workersAct(state: GameState): GameState {

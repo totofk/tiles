@@ -32,7 +32,7 @@ const LABEL = { Water: '💧 Water', Harvest: '🌾 Harvest' }
 const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.worker-row') as HTMLElement
 const summary = () => document.querySelector('summary')!.textContent
 const certified = (pool: number, water = 0, harvest = 0) => ({
-  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
 })
 
 describe('👷 Workers card', () => {
@@ -88,17 +88,17 @@ describe('👷 Workers card', () => {
     expect(summary()).toBe('👷 Workers · free 0 / 2unpaid')
   })
 
-  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs; the plant certificate shows its price and gate', () => {
+  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine; the plant certificate shows its price and gate', () => {
     setup({}, { plants: 12 })
     const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.firstChild!.textContent)
-    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`])
+    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine'])
     const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
     expect(plant.textContent).toContain('plants 12/60')
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
   })
 
   it('a certified planter gets [−] n [+] like the other jobs', () => {
-    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: ['plant'] } })
+    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant'] } })
     fireEvent.click(btn(/One more on Plant/))
     t.rerender()
     expect(t.get().run.workers.assigned.plant).toBe(1)
@@ -143,7 +143,7 @@ describe('worker targets on the grid (task 60)', () => {
         ...s.run,
         cash: 10,
         tiles: s.run.tiles.map((_, i) => (i === 2 ? tilled : planted)),
-        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: ['plant'] },
+        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant'] },
       },
     }
     const { rerender } = render(<FarmGrid state={state} onTap={() => {}} />)

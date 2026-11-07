@@ -35,20 +35,20 @@ const noCopper = { toolTier: { water: 0, harvest: 0, plant: 0 } }
 /** v10 field every migrated save starts with: "Crop to plant" at the starting crop (it was UI state before) */
 const v10Crop = { plantCrop: 'radish' }
 /** v8 fields every migrated save starts with (plus lifetime.wagesPaid 0); v9 dropped autoSmelt; v10 adds plant */
-const noWorkers = { workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] }, ...v10Crop }
+const noWorkers = { workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] }, ...v10Crop }
 /** v9 counters: + bars (collected), migrated from lifetime.bars (0 before the v6 furnace) */
 const v9Counters = (c: object, bars = 0) => ({ counters: { ...c, bars } })
-/** v11 lifetime totals every migrated save starts with: no iron bars collected or smelted */
-const noIron = { ironBars: 0, ironBarsSmelted: 0 }
+/** v11 lifetime totals every migrated save starts with: no mines by workers, no iron bars collected or smelted */
+const v11Lifetime = { workerMines: 0, ironBars: 0, ironBarsSmelted: 0 }
 /** v9 lifetime totals a migrated save starts with: no fire burnt, bars smelted 0 (no furnace before v6); v10 plants by workers 0 */
-const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ...noIron }
+const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ...v11Lifetime }
 type OldFurnace = { built: boolean; queue: number; progress: number; ready: number }
 /** v8 → v9: every paid queued job is a ready bar; no fire, empty ore slot, plain furnace at base levels */
 const v9Furnace = (f: OldFurnace) => ({ ...createFurnace(), built: f.built, ready: f.ready + f.queue })
 /** v11 furnace field every migrated save starts with: it smelts copper, all it could before */
 const v11Furnace = { oreKind: 'copperOre' }
 /** v8 → v9 lifetime: bars smelted = collected + tray + queue (and v10 plants by workers 0) */
-const v9Lifetime = (l: { bars: number }, f: OldFurnace) => ({ ...l, fireBurnt: 0, fireWasted: 0, barsSmelted: l.bars + f.ready + f.queue, workerPlants: 0, ...noIron })
+const v9Lifetime = (l: { bars: number }, f: OldFurnace) => ({ ...l, fireBurnt: 0, fireWasted: 0, barsSmelted: l.bars + f.ready + f.queue, workerPlants: 0, ...v11Lifetime })
 
 describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
@@ -57,7 +57,7 @@ describe('serialize / deserialize', () => {
     expect(save).toEqual({ version: 11, savedAtMs: 1234, state })
   })
 
-  it('migrates a real v10 save (built by the batch-10 code) to v11: everything kept, the furnace smelts copper', () => {
+  it('migrates a real v10 save (built by the batch-10 code) to v11: everything kept, the furnace smelts copper, no miner', () => {
     const old = JSON.parse(v10)
     expect(old.version).toBe(10)
     const { furnace, workers, lifetime, plantCrop } = old.state.run
@@ -68,12 +68,21 @@ describe('serialize / deserialize', () => {
     expect(save).toEqual({
       version: 11,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: { ...old.state.run, furnace: { ...furnace, ...v11Furnace }, lifetime: { ...lifetime, ...noIron } } },
+      state: {
+        meta: old.state.meta,
+        run: {
+          ...old.state.run,
+          furnace: { ...furnace, ...v11Furnace },
+          workers: { ...workers, assigned: { ...workers.assigned, mine: 0 } },
+          lifetime: { ...lifetime, ...v11Lifetime },
+        },
+      },
     })
-    // the copper smelt in progress finishes after the load
+    // 682 mines but vein Lv2: the mine certificate stays hidden; the copper smelt in progress finishes after the load
+    expect(certificateUnlocked(save.state.run, 'mine')).toBe(false)
     const later = step(save.state, 60)
     expect(later.run.lifetime.barsSmelted).toBe(lifetime.barsSmelted + 1)
-    expect(later.run.inventory.ironOre ?? 0).toBe(0)
+    expect([later.run.inventory.ironOre ?? 0, later.run.lifetime.workerMines]).toEqual([0, 0])
   })
 
   it('migrates a real v9 save (built by the batch-9 code) to v11: everything kept, no plant worker, Crop to plant at carrot', () => {
@@ -92,9 +101,9 @@ describe('serialize / deserialize', () => {
         run: {
           ...old.state.run,
           ...v10Crop,
-          workers: { ...workers, assigned: { ...workers.assigned, plant: 0 } },
+          workers: { ...workers, assigned: { ...workers.assigned, plant: 0, mine: 0 } },
           furnace: { ...old.state.run.furnace, ...v11Furnace },
-          lifetime: { ...lifetime, workerPlants: 0, ...noIron },
+          lifetime: { ...lifetime, workerPlants: 0, ...v11Lifetime },
         },
       },
     })
@@ -123,7 +132,7 @@ describe('serialize / deserialize', () => {
           ...kept,
           ...v10Crop,
           ...v9Counters(counters, lifetime.bars),
-          workers: { ...workers, assigned: { ...workers.assigned, plant: 0, ore: 0, fuel: 0 } },
+          workers: { ...workers, assigned: { ...workers.assigned, plant: 0, ore: 0, fuel: 0, mine: 0 } },
           furnace: v9Furnace(furnace),
           lifetime: v9Lifetime(lifetime, furnace),
         },
@@ -188,7 +197,7 @@ describe('serialize / deserialize', () => {
       ...s,
       run: {
         ...s.run,
-        workers: { pool: 5, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const] },
+        workers: { pool: 6, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0, mine: 1 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const, 'mine' as const] },
         plantCrop: 'pumpkin' as const,
         lifetime: { ...s.run.lifetime, wagesPaid: 57, workerPlants: 12 },
       },
@@ -205,7 +214,7 @@ describe('serialize / deserialize', () => {
         vein: { level: 2, progress: 2, rock: 'copperOre' as const },
         furnace: { built: true, oreKind: 'ironOre' as const, fire: 137, ore: 7, progress: 17, ready: 2, smart: true, levels: { fireCap: 1, batch: 2 } },
         inventory: { copperOre: 4, copperBar: 1, ironOre: 3, ironBar: 2 },
-        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, ironBars: 2, ironBarsSmelted: 3 },
+        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3 },
       },
     }
     expect(deserialize(serialize(state, 0))?.state).toEqual(state)
@@ -505,7 +514,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     const store = memoryStore()
     const s = createInitialState()
     const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
-    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0 }, certificates: ['water' as const] }
+    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['water' as const] }
     const saved = { ...s, run: { ...s.run, cash: 50, tiles: [dry, ...s.run.tiles.slice(1)], workers, lifetime: { ...s.run.lifetime, wagesPaid: 7 } } }
     saveGame(store, saved, () => 0)
     const loaded = loadGame(store, () => 60_000)

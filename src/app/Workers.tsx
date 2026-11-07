@@ -6,16 +6,24 @@ import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireUnl
 import { Info } from './Info'
 import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
-import { PLANT_EMOJI, type Act } from './useGame'
+import { MINE_EMOJI, PLANT_EMOJI, type Act } from './useGame'
 
 /** the job's icon: its row label and the pop on a tile a farm worker acts on */
-export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = { plant: PLANT_EMOJI, water: '💧', harvest: '🌾', ore: ITEMS.copperOre.emoji, fuel: ITEMS.coal.emoji }
+export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
+  plant: PLANT_EMOJI,
+  water: '💧',
+  harvest: '🌾',
+  ore: ITEMS.copperOre.emoji,
+  fuel: ITEMS.coal.emoji,
+  mine: MINE_EMOJI,
+}
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   plant: `${WORKER_JOB_EMOJI.plant} Plant`,
   water: `${WORKER_JOB_EMOJI.water} Water`,
   harvest: `${WORKER_JOB_EMOJI.harvest} Harvest`,
   ore: `${WORKER_JOB_EMOJI.ore} Ore`,
   fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
+  mine: `${WORKER_JOB_EMOJI.mine} Mine`,
 }
 
 /** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */

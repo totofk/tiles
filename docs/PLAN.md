@@ -605,6 +605,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 11 (task 66): switching the ore kind also needs an empty tray**, not only an empty slot. The tray holds a count
   with no kind, so switching with bars in it would collect copper bars as iron (or the reverse). With an empty slot no
   cycle can be part-way, so nothing paid is lost; the player (or the ore loader) collects first.
+- **Batch 11 (task 67): the mine row, its ⓘ tip (`WORKER_TIPS.mine`) and ⛏️ (`MINE_EMOJI` in `useGame.ts`,
+  `WORKER_JOB_EMOJI.mine`) ship with the core**, because those tables are `Record<WorkerJob, …>` (as in batch 10). The
+  locked row shows only "mines n/200", not the vein Lv3 gate; task 68 lays out the rest.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1695,7 +1698,7 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
     repair 2 iron bars. **Durability rule kept:** each tier's base durability must beat the previous tier's Lv10
     lifetime (copper Lv10 = 200 × (1 + 0.4 × 10) = 1000), so iron is 1200 instead of the old 500 guess — the existing
     balance test must pass unchanged. Iron mastery thresholds follow the existing tier factor.
-- [ ] 67. **Mine worker.** New `WorkerJob` `mine`: one action = one press of the player's Mine button (uses the
+- [x] 67. **Mine worker.** New `WorkerJob` `mine`: one action = one press of the player's Mine button (uses the
     active pickaxe's durability and preserve chance, gives mastery xp like a press, no energy). Idles when storage
     is full or the pickaxe is blunt — repair stays manual. Certificate 5 iron bars + 💰500, visible once vein Lv3 is
     owned and after 200 mines. step(s, n) = n × step(s, 1) with the mine and furnace workers on together.
@@ -1743,3 +1746,20 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
 - Tested: iron cycle (119 / 120 ticks, batch 3), loading only the selected kind, collecting iron bars without touching
   the copper counters, every setOreKind branch, step(s, n) = n × step(s, 1) on iron plain / smart / top levels, the ore
   loader on iron, iron pickaxe craft / repair / one-action iron rock / thresholds.
+
+### Mine worker (task 67)
+- **Job:** `WORKER_JOBS = plant, water, harvest, ore, fuel, mine` (mine last: the round's action order and the Workers
+  card's rows, below the furnace jobs). Same pool, wage (💰1 at the action) and 5-tick clock. One action = `dig(s, 0)`:
+  the player's Mine press with no energy (`dig` takes the same `energy` argument `till` / `plant` got in batch 10), so the
+  active pickaxe's hits, durability, preserve roll, mastery xp, the iron-rock rule and `counters.mines` are the player's
+  own code. No pickaxe or a blunt one = idle (repair stays manual); a failed press (storage full, no license) = idle; all
+  unpaid, never "unpaid" badge.
+- **Certificate:** 🥈5 + 💰500 (iron bars), visible / buyable at 200 mines **and** vein Lv3 owned
+  (`certificateUnlock(job)` now returns `{ counter, at, vein? }`; `certificateUnlocked` checks both). **Lifetime:**
+  `workerMines` (mine presses by workers) for Stats and the away banner.
+- **Save v11 (amended):** `workers.assigned.mine` 0, `lifetime.workerMines` 0. The v10 fixture test asserts the whole
+  migrated run (682 mines but vein Lv2, so the mine certificate stays hidden).
+- Tested: certificate gates (vein Lv2 with 5000 mines locked, 199 mines locked, items before cash), one press = the
+  player's press minus energy (hits, durability, mastery, PRNG), two miners, every idle case, step(s, 900) = 900 ×
+  step(s, 1) with mine + ore + fuel workers on an iron furnace (mined iron ore loaded, iron bars smelted and collected,
+  the miner stops when storage fills).

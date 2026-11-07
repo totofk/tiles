@@ -73,4 +73,5 @@ export const WORKER_TIPS: Record<WorkerJob, string> = {
   harvest: 'A one-time certificate, paid in cash and stone. Harvesters pick the crop ripe longest first, so nothing rots while you are away. Your copper sickle works for them too.',
   ore: 'A one-time certificate, paid in copper bars and cash. Ore loaders move finished bars from the furnace into storage, and when there are none, load one smelt of ore from storage.',
   fuel: 'A one-time certificate, paid in copper bars and cash. Fuel loaders add coal to the fire whenever it has room, also with no ore in the furnace. Never wood, so repair wood is safe.',
+  mine: 'A one-time certificate, paid in iron bars and cash, once you own the deepest vein. Miners press Mine for you with your pickaxe, wearing it and training its mastery like your own presses. They stop when storage is full or the pickaxe is blunt; repairs are yours.',
 }

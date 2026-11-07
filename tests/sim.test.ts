@@ -735,7 +735,7 @@ function runCropBot(
   assigned: { water: number; harvest: number; plant?: number } = { water: 0, harvest: 0 },
 ) {
   const init = createInitialState()
-  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0 }
+  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0 }
   const workers = { pool: jobs.plant + jobs.water + jobs.harvest, assigned: jobs, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, toolTier, workers } }
   const farm = { cash: 0, energy: 0 }
@@ -1151,7 +1151,7 @@ type Loaders = { ore?: boolean; fuel?: boolean }
 /** a built furnace at base levels with ore and coal in a roomy storage and cash for wages; loaders certified + staffed */
 function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
   const init = createInitialState()
-  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel) }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0 }
   const furnace = { ...createFurnace(), built: true, fire, smart, levels: { fireCap, batch: 0 } }
   const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
   return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
@@ -1326,7 +1326,7 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
-    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1 })
+    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1, mine: 0 })
     expect(fireBurnt).toBe(barsSmelted * barTicks())
     expect(fireWasted).toBe(0)
   })

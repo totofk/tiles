@@ -258,9 +258,11 @@ function migrateV9(save: SaveV9): SaveV10 {
 }
 
 // v10 → v11: the iron tier. The furnace's ore kind starts at copper (all it smelted before); iron items start at 0
-// (absent from the bag), iron bars collected / smelted 0. Nothing else changes.
+// (absent from the bag), iron bars collected / smelted 0. The mine worker: none on it (its certificate is bought, never
+// granted), mines by workers 0. Nothing else changes.
 function migrateV10(save: SaveV10): SaveV11 {
   const { meta, run } = save.state
+  const { workers, furnace, lifetime } = run
   return {
     version: 11,
     savedAtMs: save.savedAtMs,
@@ -268,8 +270,9 @@ function migrateV10(save: SaveV10): SaveV11 {
       meta,
       run: {
         ...run,
-        furnace: { ...run.furnace, oreKind: 'copperOre' },
-        lifetime: { ...run.lifetime, ironBars: 0, ironBarsSmelted: 0 },
+        furnace: { ...furnace, oreKind: 'copperOre' },
+        workers: { ...workers, assigned: { ...workers.assigned, mine: 0 } },
+        lifetime: { ...lifetime, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 },
       },
     },
   }

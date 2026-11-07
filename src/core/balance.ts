@@ -149,7 +149,8 @@ const WORKER_POOL_CAP = 6
 const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harvests', at: 30 }
 const WORKER_ACTION_TICKS = 5
 const WORKER_WAGE = 1
-const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number }> = {
+// `vein` = the vein level that must be owned as well
+const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number; vein?: number }> = {
   // plant worker (batch 10): copper bars, so the mine → furnace path comes first
   plant: { price: { copperBar: 10, cash: 300 }, counter: 'plants', at: 60 },
   water: { price: { cash: 100 }, counter: 'waters', at: 40 },
@@ -157,6 +158,8 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   // furnace loaders (batch 9): gated by copper bars collected, paid in bars
   ore: { price: { copperBar: 3, cash: 100 }, counter: 'bars', at: 10 },
   fuel: { price: { copperBar: 8, cash: 200 }, counter: 'bars', at: 30 },
+  // mine worker (batch 11): iron bars, one metal tier above the farm and furnace workers
+  mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
 }
 // Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
 // (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.
@@ -498,9 +501,11 @@ export function workerHireUnlock(): { counter: CounterId; at: number } {
   return WORKER_HIRE_UNLOCK
 }
 
-/** buying the job's certificate needs counters[counter] ≥ at */
-export function certificateUnlock(job: WorkerJob): { counter: CounterId; at: number } {
-  return { counter: CERTIFICATES[job].counter, at: CERTIFICATES[job].at }
+/** buying the job's certificate needs counters[counter] ≥ at, and vein level ≥ vein when set */
+export function certificateUnlock(job: WorkerJob): { counter: CounterId; at: number; vein?: number } {
+  const { price, ...unlock } = CERTIFICATES[job]
+  void price
+  return unlock
 }
 
 export function certificateCost(job: WorkerJob, meta: MetaState): Price {

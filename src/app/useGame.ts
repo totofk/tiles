@@ -47,6 +47,8 @@ export const ERROR_TEXT: Record<ActionError, string> = {
 export const FIRE_EMOJI = '🔥'
 /** the plant worker's icon (Workers row, tile pop, away banner) */
 export const PLANT_EMOJI = '🌱'
+/** the mine worker's icon (Workers row; Unicode 5.2) */
+export const MINE_EMOJI = '⛏️'
 
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the

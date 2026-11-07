@@ -113,12 +113,12 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 // from the vein table (one roll per break, as before the rock had a type). A pickaxe action rolls preserve first
 // (mastery level before this action's xp), else loses 1 durability; at 0 it goes blunt (kept, mines by hand until
 // repaired). Only pickaxe actions earn mastery xp. A rock that needs a better pickaxe than the active one (iron: copper
-// or better) is mined as a stone rock: stone's hits, drops stone.
-export function dig(state: GameState): ActionResult {
+// or better) is mined as a stone rock: stone's hits, drops stone. The mine worker presses it with `energy` 0.
+export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
   if (bagCount(run) >= run.bagCapacity) return fail('BAG_FULL')
-  if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
+  if (run.energy < energy) return fail('NO_ENERGY')
   const pickaxe = activePickaxe(run)
   const rock = minedRock(run.vein.rock, pickaxe?.tier ?? null)
   const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
@@ -127,13 +127,13 @@ export function dig(state: GameState): ActionResult {
   const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
   return withRun(state, {
-    energy: run.energy - ACTION_ENERGY_COST,
+    energy: run.energy - energy,
     rngState,
     pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
     vein: drop ? { ...run.vein, progress: 0, rock: pickDrop(veinDrops(run.vein.level), r) } : { ...run.vein, progress: hits },
     inventory: drop ? addItems(run, rock, 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
-    lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
+    lifetime: addLifetime(run, energy, 0),
     ...(pickaxe && gainMastery(run, pickaxe.tier)),
   })
 }

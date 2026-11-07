@@ -17,6 +17,8 @@ import {
   workerWage,
 } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
+import type { ItemId } from '../src/core/data/items'
+import { bagCount, dig } from '../src/core/mining'
 import type { WorkerJob } from '../src/core/data/workers'
 import { collectBars } from '../src/core/furnace'
 import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Tile } from '../src/core/state'
@@ -48,8 +50,8 @@ function okState(r: ActionResult): GameState {
   return r.state
 }
 
-const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0, plant = 0) => ({
-  workers: { pool, assigned: { plant, water, harvest, ore, fuel }, certificates },
+const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0, plant = 0, mine = 0) => ({
+  workers: { pool, assigned: { plant, water, harvest, ore, fuel, mine }, certificates },
 })
 
 describe('workers: balance', () => {
@@ -112,7 +114,7 @@ describe('assignWorker', () => {
     const certified = withRun(workers(2, 0, 0, ['water']))
     const one = okState(assignWorker(certified, 'water', 1))
     const two = okState(assignWorker(one, 'water', 1))
-    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ plant: 0, water: 2, harvest: 0, ore: 0, fuel: 0 }, 0])
+    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ plant: 0, water: 2, harvest: 0, ore: 0, fuel: 0, mine: 0 }, 0])
     expect(assignWorker(two, 'water', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const back = okState(assignWorker(two, 'water', -1))
     expect([back.run.workers.assigned.water, freeWorkers(back.run)]).toEqual([1, 1])
@@ -123,7 +125,7 @@ describe('assignWorker', () => {
     const s = withRun(workers(1, 1, 0))
     expect(assignWorker(s, 'harvest', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const moved = okState(assignWorker(okState(assignWorker(s, 'water', -1)), 'harvest', 1))
-    expect(moved.run.workers.assigned).toEqual({ plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0 })
+    expect(moved.run.workers.assigned).toEqual({ plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0 })
   })
 })
 
@@ -573,10 +575,107 @@ describe('plant worker: workersAct', () => {
   })
 })
 
+// ---- Task 67: mine worker ----
+
+const vein3 = (rock: ItemId = 'stone', progress = 0) => ({ level: 3, progress, rock })
+/** a licensed mine on vein Lv3 with `n` miners, no player energy, the next tick a worker tick */
+const mineSite = (run: Partial<GameState['run']> = {}, n = 1): GameState =>
+  withRun({
+    cash: 100,
+    energy: 0,
+    mineLicense: true,
+    pickaxe: { tier: 'copper', durability: 200 },
+    vein: vein3(),
+    ...workers(n, 0, 0, ['mine'], 0, 0, 0, n),
+    ...run,
+  })
+
+describe('mine worker: certificate', () => {
+  it('5 iron bars + 💰500, shown once vein Lv3 is owned and after 200 mines; NOT_ENOUGH_ITEMS before NO_CASH', () => {
+    expect(certificateCost('mine', meta)).toEqual({ ironBar: 5, cash: 500 })
+    expect(certificateUnlock('mine')).toEqual({ counter: 'mines', at: 200, vein: 3 })
+    const rich = { cash: 1000, inventory: { ironBar: 5 } }
+    expect(certificateUnlocked(withRun({ ...rich, vein: { ...vein3(), level: 2 } }, { mines: 5000 }).run, 'mine')).toBe(false)
+    expect(buyCertificate(withRun({ ...rich, vein: { ...vein3(), level: 2 } }, { mines: 5000 }), 'mine')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyCertificate(withRun({ ...rich, vein: vein3() }, { mines: 199 }), 'mine')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyCertificate(withRun({ cash: 1000, inventory: { ironBar: 4 }, vein: vein3() }, { mines: 200 }), 'mine')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyCertificate(withRun({ cash: 499, inventory: { ironBar: 5 }, vein: vein3() }, { mines: 200 }), 'mine')).toEqual({ ok: false, error: 'NO_CASH' })
+    const bought = okState(buyCertificate(withRun({ ...rich, vein: vein3() }, { mines: 200 }), 'mine'))
+    expect(bought.run).toMatchObject({ cash: 500, inventory: { ironBar: 0 }, workers: { certificates: ['mine'] } })
+    // the other certificates have no vein gate
+    expect(certificateUnlocked(withRun({}, { plants: 60 }).run, 'plant')).toBe(true)
+  })
+})
+
+describe('mine worker: workersAct', () => {
+  it('one action = the player’s Mine press with no energy: hits, durability, mastery xp, the mines counter; one wage', () => {
+    const s = mineSite({ vein: vein3('ironOre') })
+    const next = workersAct(s)
+    const pressed = okState(dig({ ...s, run: { ...s.run, energy: 1 } }))
+    expect(next.run.vein).toEqual({ level: 3, progress: 3, rock: 'ironOre' })
+    expect([next.run.pickaxe, next.run.mastery, next.run.counters.mines, next.run.rngState]).toEqual([
+      pressed.run.pickaxe,
+      pressed.run.mastery,
+      1,
+      pressed.run.rngState,
+    ])
+    expect([next.run.energy, next.run.lifetime.energySpent, next.run.cash]).toEqual([0, 0, 100 - wage])
+    expect([next.run.lifetime.workerMines, next.run.lifetime.wagesPaid]).toEqual([1, wage])
+    // the second press breaks the iron rock (copper or better) into iron ore
+    const broke = workersAct(step(next, workerActionTicks() - 1))
+    expect([broke.run.inventory.ironOre, broke.run.lifetime.workerMines]).toEqual([1, 2])
+  })
+
+  it('two miners press twice per round; the preserve roll and mastery apply like the player’s', () => {
+    const s = mineSite({ pickaxe: { tier: 'iron', durability: 1200 }, mastery: { iron: 1e4 }, masteredTiers: ['wooden', 'copper', 'iron'] }, 2)
+    const next = workersAct(s)
+    expect([next.run.counters.mines, next.run.lifetime.workerMines, next.run.mastery.iron, next.run.cash]).toEqual([2, 2, 1e4 + 2, 100 - 2 * wage])
+    expect(next.run.pickaxe!.durability).toBeGreaterThanOrEqual(1198)
+  })
+
+  it('idles unpaid with no pickaxe, a blunt pickaxe (repair stays manual), full storage or no mine license', () => {
+    for (const s of [
+      mineSite({ pickaxe: null }),
+      mineSite({ pickaxe: { tier: 'copper', durability: 0 } }),
+      mineSite({ inventory: { stone: BAG_CAPACITY_START } }),
+      mineSite({ mineLicense: false }),
+    ]) {
+      expect(workersAct(s)).toBe(s)
+      expect(workerUnpaid({ ...s, run: { ...s.run, cash: 0 } }, 'mine')).toBe(false)
+    }
+    expect(workerUnpaid({ ...mineSite(), run: { ...mineSite().run, cash: 0 } }, 'mine')).toBe(true)
+  })
+
+  it('step(s, n) equals n × step(s, 1) with the mine, ore and fuel workers on an iron furnace, and the chain makes iron bars', () => {
+    const furnace = { ...createFurnace(), built: true, oreKind: 'ironOre' as const }
+    const s = mineSite(
+      {
+        cash: 300,
+        bagCapacity: 50,
+        pickaxe: { tier: 'iron', durability: 1200 },
+        inventory: { ironOre: 3, coal: 6 },
+        furnace,
+        ...workers(3, 0, 0, ['ore', 'fuel', 'mine'], 1, 1, 0, 1),
+      },
+      0,
+    )
+    let one = s
+    for (let i = 0; i < 900; i++) one = step(one, 1)
+    expect(step(s, 900)).toEqual(one)
+    // 180 action ticks, but the miner stops once storage is full (stone piles up): the expected stop
+    expect(one.run.lifetime.workerMines).toBeGreaterThan(0)
+    expect(one.run.lifetime.workerMines).toBeLessThan(180)
+    expect(bagCount(one.run)).toBe(50)
+    expect(one.run.lifetime.ironBarsSmelted).toBeGreaterThan(1)
+    expect(one.run.inventory.ironBar).toBeGreaterThan(0)
+    expect(one.run.cash).toBeGreaterThanOrEqual(0)
+  })
+})
+
 describe('new runs', () => {
   it('start with no workers, no certificates and no wages paid', () => {
-    expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0 }, certificates: [] })
+    expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
-    expect([init.run.plantCrop, init.run.lifetime.workerPlants]).toEqual(['radish', 0])
+    expect([init.run.plantCrop, init.run.lifetime.workerPlants, init.run.lifetime.workerMines]).toEqual(['radish', 0, 0])
   })
 })
