@@ -3,12 +3,14 @@ import { nextRandom, type ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
   itemSellPrice,
+  mineHits,
   mineLicenseCost,
   pickaxeRecipe,
+  stoneHits,
   veinDrops,
   woodCost,
 } from '../src/core/balance'
-import { buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../src/core/mining'
+import { activePickaxe, buyMineLicense, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 
 function withRun(run: Partial<GameState['run']>): GameState {
@@ -91,16 +93,38 @@ describe('dig', () => {
     expect(next.run.rngState).not.toBe(s.run.rngState)
     expect(dig(s)).toEqual({ ok: true, state: next }) // same seed, same result
   })
-  it('breaks the pickaxe at 0 durability', () => {
-    const next = okState(dig(miner({ pickaxe: { tier: 'wooden', durability: 1 } })))
-    expect(next.run.pickaxe).toBeNull()
-    expect(dig(next)).toEqual({ ok: false, error: 'NO_PICKAXE' })
+  it('mines by hand with no pickaxe: 1 hit per energy, a stone every 2nd action', () => {
+    expect([stoneHits(), mineHits(null), mineHits('wooden')]).toEqual([2, 1, 2])
+    const s = withRun({ mineLicense: true })
+    const half = okState(dig(s))
+    expect(half.run.energy).toBe(s.run.energy - 1)
+    expect(half.run.vein.progress).toBe(1)
+    expect(half.run.inventory).toEqual({})
+    expect(half.run.rngState).toBe(s.run.rngState) // no drop, no roll
+    expect(half.run.counters.mines).toBe(1)
+    const done = okState(dig(half))
+    expect(done.run.vein.progress).toBe(0)
+    expect(done.run.inventory).toEqual({ stone: 1 })
+    expect(done.run.counters.mines).toBe(2)
   })
-  it('validates license, pickaxe, bag, energy in that order', () => {
+  it('a pickaxe finishes a half-mined stone and carries the extra hit over', () => {
+    const next = okState(dig(miner({ vein: { level: 0, progress: 1 } })))
+    expect(next.run.inventory).toEqual({ stone: 1 })
+    expect(next.run.vein.progress).toBe(1)
+  })
+  it('goes blunt at 0 durability: still owned, then mines by hand and loses no more durability', () => {
+    const blunt = okState(dig(miner({ pickaxe: { tier: 'wooden', durability: 1 } })))
+    expect(blunt.run.pickaxe).toEqual({ tier: 'wooden', durability: 0 })
+    expect(activePickaxe(blunt.run)).toBeNull()
+    const hand = okState(dig(blunt))
+    expect(hand.run.pickaxe).toEqual({ tier: 'wooden', durability: 0 })
+    expect(hand.run.vein.progress).toBe(1)
+    expect(craftPickaxe({ ...hand, run: { ...hand.run, inventory: { wood: 3 } } })).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+  })
+  it('validates license, bag, energy in that order', () => {
     expect(dig(withRun({ energy: 0 }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
-    expect(dig(withRun({ mineLicense: true, energy: 0 }))).toEqual({ ok: false, error: 'NO_PICKAXE' })
     const full = { stone: BAG_CAPACITY_START - 1, wood: 1 }
-    expect(dig(miner({ inventory: full, energy: 0 }))).toEqual({ ok: false, error: 'BAG_FULL' })
+    expect(dig(withRun({ mineLicense: true, inventory: full, energy: 0 }))).toEqual({ ok: false, error: 'BAG_FULL' })
     expect(dig(miner({ energy: 0.5 }))).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
   it('vein level 0 drops only stone', () => {
@@ -108,6 +132,27 @@ describe('dig', () => {
     let s = miner({ energy: 1e6 })
     for (let i = 0; i < 20; i++) s = okState(dig(s))
     expect(s.run.inventory).toEqual({ stone: 20 })
+  })
+})
+
+describe('repairPickaxe', () => {
+  const blunt = (wood: number) => miner({ pickaxe: { tier: 'wooden', durability: 0 }, inventory: { wood } })
+  it('spends repair wood (less than crafting) and restores full durability, no energy', () => {
+    const recipe = pickaxeRecipe('wooden')
+    expect(recipe).toMatchObject({ wood: 3, repairWood: 2, durability: 25 })
+    const s = blunt(3)
+    const next = okState(repairPickaxe(s))
+    expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: 25 })
+    expect(next.run.inventory.wood).toBe(1)
+    expect(next.run.energy).toBe(s.run.energy)
+  })
+  it('validates pickaxe, blunt, wood in that order', () => {
+    expect(repairPickaxe(withRun({ inventory: { wood: 9 } }))).toEqual({ ok: false, error: 'NO_PICKAXE' })
+    expect(repairPickaxe(miner({ pickaxe: { tier: 'wooden', durability: 1 }, inventory: { wood: 9 } }))).toEqual({
+      ok: false,
+      error: 'NOT_BLUNT',
+    })
+    expect(repairPickaxe(blunt(1))).toEqual({ ok: false, error: 'NOT_ENOUGH_WOOD' })
   })
 })
 

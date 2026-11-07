@@ -52,9 +52,13 @@ const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
 // wood sells below its buy price, so buying and reselling wood never makes money
 const ITEM_SELL_PRICE: Record<ItemId, number> = { wood: 2, stone: 2 }
-const PICKAXES: Record<PickaxeTier, { wood: number; durability: number }> = {
-  wooden: { wood: 3, durability: 20 },
+// wood = craft cost, repairWood = cost to fix a blunt one (below craft), hits = stone hits per mine action
+const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
+  wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
 }
+/** a stone drops after this many hits; mining by hand (no pickaxe, or a blunt one) deals HAND_HITS per action */
+const STONE_HITS = 2
+const HAND_HITS = 1
 export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
@@ -164,8 +168,17 @@ export function itemSellPrice(itemId: ItemId, meta: MetaState, sellPriceLevel: n
   return sellPrice(ITEM_SELL_PRICE[itemId], meta, sellPriceLevel)
 }
 
-export function pickaxeRecipe(tier: PickaxeTier): { wood: number; durability: number } {
+export function pickaxeRecipe(tier: PickaxeTier): { wood: number; repairWood: number; durability: number } {
   return PICKAXES[tier]
+}
+
+export function stoneHits(): number {
+  return STONE_HITS
+}
+
+/** hits per mine action; null = by hand */
+export function mineHits(tier: PickaxeTier | null): number {
+  return tier ? PICKAXES[tier].hits : HAND_HITS
 }
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {

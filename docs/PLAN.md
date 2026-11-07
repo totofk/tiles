@@ -247,6 +247,26 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   and the "Away for 1h 0m" banner, 10 s live → 💰35).
 - **Batch 5 sim: the tool bot's "affordable" tick is when `buyTool` succeeds**, which also needs level k − 1. The bot
   buys at once, so k − 1 is always owned by the time k unlocks; the two definitions give the same ticks in this run.
+- **Batch 6: `tests/fixtures/save-v4.json` was produced by a throwaway vitest file run against the unmodified batch-5
+  code** (greedy carrot farming to tick 420, mine license at 150, a pickaxe at 200 mined 9 times → 11/20, 2 of 9 stone
+  sold, a level-1 Watering Can, 6 soil digs, 4 pouch seeds bought), then the file was deleted. Committed on its own
+  before any shape change.
+- **Batch 6: the whole v5 save shape lands with task 26** (one `SAVE_VERSION` bump for 26–28): `vein.progress`,
+  `mastery`, `masteredTiers` and `storageLevel`. `storageLevel` is stored next to `bagCapacity` (the upgrade adds its
+  slots to `bagCapacity`, so every reader of capacity is unchanged). `migrateV4` keeps the pickaxe's durability (a v4
+  wooden pickaxe stays at its x/20 against the new max of 25), the bag and `bagCapacity`; progress, mastery and storage
+  level start at 0. `RunV4` is now spelled out field by field and `RunV3`/`RunV2` derive from it, not from the live
+  `RunState`.
+- **Batch 6: the mine action is still `dig()`.** It mines by hand (1 hit) with no pickaxe or a blunt one, so it no
+  longer returns `NO_PICKAXE`; its order is NO_MINE_LICENSE, BAG_FULL, NO_ENERGY. `BAG_FULL` applies even to a hand hit
+  that would not drop a stone yet. The PRNG rolls only on the action that drops a stone (a half hit rolls nothing).
+  Hits per action live in `PICKAXES[tier].hits` / `HAND_HITS`, read through `mineHits(tier | null)` and `stoneHits()`.
+- **Batch 6: `repairPickaxe` uses the new error `NOT_ENOUGH_WOOD`** (named in the brief) and `NOT_BLUNT`; `craftPickaxe`
+  keeps `NOT_ENOUGH_ITEMS`. Repair needs no mine license and no energy and restores the tier's full durability.
+- **Batch 6 sim: the greedy bot repairs a blunt pickaxe** (buys the missing wood, then `repairPickaxe`) and never mines
+  by hand. Mine-early's pinned final cash moved **116 → 132**: durability 25 plus one repair (2 wood) replace the 3rd
+  craft over its 43 mines. Every other pinned number (milestones, lowest cash, counters, pumpkin-first) is unchanged;
+  `balance.ts` was not retuned. Mine-early mining cash/energy is now 1.53 (was 1.16), farming 3.34.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -455,7 +475,7 @@ Question: does mining feel like progress now (visible goals, mastery, repairs), 
 Decisions: DECISIONS.md "Round-2 research outcome", "Round-4 research outcome (progression)". Save v5, same
 compatibility rules as v4 (capture a real v4 fixture BEFORE changing the shape; chain v1–v4 → v5; backup key).
 
-26. [ ] Stone = 2 hits (`run.vein.progress`, crack shown at 1/2). After the mine license, hand mining works with no
+26. [x] Stone = 2 hits (`run.vein.progress`, crack shown at 1/2). After the mine license, hand mining works with no
     pickaxe (1 hit per energy); pickaxe = 2 hits per energy. Wooden pickaxe durability 25. Durability 0 = **blunt**:
     the pickaxe stays owned but cannot mine until repaired (`repairPickaxe`, wooden = 2 wood; craft stays 3 wood);
     hand mining still works while blunt. `counters.mines` counts mine actions.

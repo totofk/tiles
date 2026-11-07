@@ -1,15 +1,40 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
 import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../core/balance'
-import { createInitialState, createTile, type GameState, type RunState } from '../core/state'
+import type { CropId } from '../core/data/crops'
+import type { ItemId } from '../core/data/items'
+import type { ToolJob } from '../core/data/tools'
+import type { UpgradeId } from '../core/data/upgrades'
+import { createInitialState, createTile, type Counters, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
-type RunV1 = Pick<RunState, 'cash' | 'energy' | 'tiles' | 'licenses' | 'tick'> & {
+type RunV4 = {
+  cash: number
+  energy: number
+  tiles: Tile[]
+  licenses: CropId[]
+  upgrades: Record<UpgradeId, number>
+  counters: Counters
+  tick: number
+  mineLicense: boolean
+  /** never 0: a v4 pickaxe vanished at 0 durability */
+  pickaxe: { tier: 'wooden'; durability: number } | null
+  inventory: Partial<Record<ItemId, number>>
+  bagCapacity: number
+  vein: { level: number }
+  rngState: number
+  loan: Loan | null
+  seeds: Partial<Record<CropId, number>>
+  autoBuySeeds: boolean
+  tools: Record<ToolJob, number>
+  toolN: Record<ToolJob, number>
+}
+type RunV1 = Pick<RunV4, 'cash' | 'energy' | 'tiles' | 'licenses' | 'tick'> & {
   upgrades: { energyMax: number; energyRegen: number }
 }
-type RunV3 = Omit<RunState, 'counters' | 'seeds' | 'autoBuySeeds' | 'tools' | 'toolN'> & {
+type RunV3 = Omit<RunV4, 'counters' | 'seeds' | 'autoBuySeeds' | 'tools' | 'toolN'> & {
   /** digs = mine actions (renamed `mines` in v4) */
   counters: { harvests: number; sales: number; digs: number }
 }
@@ -17,8 +42,9 @@ type RunV2 = Omit<RunV3, 'loan'>
 type SaveV1 = { version: 1; savedAtMs: number; state: { meta: GameState['meta']; run: RunV1 } }
 type SaveV2 = { version: 2; savedAtMs: number; state: { meta: GameState['meta']; run: RunV2 } }
 type SaveV3 = { version: 3; savedAtMs: number; state: { meta: GameState['meta']; run: RunV3 } }
-type SaveV4 = { version: 4; savedAtMs: number; state: GameState }
-export type Save = SaveV4
+type SaveV4 = { version: 4; savedAtMs: number; state: { meta: GameState['meta']; run: RunV4 } }
+type SaveV5 = { version: 5; savedAtMs: number; state: GameState }
+export type Save = SaveV5
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -81,19 +107,35 @@ function migrateV3(save: SaveV3): SaveV4 {
   }
 }
 
+// v4 → v5: mining progress. Nothing earned changes: the pickaxe keeps its durability, the bag keeps its items.
+// No half-mined stone, no mastery xp, storage level 0 (bagCapacity is kept as is).
+function migrateV4(save: SaveV4): SaveV5 {
+  const { meta, run } = save.state
+  return {
+    version: 5,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: { ...run, storageLevel: 0, vein: { level: run.vein.level, progress: 0 }, mastery: {}, masteredTiers: [] },
+    },
+  }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV3(migrateV2(migrateV1(data as SaveV1)))
+      return migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))
     case 2:
-      return migrateV3(migrateV2(data as SaveV2))
+      return migrateV4(migrateV3(migrateV2(data as SaveV2)))
     case 3:
-      return migrateV3(data as SaveV3)
+      return migrateV4(migrateV3(data as SaveV3))
     case 4:
-      return data as SaveV4
+      return migrateV4(data as SaveV4)
+    case 5:
+      return data as SaveV5
     default:
       return null
   }

@@ -15,7 +15,7 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../src/core/mining'
+import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, repairPickaxe, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
@@ -85,7 +85,7 @@ function runBot(mineEarly: boolean) {
   }
 
   // Mining fills idle energy only. Order: license → sell stone when the bag is full
-  // → wood + pickaxe when broken → dig.
+  // → wood + pickaxe when it has none, wood + repair when blunt (never mines by hand) → mine.
   const mineOnce = (tick: number): boolean => {
     if (!s.run.mineLicense) {
       if (!mineEarly && !s.run.licenses.includes('pumpkin')) return false
@@ -97,6 +97,10 @@ function runBot(mineEarly: boolean) {
       const need = pickaxeRecipe('wooden').wood - (s.run.inventory.wood ?? 0)
       if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
       if (!tryAct(craftPickaxe(s), mine)) return false
+    } else if (s.run.pickaxe.durability === 0) {
+      const need = pickaxeRecipe('wooden').repairWood - (s.run.inventory.wood ?? 0)
+      if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
+      if (!tryAct(repairPickaxe(s), mine)) return false
     }
     if (!tryAct(dig(s), mine, ACTION_ENERGY_COST)) return false
     m.firstDig ??= tick
@@ -191,7 +195,8 @@ describe.each([
         firstPumpkinHarvest: 594,
       },
       minCash: 0,
-      finalCash: 116,
+      // batch 3–5: 116. Batch 6: durability 25 and repair (2 wood) instead of a 3rd craft save 4 wood over 43 mines
+      finalCash: 132,
       counters: { harvests: 30, sales: 70, mines: 43, digs: 0 },
     },
   },

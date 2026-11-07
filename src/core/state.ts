@@ -30,11 +30,19 @@ export type RunState = {
   /** total ticks simulated this run */
   tick: number
   mineLicense: boolean
+  /** durability 0 = blunt: still owned, mines by hand until repaired */
   pickaxe: Pickaxe | null
-  /** every item counts toward bagCapacity */
+  /** every item counts toward bagCapacity (displayed as "Storage") */
   inventory: Partial<Record<ItemId, number>>
   bagCapacity: number
-  vein: { level: number }
+  /** storage upgrade level; each level already added its slots to bagCapacity */
+  storageLevel: number
+  /** progress = hits into the current stone, below stoneHits() */
+  vein: { level: number; progress: number }
+  /** mastery xp per pickaxe tier (1 per mine action with that tier) */
+  mastery: Partial<Record<PickaxeTier, number>>
+  /** tiers that reached max mastery; each adds preserve chance to every tier */
+  masteredTiers: PickaxeTier[]
   /** mulberry32 state (uint32); advanced by actions that roll, so runs replay exactly */
   rngState: number
   /** one loan at a time; step() grows its debt */
@@ -96,7 +104,10 @@ export function createInitialState(): GameState {
       pickaxe: null,
       inventory: {},
       bagCapacity: BAG_CAPACITY_START,
-      vein: { level: 0 },
+      storageLevel: 0,
+      vein: { level: 0, progress: 0 },
+      mastery: {},
+      masteredTiers: [],
       rngState: INITIAL_RNG_SEED,
       loan: null,
       seeds: {},
