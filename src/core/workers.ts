@@ -14,6 +14,8 @@ import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
 import { pay } from './mining'
 import type { GameState, RunState } from './state'
+// step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
+import { step } from './step'
 import { toolTargets } from './tools'
 
 /** the job's own action (so its copper tier applies), with no player energy */
@@ -21,7 +23,7 @@ const WORK: Record<TileJob, (s: GameState, i: number) => ActionResult> = {
   water: (s, i) => water(s, i, 0),
   harvest: (s, i) => harvest(s, i, 0),
 }
-type TileJob = 'water' | 'harvest'
+export type TileJob = 'water' | 'harvest'
 const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 
 /**
@@ -45,11 +47,56 @@ const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
 }
 
-/** the next action of a worker on this job; null when it has nothing to do */
-function workerAction(state: GameState, job: WorkerJob): ActionResult | null {
-  if (!isTileJob(job)) return FURNACE_WORK[job](state)
-  const [i] = workerTargets(state, job)
-  return i === undefined ? null : WORK[job](state, i)
+/**
+ * Tiles a worker of this job acts on, best first: the tool's targets, but a waterer only waters a tile that would run
+ * dry before its next turn, so a copper can (moisture 2) halves its actions and wages (DECISIONS "Workers v1").
+ */
+function jobTiles(state: GameState, job: TileJob): number[] {
+  const targets = toolTargets(state, job)
+  if (job !== 'water') return targets
+  const due = workerActionTicks() * moistureDrainPerTick(state.meta)
+  return targets.filter((i) => state.run.tiles[i].moisture <= due)
+}
+
+/** the next action of a worker on this job and the tile it touches (none for furnace jobs); null = nothing to do */
+function workerAction(state: GameState, job: WorkerJob): { result: ActionResult; tile?: number } | null {
+  if (!isTileJob(job)) {
+    const result = FURNACE_WORK[job](state)
+    return result && { result }
+  }
+  const [tile] = jobTiles(state, job)
+  return tile === undefined ? null : { result: WORK[job](state, tile), tile }
+}
+
+/** a farm worker's action on a tile */
+export type WorkerTarget = { job: TileJob; tile: number }
+
+/**
+ * One round of every assigned worker, job by job in WORKER_JOBS order, each paying the wage at its action; a worker
+ * with nothing to do idles unpaid, and the round stops when cash < wage (never debt). `touched` = each farm worker's
+ * tile, in action order. Returns the same state object when nobody acts.
+ */
+function workRound(state: GameState): { state: GameState; touched: WorkerTarget[] } {
+  const wage = workerWage(state.meta)
+  const touched: WorkerTarget[] = []
+  let s = state
+  for (const job of WORKER_JOBS) {
+    for (let k = 0; k < s.run.workers.assigned[job]; k++) {
+      if (s.run.cash < wage) return { state: s, touched }
+      const a = workerAction(s, job)
+      if (!a?.result.ok) break
+      if (a.tile !== undefined && isTileJob(job)) touched.push({ job, tile: a.tile })
+      const { run } = a.result.state
+      s = { ...a.result.state, run: { ...run, cash: run.cash - wage, lifetime: { ...run.lifetime, wagesPaid: run.lifetime.wagesPaid + wage } } }
+    }
+  }
+  return { state: s, touched }
+}
+
+/** ticks until the workers' next action tick (0 = the next step acts) */
+export function ticksUntilWorkers(run: RunState): number {
+  const every = workerActionTicks()
+  return (every - (run.tick % every)) % every
 }
 
 // Workers (batch 8, furnace loaders batch 9): hire into a pool, buy a job's certificate, assign pool workers to
@@ -91,41 +138,30 @@ export function buyCertificate(state: GameState, job: WorkerJob): ActionResult {
 }
 
 /**
- * Tiles a worker of this job acts on, best first: the tool's targets, but a waterer only waters a tile that would run
- * dry before its next turn, so a copper can (moisture 2) halves its actions and wages (DECISIONS "Workers v1").
+ * The tile each farm worker's next action will touch (task 60, shown as a ring), assuming no player input until then:
+ * the state is stepped to the next action tick and the same round workersAct runs is played on it, so two workers on
+ * one job, cash running out mid-round and the waterer's "due" rule all match. Derived, never saved.
  */
-export function workerTargets(state: GameState, job: TileJob): number[] {
-  const targets = toolTargets(state, job)
-  if (job !== 'water') return targets
-  const due = workerActionTicks() * moistureDrainPerTick(state.meta)
-  return targets.filter((i) => state.run.tiles[i].moisture <= due)
+export function workerTargets(state: GameState): WorkerTarget[] {
+  const { assigned } = state.run.workers
+  if (assigned.water + assigned.harvest === 0) return []
+  return workRound(step(state, ticksUntilWorkers(state.run))).touched
 }
 
 /** a worker on this job would act now but cannot pay its wage (the UI's "unpaid" badge) */
 export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
-  return state.run.workers.assigned[job] > 0 && state.run.cash < workerWage(state.meta) && !!workerAction(state, job)?.ok
+  return state.run.workers.assigned[job] > 0 && state.run.cash < workerWage(state.meta) && !!workerAction(state, job)?.result.ok
 }
 
 /**
  * Runs at the start of a tick, before moisture drains and before the furnace burns, so a tile the player just watered
- * (full) or harvested (no longer ripe) is never a target. On every workerActionTicks-th tick each assigned worker, job
- * by job in WORKER_JOBS order, does one action (workerAction: driest due tile / ripe longest / collect or load ore /
- * one coal), paying the wage at that moment. Nothing to do or cash < wage = it idles, no charge; never debt.
+ * (full) or harvested (no longer ripe) is never a target. On every workerActionTicks-th tick each assigned worker does
+ * one action (workRound: driest due tile / ripe longest / collect or load ore / one coal), paying the wage at that
+ * moment. Nothing to do or cash < wage = it idles, no charge; never debt.
  */
 export function workersAct(state: GameState): GameState {
   if (state.run.tick % workerActionTicks() !== 0) return state
-  const wage = workerWage(state.meta)
-  let s = state
-  for (const job of WORKER_JOBS) {
-    for (let k = 0; k < s.run.workers.assigned[job]; k++) {
-      if (s.run.cash < wage) return s
-      const r = workerAction(s, job)
-      if (!r?.ok) break
-      const { run } = r.state
-      s = { ...r.state, run: { ...run, cash: run.cash - wage, lifetime: { ...run.lifetime, wagesPaid: run.lifetime.wagesPaid + wage } } }
-    }
-  }
-  return s
+  return workRound(state).state
 }
 
 // +1 takes a free worker onto the job (NO_CERTIFICATE, NO_FREE_WORKER); −1 frees one (NOTHING_TO_DO at 0). Free.

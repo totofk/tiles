@@ -16,7 +16,7 @@ import { Workers } from './Workers'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, toast, banner, dismissBanner } = useGame()
+  const { state, act, reset, toast, banner, dismissBanner, acted } = useGame()
   const [cropId, setCropId] = useState<CropId>(STARTING_CROP)
   const [ui, setUi] = useState(() => loadUi(localStorage))
   useEffect(() => saveUi(localStorage, ui), [ui])
@@ -126,7 +126,7 @@ export default function App() {
             <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
           </>
         )}
-        <FarmGrid state={state} onTap={onTap} />
+        <FarmGrid state={state} onTap={onTap} acted={acted} />
         {!farmTab && (
           <>
             <DigSeeds act={act} />

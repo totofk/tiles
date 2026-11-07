@@ -336,6 +336,7 @@ button:disabled {
 }
 /* square, but a tile may grow taller rather than clip its text on a narrow screen */
 .cell {
+  position: relative;
   aspect-ratio: 1;
   min-height: 96px;
   padding: 6px 4px;
@@ -395,6 +396,56 @@ button:disabled {
   background: #ffcdd2;
   border: 2px solid #c62828;
   font-weight: 600;
+}
+/* worker targets (task 60): none of these take layout space. The ring is an outline drawn 2–4 px inside the border
+   box (a border would resize the tile, and mature/rotting tiles already use a 2 px border); the flash is an inset
+   shadow wash; the pop is absolute in the top-right corner of the (relative) .cell. */
+.cell-target {
+  outline: 2px dashed;
+  outline-offset: -4px;
+}
+.cell-target-water {
+  outline-color: #1565c0;
+}
+.cell-target-harvest {
+  outline-color: #6d4c41;
+}
+.cell-flash {
+  animation: cell-flash 0.5s ease-out;
+}
+.cell-pop {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+  animation: cell-pop 0.5s ease-out forwards;
+}
+@keyframes cell-flash {
+  from {
+    box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.7);
+  }
+  to {
+    box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0);
+  }
+}
+@keyframes cell-pop {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1.2);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(1);
+  }
+}
+/* reduced motion: no flash, the pop shows still until the next tick */
+@media (prefers-reduced-motion: reduce) {
+  .cell-flash,
+  .cell-pop {
+    animation: none;
+  }
 }
 
 .bar {

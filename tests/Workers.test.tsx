@@ -1,13 +1,16 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
+import { FarmGrid } from '../src/app/FarmGrid'
 import { Hud } from '../src/app/Hud'
 import { bannerText, type Act } from '../src/app/useGame'
 import { Workers } from '../src/app/Workers'
 import { workerHireCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type Counters, type GameState } from '../src/core/state'
+import { serialize } from '../src/save/serialize'
+import { SAVE_KEY } from '../src/save/storage'
 
 afterEach(cleanup)
 
@@ -88,6 +91,42 @@ describe('👷 Workers card', () => {
   it('sits below the grid in the mobile Farm view', () => {
     render(<App />)
     expect(within(document.querySelector<HTMLElement>('.farm')!).getByText(/👷 Workers/)).toBeTruthy()
+  })
+})
+
+describe('worker targets on the grid (task 60)', () => {
+  const s = createInitialState()
+  const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
+  const watered: GameState = { ...s, run: { ...s.run, cash: 10, tiles: [s.run.tiles[0], dry, ...s.run.tiles.slice(2)], ...certified(1, 1, 0) } }
+  const cells = () => [...document.querySelectorAll('.cell')]
+  const where = (cls: string) => cells().flatMap((c, i) => (c.classList.contains(cls) ? [i] : []))
+
+  afterEach(() => {
+    vi.useRealTimers()
+    localStorage.clear()
+  })
+
+  it('a dashed ring on the tile a worker acts on next; the acted tiles flash with the job emoji', () => {
+    const { rerender } = render(<FarmGrid state={watered} onTap={() => {}} />)
+    expect(where('cell-target-water')).toEqual([1])
+    expect(where('cell-target')).toEqual([1])
+    expect(document.querySelector('.cell-pop')).toBeNull()
+    rerender(<FarmGrid state={watered} onTap={() => {}} acted={[{ job: 'water', tile: 1 }]} />)
+    expect(where('cell-flash')).toEqual([1])
+    expect(cells()[1].querySelector('.cell-pop')!.textContent).toBe('💧')
+  })
+
+  it('in the app the ringed tile flashes on the tick the worker acts, and stops a tick later', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] })
+    localStorage.setItem(SAVE_KEY, serialize(watered, Date.now()))
+    render(<App />)
+    expect(where('cell-target-water')).toEqual([1])
+    // tick 0 is a worker tick: the first step waters tile 1
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(where('cell-flash')).toEqual([1])
+    expect(where('cell-target')).toEqual([]) // watered to full: not due at the next worker tick
+    act(() => void vi.advanceTimersByTime(1000))
+    expect(where('cell-flash')).toEqual([])
   })
 })
 

@@ -29,6 +29,7 @@ import {
   freeWorkers,
   hireUnlocked,
   hireWorker,
+  ticksUntilWorkers,
   workerTargets,
   workerUnpaid,
   workersAct,
@@ -182,9 +183,10 @@ describe('workersAct / step: workers', () => {
   it('a waterer only waters a tile that would run dry before its next turn', () => {
     const due = workerActionTicks() * moistureDrainPerTick(meta)
     const s = farm([growing(due + 0.01), growing(due)], { harvest: 0 })
-    expect(workerTargets(s, 'water')).toEqual([1])
+    expect(workerTargets(s)).toEqual([{ job: 'water', tile: 1 }])
     const none = farm([growing(due + 0.01)], { harvest: 0 })
     expect(workersAct(none)).toBe(none)
+    expect(workerTargets(none)).toEqual([])
   })
 
   it('no target or no cash: the worker idles and nothing is charged; cash never goes negative', () => {
@@ -236,6 +238,59 @@ describe('workersAct / step: workers', () => {
     expect(performance.now() - t0).toBeLessThan(3000)
     expect(after.run.tick).toBe(OFFLINE_CAP_TICKS)
     expect(after.run.cash).toBeGreaterThanOrEqual(0)
+  })
+})
+
+// ---- Task 60: which tile a worker works on next ----
+
+/** the tiles a round of workers changed: watered (moisture up) or harvested (crop gone) */
+function touchedTiles(before: GameState, after: GameState) {
+  return before.run.tiles.flatMap((t, tile) => {
+    const now = after.run.tiles[tile]
+    if (t.cropId && !now.cropId) return [{ job: 'harvest', tile }]
+    return now.moisture > t.moisture ? [{ job: 'water', tile }] : []
+  })
+}
+
+describe('workerTargets (task 60)', () => {
+  it('one target per acting worker, in action order: waterers first (driest first), then harvesters (ripe longest first)', () => {
+    const s = farm([growing(0.02), growing(0), ripe(3), ripe(9), growing(0.5)], { water: 2, harvest: 1 })
+    expect(workerTargets(s)).toEqual([
+      { job: 'water', tile: 1 },
+      { job: 'water', tile: 0 },
+      { job: 'harvest', tile: 3 },
+    ])
+  })
+
+  it('between worker ticks it shows the next action tick: a tile that will be due by then is ringed already', () => {
+    const due = workerActionTicks() * moistureDrainPerTick(meta)
+    // at tick 2 the tile is 2.5 drains above due: not due now, due after the 3 drains to tick 5
+    const s = farm([growing(due + 2.5 * moistureDrainPerTick(meta))], { harvest: 0, tick: 2 })
+    expect(ticksUntilWorkers(s.run)).toBe(3)
+    expect(workerTargets(s)).toEqual([{ job: 'water', tile: 0 }])
+    expect(workerTargets({ ...s, run: { ...s.run, tick: 0 } })).toEqual([])
+  })
+
+  it('no cash for a wage, no target: nothing is ringed; furnace workers never ring a tile', () => {
+    expect(workerTargets(farm([growing(0), ripe(1)], { cash: 0 }))).toEqual([])
+    // one wage left: the waterer acts first, the harvester cannot pay
+    expect(workerTargets(farm([growing(0), ripe(1)], { cash: workerWage(meta) }))).toEqual([{ job: 'water', tile: 0 }])
+    const loaders = withRun({ cash: 100, ...workers(2, 0, 0, ['ore', 'fuel'], 1, 1), furnace: { ...createFurnace(), built: true }, inventory: { coal: 3 } })
+    expect(workerTargets(loaders)).toEqual([])
+  })
+
+  it('over 60 ticks with no player input, every ring shown before an action tick is exactly what the workers then do', () => {
+    let s = farm([growing(0), growing(0.04), ripe(2), growing(0.1, PUMPKIN - 7), growing(0.2), ripe(30)], { water: 2, harvest: 1, cash: 40, tick: 1 })
+    let actions = 0
+    for (let t = 0; t < 60; t++) {
+      const rings = workerTargets(s)
+      const at = step(s, ticksUntilWorkers(s.run))
+      const acted = workersAct(at)
+      expect(touchedTiles(at, acted)).toEqual([...rings].sort((a, b) => a.tile - b.tile))
+      actions += rings.length
+      s = step(s, 1)
+    }
+    expect(actions).toBeGreaterThan(10)
   })
 })
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
-import { fireUnitTicks, upgradeUnlocked } from '../core/balance'
+import { fireUnitTicks, upgradeUnlocked, workerActionTicks } from '../core/balance'
 import { ITEMS } from '../core/data/items'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
+import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
 import { awayText, catchUp, offlineTicks } from '../save/serialize'
 import { loadGame, saveGame, wallClock } from '../save/storage'
 
@@ -82,6 +83,7 @@ export function useGame() {
   const toastTimer = useRef<number | undefined>(undefined)
   const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.before, boot.state) : null)
   const loop = useRef({ last: 0, acc: 0 })
+  const [acted, setActed] = useState<WorkerTarget[]>([])
   const saveTimer = useRef<number | undefined>(undefined)
 
   const showToast = useCallback((text: string) => {
@@ -136,7 +138,11 @@ export function useGame() {
       const ticks = Math.floor(l.acc / 1000)
       if (ticks < 1) return
       l.acc -= ticks * 1000
-      commit(step(stateRef.current, ticks))
+      const before = stateRef.current
+      // the ringed tiles flash when this step runs the workers' action tick; a longer jump (a stalled timer) just moves on
+      const crossed = ticks > ticksUntilWorkers(before.run) && ticks <= workerActionTicks()
+      setActed(crossed ? workerTargets(before) : [])
+      commit(step(before, ticks))
     }, LOOP_MS)
     return () => window.clearInterval(id)
   }, [commit])
@@ -166,6 +172,7 @@ export function useGame() {
       if (offlineTicks(awayMs) < 1) return
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
+      setActed([])
       commit(caught)
       setBanner(bannerText(awayMs, before, caught))
     }
@@ -180,5 +187,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null) }
+  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null), acted }
 }

@@ -553,6 +553,13 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   "max" row; the smart furnace shows as " · smart" on the fire line.
 - **Batch 9 (task 59): fire is shown in whole units rounded up** (gauge, Stats "Fire wasted", banner "fire burnt"), so a
   part-burnt unit never reads as 0.
+- **Batch 9 (task 60): `workerTargets(state)` returns `{ job, tile }[]`, not a tile per worker index**, and replaces task
+  58's `workerTargets(state, job): number[]`, which became the private `jobTiles` (one export, no second function).
+  It answers "next action" by stepping to the next worker tick inside core, so `workers.ts` imports `step` and
+  `step.ts` imports `workersAct`: a cycle of hoisted function bindings only, used at call time (lint and the Vite
+  build report nothing). New export `ticksUntilWorkers(run)` is shared by the lookahead and the UI's flash check.
+- **Batch 9 (task 60): the flash fires only for a live step of ≤ `workerActionTicks()` ticks** that crosses the worker
+  tick; a longer jump (stalled timer, catch-up) shows no flash, because the tiles of more than one round are unknown.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1348,7 +1355,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
     ("burning with nothing to smelt"). Workers card: ore and fuel rows with their certificates, the same −/count/+
     pattern as water/harvest. 📊 Stats: fire wasted (ticks or units) and bars smelted. Away banner: fuel burnt / bars.
     ⓘ tips without numbers in text. Compact at 375 px; no 7th tab.
-- [ ] 60. **Show which tile a worker works on.** A pure core function `workerTargets(state)` returns, for every
+- [x] 60. **Show which tile a worker works on.** A pure core function `workerTargets(state)` returns, for every
     assigned water/harvest worker, the tile its next action will touch — sharing the selection code the worker uses
     (one rule, not a copy). Not saved. UI: a thin dashed ring on each target tile; when a worker acts on a tile (the UI
     sees it between two ticks), that tile flashes ~0.5 s with a small 💧 / 🌾 pop. No walking figures. Must stay
@@ -1446,3 +1453,26 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
     upgrades + 9 × 4 gaps ≈ **415 px** in the scrolling Mine column; closed it is the 44 px summary, as before.
   - Workers ore / fuel rows: certificate row "⚫ Fuel" + "bars 12/30" ≈ 65 + Certificate 🥉8 💰200 ≈ 95 + ⓘ 28 + 8 ≈
     196; staffed row ≈ 52 + 44 + 16 + 44 + "unpaid" 52 + 28 + 20 = 256 ≤ 284 (Farm tab at 1024) / 359 (375).
+
+### Worker targets on the grid (task 60)
+- **Core:** `workerTargets(state): WorkerTarget[]` (`{ job: 'water' | 'harvest', tile }`, one per farm worker that will
+  act, in action order). One rule: `workersAct` and `workerTargets` both run `workRound` (every assigned worker, job
+  by job, wage at the action, stop at cash < wage); `workerTargets` plays it on `step(state, ticksUntilWorkers(run))`,
+  the state at the next worker tick, and keeps the tiles it touched. So two workers on one job, cash running out
+  mid-round and the waterer's "due" rule show exactly as they will happen if the player does nothing until then.
+  Furnace loaders touch no tile. Not saved. Tested: order, between-tick lookahead, no cash, loaders, and 60 ticks in
+  which every ring shown before an action tick equals the tiles `workersAct` then changed.
+- **UI:** `FarmGrid` rings each target tile (`.cell-target-water` blue / `-harvest` brown, 2 px dashed `outline` at
+  `outline-offset: -4px`). `useGame` keeps `acted` = `workerTargets(before)` when a live step of ≤ 5 ticks crosses the
+  worker tick (else []), so the acted tiles get `.cell-flash` (0.5 s white inset-shadow wash) and a `.cell-pop` with
+  the job's emoji (`WORKER_JOB_EMOJI`, 💧 / 🌾, 18 px, rises 10 px and fades in 0.5 s) until the next tick. Reduced
+  motion: no wash, the pop shows still for that tick.
+- **Layout, computed from `app.css`:** none of the three takes space: an outline and a box-shadow are not layout, and
+  the pop is `position: absolute` (`.cell` is now `position: relative`; nothing else in a cell is absolute). The ring
+  sits 2–4 px inside the border box: inside the 4 px side / 6 px top padding, so it never crosses the 1 px border (or
+  the 2 px mature / rotting border, which ends where the ring starts) and never covers the emoji, label or bars
+  (content starts 5 px in). Tiles: **375 px** (3 columns of the 359 px farm column) ≈ (359 − 2 × 6) / 3 = **115.7 px**;
+  **1024 px** farm column 1024 − 40 − 40 − 225.3 − 300 = 418.7 → ≤ **135.6 px**; **1440 px** ≤ 218.9 px (both may be
+  smaller when the viewport height limits the grid), floor **72 px**. The pop (18 × 18 at top 4 / right 6) stays in
+  the tile's top-right corner at every size; at the 72 px floor it can cover the corner of the crop emoji for its
+  0.5 s, never a neighbour tile (the 6 px grid gap is outside the cell box).

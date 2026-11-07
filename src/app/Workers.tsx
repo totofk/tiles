@@ -8,11 +8,13 @@ import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
 import type { Act } from './useGame'
 
+/** the job's icon: its row label and the pop on a tile a farm worker acts on */
+export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = { water: '💧', harvest: '🌾', ore: ITEMS.copperOre.emoji, fuel: ITEMS.coal.emoji }
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
-  water: '💧 Water',
-  harvest: '🌾 Harvest',
-  ore: `${ITEMS.copperOre.emoji} Ore`,
-  fuel: `${ITEMS.coal.emoji} Fuel`,
+  water: `${WORKER_JOB_EMOJI.water} Water`,
+  harvest: `${WORKER_JOB_EMOJI.harvest} Harvest`,
+  ore: `${WORKER_JOB_EMOJI.ore} Ore`,
+  fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
 }
 
 /** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */
