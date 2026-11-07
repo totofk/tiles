@@ -1,4 +1,4 @@
-import { fail, isAmount, withRun, type ActionResult } from './actions'
+import { fail, isAmount, nextRandom, withRun, type ActionResult } from './actions'
 import {
   ACTION_ENERGY_COST,
   itemSellPrice,
@@ -11,14 +11,6 @@ import { ITEM_IDS, type ItemId } from './data/items'
 import type { GameState, RunState } from './state'
 
 // Mining actions cost no energy except dig. Every item, wood included, takes one bag slot.
-
-/** mulberry32: a float in [0, 1) and the next uint32 state */
-export function nextRandom(rngState: number): [number, number] {
-  const next = (rngState + 0x6d2b79f5) >>> 0
-  let t = Math.imul(next ^ (next >>> 15), next | 1)
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-  return [((t ^ (t >>> 14)) >>> 0) / 4294967296, next]
-}
 
 export function bagCount(run: RunState): number {
   return ITEM_IDS.reduce((n, id) => n + (run.inventory[id] ?? 0), 0)

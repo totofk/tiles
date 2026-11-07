@@ -60,6 +60,10 @@ export const INITIAL_RNG_SEED = 0x2f6b1a3d
 /** drop weights per vein level (index = level); weights need not sum to 1 */
 const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [{ stone: 1 }]
 
+/** dig for seeds (farm action): chance per dig of one seed of this crop */
+const DIG_SEED_CROP: CropId = 'radish'
+const DIG_SEED_CHANCE = 0.2
+
 // Bank v0 placeholders (PLAN.md batch 4.5): debt starts at principal × (1 + fee) and grows by
 // principal × rate per tick up to principal × cap (33 → 60 in 450 ticks).
 const LOAN_PRINCIPAL = 30
@@ -156,6 +160,10 @@ export function pickaxeRecipe(tier: PickaxeTier): { wood: number; durability: nu
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+export function digSeedDrop(): { crop: CropId; chance: number } {
+  return { crop: DIG_SEED_CROP, chance: DIG_SEED_CHANCE }
 }
 
 /** whole cash; scales with the cost multiplier so a loan buys the same number of seeds */

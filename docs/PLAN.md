@@ -183,6 +183,11 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 5: the save backup runs before `deserialize`**, so it survives a migration that throws. Any raw save whose
   `version` is a number below `SAVE_VERSION` is copied to `tiles.save.backup.v<old>`, even one that then fails to
   load (it also goes to `tiles.save.bad`). The mining action is still called `dig()`; only its counter was renamed.
+- **Batch 5: `nextRandom` moved from `mining.ts` to `actions.ts`** (next to `fail` / `withRun` / `isAmount`), so
+  `digForSeeds` in actions can roll without a circular import between actions and mining. The dig's crop and
+  chance are `DIG_SEED_CROP` / `DIG_SEED_CHANCE` in `balance.ts`, read through `digSeedDrop()`. The Farm view shows
+  the last dig's result ("Found a 🥕 Carrot seed!" / "Nothing this time") next to the button, not as a toast; it is
+  UI state only and starts empty after a reload.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -325,7 +330,7 @@ Decisions: DECISIONS.md "Round-2 research outcome", "Farm tools", "Save compatib
     in the migration; new `digs` (soil) starts at 0; add `waters` and `plants`. `run.seeds` pouch (not in the bag),
     `buySeeds(crop, n)`, planting uses 1 seed, `run.autoBuySeeds` (default true) buys one when stock is 0. Radish
     displays as **Carrot** (id stays `radish`).
-22. [ ] Dig for seeds: farm action `digForSeeds()` — 1 energy, `DIG_SEED_CHANCE` 0.2 radish seed via the seeded PRNG,
+22. [x] Dig for seeds: farm action `digForSeeds()` — 1 energy, `DIG_SEED_CHANCE` 0.2 radish seed via the seeded PRNG,
     `counters.digs++`, available from tick 0, no license. Dug seeds go to the pouch and cannot be sold (no
     sell-seed action exists at all). Farm view button "🪏 Dig for seeds" with the last result.
 23. [ ] Farm tools core (`src/core/tools.ts`): for each job water / harvest / plant a tool level 0–3. Level 1 =

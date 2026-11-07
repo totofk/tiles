@@ -4,6 +4,7 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  digSeedDrop,
   licenseCost,
   tileCost,
   upgradeCost,
@@ -47,6 +48,14 @@ export function withRun(state: GameState, run: Partial<RunState>): ActionResult 
 }
 
 export const isAmount = (n: number) => Number.isInteger(n) && n >= 1
+
+/** mulberry32: a float in [0, 1) and the next uint32 state */
+export function nextRandom(rngState: number): [number, number] {
+  const next = (rngState + 0x6d2b79f5) >>> 0
+  let t = Math.imul(next ^ (next >>> 15), next | 1)
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+  return [((t ^ (t >>> 14)) >>> 0) / 4294967296, next]
+}
 
 // Farm actions validate in this order: BAD_TILE, tile status, license/seeds/cash (plant), NO_ENERGY.
 function farmAction(
@@ -135,6 +144,21 @@ export function harvest(state: GameState, i: number): ActionResult {
       }
     },
   )
+}
+
+// Dig for seeds: the anti-soft-lock floor. No tile, no license, free from tick 0; 1 energy, and a chance of one
+// seed into the pouch. The roll and the digs counter advance whether or not a seed drops.
+export function digForSeeds(state: GameState): ActionResult {
+  const { run } = state
+  if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
+  const [r, rngState] = nextRandom(run.rngState)
+  const { crop, chance } = digSeedDrop()
+  return withRun(state, {
+    energy: run.energy - ACTION_ENERGY_COST,
+    rngState,
+    seeds: r < chance ? { ...run.seeds, [crop]: (run.seeds[crop] ?? 0) + 1 } : run.seeds,
+    counters: { ...run.counters, digs: run.counters.digs + 1 },
+  })
 }
 
 // Shop actions cost no energy. Buying energyMax raises the cap only; current energy is not refilled.

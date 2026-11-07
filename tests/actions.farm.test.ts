@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { harvest, plant, till, water, type ActionResult } from '../src/core/actions'
-import { ACTION_ENERGY_COST, START_TILES, cropGrowTicks, cropRotGraceTicks, cropSeedCost, cropSellPrice } from '../src/core/balance'
+import * as actions from '../src/core/actions'
+import { digForSeeds, harvest, nextRandom, plant, till, water, type ActionResult } from '../src/core/actions'
+import {
+  ACTION_ENERGY_COST,
+  START_TILES,
+  cropGrowTicks,
+  cropRotGraceTicks,
+  cropSeedCost,
+  cropSellPrice,
+  digSeedDrop,
+} from '../src/core/balance'
+import * as bank from '../src/core/bank'
+import { ITEM_IDS, type ItemId } from '../src/core/data/items'
+import * as mining from '../src/core/mining'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 
 function withTile(tile: Partial<Tile>, run: Partial<GameState['run']> = {}): GameState {
@@ -96,6 +108,43 @@ describe('water', () => {
   })
   it('rejects bad indexes', () => {
     expect(water(createInitialState(), -1)).toEqual({ ok: false, error: 'BAD_TILE' })
+  })
+})
+
+describe('digForSeeds', () => {
+  it('works at tick 0 with no license: 1 energy, counts the dig, rolls the seeded PRNG', () => {
+    const s = createInitialState()
+    const next = okState(digForSeeds(s))
+    const [r, rngState] = nextRandom(s.run.rngState)
+    expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
+    expect(next.run.rngState).toBe(rngState)
+    expect(next.run.counters.digs).toBe(1)
+    expect(next.run.counters.mines).toBe(0)
+    expect(next.run.seeds.radish ?? 0).toBe(r < digSeedDrop().chance ? 1 : 0)
+    expect(next.run.cash).toBe(s.run.cash)
+    expect(digForSeeds(s)).toEqual({ ok: true, state: next }) // same seed, same result
+  })
+  it('drops a radish seed about DIG_SEED_CHANCE (0.2) of the time', () => {
+    expect(digSeedDrop()).toEqual({ crop: 'radish', chance: 0.2 })
+    let s = withTile({}, { energy: 1e6 })
+    for (let k = 0; k < 2000; k++) s = okState(digForSeeds(s))
+    expect(s.run.counters.digs).toBe(2000)
+    expect(s.run.seeds.radish! / 2000).toBeCloseTo(0.2, 1)
+  })
+  it('rejects without energy', () => {
+    expect(digForSeeds(withTile({}, { energy: 0.5 }))).toEqual({ ok: false, error: 'NO_ENERGY' })
+  })
+  it('dug and bought seeds are one stock: planting uses a dug seed for no cash', () => {
+    const next = okState(plant(withTile(tilled, { cash: 0, seeds: { radish: 1 } }), 0, 'radish'))
+    expect(next.run.seeds.radish).toBe(0)
+    expect(next.run.cash).toBe(0)
+  })
+  it('no sell path accepts seeds: there is no sell-seed action and sellItem refuses crop ids', () => {
+    const sellers = [actions, mining, bank].flatMap((m) => Object.keys(m)).filter((k) => /sell/i.test(k))
+    expect(sellers).toEqual(['sellItem'])
+    expect(ITEM_IDS as readonly string[]).not.toContain('radish')
+    const s = withTile({}, { seeds: { radish: 5 } })
+    expect(mining.sellItem(s, 'radish' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
   })
 })
 

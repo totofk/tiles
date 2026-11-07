@@ -100,6 +100,13 @@ describe('layout content', () => {
     expect(within(card).getByRole('button', { name: /Mine license 💰\d+/ })).toBeTruthy()
   })
 
+  it('Farm view has a Dig for seeds button that shows the last result', () => {
+    render(<App />)
+    const dig = within(document.querySelector<HTMLElement>('.farm')!).getByRole('button', { name: /Dig for seeds/ })
+    fireEvent.click(dig)
+    expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥕 Carrot seed!|Nothing this time/)
+  })
+
   it('keeps Reset save in the side panel and the Farm view', () => {
     render(<App />)
     const resets = screen.getAllByRole('button', { name: 'Reset save' })

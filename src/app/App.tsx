@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import { digForSeeds } from '../core/actions'
+import { digSeedDrop } from '../core/balance'
 import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
@@ -22,6 +24,7 @@ export default function App() {
   const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
+  const [lastDig, setLastDig] = useState<string | null>(null)
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
   const guardUntil = useRef<Record<number, number>>({})
 
@@ -90,6 +93,21 @@ export default function App() {
           Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
         </p>
         <FarmGrid state={state} onTap={onTap} />
+        <p className="dig-seeds">
+          <button
+            onClick={() =>
+              act(digForSeeds, (prev, next) => {
+                const { crop } = digSeedDrop()
+                const found = (next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)
+                setLastDig(found ? `Found a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed!` : 'Nothing this time')
+                return null
+              })
+            }
+          >
+            🪏 Dig for seeds <small>⚡1</small>
+          </button>
+          {lastDig && <span role="status">{lastDig}</span>}
+        </p>
         {resetButton('farm')}
       </section>
       <aside className="panel">

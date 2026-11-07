@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ActionResult } from '../src/core/actions'
+import { nextRandom, type ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
   itemSellPrice,
@@ -8,7 +8,7 @@ import {
   veinDrops,
   woodCost,
 } from '../src/core/balance'
-import { buyMineLicense, buyWood, craftPickaxe, dig, nextRandom, sellItem } from '../src/core/mining'
+import { buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 
 function withRun(run: Partial<GameState['run']>): GameState {
