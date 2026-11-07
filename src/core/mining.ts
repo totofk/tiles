@@ -12,6 +12,7 @@ import {
   pickaxeRepairCost,
   preserveChance,
   rockHits,
+  rockPickaxe,
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
@@ -94,6 +95,12 @@ export function expectedUses(tier: PickaxeTier, run: RunState, durability = pick
   return durability / (1 - pickaxePreserve(tier, run))
 }
 
+/** what a rock counts as when mined with `tier` (null = by hand): itself, or stone when the tier is below rockPickaxe */
+export function minedRock(rock: ItemId, tier: PickaxeTier | null): ItemId {
+  const need = rockPickaxe(rock)
+  return need && (!tier || PICKAXE_TIERS.indexOf(tier) < PICKAXE_TIERS.indexOf(need)) ? 'stone' : rock
+}
+
 /** +1 xp for the tier; reaching max mastery adds it to masteredTiers once */
 function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery' | 'masteredTiers'> {
   const xp = (run.mastery[tier] ?? 0) + 1
@@ -105,15 +112,17 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 // Hits add to the current rock; at rockHits(rock) it drops its item, extra hits are lost, and the next rock is rolled
 // from the vein table (one roll per break, as before the rock had a type). A pickaxe action rolls preserve first
 // (mastery level before this action's xp), else loses 1 durability; at 0 it goes blunt (kept, mines by hand until
-// repaired). Only pickaxe actions earn mastery xp.
+// repaired). Only pickaxe actions earn mastery xp. A rock that needs a better pickaxe than the active one (iron: copper
+// or better) is mined as a stone rock: stone's hits, drops stone.
 export function dig(state: GameState): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
   if (bagCount(run) >= run.bagCapacity) return fail('BAG_FULL')
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
   const pickaxe = activePickaxe(run)
+  const rock = minedRock(run.vein.rock, pickaxe?.tier ?? null)
   const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
-  const drop = hits >= rockHits(run.vein.rock)
+  const drop = hits >= rockHits(rock)
   const [keep, afterKeep] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
   const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
@@ -122,7 +131,7 @@ export function dig(state: GameState): ActionResult {
     rngState,
     pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
     vein: drop ? { ...run.vein, progress: 0, rock: pickDrop(veinDrops(run.vein.level), r) } : { ...run.vein, progress: hits },
-    inventory: drop ? addItems(run, run.vein.rock, 1) : run.inventory,
+    inventory: drop ? addItems(run, rock, 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
     lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
     ...(pickaxe && gainMastery(run, pickaxe.tier)),

@@ -7,9 +7,15 @@ import type { UpgradeId } from '../core/data/upgrades'
 import { createInitialState, createTile, type GameState, type Loan, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 10
+export const SAVE_VERSION = 11
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
+type JobV10 = JobV9 | 'plant'
+type RunV10 = Omit<RunV9, 'workers' | 'lifetime'> & {
+  plantCrop: CropId
+  workers: { pool: number; assigned: Record<JobV10, number>; certificates: JobV10[] }
+  lifetime: RunV9['lifetime'] & { workerPlants: number }
+}
 type JobV9 = 'water' | 'harvest' | 'ore' | 'fuel'
 type RunV9 = Omit<RunV8, 'autoSmelt' | 'counters' | 'workers' | 'furnace' | 'lifetime'> & {
   counters: CountersV4 & { bars: number }
@@ -75,8 +81,9 @@ type SaveV6 = { version: 6; savedAtMs: number; state: { meta: GameState['meta'];
 type SaveV7 = { version: 7; savedAtMs: number; state: { meta: GameState['meta']; run: RunV7 } }
 type SaveV8 = { version: 8; savedAtMs: number; state: { meta: GameState['meta']; run: RunV8 } }
 type SaveV9 = { version: 9; savedAtMs: number; state: { meta: GameState['meta']; run: RunV9 } }
-type SaveV10 = { version: 10; savedAtMs: number; state: GameState }
-export type Save = SaveV10
+type SaveV10 = { version: 10; savedAtMs: number; state: { meta: GameState['meta']; run: RunV10 } }
+type SaveV11 = { version: 11; savedAtMs: number; state: GameState }
+export type Save = SaveV11
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -250,31 +257,40 @@ function migrateV9(save: SaveV9): SaveV10 {
   }
 }
 
+// v10 → v11: the iron tier. The furnace's ore kind starts at copper (all it smelted before). Iron items start at 0
+// (absent from the bag). Nothing else changes.
+function migrateV10(save: SaveV10): SaveV11 {
+  const { meta, run } = save.state
+  return { version: 11, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, furnace: { ...run.furnace, oreKind: 'copperOre' } } } }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))))))))
     case 2:
-      return migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2))))))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2)))))))))
     case 3:
-      return migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3)))))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3))))))))
     case 4:
-      return migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4))))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4)))))))
     case 5:
-      return migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(data as SaveV5)))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(data as SaveV5))))))
     case 6:
-      return migrateV9(migrateV8(migrateV7(migrateV6(data as SaveV6))))
+      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(data as SaveV6)))))
     case 7:
-      return migrateV9(migrateV8(migrateV7(data as SaveV7)))
+      return migrateV10(migrateV9(migrateV8(migrateV7(data as SaveV7))))
     case 8:
-      return migrateV9(migrateV8(data as SaveV8))
+      return migrateV10(migrateV9(migrateV8(data as SaveV8)))
     case 9:
-      return migrateV9(data as SaveV9)
+      return migrateV10(migrateV9(data as SaveV9))
     case 10:
-      return data as SaveV10
+      return migrateV10(data as SaveV10)
+    case 11:
+      return data as SaveV11
     default:
       return null
   }

@@ -1,6 +1,6 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
 import { STARTING_CROP, type CropId } from './data/crops'
-import type { ItemId, PickaxeTier } from './data/items'
+import type { ItemId, OreId, PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
 import type { WorkerJob } from './data/workers'
@@ -85,10 +85,12 @@ export type CounterId = keyof Counters
 /**
  * fire = burn ticks left (filled with fuel); ore = copper ore in the ore slot (leaves it when a cycle completes);
  * progress = ticks into the current cycle; ready = bars waiting in the output tray; smart = fire burns only while a
- * cycle progresses; levels = bought fire-capacity and batch levels (0 = base)
+ * cycle progresses; levels = bought fire-capacity and batch levels (0 = base); oreKind = the one ore the slot takes and
+ * the tray's bars are made of
  */
 export type Furnace = {
   built: boolean
+  oreKind: OreId
   fire: number
   ore: number
   progress: number
@@ -170,7 +172,7 @@ export function createInitialState(): GameState {
   }
 }
 
-/** a furnace not yet built: no fire, empty slot and tray, base levels */
+/** a furnace not yet built: copper, no fire, empty slot and tray, base levels */
 export function createFurnace(): Furnace {
-  return { built: false, fire: 0, ore: 0, progress: 0, ready: 0, smart: false, levels: { fireCap: 0, batch: 0 } }
+  return { built: false, oreKind: 'copperOre', fire: 0, ore: 0, progress: 0, ready: 0, smart: false, levels: { fireCap: 0, batch: 0 } }
 }

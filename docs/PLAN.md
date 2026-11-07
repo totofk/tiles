@@ -1680,7 +1680,7 @@ No `balance.ts` number changed: the starting certificate (🥉10 + 💰300 after
 
 Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tools are NOT in this batch.
 
-- [ ] 65. **Iron items + vein Lv3 + save v11.** Items iron ore and iron bar (emoji Unicode ≤ 11, from the shared
+- [x] 65. **Iron items + vein Lv3 + save v11.** Items iron ore and iron bar (emoji Unicode ≤ 11, from the shared
     `ITEMS` constants; list your choice). Vein Lv3 drops ~55 % stone / 20 % coal / 15 % copper ore / 10 % iron ore;
     iron rock = 4 hits and needs a copper pickaxe or better (wooden or by hand: it breaks as stone). Price fits the
     storage the player has then (assert in the sim): e.g. 40 stone + 🥉5 + 💰400. Save v11: FIRST commit
@@ -1703,3 +1703,22 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
     ore + fuel workers on a plain vs smart furnace; 8 h offline with the whole chain (storage full is the expected
     stop); every iron price ≤ what the player can hold; mining cash/energy still ≤ the farm cap; all older pins pass.
     Tune only batch-11 numbers; report every change as a deviation.
+
+## Batch 11 results
+
+### Iron items + vein Lv3 + save v11 (task 65)
+- **Fixture first:** `tests/fixtures/save-v10.json` (own commit) is the real v9 fixture loaded by the batch-10 code and
+  played 765 ticks with its real actions: lemons tapped, copper mined (ore loader on, coal filled), stone sold when full,
+  the plant certificate bought, a 5th hire put on plant, Crop to plant = 🎃 pumpkin. It saves mid-smelt (fire 569, ore
+  10, progress 3) with 7 plants by workers.
+- **Items:** `ironOre` **🔷** (Iron ore, Unicode 6.0) and `ironBar` **🥈** (Iron bar, Unicode 9.0) in `ITEMS`, after the
+  copper pair (the medal ladder 🥉 → 🥈 → 🥇 for gold later). Iron ore sells 💰1 (ore ≤ 1); iron bars never sell.
+  `ORE_IDS = copperOre, ironOre` / `OreId` (data/items.ts) for the furnace's ore kind.
+- **Vein Lv3:** 40 stone + 🥉5 + 💰400 (45 items ≤ storage Lv3's 50: each vein level comes after the same storage level,
+  asserted in mining.test and in the sim's prices-fit-storage table) → 55 % stone / 20 % coal / 15 % copper ore / 10 %
+  iron ore. `veinMaxLevel()` = 3; the Mine panel's teaser now reads "🔒 Lv4: gold ore — coming".
+- **Iron rock:** 4 hits (`rockHits`), needs a copper pickaxe or better (`rockPickaxe('ironOre')` = copper). With less
+  (wooden, by hand, or a blunt copper pickaxe, which mines by hand) the rock is mined as a stone rock: stone's 2 hits,
+  drops stone (`minedRock(rock, tier)` in mining.ts, used by `dig`). A copper pickaxe (3 hits) takes 2 actions.
+- **Save v11:** `furnace.oreKind` (`createFurnace()` = `'copperOre'`). `RunV10` frozen in `serialize.ts`; v1…v10 chain to
+  v11, backup key per version (v10 added to the backup test). Iron items are absent (= 0) from migrated bags.

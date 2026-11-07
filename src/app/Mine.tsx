@@ -53,7 +53,7 @@ import { FURNACE_TIPS } from './tips'
 import { ERROR_TEXT, FIRE_EMOJI, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
-const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
+const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: gold ore — coming`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 

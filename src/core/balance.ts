@@ -55,7 +55,7 @@ const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
 // wood sells below its buy price, so buying and reselling wood never makes money. Ore sells ≤ 1 (its value is
 // smelting); copper bars have no price at all, so there is no smelt-to-sell loop.
-const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1 } satisfies Partial<Record<ItemId, number>>
+const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1, ironOre: 1 } satisfies Partial<Record<ItemId, number>>
 export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 /** a price in cash plus items from storage */
 export type Price = { cash: number } & Partial<Record<ItemId, number>>
@@ -83,7 +83,9 @@ const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: n
 }
 /** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2
-const ROCK_HITS: Partial<Record<ItemId, number>> = { copperOre: 3 }
+const ROCK_HITS: Partial<Record<ItemId, number>> = { copperOre: 3, ironOre: 4 }
+/** rocks that need at least this pickaxe tier; with less (or by hand) the rock is a stone rock (hits and drop) */
+const ROCK_PICKAXE: Partial<Record<ItemId, PickaxeTier>> = { ironOre: 'copper' }
 const HAND_HITS = 1
 // Pickaxe mastery: cumulative xp for Lv1 … Lv10 of the first tier; each later tier multiplies them by the factor.
 const MASTERY_THRESHOLDS = [10, 25, 45, 70, 100, 140, 190, 250, 320, 400]
@@ -101,11 +103,13 @@ const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
   { stone: 1 },
   { stone: 0.8, coal: 0.2 },
   { stone: 0.65, coal: 0.2, copperOre: 0.15 },
+  { stone: 0.55, coal: 0.2, copperOre: 0.15, ironOre: 0.1 },
 ]
-/** price of vein level index + 1, paid in items from storage and cash */
+/** price of vein level index + 1, paid in items from storage and cash; Lv3 (45 items) comes after storage Lv3 (50) */
 const VEIN_UPGRADES: ReadonlyArray<Price> = [
   { stone: 25, cash: 100 },
   { stone: 30, coal: 10, cash: 200 },
+  { stone: 40, copperBar: 5, cash: 400 },
 ]
 /** vein levels from this one up need the furnace */
 const VEIN_FURNACE_LEVEL = 2
@@ -355,6 +359,11 @@ export function pickaxeRepairCost(tier: PickaxeTier, meta: MetaState): Price {
 /** hits a rock that drops `rock` takes to break */
 export function rockHits(rock: ItemId): number {
   return ROCK_HITS[rock] ?? STONE_HITS
+}
+
+/** the lowest pickaxe tier that mines this rock as itself; null = any, by hand too */
+export function rockPickaxe(rock: ItemId): PickaxeTier | null {
+  return ROCK_PICKAXE[rock] ?? null
 }
 
 /** hits per mine action; null = by hand */

@@ -967,6 +967,8 @@ describe('batch 7: every multi-item price fits the storage the player has when i
     ...FURNACE_UPGRADE_IDS.flatMap((id) =>
       Array.from({ length: furnaceUpgradeMaxLevel(id) }, (_, l): [string, Price, number] => [`${id} Lv${l + 1}`, furnaceUpgradeCost(id, l, meta)!, 40]),
     ),
+    // batch 11: vein Lv3 (40 stone + 5 copper bars) comes after storage Lv3 (50), as each vein level after its storage level
+    ['vein Lv3', veinUpgradeCost(2, meta)!, 50],
   ])('%s', (_, price, capacity) => {
     expect(items(price)).toBeLessThanOrEqual(capacity)
   })

@@ -9,6 +9,7 @@ import {
   pickaxeDurability,
   pickaxeRepairCost,
   rockHits,
+  rockPickaxe,
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
@@ -27,6 +28,7 @@ import {
   craftPickaxe,
   dig,
   expectedUses,
+  minedRock,
   pickaxePreserve,
   repairPickaxe,
   sellItem,
@@ -202,7 +204,7 @@ describe('pickaxe mastery', () => {
 
 describe('upgradeVein', () => {
   it('vein Lv1 costs 25 stone + 100 cash and drops 80 % stone / 20 % coal; coal sells for 4', () => {
-    expect([veinMaxLevel(), veinUpgradeCost(0, meta), veinUpgradeCost(2, meta)]).toEqual([2, { stone: 25, cash: 100 }, null])
+    expect([veinMaxLevel(), veinUpgradeCost(0, meta), veinUpgradeCost(3, meta)]).toEqual([3, { stone: 25, cash: 100 }, null])
     expect(veinDrops(1)).toEqual({ stone: 0.8, coal: 0.2 })
     expect(itemSellPrice('coal', meta, 0)).toBe(4)
     const s = miner({ cash: 100, inventory: { stone: 26 }, bagCapacity: 50, vein: { level: 0, progress: 1, rock: 'stone' } })
@@ -219,7 +221,48 @@ describe('upgradeVein', () => {
     expect(upgradeVein(s)).toEqual({ ok: false, error: 'NO_FURNACE' })
     const next = okState(upgradeVein({ ...s, run: { ...s.run, furnace: { ...s.run.furnace, built: true } } }))
     expect([next.run.vein.level, next.run.cash, next.run.inventory]).toEqual([2, 0, { stone: 0, coal: 0 }])
-    expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3, coal: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('vein Lv3 costs 40 stone + 5 copper bars + 400 cash and drops 55 % stone / 20 % coal / 15 % copper / 10 % iron ore; max', () => {
+    expect(veinUpgradeCost(2, meta)).toEqual({ stone: 40, copperBar: 5, cash: 400 })
+    expect(veinDrops(3)).toEqual({ stone: 0.55, coal: 0.2, copperOre: 0.15, ironOre: 0.1 })
+    expect(itemSellPrice('ironOre', meta, 0)).toBe(1)
+    const furnace = { ...createInitialState().run.furnace, built: true }
+    const s = miner({ cash: 400, inventory: { stone: 40, copperBar: 5 }, bagCapacity: 50, furnace, vein: { level: 2, progress: 1, rock: 'copperOre' } })
+    expect(upgradeVein({ ...s, run: { ...s.run, inventory: { stone: 40, copperBar: 4 } } })).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    const next = okState(upgradeVein(s))
+    expect([next.run.vein, next.run.cash, next.run.inventory]).toEqual([{ level: 3, progress: 1, rock: 'copperOre' }, 0, { stone: 0, copperBar: 0 }])
+    const rich = { ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3, coal: 1e3, copperBar: 1e3 } } }
+    expect(upgradeVein(rich)).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+  it('an iron rock takes 4 hits with a copper pickaxe (2 actions) and drops iron ore', () => {
+    expect([rockHits('ironOre'), rockPickaxe('ironOre')]).toEqual([4, 'copper'])
+    const s = miner({ pickaxe: { tier: 'copper', durability: 200 }, vein: { level: 3, progress: 0, rock: 'ironOre' } })
+    const half = okState(dig(s))
+    expect([half.run.vein.progress, half.run.inventory]).toEqual([3, {}])
+    const done = okState(dig(half))
+    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { ironOre: 1 }])
+  })
+  it('a wooden pickaxe, bare hands or a blunt copper pickaxe mine an iron rock as stone (stone hits, stone drop)', () => {
+    const rock = { level: 3, progress: 0, rock: 'ironOre' as const }
+    expect(okState(dig(miner({ vein: rock }))).run.inventory).toEqual({ stone: 1 })
+    const hand = withRun({ mineLicense: true, vein: rock })
+    expect(okState(dig(okState(dig(hand)))).run.inventory).toEqual({ stone: 1 })
+    const blunt = miner({ pickaxe: { tier: 'copper', durability: 0 }, vein: rock })
+    expect(okState(dig(blunt)).run.vein.progress).toBe(1)
+    expect(okState(dig(okState(dig(blunt)))).run.inventory).toEqual({ stone: 1 })
+    expect([minedRock('ironOre', null), minedRock('ironOre', 'wooden'), minedRock('ironOre', 'copper'), minedRock('copperOre', null)]).toEqual([
+      'stone',
+      'stone',
+      'ironOre',
+      'copperOre',
+    ])
+  })
+  it('vein Lv3 drops iron ore about 1 time in 10 with a copper pickaxe', () => {
+    let s = miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'copper', durability: 1e6 }, vein: { level: 3, progress: 0, rock: 'stone' } })
+    for (let i = 0; i < 3000; i++) s = okState(dig(s))
+    const { stone = 0, coal = 0, copperOre = 0, ironOre = 0 } = s.run.inventory
+    expect(ironOre / (stone + coal + copperOre + ironOre)).toBeGreaterThan(0.07)
+    expect(ironOre / (stone + coal + copperOre + ironOre)).toBeLessThan(0.13)
   })
   it('a copper rock takes 3 hits: 2 wooden-pickaxe actions, the 3rd hit lost', () => {
     expect(rockHits('copperOre')).toBe(3)

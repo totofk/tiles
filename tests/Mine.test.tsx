@@ -29,13 +29,13 @@ const text = () => document.body.textContent ?? ''
 const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' as const, durability })
 
 describe('Mine panel', () => {
-  it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
+  it('shows the current vein with %, the next level greyed with its cost, and the gold teaser with no numbers', () => {
     setup({})
     expect(text()).toContain(`Vein Lv0: ${STONE} Stone 100 %`)
     expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}25 💰100`)).toBeTruthy()
-    const iron = screen.getByText(/iron ore/)
-    expect(iron.textContent).toBe('🔒 Lv3: iron ore — coming')
-    expect(iron.textContent).not.toMatch(new RegExp(`%|💰|${STONE}|\\d\\s`))
+    const gold = screen.getByText(/gold ore/)
+    expect(gold.textContent).toBe('🔒 Lv4: gold ore — coming')
+    expect(gold.textContent).not.toMatch(new RegExp(`%|💰|${STONE}|\\d\\s`))
   })
 
   it('the next vein level has an Upgrade button, disabled with the reason until it is affordable', () => {
@@ -62,11 +62,11 @@ describe('Mine panel', () => {
     expect((screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('at the last vein level shows only the current table and the iron teaser', () => {
-    setup({ vein: { level: 2, progress: 0, rock: 'stone' } })
-    expect(text()).toContain(`Vein Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 %`)
-    expect(screen.queryByText(/^Lv3: /)).toBeNull()
-    expect(screen.getByText(/iron ore/)).toBeTruthy()
+  it('at the last vein level shows only the current table and the gold teaser', () => {
+    setup({ vein: { level: 3, progress: 0, rock: 'stone' } })
+    expect(text()).toContain(`Vein Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${ITEMS.ironOre.emoji} Iron ore 10 %`)
+    expect(screen.queryByText(/^Lv4: /)).toBeNull()
+    expect(screen.getByText(/gold ore/)).toBeTruthy()
   })
 
   it('shows the current rock type and its hits: a copper rock takes 3', () => {
