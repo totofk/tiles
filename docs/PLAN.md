@@ -1539,3 +1539,24 @@ No `balance.ts` number changed: every check below passes on the task-57/58 start
   bar, and the order certificate → certificate → smart lands at ≈ 42 / 52 / 62 min of the ladder, after the copper
   tools. Smart pays off only when ore runs out with the fuel loader on, which in active play (mining feeding ore) did
   not happen in 2 h; offline it saves the whole coal stock.
+
+## Batch 10 — plant worker (tasks 62–64)
+
+Toon: workers for planting next, before iron; dig-for-seeds never gets a worker (a paid dig worker buys a 💰2 carrot
+seed for ~💰5 of wages, a free one is a seed printer, and broke players cannot pay it anyway). Save v9 → v10.
+
+- [ ] 62. **Plant worker core + save v10.** New `WorkerJob` `plant` (same pool, wage, action clock as batch 8/9).
+    One action = what the player's tap does on that tile: till an untilled tile, else plant the crop selected in
+    "Crop to plant" on an empty tilled tile, using a seed from the pouch (auto-buy rules apply exactly as for the
+    player: buys one seed when the pouch is empty and auto-buy is on and cash allows; else the worker idles, no wage).
+    Copper dibber seed-keep applies. Acts only when there is an empty tile; picks tiles by the shared selection code
+    so `workerTargets` (batch 9) covers it. Certificate 🥉10 + 💰300, visible after 60 plants. Save v10 per CLAUDE.md:
+    FIRST commit `tests/fixtures/save-v9.json` from the current code; chain v1–v9 → v10 (plant assigned 0, no
+    certificate). step(s, n) = n × step(s, 1) with all three farm workers on.
+- [ ] 63. **UI.** Plant row in the Workers card (certificate, −/count/+, ⓘ) in the same order as the tool rows:
+    Plant / Water / Harvest, then the furnace jobs. Target ring + flash (🌱) on planted tiles. Stats: plants by
+    workers. Away banner: plants by workers. Compact at 375 px.
+- [ ] 64. **Sim + balance.** With plant + water + harvest workers on pumpkin and lemon: cash/hour vs manual, and 8 h
+    offline vs batch 8's +💰1,085 (the gap this batch closes). Pin: the full loop runs offline without going below 0
+    cash, auto-buy off → workers idle when the pouch is empty, the certificate is reachable after the furnace
+    loaders. Tune only batch-10 numbers; report every change as a deviation.

@@ -240,3 +240,14 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Worker targets are shown, not walked:** a dashed ring on the next tile and a short flash when a worker acts.
   Farm rows are not stable across widths, so no walking figures. Targets are derived from state, never saved.
 - **Progress bars ease between 1 s ticks** (CSS transition while growing, jump on reset, off for reduced motion).
+
+## Plant worker (batch 10)
+
+- **Plant worker before iron, priced in copper bars** (🥉10 + 💰300 after 60 plants): water and harvest workers come
+  before the furnace, so gating planting behind iron would leave the farm half-automated for a long time and keep
+  the 8 h offline gap. Copper bars still force the mine → furnace path first.
+- **A worker's action = the player's tap on that tile** (till, else plant the selected crop), with the same seed
+  pouch and auto-buy rules, so no new rule exists that the player cannot see.
+- **No dig-for-seeds worker, confirmed again (Toon agreed):** dig finds a carrot seed 20 % of the time, so at 💰1 a
+  dig a worker pays ~💰5 for a 💰2 seed; a free one prints seeds; and the dig floor exists for broke players, who
+  cannot pay wages. Revisit only if digging gets better drops.
