@@ -1177,3 +1177,29 @@ No `balance.ts` number changed in tasks 52–53; save stays v8.
 - **Reading:** workers do keep a pumpkin farm running at ≈ 88 % of hand play, and the energy they free goes to the
   mine (+67 % mine actions), not nowhere. Offline value is capped by the missing planter: away, the farm stops after
   one harvest round.
+
+## Batch 8.1 — floating tips + stacked farm tool rows (tasks 54–55)
+
+UI only: no change to `src/core/**`, `balance.ts` or the save shape (save stays v8). Toon's playtest feedback on
+the live batch-8 build.
+
+- [ ] 54. **Floating ⓘ tips.** `Info` (src/app/Info.tsx) renders the tip in flow today, so opening one pushes every
+    row below it down. Make the tip float: `position: fixed`, placed from the ⓘ button's `getBoundingClientRect()`
+    — below the button by default, flipped above when it would pass the viewport bottom, clamped to the viewport's
+    left/right edges (8 px margin), max-width ~280 px. It must not be clipped by the scrolling side panel, must
+    not move any other element, closes on Esc / pointer-down outside / scroll of its scroll parent, and keeps the
+    hover-to-show on desktop and tap-to-toggle on touch. Keep `role="tooltip"` + `aria-describedby`. Also fix the
+    seed-pouch rows of Pumpkin / Lemon where the ⓘ wraps to its own line: the ⓘ stays on the row's first line at
+    every width from 1024 px up and at 375 px.
+- [ ] 55. **Desktop Farm tab: three stacked tool rows, order Plant / Water / Harvest.** Inside the desktop 🌾 Farm
+    tab only, `.tools` becomes `flex-direction: column`; each owned tool is one row
+    `[ − ]  [ 🌱 Plant 4 ]  [ + ]` (a flex row: − on the left, the press button with the per-press count in the
+    middle, + on the right), in the order plant, water, harvest (the farm loop order). −/+ set the same per-press
+    count the level-2 popover sets today (`setToolN`), with the same bounds and disabled states. Level-1 (one tile)
+    and level-3 (all tiles) rows have no count to set: hide −/+ but keep their space so every middle button has the
+    same width. Copper marks, stop/feedback text and the press behaviour stay as they are. Remove the ⋯ / right-click
+    / long-press popover on desktop (−/+ replace it). **Mobile (< 768 px) is unchanged**: the one-row bar above the
+    bottom tab bar with ⋯ + popover stays, same order as today. The collapsed-panel fallback (tools beside the farm
+    when the side panel is collapsed) uses the stacked rows too. Measure from CSS that each row fits the panel's
+    content width at 1024 px (~284 px) and 1440 px; no row may overlap the panel tabs (reset every offset the mobile
+    rule sets).

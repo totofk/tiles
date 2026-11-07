@@ -212,3 +212,14 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   is never eaten.
 - **Workers live in the 🌾 Farm tab (desktop) / below the grid (mobile)** with their certificates and hire button,
   not in Shop: everything about who presses on the farm stays in one place, and no 7th tab is added.
+
+## Floating tips + stacked tool rows (batch 8.1)
+
+- **ⓘ tips float (`position: fixed`) instead of sitting in flow**: an in-flow tip pushed the rows below it; a plain
+  `absolute` tip is clipped by the scrolling side panel. Fixed + placed from the ⓘ rect + flipped/clamped to the
+  viewport gives neither problem.
+- **Desktop Farm tab tool rows are stacked, Plant / Water / Harvest, with − / count / + on each row** (Toon): the
+  order follows the farm loop, and direct −/+ replace the hidden ⋯ popover on desktop. Level-1/3 rows keep empty
+  −/+ slots so the press buttons line up.
+- **Mobile keeps the single-row bar + ⋯ popover**: three stacked rows would be ~132 px plus the 56 px tab bar,
+  covering almost half the farm on a 375 px phone.
