@@ -32,7 +32,7 @@ import {
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
-import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, smelting } from '../core/furnace'
+import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -118,7 +118,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
         <Info text={FURNACE_TIPS.fire} />
       </div>
       <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
-      {f.fire > 0 && !f.smart && !smelting(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
+      {f.fire > 0 && !f.smart && f.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
       <span>
         {ITEMS.copperOre.emoji} ore {f.ore} / {oreSlotCap()}
         {f.progress > 0 && ` · ${f.progress}/${barTicks()} s`}

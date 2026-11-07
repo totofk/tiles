@@ -1436,8 +1436,8 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
 
 ### Furnace + worker UI (task 59)
 - **🔥 Furnace card** (`Mine.tsx` `Furnace`, open): "🔥 fire n / cap" (+ " · smart") with an ⓘ, a fire `Bar` (`kind="fire"`,
-  orange, burn ticks / cap ticks), the plain-furnace hint "burning with nothing to smelt" (fire > 0, not smart, not
-  `smelting(f)`), "🔶 ore n / 12" (+ " · p/60 s" and the grow bar while a cycle runs), the recipe line at the current
+  orange, burn ticks / cap ticks), the plain-furnace hint "burning with nothing to smelt" (fire > 0, not smart, ore in the
+  slot below one cycle), "🔶 ore n / 12" (+ " · p/60 s" and the grow bar while a cycle runs), the recipe line at the current
   batch (🔶2·batch + ⚫1 or 🌲2 → 🥉batch), then the buttons **Load 🔶 ore / Fill with 🌲 wood / Fill with ⚫ coal /
   Collect n 🥉**, each with a second line read off the action's own result: "uses n" (items the press moves), the
   short reason when disabled, "tray n/5" on Collect. Then one `Item` row per furnace upgrade not at max ("Fire cap
@@ -1478,7 +1478,9 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
   `outline-offset: -4px`). `useGame` keeps `acted` = `workerTargets(before)` when a live step of ≤ 5 ticks crosses the
   worker tick (else []), so the acted tiles get `.cell-flash` (0.5 s white inset-shadow wash) and a `.cell-pop` with
   the job's emoji (`WORKER_JOB_EMOJI`, 💧 / 🌾, 18 px, rises 10 px and fades in 0.5 s) until the next tick. Reduced
-  motion: no wash, the pop shows still for that tick.
+  motion: no wash, the pop shows still for that tick. A keyboard-focused tile shows a solid focus outline 2 px outside
+  it (`.cell:focus-visible`) in place of the ring while focused (the ring's author outline would otherwise hide the
+  browser's focus ring); it draws into the 6 px grid gap, not over a neighbour.
 - **Layout, computed from `app.css`:** none of the three takes space: an outline and a box-shadow are not layout, and
   the pop is `position: absolute` (`.cell` is now `position: relative`; nothing else in a cell is absolute). The ring
   sits 2–4 px inside the border box: inside the 4 px side / 6 px top padding, so it never crosses the 1 px border (or

@@ -153,6 +153,10 @@ describe('Mine panel', () => {
     setup({ furnace: { ...built, fire: 90, ore: 2 } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     cleanup()
+    // a full tray also stops the cycle, but ore is loaded: the hint is only about missing ore
+    setup({ furnace: { ...built, fire: 90, ore: 2, ready: 5 } })
+    expect(document.querySelector('.furnace-hint')).toBeNull()
+    cleanup()
     setup({ furnace: { ...built, fire: 90, smart: true } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     expect(text()).toContain('🔥 fire 3 / 10 · smart')
