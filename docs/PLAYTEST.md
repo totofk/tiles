@@ -23,6 +23,20 @@ license purchase and crop selection — the state is correct. Root causes are di
 - Upgrades unlocked by milestones, not just cash: sell price (after N sales), fertilizer / growth speed (after N harvests).
 - Mining as the "spend idle energy while crops grow" system → furnace → forge → tool tiers → automation last.
 
-## Round 2 — pending (batch 3 build)
-Questions to answer: does digging while crops grow remove the "idle" feeling? Is mining income per energy
-clearly below farming income per energy (it must stay a filler, not the main loop)?
+## Round 2 — 2026-11-07, build 09bfbe2 (batch 3: 9 tiles, energy 10, mining v1)
+
+Player: Toon. Reached tick ~5500, stamina Lv 3, regen Lv 2 (so energy upgrades *are* bought now).
+
+1. Idle feeling: **gone**, but digging feels pointless — "only stone, no progress, no idea what the rates are or
+   what the mine can be upgraded into, so farming is clearly the better use of energy". → Mining v1 shows no
+   goal; the vein upgrade / drop table (batch 4) must be *visible* (locked rows with %) before it is earned.
+2. Pumpkin pacing: not felt as slower — but wood is too expensive: 3 wood (12) per pickaxe, 20 digs of stone (40)
+   = **net ~8 per pickaxe**. Ideas: cheaper-wood upgrade, or replace buying wood with a **logging license**
+   (spend energy to chop wood, axe upgradable).
+3. **Soft-lock (bug):** ended with cash 1, no pickaxe, all 9 tiles tilled, nothing in the bag. Radish seed costs 2,
+   wood 4 → no action can ever produce cash again. Phase 1 had no anti-bankruptcy floor because seeds were
+   always affordable; mining spend broke that assumption. Needs a safety net (e.g. free/starter radish seeds
+   when cash < seed cost, or PRD 4.1 emergency micro-loan).
+4. Energy upgrades: wants them now (confirmed by the screenshot: Lv 3 / Lv 2).
+
+Design discussion continues in a separate thread.
