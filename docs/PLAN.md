@@ -150,6 +150,12 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 4: buy wood is in both Shop and the Mine panel.** Shop holds wood per the task; the Mine panel keeps its
   button next to "craft" so a mobile player does not switch views to craft a pickaxe. The Shop shows wood only after
   the mine license (it replaces the license card there). The unlock toast now says "New upgrade: …".
+- **Batch 4: Reset save is rendered twice** (bottom of the side panel and of the Farm view). CSS shows the panel one at
+  ≥ 768 px and the Farm one below, so it is never hidden behind the Shop tab on mobile.
+- **Batch 4: `tiles.ui` is parsed field by field**: a broken or non-object value gives the defaults, and a single bad
+  field (unknown view, a tab id not in `PANEL_TABS`) falls back alone. A storage that throws also gives the defaults.
+  DOM tests use `@testing-library/react` + `jsdom` through a per-file `// @vitest-environment jsdom` comment;
+  every other test still runs in node.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -231,7 +237,7 @@ UI only: no change to `src/core/**` numbers or the save format.
     (seeds, licenses, wood, tiles) and Upgrades (energy max, regen, sell price, fertilizer; milestone-hidden ones
     stay hidden). Collapse/expand button on desktop; when collapsed the farm grows. Toasts stay visible in every
     layout.
-17. [ ] UI state (active tab/view, panel collapsed) persisted under localStorage key `tiles.ui`, separate from the
+17. [x] UI state (active tab/view, panel collapsed) persisted under localStorage key `tiles.ui`, separate from the
     game save; a broken/missing value falls back to defaults. Component tests for the tab switching and the
     persisted UI state. Reset save stays a small confirm-guarded button at the bottom of the side panel / Farm view.
 

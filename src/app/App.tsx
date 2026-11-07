@@ -1,25 +1,25 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
+import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
 const TAP_GUARD_MS = 400
 
-/** mobile (< 768 px) shows one of these at a time; wider layouts show all of them */
-type View = 'farm' | 'mine' | 'panel'
-
 export default function App() {
   const { state, act, reset, toast, banner, dismissBanner } = useGame()
   const [cropId, setCropId] = useState<CropId>(STARTING_CROP)
-  const [view, setView] = useState<View>('farm')
-  const [tab, setTab] = useState<PanelTabId>('shop')
-  // desktop only: a collapsed panel gives its width to the farm
-  const [collapsed, setCollapsed] = useState(false)
+  const [ui, setUi] = useState(() => loadUi(localStorage))
+  useEffect(() => saveUi(localStorage, ui), [ui])
+  const { view, tab, collapsed } = ui
+  const setView = (v: View) => setUi((u) => ({ ...u, view: v }))
+  const setTab = (t: PanelTabId) => setUi((u) => ({ ...u, tab: t }))
+  const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant

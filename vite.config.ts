@@ -7,7 +7,8 @@ export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/tiles/' : '/',
   plugins: [react()],
   test: {
-    include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
+    // node by default; DOM tests opt in with a `// @vitest-environment jsdom` comment
+    include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
     passWithNoTests: true,
   },
 })
