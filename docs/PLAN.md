@@ -1886,7 +1886,7 @@ Toon: a way for players to send feedback / ideas that reaches his mail and is ke
 move Reset there with a confirm. Transport = his Google Form (responses kept in Forms/Sheets; mail via an Apps Script
 on the form that Toon installs — not part of this repo).
 
-- [ ] 70. **💬 Feedback card at the end of 📊 Stats.** Fields: kind (Feedback / Idea / Bug report — segmented buttons,
+- [x] 70. **💬 Feedback card at the end of 📊 Stats.** Fields: kind (Feedback / Idea / Bug report — segmented buttons,
     default Feedback), short title (required, ≤ 80 chars, counter), details (required textarea, ≤ 2000 chars),
     contact (optional, "name or email if you want a reply"). Hidden honeypot input (`website`, off-screen, not
     `display:none`, `tabindex=-1`, `autocomplete=off`): if filled, pretend success and send nothing. Send button

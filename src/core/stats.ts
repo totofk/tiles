@@ -120,3 +120,23 @@ export function stats(state: GameState): Stats {
   ]
   return { totals, multipliers }
 }
+
+/**
+ * One plain-text line about the run for a feedback report (never the save). hideIron drops the mine worker, the
+ * only iron-only field, so the line says nothing about iron while the UI gates it off.
+ */
+export function feedbackSummary(state: GameState, hideIron: boolean): string {
+  const { run } = state
+  const { furnace, workers, pickaxe } = run
+  const jobs = WORKER_JOBS.filter((job) => !(hideIron && job === 'mine'))
+  return [
+    `cash ${Math.floor(run.cash)}`,
+    `licenses ${run.licenses.join(', ')}`,
+    `tools ${TOOL_JOBS.map((job) => `${job} Lv${run.tools[job]} tier ${run.toolTier[job]}`).join(', ')}`,
+    `pickaxe ${pickaxe ? `${pickaxe.tier} ${pickaxe.durability}` : 'none'}`,
+    `workers ${workers.pool} (${jobs.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
+    `vein Lv${run.vein.level}`,
+    `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch}` : 'none'}`,
+    `played ${duration(run.tick)}`,
+  ].join(' · ')
+}

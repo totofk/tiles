@@ -4,12 +4,19 @@ import type { GameState } from '../core/state'
 import { Bank } from './Bank'
 import { Farm } from './Farm'
 import { Shop } from './Shop'
-import { Stats } from './Stats'
+import type { FeedbackProps } from './FeedbackCard'
+import { StatsTab } from './Stats'
 import { Upgrades } from './Upgrades'
 import type { Act } from './useGame'
 
-/** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded) */
-export type PanelProps = { state: GameState; act: Act; cropId: CropId; onSelectCrop: (id: CropId) => void; farmTab: boolean }
+/** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded); feedback: the 📊 Stats tab's form, held by App */
+export type PanelProps = {
+  state: GameState
+  act: Act
+  cropId: CropId
+  onSelectCrop: (id: CropId) => void
+  farmTab: boolean
+} & Omit<FeedbackProps, 'state'>
 
 /**
  * Side panel tabs, also the panel entries of the mobile tab bar. Adding a tab is one entry here;
@@ -21,7 +28,7 @@ export const PANEL_TABS = [
   { id: 'shop', label: '🛒 Shop', Panel: Shop },
   { id: 'upgrades', label: '⬆️ Upgrades', Panel: Upgrades },
   { id: 'bank', label: '🏦 Bank', Panel: Bank },
-  { id: 'stats', label: '📊 Stats', Panel: Stats },
+  { id: 'stats', label: '📊 Stats', Panel: StatsTab },
 ] as const satisfies readonly { id: string; label: string; Panel: (p: PanelProps) => ReactNode }[]
 
 export type PanelTabId = (typeof PANEL_TABS)[number]['id']

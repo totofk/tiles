@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
-import { cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
+import { STARTING_CASH, cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
-import { stats } from '../src/core/stats'
+import { feedbackSummary, stats } from '../src/core/stats'
 
 const row = (rows: { label: string }[], label: string) => rows.find((r) => r.label === label)
 
@@ -122,5 +122,37 @@ describe('stats(state)', () => {
       value: `${ITEMS.stone.emoji} Stone 65 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 15 %`,
       source: 'Vein Lv2',
     })
+  })
+})
+
+describe('feedbackSummary(state, hideIron)', () => {
+  it('a fresh run in one line', () => {
+    expect(feedbackSummary(createInitialState(), false)).toBe(
+      `cash ${STARTING_CASH} · licenses radish · tools` +
+        ' water Lv0 tier 0, harvest Lv0 tier 0, plant Lv0 tier 0 · pickaxe none · ' +
+        'workers 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0) · vein Lv0 · furnace none · played 0m 00s',
+    )
+  })
+
+  it('a later run: pickaxe, workers, smart furnace; hideIron drops the mine worker and never says iron', () => {
+    const s = createInitialState()
+    const state: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        tick: 3725,
+        pickaxe: { tier: 'copper', durability: 120 },
+        vein: { level: 2, progress: 0, rock: 'stone' },
+        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0 }, certificates: [] },
+        furnace: { ...s.run.furnace, built: true, smart: true, levels: { fireCap: 1, batch: 2 } },
+      },
+    }
+    const shown = feedbackSummary(state, false)
+    expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0)')
+    expect(shown).toContain('pickaxe copper 120 · ')
+    expect(shown).toContain('furnace smart fire Lv1 batch Lv2 · played 1h 02m 05s')
+    const hidden = feedbackSummary(state, true)
+    expect(hidden).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0) · vein Lv2')
+    expect(hidden).not.toMatch(/iron|mine/i)
   })
 })

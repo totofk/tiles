@@ -992,6 +992,62 @@ details > summary:focus-visible {
   font-size: 13px;
 }
 
+/* 💬 Feedback (📊 Stats tab): one column at the panel's content width (≈ 343 px at 375, 284 at 1024, 358 at 1440) */
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+.feedback-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.feedback-kinds button {
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.feedback-kinds [aria-pressed='true'] {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  font-weight: 600;
+}
+.feedback label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.feedback small {
+  color: #555;
+}
+/* 16 px so iOS Safari does not zoom on focus */
+.feedback input,
+.feedback textarea {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid #8a7a5c;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 16px;
+}
+.feedback textarea {
+  resize: vertical;
+}
+.feedback p {
+  margin: 0;
+}
+/* the honeypot: in the layout for bots, off-screen for people */
+.feedback-hp {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* deliberately small and far from the game controls; still behind a confirm */
 .reset {
   align-self: center;

@@ -3,6 +3,7 @@ import { selectCrop } from '../core/actions'
 import { CROPS, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { DigSeeds } from './Farm'
+import { EMPTY_FEEDBACK } from './feedback'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Mine } from './Mine'
@@ -29,6 +30,8 @@ export default function App() {
   const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
+  // the 📊 Stats tab's feedback draft and cooldown, here so a tab switch keeps them (not saved)
+  const [feedback, setFeedback] = useState(EMPTY_FEEDBACK)
 
   // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css);
   // App re-renders every tick, so a resize is picked up within a second
@@ -84,7 +87,7 @@ export default function App() {
     </button>
   )
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },

@@ -271,6 +271,16 @@ describe('layout content', () => {
     expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥕 Carrot seed!|Nothing this time/)
   })
 
+  it('the 📊 Stats feedback draft survives a tab switch', () => {
+    render(<App />)
+    fireEvent.click(panelTab(/Stats/))
+    fireEvent.change(screen.getByRole('textbox', { name: /Details/ }), { target: { value: 'half-written idea' } })
+    fireEvent.click(panelTab(/Shop/))
+    expect(screen.queryByRole('textbox', { name: /Details/ })).toBeNull()
+    fireEvent.click(panelTab(/Stats/))
+    expect((screen.getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('half-written idea')
+  })
+
   it('keeps Reset save in the side panel and the Farm view', () => {
     render(<App />)
     const resets = screen.getAllByRole('button', { name: 'Reset save' })

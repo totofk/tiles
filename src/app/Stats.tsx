@@ -1,6 +1,8 @@
 import type { GameState } from '../core/state'
 import { stats, type StatRow } from '../core/stats'
 import { ironHidden } from './devFlags'
+import { FeedbackCard } from './FeedbackCard'
+import type { PanelProps } from './panelTabs'
 
 /** iron rows that are still zero while iron is gated off (devFlags) */
 const IRON_ROW = /\biron\b|by workers.*mine|mines by workers/i
@@ -33,5 +35,15 @@ export function Stats({ state }: { state: GameState }) {
       <h2>Now</h2>
       <Rows rows={shown(multipliers)} />
     </section>
+  )
+}
+
+/** the 📊 Stats tab: the stats, then 💬 Feedback */
+export function StatsTab({ state, feedback, setFeedback }: PanelProps) {
+  return (
+    <>
+      <Stats state={state} />
+      <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
+    </>
   )
 }
