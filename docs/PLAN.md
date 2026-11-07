@@ -720,3 +720,27 @@ UI only; no `balance.ts` number and no save shape changed (save stays v5). 244 t
 - **Badges (task 36):** `availableKeys` + `tiles.ui` `seen`; App test: a fresh game dots ⬆️ Upgrades only, opening it
   clears it, borrowing to 💰50 dots 🛒 Shop (chilli and mine licenses) and ⬆️ Upgrades (Bigger stamina Lv1), opening
   clears each, and the seen state survives a reload.
+
+## Batch 7 — furnace, copper ore, copper pickaxe (tasks 37–42)
+Question: does the mine get a clear goal after vein Lv1 (furnace → copper → copper pickaxe)?
+Decisions: DECISIONS.md "Round-5 research outcome (furnace)"; research docs/research/furnace.md. Save v6 (capture a
+real v5 fixture first; chain v1–v5 → v6; backup key).
+
+37. [ ] Save v6 (also new lifetime counters: cash earned, harvests per crop, energy spent, ticks played) + furnace building: `buildFurnace` = 20 stone + 5 coal + 💰150, requires vein Lv1. Items
+    `copperOre` (sells 1) and `copperBar` (no sell path — test it). Ore and bars take storage slots.
+38. [ ] Smelting core (`src/core/furnace.ts`): `enqueueSmelt(fuel)` pays 2 copper ore + fuel (1 coal or 2 wood,
+    player picks) on enqueue; cap 5 jobs; 60 ticks per bar; finished bars wait in an output tray; `collectBars`.
+    0 energy. Progress advances inside `step`, closed-form for any tick count (offline catch-up identical), no RNG.
+39. [ ] Vein Lv2 = 30 stone + 10 coal + 💰200, requires the furnace; drops 65 % stone / 20 % coal / 15 % copper ore;
+    copper rock needs 3 hits (hits per rock type in balance.ts). Drop table: Lv2 row becomes copper ore; greyed
+    "🔒 Lv3: iron ore — coming" with no numbers.
+40. [ ] Copper pickaxe: 5 copper bars + 💰50, durability 200, 3 hits per energy, repair 2 copper bars; it becomes
+    the equipped pickaxe (the wooden one's mastery and mastered reward persist). Copper mastery thresholds ×2.
+41. [ ] Furnace UI in the Mine panel (queue of 5 with progress, fuel choice, collect, compact at 375 px) + sim:
+    report ticks for vein Lv1 → furnace → storage Lv2 → vein Lv2 → first bar → copper pickaxe; copper-pickaxe
+    cash/energy < 0.9 × pumpkin; every multi-item price fits the storage capacity when it becomes buyable (sum of
+    stone + coal + ore); nothing negative over 3600 ticks; batch-3 greedy numbers pinned. "## Batch 7 results".
+42. [ ] 📊 Stats tab (side panel + mobile tab bar): (a) lifetime totals — every counter, cash earned, harvests per
+    crop, energy spent, time played; (b) current multipliers with their source, e.g. "Sell price ×1.5 (Better
+    prices Lv5)", grow time, energy max/regen, pickaxe preserve % (mastery Lv + mastered bonus), storage, tool
+    levels, drop table. Values come from the same balance functions the game uses (pure selector, one test).

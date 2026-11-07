@@ -163,3 +163,16 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Stone sink:** Storage upgrade (+10 slots, 20 stone + 50 cash, ×1.6 per level, max 5); "Bag" displays as "📦 Storage". Worker certificates add more stone sinks later.
 - **Stone prices fit storage (2026-11-07):** storage stone cost +5/level (15…35) and vein Lv1 = 25 stone, because 40 stone with 20→30 capacity was unbuyable. Every stone/ore price must be ≤ the capacity the player has when it becomes buyable (sim-enforced).
 - **Shop vs Upgrades (2026-11-07, Toon):** Shop = things you buy to own (incl. farm tools); Upgrades = numbers that go up, grouped Energy / Farm / Mine, each row "now → next" plus an ⓘ tip (hover desktop, tap mobile). Farm tool action buttons stay next to the farm (right-edge bar on desktop, bar above the tab bar on mobile).
+
+## Round-5 research outcome (furnace, 2026-11-07, docs/research/furnace.md, Fable)
+- Metal ladder copper (vein Lv2) → iron (Lv3) → gold (Lv4); batch 7 = copper only; 7.1 = copper farm tools
+  (watering can moisture ×2, sickle double-harvest 10 %, dibber seed-keep 20 %; 4 bars + cash each).
+- **Recipe: 2 ore + 1 fuel → 1 bar, 60 s** (Forager-like; 5 ore would mean ~38 mines per bar at 15 % copper).
+  Fuel = 1 coal or 2 wood (wood costs 8/bar vs coal 4 — fallback only). Coal stays sellable at 4.
+- **Furnace = 20 stone + 5 coal + 150 cash**, buyable right after vein Lv1 within storage 30; it unlocks vein Lv2.
+- **Vein Lv2 = 30 stone + 10 coal + 200 cash → 65 % stone / 20 % coal / 15 % copper ore; copper rock = 3 hits.**
+- **Copper pickaxe = 5 bars + 50 cash, durability 200, 3 hits/energy, repair 2 bars.** Expected ~30–55 min of play.
+- **Queue:** cap 5 jobs, inputs paid on enqueue, output tray, 0 energy, closed-form catch-up, no RNG. Bars never sell.
+- Open: the tier-durability rule breaks at iron (copper Lv10 = 1000 uses > iron 500) — revisit at iron. Auto-smelt
+  toggle comes with workers (batch 8).
+- **Stats tab (Toon, 2026-11-07):** lifetime totals and every current multiplier with its source, computed by the same balance functions; new lifetime counters ride the v6 migration.
