@@ -3,6 +3,7 @@ import { buyLicense, harvest, plant, till, water, type ActionResult } from '../s
 import {
   ACTION_ENERGY_COST,
   cropGrowTicks,
+  cropSellPrice,
   itemSellPrice,
   licenseCost,
   mineLicenseCost,
@@ -12,6 +13,7 @@ import { ITEM_IDS } from '../src/core/data/items'
 import { bagCount, buyMineLicense, buyWood, craftPickaxe, dig, sellItem } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
+import { growthProgress } from '../src/core/tile'
 
 const TICKS = 600
 
@@ -117,9 +119,14 @@ function runBot(mineEarly: boolean) {
     milestones()
     s = step(s, 1)
   }
-  // items still in the bag count at their sell price, so mining is not undercounted at the cut-off
+  // unfinished work at the cut-off counts for both activities: bag items at their sell price,
+  // standing crops at sell price × growth progress (their seeds are already charged to farming)
   const bagValue = ITEM_IDS.reduce(
     (sum, id) => sum + (s.run.inventory[id] ?? 0) * itemSellPrice(id, s.meta, s.run.upgrades.sellPrice),
+    0,
+  )
+  const fieldValue = s.run.tiles.reduce(
+    (sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, s.run.upgrades.sellPrice) * growthProgress(t, s) : 0),
     0,
   )
   return {
@@ -129,9 +136,10 @@ function runBot(mineEarly: boolean) {
     finalTick: s.run.tick,
     counters: s.run.counters,
     bagValue,
+    fieldValue,
     farm,
     mine,
-    farmingCashPerEnergy: farm.cash / farm.energy,
+    farmingCashPerEnergy: (farm.cash + fieldValue) / farm.energy,
     miningCashPerEnergy: (mine.cash + bagValue) / mine.energy,
   }
 }
