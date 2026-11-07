@@ -25,6 +25,11 @@ describe('availableKeys', () => {
     const counters = { ...s.run.counters, harvests: 15 }
     expect(availableKeys(withRun({ counters })).shop).toEqual(['tool:harvest1'])
     expect(availableKeys(withRun({ counters, cash: 1e4 })).shop).toContain('tool:harvest1:buy')
-    expect(availableKeys(withRun({ counters, tools: { ...s.run.tools, harvest: 3 } })).shop).toEqual([])
+    // the max tool level unlocks the job's copper row; it is news again once 🟧4 💰100 are in hand, and gone once owned
+    const maxed = { counters, tools: { ...s.run.tools, harvest: 3 } }
+    expect(availableKeys(withRun(maxed)).shop).toEqual(['copper:harvest'])
+    const affordable = availableKeys(withRun({ ...maxed, cash: 100, inventory: { copperBar: 4 } })).shop
+    expect(affordable.filter((k) => k.startsWith('copper'))).toEqual(['copper:harvest', 'copper:harvest:buy'])
+    expect(availableKeys(withRun({ ...maxed, toolTier: { ...s.run.toolTier, harvest: 1 } })).shop).toEqual([])
   })
 })

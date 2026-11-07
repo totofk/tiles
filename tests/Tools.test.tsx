@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Tools } from '../src/app/Tools'
+import { Bar } from '../src/app/Bar'
+import { Tools, pressText } from '../src/app/Tools'
 import type { Act } from '../src/app/useGame'
 import { createInitialState, createTile, type GameState, type Tile } from '../src/core/state'
 
@@ -86,6 +87,25 @@ describe('farm tool buttons', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('a copper tool gets the copper mark; its press summary names the bonus', () => {
+    setup({ tools: { water: 1, harvest: 2, plant: 0 }, toolTier: { water: 1, harvest: 0, plant: 0 } })
+    expect(screen.getByRole('button', { name: 'Water 1' }).className).toBe('copper')
+    expect(screen.getByRole('button', { name: 'Harvest 1' }).className).toBe('')
+    const ok = { ok: true as const, state: createInitialState(), done: 6, wanted: 6, stoppedBy: null }
+    expect(pressText('harvest', { ...ok, bonus: 1 })).toBe('Harvested 6/6 (+1 bonus)')
+    expect(pressText('plant', { ...ok, bonus: 2 })).toBe('Planted 6/6 (2 seeds kept)')
+    expect(pressText('plant', { ...ok, bonus: 0, done: 2, stoppedBy: 'NO_ENERGY' })).toBe('Planted 2/6 — out of energy')
+  })
+
+  it('the moisture bar shows a darker band for moisture above 1', () => {
+    render(<Bar value={1.5} kind="water" />)
+    const spans = document.querySelectorAll<HTMLElement>('.bar-water > span')
+    expect([...spans].map((s) => [s.className, s.style.width])).toEqual([['', '100%'], ['bar-over', '50%']])
+    cleanup()
+    render(<Bar value={0.4} kind="water" />)
+    expect(document.querySelector('.bar-over')).toBeNull()
   })
 
   it('right-click opens the popover and does not press', () => {

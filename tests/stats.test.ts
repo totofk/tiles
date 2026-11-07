@@ -34,8 +34,19 @@ describe('stats(state)', () => {
       { label: 'Water tool', value: 'none' },
       { label: 'Harvest tool', value: 'none' },
       { label: 'Plant tool', value: 'none' },
+      { label: 'Water tier', value: 'waters to 1 (×1 moist time)', source: 'basic' },
+      { label: 'Harvest tier', value: '0 % double harvest', source: 'basic' },
+      { label: 'Plant tier', value: '0 % seed kept', source: 'basic' },
       { label: 'Drop table', value: '🪨 Stone 100 %', source: 'Vein Lv0' },
     ])
+  })
+
+  it('copper tiers show their effect from the same balance functions', () => {
+    const s = createInitialState()
+    const { multipliers } = stats({ ...s, run: { ...s.run, toolTier: { water: 1, harvest: 1, plant: 1 } } })
+    expect(row(multipliers, 'Water tier')).toEqual({ label: 'Water tier', value: 'waters to 2 (×2 moist time)', source: 'Copper Can' })
+    expect(row(multipliers, 'Harvest tier')).toEqual({ label: 'Harvest tier', value: '10 % double harvest', source: 'Copper Sickle' })
+    expect(row(multipliers, 'Plant tier')).toEqual({ label: 'Plant tier', value: '20 % seed kept', source: 'Copper Dibber' })
   })
 
   it('per-crop harvests say "since v6" when a migrated save has harvests no crop was credited with', () => {

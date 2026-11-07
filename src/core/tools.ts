@@ -9,9 +9,12 @@ import { isMature } from './tile'
 // A tool press is the job's manual action applied to tiles in priority order, so it costs exactly what the same
 // taps would. Level 1 = 1 tile, level 2 = toolCount tiles, level 3 = every eligible tile.
 
-/** ok with done < wanted when energy / seeds / cash ran out part way (stoppedBy = that action's error) */
+/**
+ * ok with done < wanted when energy / seeds / cash ran out part way (stoppedBy = that action's error).
+ * bonus = extra crops from copper double harvests, or seeds a copper dibber kept.
+ */
 export type ToolPress =
-  | { ok: true; state: GameState; done: number; wanted: number; stoppedBy: ActionError | null }
+  | { ok: true; state: GameState; done: number; wanted: number; stoppedBy: ActionError | null; bonus: number }
   | { ok: false; error: ActionError }
 
 const MANUAL: Record<ToolJob, (s: GameState, i: number, cropId: CropId) => ActionResult> = {
@@ -55,16 +58,25 @@ export function pressTool(state: GameState, job: ToolJob, cropId: CropId): ToolP
   let s = state
   let done = 0
   let stoppedBy: ActionError | null = null
+  let bonus = 0
   for (const i of targets.slice(0, wanted)) {
     const r = MANUAL[job](s, i, cropId)
     if (!r.ok) {
       stoppedBy = r.error
       break
     }
+    bonus += pressBonus(job, s.run, r.state.run, cropId)
     s = r.state
     done++
   }
-  return { ok: true, state: s, done, wanted, stoppedBy }
+  return { ok: true, state: s, done, wanted, stoppedBy, bonus }
+}
+
+/** a harvest that sold more than 1 crop, or a planting that used neither a pouch seed nor cash (the seed was kept) */
+function pressBonus(job: ToolJob, before: RunState, after: RunState, cropId: CropId): number {
+  if (job === 'harvest') return after.counters.sales - before.counters.sales - 1
+  if (job === 'plant') return after.seeds[cropId] === before.seeds[cropId] && after.cash === before.cash ? 1 : 0
+  return 0
 }
 
 // Buys the next level only (level k needs k − 1), once; the job's counter must reach that level's threshold.

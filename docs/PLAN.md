@@ -416,6 +416,10 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   tiles below `waterMoisture(tier)`, so a copper hose tops up tiles between 1 and 2. `buyCopperTool` order:
   ALREADY_OWNED (tier at max), LOCKED (job tool < Lv1), NOT_ENOUGH_ITEMS, NO_CASH; price `toolTierCost(tier)` is the
   same for every job. The frozen `RunV6` save type no longer aliases the live `GameState`.
+- **Batch 7.1 (task 45): the bonus toast reads "Harvested 6/6 (+1 bonus)"** (the existing done/wanted format, not
+  "Harvested 6"); a kept seed reads "(N seeds kept)". The press bonus is counted in `pressTool` from each action's
+  state change (sales above 1, or pouch and cash both unchanged), so no action result shape changed. The copper mark
+  is a copper border + inset stripe, not an emoji, so it adds no width to the 375 px bar.
 - **Batch 7.1: the v6 fixture was captured with a temporary Node script** (Vite `ssrLoadModule` of the current core,
   printed to stdout, written with the editor, then deleted; diffed identical to a second run), because no TS runner
   is installed and temporary test files were not allowed.
@@ -889,7 +893,7 @@ tools (batch 7.1)". Save v7 (capture a real v6 fixture first; chain v1–v6 → 
     - plant: 20 % chance (seeded PRNG) to keep the seed (auto-buy does not fire for a kept seed).
     All numbers in balance.ts through functions keyed by tier. Tool press = the same manual actions in sequence
     (same state and PRNG position after) must still hold — extend the existing test to tier 1.
-45. [ ] Copper tool UI: 🛒 Shop "Farm tools" gets one row per job ("Copper Can / Copper Sickle / Copper Dibber",
+45. [x] Copper tool UI: 🛒 Shop "Farm tools" gets one row per job ("Copper Can / Copper Sickle / Copper Dibber",
     🟧4 💰100, ⓘ tip, locked until the job's tool Lv1); the tool bar button shows a copper mark when tier 1; the tile
     moisture bar shows values above 1 (e.g. a second, darker band); toast for a double harvest / kept seed only in
     the tool-press summary ("Harvested 6 (+1 bonus)"). 📊 Stats: tiers and their effects from the same functions.
@@ -910,3 +914,16 @@ sideways (`overflow-x` removed). The popover (− / count / +, 44 px buttons ≈
 "✓ Owned"; pouch and storage item names never wrap their count ("🟤 Copper ore ×3" stays one line, the sell buttons
 wrap instead); smelt reasons are "no fuel" / "no ore" / "full" on a second line; the recipe line breaks only
 between "ore N · coal N · wood N"; the pickaxe line reads "187 / 200 · ~187 more uses".
+
+**Copper tool UI (task 45):** 🛒 Shop "Farm tools" has 12 cells in the 2-column grid (168.5 px each at 375 px, 30 px
+side padding for the ⓘ), each job's copper row right after its three levels, so the pairs read Can / Hose, Cart /
+🟧 Copper Can, Sickle / Scythe, Reaper / 🟧 Copper Sickle, Dibber / Drill, Spreader / 🟧 Copper Dibber: 6 rows of
+≈ 56 px instead of 5. A copper row says "needs Watering Can" (Sickle, Dibber) until the job's Lv1, then "🟧4 💰100",
+then "✓ Owned"; ⓘ texts in `tips.ts` (`COPPER_TIPS`, no numbers); Shop badge keys `copper:<job>` (unlocked) and
+`copper:<job>:buy` (affordable). The tool bar marks a copper job with a copper border and a 4 px inset bottom
+stripe (`box-shadow`, 0 px wider, so the 375 px sum above is unchanged at ≈ 325 px) and a "Copper Can" tooltip. The
+moisture bar draws the part above 1 as a darker blue band over the full bar (moisture 1.5 = full bar, left half
+dark). A press toast names the copper luck: "Harvested 6/6 (+1 bonus)", "Planted 6/6 (2 seeds kept)"; tile taps
+never toast it. 📊 Stats: "Water tier · waters to 2 (×2 moist time) · Copper Can", "Harvest tier · 10 % double
+harvest", "Plant tier · 20 % seed kept" (basic: 1 / ×1, 0 %, 0 %), from `waterMoisture` / `doubleHarvestChance` /
+`seedKeepChance`.

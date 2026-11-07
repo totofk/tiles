@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react
 import type { ActionError } from '../core/actions'
 import { toolNMax } from '../core/balance'
 import type { CropId } from '../core/data/crops'
-import { TOOL_JOBS, type ToolJob } from '../core/data/tools'
+import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
 import type { GameState } from '../core/state'
 import { pressTool, setToolN, toolCount, type ToolPress } from '../core/tools'
 import { ERROR_TEXT, type Act } from './useGame'
@@ -21,10 +21,17 @@ const STOP_TEXT: Partial<Record<ActionError, string>> = {
   NO_SEEDS: 'out of seeds',
 }
 
-/** "Watered 5/9 — out of energy"; no reason when every wanted tile was done */
-export function pressText(job: ToolJob, { done, wanted, stoppedBy }: Extract<ToolPress, { ok: true }>): string {
+/** copper luck in the press summary; tile taps never toast it */
+const BONUS_TEXT: Partial<Record<ToolJob, (n: number) => string>> = {
+  harvest: (n) => ` (+${n} bonus)`,
+  plant: (n) => ` (${n} seed${n > 1 ? 's' : ''} kept)`,
+}
+
+/** "Watered 5/9 — out of energy", "Harvested 6/6 (+1 bonus)"; no reason when every wanted tile was done */
+export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extract<ToolPress, { ok: true }>): string {
+  const extra = bonus > 0 ? (BONUS_TEXT[job]?.(bonus) ?? '') : ''
   const why = stoppedBy ? ` — ${STOP_TEXT[stoppedBy] ?? ERROR_TEXT[stoppedBy]}` : ''
-  return `${VERB[job].past} ${done}/${wanted}${why}`
+  return `${VERB[job].past} ${done}/${wanted}${extra}${why}`
 }
 
 /** the shared − / count / + popover of a level-2 tool; closes on a pointer-down outside it or Esc */
@@ -85,9 +92,11 @@ export function Tools({ state, act, cropId }: { state: GameState; act: Act; crop
       {owned.map((job) => {
         const level = run.tools[job]
         const label = `${VERB[job].now} ${level === 1 ? 1 : level === 2 ? toolCount(run, job) : 'all'}`
+        // copper tier: a copper stripe inside the frame (no width change), named in the tooltip
+        const tier = run.toolTier[job] > 0 ? { className: 'copper', title: TOOLS[job].copper } : {}
         if (level !== 2)
           return (
-            <button key={job} onClick={() => press(job)}>
+            <button key={job} {...tier} onClick={() => press(job)}>
               {label}
             </button>
           )
@@ -99,6 +108,7 @@ export function Tools({ state, act, cropId }: { state: GameState; act: Act; crop
         return (
           <button
             key={job}
+            {...tier}
             aria-haspopup="dialog"
             aria-expanded={openJob === job}
             onClick={onClick}

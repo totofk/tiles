@@ -9,25 +9,45 @@ import {
   tileCost,
   toolCost,
   toolNMax,
+  toolTierCost,
   toolUnlock,
   woodCost,
 } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
 import { priceText } from './Mine'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
-import { TOOLS, TOOL_JOBS } from '../core/data/tools'
+import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
 import { buyMineLicense, buyWood } from '../core/mining'
 import type { GameState } from '../core/state'
-import { buyTool } from '../core/tools'
+import { buyCopperTool, buyTool } from '../core/tools'
 import { CROP_EMOJI } from './FarmGrid'
 import { Info, Item } from './Info'
-import { CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
+import { COPPER_TIPS, CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
 import type { Act } from './useGame'
 
 /** per press, by level (index 0 = level 1) */
 const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)} tiles`, () => 'all tiles']
 
 type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act }
+
+/** the job's copper tier, under its three tool levels; locked until the job's tool Lv1 */
+function CopperTool({ state, act, job }: { state: GameState; act: Act; job: ToolJob }) {
+  const { run, meta } = state
+  const owned = run.toolTier[job] >= 1
+  const status = owned ? '✓ Owned' : run.tools[job] < 1 ? `needs ${TOOLS[job].names[0]}` : priceText(toolTierCost(1, meta))
+  return (
+    <Item tip={COPPER_TIPS[job]}>
+      <button
+        className={owned ? 'owned' : undefined}
+        disabled={!buyCopperTool(state, job).ok}
+        onClick={() => act((s) => buyCopperTool(s, job))}
+      >
+        {`🟧 ${TOOLS[job].copper}`}
+        <small>{status}</small>
+      </button>
+    </Item>
+  )
+}
 
 export function Shop({ state, cropId, onSelectCrop, act }: Props) {
   const { run, meta } = state
@@ -115,8 +135,8 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
 
       <h2>Farm tools</h2>
       <div className="shop-row">
-        {TOOL_JOBS.flatMap((job) =>
-          [1, 2, 3].map((level) => {
+        {TOOL_JOBS.flatMap((job) => [
+          ...[1, 2, 3].map((level) => {
             const owned = run.tools[job]
             const { counter, at } = toolUnlock(job, level)
             const progress = `${job} ${Math.min(run.counters[counter], at)}/${at}`
@@ -142,7 +162,8 @@ export function Shop({ state, cropId, onSelectCrop, act }: Props) {
               </Item>
             )
           }),
-        )}
+          <CopperTool key={`${job}copper`} state={state} act={act} job={job} />,
+        ])}
       </div>
     </section>
   )

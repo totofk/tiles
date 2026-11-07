@@ -30,6 +30,13 @@ export const TOOL_TIPS: Record<ToolJob, [string, string, string]> = {
   ],
 }
 
+/** the job's copper tier: changes every action of the job, taps and tool presses alike */
+export const COPPER_TIPS: Record<ToolJob, string> = {
+  water: 'Each watering fills the soil past full, so a tile stays moist for twice as long. Made once from copper bars; needs the Watering Can.',
+  harvest: 'Now and then a harvest yields a second crop that sells too. Made once from copper bars; needs the Sickle.',
+  plant: 'Now and then a planting keeps its seed, so the pouch lasts longer. Made once from copper bars; needs the Dibber.',
+}
+
 export const UPGRADE_TIPS: Record<UpgradeId, string> = {
   energyMax: 'Raises your energy cap, so a full bar lasts longer between breaks. Each level costs more than the last.',
   energyRegen: 'Energy refills faster, so you can act more often. Each level costs more than the last.',

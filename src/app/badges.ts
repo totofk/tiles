@@ -6,7 +6,7 @@ import { TILE_CAP, licenseCost, mineLicenseCost, tileCost, toolMaxLevel, toolUnl
 import { buildFurnace } from '../core/furnace'
 import { buyStorage, upgradeVein } from '../core/mining'
 import type { GameState } from '../core/state'
-import { buyTool } from '../core/tools'
+import { buyCopperTool, buyTool } from '../core/tools'
 
 export const BADGE_TABS = ['shop', 'upgrades'] as const
 export type BadgeTab = (typeof BADGE_TABS)[number]
@@ -26,6 +26,8 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
   const tiles = run.tiles.length
   if (tiles < TILE_CAP && run.cash >= tileCost(tiles, meta)) shop.push(`tile:${tiles}`)
   for (const job of TOOL_JOBS) {
+    if (run.tools[job] >= 1 && run.toolTier[job] === 0) shop.push(`copper:${job}`)
+    if (buyCopperTool(state, job).ok) shop.push(`copper:${job}:buy`)
     const level = run.tools[job] + 1
     if (level > toolMaxLevel(job)) continue
     const { counter, at } = toolUnlock(job, level)

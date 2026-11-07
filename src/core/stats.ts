@@ -1,15 +1,18 @@
 import {
+  doubleHarvestChance,
   energyMax,
   energyRegenPerTick,
   growTimeFactor,
   masteredPreserveBonus,
   masteryLevel,
   multiplier,
+  seedKeepChance,
   sellPriceFactor,
+  waterMoisture,
 } from './balance'
 import { CROPS, CROP_IDS } from './data/crops'
 import { PICKAXE_NAMES } from './data/items'
-import { TOOLS, TOOL_JOBS } from './data/tools'
+import { TOOLS, TOOL_JOBS, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
 import type { CounterId, GameState } from './state'
@@ -30,6 +33,13 @@ const COUNTER_LABELS: Record<CounterId, string> = {
 
 const times = (f: number) => `×${Math.round(f * 100) / 100}`
 const pct = (f: number) => `${Math.round(f * 100)} %`
+
+/** what the job's material tier does to each of its actions */
+const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
+  water: (t) => `waters to ${waterMoisture(t)} (${times(waterMoisture(t) / waterMoisture(0))} moist time)`,
+  harvest: (t) => `${pct(doubleHarvestChance(t))} double harvest`,
+  plant: (t) => `${pct(seedKeepChance(t))} seed kept`,
+}
 
 /** "1h 02m 05s" */
 function duration(ticks: number): string {
@@ -83,6 +93,11 @@ export function stats(state: GameState): Stats {
       const perPress = ['1 tile', `${toolCount(run, job)} tiles`, 'all tiles'][level - 1]
       const label = `${job[0].toUpperCase()}${job.slice(1)} tool`
       return level ? { label, value: `${perPress} per press`, source: TOOLS[job].names[level - 1] } : { label, value: 'none' }
+    }),
+    ...TOOL_JOBS.map((job) => {
+      const tier = run.toolTier[job]
+      const label = `${job[0].toUpperCase()}${job.slice(1)} tier`
+      return { label, value: TIER_EFFECT[job](tier), source: tier ? TOOLS[job].copper : 'basic' }
     }),
     { label: 'Drop table', value: dropText(run.vein.level), source: `Vein Lv${run.vein.level}` },
   ]

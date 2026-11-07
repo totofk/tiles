@@ -136,7 +136,7 @@ describe('pressTool', () => {
 
   it('eligible tiles but no energy: ok, nothing done, state unchanged', () => {
     const s = withRun(dryField, { tools: tools('water', 3), energy: 0 })
-    expect(pressTool(s, 'water', 'radish')).toEqual({ ok: true, state: s, done: 0, wanted: 5, stoppedBy: 'NO_ENERGY' })
+    expect(pressTool(s, 'water', 'radish')).toEqual({ ok: true, state: s, done: 0, wanted: 5, stoppedBy: 'NO_ENERGY', bonus: 0 })
   })
 
   it('plant uses pouch seeds first, then auto-buys', () => {
@@ -202,6 +202,22 @@ describe('copper tier (batch 7.1)', () => {
       }
       expect(kept).toEqual(new Set([true, false]))
     }
+  })
+
+  it('a press counts its bonus: extra crops sold, seeds kept; 0 at tier 0', () => {
+    const field = [ripe(0), ripe(1), ripe(2), tilled, tilled, tilled, tilled]
+    let seen = { harvest: false, plant: false }
+    for (let seed = 1; seed < 200 && !(seen.harvest && seen.plant); seed++) {
+      const s = withRun(field, { toolTier: copper, tools: { water: 0, harvest: 3, plant: 3 }, rngState: seed, seeds: { radish: 10 } })
+      const h = pressed(pressTool(s, 'harvest', 'radish'))
+      expect(h.bonus).toBe(h.state.run.counters.sales - s.run.counters.sales - h.done)
+      const p = pressed(pressTool(s, 'plant', 'radish'))
+      expect(p.bonus).toBe(p.done - (s.run.seeds.radish! - p.state.run.seeds.radish!))
+      seen = { harvest: seen.harvest || h.bonus > 0, plant: seen.plant || p.bonus > 0 }
+    }
+    expect(seen).toEqual({ harvest: true, plant: true })
+    const basic = withRun(field, { tools: { water: 0, harvest: 3, plant: 3 } })
+    expect([pressed(pressTool(basic, 'harvest', 'radish')).bonus, pressed(pressTool(basic, 'plant', 'radish')).bonus]).toEqual([0, 0])
   })
 
   it('no draw at tier 0, and none when the action fails at tier 1', () => {
