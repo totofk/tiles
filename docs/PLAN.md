@@ -602,6 +602,12 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   `assigned.plant` like water / harvest); with no planter every earlier pin replays unchanged.
 - **Batch 10 (task 64): no `balance.ts` change.** Offline income (+💰69,849 in 8 h) is not capped by any batch-10 number;
   see the reading in "Batch 10 results".
+- **Batch 11 (task 65): an iron rock mined with less than a copper pickaxe (wooden, by hand, blunt) is a stone rock**:
+  stone's 2 hits and a stone drop, not 4 hits for a stone. "Breaks as stone" read as "is mined as stone", so a weak
+  pickaxe on vein Lv3 wastes no energy beyond what stone costs.
+- **Batch 11 (task 65): vein Lv3 (45 items) is priced for storage Lv3 (50)**, not the storage Lv2 (40) the earlier bar
+  prices assume, following the mining.test rule "vein level v + 1 comes after storage level v + 1". Task 69's ladder has
+  to buy storage Lv3 before vein Lv3.
 - **Batch 11 (task 66): switching the ore kind also needs an empty tray**, not only an empty slot. The tray holds a count
   with no kind, so switching with bars in it would collect copper bars as iron (or the reverse). With an empty slot no
   cycle can be part-way, so nothing paid is lost; the player (or the ore loader) collects first.
