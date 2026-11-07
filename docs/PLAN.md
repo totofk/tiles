@@ -629,6 +629,20 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   above the button's second line.
 - **Batch 11 (task 68): the locked mine row puts each missing gate on its own line** (both on one line ≈ 287 px, past the
   284 px Farm tab at 1024). The away banner also gained "🥈 N smelted" (iron bars), which it lacked.
+- **Batch 11 (task 69): the ladder bot sells its copper ore to switch the furnace to iron.** Switching needs an empty
+  slot and tray (task 66), and the ore loader keeps loading copper while storage has it; selling it before each tick
+  (💰1 each) lets the slot drain without unassigning the loader, which `staff` would put straight back.
+- **Batch 11 (task 69): the ladder's "copper pickaxe" step counts as done with copper or better**, else an iron pickaxe
+  in hand sent the bot back to that step (ALREADY_OWNED) and it never reached the mine certificate. Older runs never
+  hold an iron pickaxe, so their pins are unchanged; the bag-full sell list and `mineBench` gained iron ore the same way.
+- **Batch 11 (task 69): bars per hour come from `ironBench`, a chain with the miner as the only ore source** and a player
+  who only sells (every 120 s / 600 s), not from unlimited stock: with a miner the limit is how fast storage is
+  emptied, which an unlimited-stock bench cannot show.
+- **Batch 11 (task 69): the 8 h offline run starts after the player sells stone and copper ore**; the bot's own cut-off
+  state can be a full storage (it stops mining when full), which would measure a 0-tick stop.
+- **Batch 11 (task 69): the miner's "farm cap" is cash per hour vs the three farm workers**, since a worker spends no
+  player energy; the player's own presses use the batch-6/7 cash-per-energy bench on vein Lv3.
+- **Batch 11 (task 69): no `balance.ts` change.**
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1726,7 +1740,7 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
 - [x] 68. **UI.** Vein Lv3 row, ore-kind picker on the furnace, iron pickaxe craft/repair, mine row in the Workers
     card (below the furnace jobs), worker flash on the Mine button / rock when the mine worker acts. Stats: iron
     ore/bars, mines by workers. Compact at 375 px; no 7th tab.
-- [ ] 69. **Sim + balance.** Time to vein Lv3, first iron bar, iron pickaxe and the mine worker; bars/hour with mine +
+- [x] 69. **Sim + balance.** Time to vein Lv3, first iron bar, iron pickaxe and the mine worker; bars/hour with mine +
     ore + fuel workers on a plain vs smart furnace; 8 h offline with the whole chain (storage full is the expected
     stop); every iron price ≤ what the player can hold; mining cash/energy still ≤ the farm cap; all older pins pass.
     Tune only batch-11 numbers; report every change as a deviation.
@@ -1826,3 +1840,42 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
     on one line would be ≈ 287, past 284, hence one line each); the label column is 3 lines ≈ 47 px tall, so that row is
     3 px over the 44 px row height. Staffed row = the Fuel row's width (label ≈ 49 ≤ 52).
   - Flash wash and pop take no layout (box-shadow, absolute); banner and Stats rows only lengthen wrapping text.
+
+### Sim (task 69, `tests/sim.test.ts` "batch 11", measured)
+No `balance.ts` number changed: the task 65–67 numbers pass every check. Save stays v11.
+- **Ladder** (`runBot(…, { iron: true })` = the batch-10 plant ladder + storage Lv3 → vein Lv3 → iron pickaxe → mine
+  certificate; while an iron goal is next and the furnace is on copper the bot sells the copper ore in storage before
+  each tick, collects the tray and picks iron once the slot and tray are empty; the certified miner gets one worker,
+  taken from the bigger farm job), 7200 ticks, pinned: every batch-10 tick unchanged (plant certificate 4341), then
+  **storage Lv3 4389, vein Lv3 4641 (≈ 77 min), iron picked 4938, first iron bar 5060 (≈ 84 min), iron pickaxe 5541
+  (≈ 92 min), mine certificate 6141 (≈ 102 min)**. At 2 h: cash 💰12 550, wages 💰1 189, 18 iron bars smelted, 205 mine
+  presses by the worker, staff plant 1 / water 1 / harvest 1 / ore 1 / fuel 1 / mine 1, cash never below 0, no loan.
+- **Iron bars per hour with mine + ore + fuel workers** (`ironBench`: vein Lv3, storage Lv3 = 50, fresh iron pickaxe,
+  furnace on iron at base levels, cash 💰1000; the player only sells stone, copper ore and coal above 10 every N s):
+
+  | Setup | iron bars/h | miner presses | wages/h | fire wasted | cash/h |
+  |---|---|---|---|---|---|
+  | plain, sells @ 120 s | **28** | 679 | 801 | 4 units | +278 |
+  | smart, sells @ 120 s | **28** | 679 | 799 | 0 | +288 |
+  | plain, sells @ 600 s | **15** | 329 | 418 | 60 units | −55 |
+  | smart, sells @ 600 s | **11** | 269 | 315 | 0 | +48 |
+  | miner only (sells all @ 120 s) | 0 | 720 | 720 | 0 | **+771** |
+
+  30/h is the iron ceiling (one bar per 120 s at batch Lv0); a 2-minute seller gets 28 (the first iron ore takes a while).
+  A 10-minute seller lets storage fill, so the miner (and with it the ore) stalls half the time. Smart gives *fewer*
+  bars than plain there: the coal it does not burn stays in storage and fills it sooner, so the miner stalls more.
+- **8 h offline** (catch-up one tick at a time from the 2 h ladder end; the player sells stone and copper ore before
+  leaving, storage 17/50 with 8 iron bars, 5 copper bars, 3 coal, 1 iron ore): **the miner stops at tick 981 (≈ 16 min)
+  with storage full** (20 stone, 12 copper ore, 12 iron bars, 5 copper bars, 1 coal), pickaxe 878/1200, after 54 presses
+  and 9 iron bars. The farm workers keep running all 8 h: +💰69 387, wages 💰3 633, 711 plants; cash never below 0;
+  step(start, 28 800) equals the 28 800 single steps.
+- **Prices fit storage:** vein Lv3 (45 items) ≤ storage Lv3 (50); storage Lv3 (25 stone) ≤ storage Lv2 (40); iron
+  pickaxe (🥈5), its repair (🥈2) and the mine certificate (🥈5) ≤ 50.
+- **Mining below the farm cap** (`mineBench`, vein Lv3, repairs at input value, iron bars at 2 iron ore + 2 coal): cash per
+  energy wooden Lv10 **1.89**, copper Lv10 **1.92**, iron Lv0 **2.08**, iron Lv10 **2.09**, all < 0.9 × pumpkin (8.175).
+  The miner nets **💰771/h** (sales − wages) vs the three pumpkin farm workers' **💰5 636/h**.
+- **Unchanged pins:** batch 3–10 sims all replay; 486 tests.
+- **Reading:** after the plant certificate the first iron bar comes ≈ 12 min later, the iron pickaxe ≈ 20 and the mine
+  certificate ≈ 30 (10 min after the pickaxe), all inside 2 h. The mine → furnace chain runs at its 28–30 bars/h only while someone empties storage: alone
+  it fills 50 slots in ≈ 16 min, because stone, copper ore and the unsellable bars pile up. That is the stop the plan
+  expects; a sell worker or an auto-sell rule would be the next lever, not a batch-11 number.

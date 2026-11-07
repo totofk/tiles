@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buyLicense, digForSeeds, harvest, plant, selectCrop, till, water, type ActionResult } from '../src/core/actions'
 import type { CropId } from '../src/core/data/crops'
-import type { PickaxeTier } from '../src/core/data/items'
+import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
@@ -24,17 +24,19 @@ import {
   furnaceTrayCap,
   mineLicenseCost,
   pickaxeCraftCost,
+  pickaxeDurability,
   pickaxeRepairCost,
   smeltFuel,
   smeltOre,
   storageCost,
+  storageSlotsPerLevel,
   toolTierCost,
   veinUpgradeCost,
   type Price,
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre } from '../src/core/furnace'
+import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre, setOreKind } from '../src/core/furnace'
 import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, type GameState } from '../src/core/state'
@@ -111,6 +113,10 @@ type LadderStep =
   | 'fuelCertificate'
   | 'smart'
   | 'plantCertificate'
+  | 'storageLv3'
+  | 'veinLv3'
+  | 'ironPickaxe'
+  | 'mineCertificate'
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
@@ -147,7 +153,8 @@ const LADDER: Goal[] = [
   { name: 'veinLv2', done: (s) => s.run.vein.level >= 2, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
   {
     name: 'copperPickaxe',
-    done: (s) => s.run.pickaxe?.tier === 'copper',
+    // copper or better (batch 11: an iron pickaxe in hand must not send the ladder back to crafting copper)
+    done: (s) => PICKAXE_TIERS.indexOf(s.run.pickaxe?.tier ?? 'wooden') >= PICKAXE_TIERS.indexOf('copper'),
     buy: (s) => craftPickaxe(s, 'copper'),
     keep: keepBars(COPPER_PICKAXE_BARS),
   },
@@ -195,6 +202,36 @@ const PLANT_LADDER: Goal[] = [
     keep: keepBars(certificateCost('plant', createInitialState().meta).copperBar!),
   },
 ]
+/** keep `bars` iron bars plus the iron ore and coal to smelt the ones not yet in storage or the (iron) furnace */
+const keepIronBars =
+  (bars: number) =>
+  (s: GameState): Price => {
+    const { run } = s
+    const inFurnace = run.furnace.oreKind === 'ironOre' ? cyclesLoaded(s) + run.furnace.ready : 0
+    const toSmelt = Math.max(0, bars - (run.inventory.ironBar ?? 0) - inFurnace)
+    return { cash: 0, ironBar: bars, ironOre: smeltOre() * toSmelt, coal: smeltFuel('coal', 'ironOre') * toSmelt }
+  }
+const IRON_PRICE = createInitialState().meta
+/** batch 11: after the plant certificate, storage Lv3 (vein Lv3's 45 items need it), vein Lv3, iron pickaxe, mine certificate */
+const IRON_LADDER: Goal[] = [
+  ...PLANT_LADDER,
+  { name: 'storageLv3', done: (s) => s.run.storageLevel >= 3, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
+  {
+    name: 'veinLv3',
+    done: (s) => s.run.vein.level >= 3,
+    buy: upgradeVein,
+    // the stone, and the copper bars with the ore and coal to smelt them
+    keep: (s) => ({ ...keepBars(veinUpgradeCost(2, IRON_PRICE)!.copperBar!)(s), stone: veinUpgradeCost(2, s.meta)!.stone }),
+  },
+  { name: 'ironPickaxe', done: (s) => s.run.pickaxe?.tier === 'iron', buy: (s) => craftPickaxe(s, 'iron'), keep: keepIronBars(pickaxeCraftCost('iron', IRON_PRICE).ironBar!) },
+  {
+    name: 'mineCertificate',
+    done: (s) => s.run.workers.certificates.includes('mine'),
+    buy: (s) => buyCertificate(s, 'mine'),
+    keep: keepIronBars(certificateCost('mine', IRON_PRICE).ironBar!),
+  },
+]
+const IRON_GOALS = IRON_LADDER.slice(IRON_LADDER.length - 2)
 const smeltsFor = (g: Goal | undefined) =>
   g !== undefined && (g.name === 'copperPickaxe' || g.name.startsWith('copper:') || PLANT_LADDER.slice(COPPER_LADDER.length).includes(g))
 
@@ -223,6 +260,7 @@ function runBot(
     workers = false,
     furnace = false,
     planter = false,
+    iron = false,
     onEnd,
   }: {
     ticks?: number
@@ -243,12 +281,18 @@ function runBot(
      * follows the best licensed crop, and the bot stops tilling and planting
      */
     planter?: boolean
+    /**
+     * batch 11 (with planter): IRON_LADDER; while an iron goal is next and the furnace is still on copper, the bot sells
+     * the copper ore in storage before each tick (so the ore loader stops loading it), collects the tray, and picks iron
+     * once the slot and tray are empty; the mine worker, once certified, gets one worker like a loader
+     */
+    iron?: boolean
     /** receives the state at the cut-off */
     onEnd?: (s: GameState) => void
   } = {},
 ) {
-  const goals = planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
-  const ladderTicks: Partial<Record<LadderStep | 'firstBar', number>> = {}
+  const goals = iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
+  const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironPicked' | 'firstIronBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   let s = createInitialState()
   const m: Milestones = {}
@@ -311,7 +355,7 @@ function runBot(
       }
       if (bagCount(s.run) >= s.run.bagCapacity) {
         const keep = next?.keep(s) ?? { cash: 0 }
-        for (const id of ['stone', 'coal', 'copperOre'] as const) {
+        for (const id of ['stone', 'coal', 'copperOre', 'ironOre'] as const) {
           const extra = (s.run.inventory[id] ?? 0) - (keep[id] ?? 0)
           if (extra > 0) tryAct(sellItem(s, id, extra), mine)
         }
@@ -354,7 +398,11 @@ function runBot(
       workerTicks.firstHire ??= tick
       if (s.run.workers.pool >= 3) workerTicks.pool3 ??= tick
     }
-    const oneEach: WorkerJob[] = [...(furnace ? (['ore', 'fuel'] as const) : []), ...(planter ? (['plant'] as const) : [])]
+    const oneEach: WorkerJob[] = [
+      ...(furnace ? (['ore', 'fuel'] as const) : []),
+      ...(planter ? (['plant'] as const) : []),
+      ...(iron ? (['mine'] as const) : []),
+    ]
     for (const job of oneEach) {
       const { assigned, certificates } = s.run.workers
       if (!certificates.includes(job) || assigned[job] > 0) continue
@@ -395,12 +443,18 @@ function runBot(
       } else if (!mineOnce(tick)) break
     }
     milestones()
+    if (iron && s.run.furnace.oreKind !== 'ironOre' && IRON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
+      tryAct(sellItem(s, 'copperOre', s.run.inventory.copperOre ?? 0), mine)
+      tryAct(collectBars(s), null)
+      if (tryAct(setOreKind(s, 'ironOre'), null)) ladderTicks.ironPicked ??= tick
+    }
     // the only cash a tick moves is the workers' (harvest sales − wages): farming income bought without energy
     const before = s.run.cash
     s = step(s, 1)
     farm.cash += s.run.cash - before
     seen()
     if (s.run.furnace.ready > 0) ladderTicks.firstBar ??= s.run.tick
+    if (s.run.lifetime.ironBarsSmelted > 0) ladderTicks.firstIronBar ??= s.run.tick
   }
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
@@ -785,9 +839,12 @@ function mineBench({
   let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0, rock: 'stone' }, ...fixed } }
   const start = s.run.cash
   const recipe = { wood: pickaxeCraftCost('wooden', init.meta).wood!, repairWood: pickaxeRepairCost('wooden', init.meta).wood! }
-  const barValue = smeltOre() * itemSellPrice('copperOre', init.meta, 0) + smeltFuel('coal') * itemSellPrice('coal', init.meta, 0)
+  // batch 11: an iron pickaxe's iron bars likewise at 2 iron ore + 2 coal
+  const ore = tier === 'iron' ? 'ironOre' : 'copperOre'
+  const bar = tier === 'iron' ? 'ironBar' : 'copperBar'
+  const barValue = smeltOre() * itemSellPrice(ore, init.meta, 0) + smeltFuel('coal', ore) * itemSellPrice('coal', init.meta, 0)
   const giveBars = (n: number) => {
-    s = { ...s, run: { ...s.run, cash: s.run.cash - n * barValue, inventory: { ...s.run.inventory, copperBar: (s.run.inventory.copperBar ?? 0) + n } } }
+    s = { ...s, run: { ...s.run, cash: s.run.cash - n * barValue, inventory: { ...s.run.inventory, [bar]: (s.run.inventory[bar] ?? 0) + n } } }
   }
   let repairs = 0
   const act = (r: ActionResult) => {
@@ -796,15 +853,15 @@ function mineBench({
   }
   for (let i = 0; i < actions; i++) {
     if (bagCount(s.run) + recipe.wood >= s.run.bagCapacity)
-      for (const id of ['stone', 'coal', 'copperOre'] as const) if (s.run.inventory[id]) act(sellItem(s, id, s.run.inventory[id]!))
-    if (pickaxe && !s.run.pickaxe && tier === 'copper') {
-      giveBars(pickaxeCraftCost('copper', s.meta).copperBar!)
-      act(craftPickaxe(s, 'copper'))
+      for (const id of ['stone', 'coal', 'copperOre', 'ironOre'] as const) if (s.run.inventory[id]) act(sellItem(s, id, s.run.inventory[id]!))
+    if (pickaxe && !s.run.pickaxe && tier !== 'wooden') {
+      giveBars(pickaxeCraftCost(tier, s.meta)[bar]!)
+      act(craftPickaxe(s, tier))
     } else if (pickaxe && !s.run.pickaxe) {
       act(buyWood(s, recipe.wood))
       act(craftPickaxe(s))
     } else if (pickaxe && s.run.pickaxe!.durability === 0) {
-      if (tier === 'copper') giveBars(pickaxeRepairCost('copper', s.meta).copperBar!)
+      if (tier !== 'wooden') giveBars(pickaxeRepairCost(tier, s.meta)[bar]!)
       else act(buyWood(s, recipe.repairWood))
       act(repairPickaxe(s))
       repairs++
@@ -969,6 +1026,11 @@ describe('batch 7: every multi-item price fits the storage the player has when i
     ),
     // batch 11: vein Lv3 (40 stone + 5 copper bars) comes after storage Lv3 (50), as each vein level after its storage level
     ['vein Lv3', veinUpgradeCost(2, meta)!, 50],
+    // storage Lv3 itself is bought with storage Lv2 (40); the iron prices come after vein Lv3 (storage Lv3)
+    ['storage Lv3', { ...storageCost(2, meta) }, 40],
+    ['iron pickaxe', pickaxeCraftCost('iron', meta), 50],
+    ['iron pickaxe repair', pickaxeRepairCost('iron', meta), 50],
+    ['mine certificate', certificateCost('mine', meta), 50],
   ])('%s', (_, price, capacity) => {
     expect(items(price)).toBeLessThanOrEqual(capacity)
   })
@@ -1475,5 +1537,239 @@ describe('batch 10: ladder bot continues to the plant certificate after the furn
     expect(end.run.lifetime.workerPlants).toBeGreaterThan(0)
     expect(lowest).toBeGreaterThanOrEqual(0)
     expect(borrowed).toBe(false)
+  })
+})
+
+// ---- Batch 11: iron tier + mine worker ----
+
+const IRON_TICKS = 2 * HOUR_TICKS
+const ironLadder = (() => {
+  let end = createInitialState()
+  const summary = runBot(true, {
+    ticks: IRON_TICKS,
+    licenses: LICENSE_ORDER,
+    crops: PLANT_ORDER,
+    ladder: true,
+    copperTools: true,
+    workers: true,
+    furnace: true,
+    planter: true,
+    iron: true,
+    onEnd: (s) => (end = s),
+  })
+  return { summary, end }
+})()
+
+describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iron bar, the iron pickaxe and the mine worker', () => {
+  const { summary, end } = ironLadder
+  const { ladderTicks, finalCash, wagesPaid, lowest, borrowed } = summary
+  const { ironBarsSmelted, ironBars, workerMines, workerPlants } = end.run.lifetime
+  console.log(
+    'batch 11 ladder',
+    JSON.stringify({ ladderTicks, finalCash, wagesPaid, lowest, borrowed, ironBarsSmelted, ironBars, workerMines, workerPlants, workers: end.run.workers.assigned, pickaxe: end.run.pickaxe }, null, 1),
+  )
+
+  it('every batch-10 step is unchanged; storage Lv3 → vein Lv3 → iron picked → first iron bar → iron pickaxe → mine certificate follow, pinned', () => {
+    const { storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate, ...older } = ladderTicks
+    expect(older).toEqual({
+      storageLv1: 477,
+      veinLv1: 666,
+      furnace: 885,
+      storageLv2: 951,
+      veinLv2: 1255,
+      firstBar: 1389,
+      copperPickaxe: 1644,
+      'copper:water': 1884,
+      'copper:harvest': 2196,
+      'copper:plant': 2361,
+      oreCertificate: 2550,
+      fuelCertificate: 3141,
+      smart: 3741,
+      plantCertificate: 4341,
+    })
+    const order = [storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate]
+    for (const tick of order) expect(tick).toBeLessThanOrEqual(IRON_TICKS)
+    expect([...order].sort((a, b) => a! - b!)).toEqual(order)
+    expect({ storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
+      storageLv3: 4389,
+      veinLv3: 4641,
+      ironPicked: 4938,
+      firstIronBar: 5060,
+      ironPickaxe: 5541,
+      mineCertificate: 6141,
+    })
+    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([12550, 1189, 205, 18])
+  })
+
+  it('the miner gets a worker and mines; nothing goes negative and it never borrows', () => {
+    expect(end.run.workers.assigned.mine).toBe(1)
+    expect(workerMines).toBeGreaterThan(0)
+    expect(lowest).toBeGreaterThanOrEqual(0)
+    expect(borrowed).toBe(false)
+  })
+})
+
+/** vein Lv3, storage Lv3, a fresh iron pickaxe and a furnace on iron, with a miner (and the two loaders) staffed */
+function ironWorks({ smart = false, loaders = true }: { smart?: boolean; loaders?: boolean }): GameState {
+  const init = createInitialState()
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1 }
+  const furnace = { ...createFurnace(), built: true, smart, oreKind: 'ironOre' as const }
+  const workers = { pool: assigned.ore + assigned.fuel + 1, assigned, certificates: ['ore', 'fuel', 'mine'] as WorkerJob[] }
+  return {
+    ...init,
+    run: {
+      ...init.run,
+      cash: 1000,
+      mineLicense: true,
+      storageLevel: 3,
+      bagCapacity: init.run.bagCapacity + 3 * storageSlotsPerLevel(),
+      vein: { level: 3, progress: 0, rock: 'stone' },
+      pickaxe: { tier: 'iron', durability: pickaxeDurability('iron') },
+      furnace,
+      workers,
+    },
+  }
+}
+
+/** coal the player leaves in storage for the fuel loader when selling */
+const KEEP_COAL = 10
+/**
+ * One hour of the mine → furnace chain with no player but a seller: every `cadence` ticks the player sells what the
+ * chain does not use (stone, copper ore, coal above KEEP_COAL; with no loaders also the iron ore), so storage has room.
+ */
+function ironBench({ cadence, smart = false, loaders = true }: { cadence: number; smart?: boolean; loaders?: boolean }) {
+  const start = ironWorks({ smart, loaders })
+  let s = start
+  let lowest = lowestValue(s)
+  const sell = (id: 'stone' | 'copperOre' | 'coal' | 'ironOre', keep = 0) => {
+    const r = sellItem(s, id, (s.run.inventory[id] ?? 0) - keep)
+    if (r.ok) s = r.state
+  }
+  for (let t = 0; t < HOUR_TICKS; t++) {
+    if (t % cadence === 0) {
+      sell('stone')
+      sell('copperOre')
+      sell('coal', loaders ? KEEP_COAL : 0)
+      if (!loaders) sell('ironOre')
+    }
+    s = step(s, 1)
+    lowest = Math.min(lowest, lowestValue(s))
+  }
+  const was = start.run.lifetime
+  const now = s.run.lifetime
+  return {
+    ironBars: now.ironBarsSmelted - was.ironBarsSmelted,
+    workerMines: now.workerMines - was.workerMines,
+    wages: now.wagesPaid - was.wagesPaid,
+    wastedUnits: (now.fireWasted - was.fireWasted) / fireUnitTicks(),
+    cash: s.run.cash - start.run.cash,
+    durability: s.run.pickaxe!.durability,
+    lowest,
+  }
+}
+
+describe('batch 11: iron bars per hour with mine + ore + fuel workers, plain vs smart (player only sells)', () => {
+  const bench = {
+    plain120: ironBench({ cadence: 120 }),
+    smart120: ironBench({ cadence: 120, smart: true }),
+    plain600: ironBench({ cadence: 600 }),
+    smart600: ironBench({ cadence: 600, smart: true }),
+    minerOnly120: ironBench({ cadence: 120, loaders: false }),
+  }
+  console.log('batch 11 iron bars/hour', JSON.stringify(bench, null, 1))
+
+  it('pins iron bars, miner presses, wages and fire wasted per hour (PLAN.md "Batch 11 results")', () => {
+    expect(Object.fromEntries(Object.entries(bench).map(([k, v]) => [k, [v.ironBars, v.workerMines, v.wages, Math.ceil(v.wastedUnits)]]))).toEqual({
+      plain120: [28, 679, 801, 4],
+      smart120: [28, 679, 799, 0],
+      plain600: [15, 329, 418, 60],
+      smart600: [11, 269, 315, 0],
+      minerOnly120: [0, 720, 720, 0],
+    })
+  })
+
+  it('the furnace never beats its iron ceiling (one bar per 120 s), smart wastes no fire, nothing goes negative', () => {
+    for (const r of Object.values(bench)) {
+      expect(r.ironBars).toBeLessThanOrEqual(HOUR_TICKS / barTicks('ironOre'))
+      expect(r.lowest).toBeGreaterThanOrEqual(0)
+    }
+    expect([bench.smart120.wastedUnits, bench.smart600.wastedUnits]).toEqual([0, 0])
+  })
+})
+
+describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chain (miner, loaders, farm workers)', () => {
+  // before leaving the player sells the stone and copper ore (the coal and iron ore stay for the loaders)
+  const sold = (s: GameState, id: 'stone' | 'copperOre') => {
+    const r = sellItem(s, id, s.run.inventory[id] ?? 0)
+    return r.ok ? r.state : s
+  }
+  const start = sold(sold(ironLadder.end, 'stone'), 'copperOre')
+  let t = start
+  let lowest = t.run.cash
+  let minerStop = 0
+  for (let i = 0; i < OFFLINE_CAP_TICKS; i++) {
+    const mines = t.run.lifetime.workerMines
+    t = step(t, 1)
+    if (t.run.lifetime.workerMines > mines) minerStop = i + 1
+    lowest = Math.min(lowest, t.run.cash)
+  }
+  const was = start.run.lifetime
+  const now = t.run.lifetime
+  const offline = {
+    start: {
+      cash: start.run.cash,
+      storage: `${bagCount(start.run)}/${start.run.bagCapacity}`,
+      inventory: start.run.inventory,
+      durability: start.run.pickaxe?.durability,
+      assigned: start.run.workers.assigned,
+    },
+    minerStop,
+    storage: `${bagCount(t.run)}/${t.run.bagCapacity}`,
+    inventory: t.run.inventory,
+    durability: t.run.pickaxe?.durability,
+    mines: now.workerMines - was.workerMines,
+    ironBars: now.ironBarsSmelted - was.ironBarsSmelted,
+    copperBars: now.barsSmelted - was.barsSmelted,
+    plants: now.workerPlants - was.workerPlants,
+    gain: t.run.cash - start.run.cash,
+    wages: now.wagesPaid - was.wagesPaid,
+    lowest,
+  }
+  console.log('batch 11 offline 8 h', JSON.stringify(offline, null, 1))
+
+  it('the miner stops because storage is full, not because the pickaxe went blunt (pinned)', () => {
+    expect(bagCount(t.run)).toBe(t.run.bagCapacity)
+    expect(t.run.pickaxe!.durability).toBeGreaterThan(0)
+    expect(minerStop).toBeLessThan(OFFLINE_CAP_TICKS)
+    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([981, 54, 9, 69387, 3633])
+  })
+
+  it('cash never goes below 0 and step(s, n) = n × step(s, 1) over the whole 8 h', () => {
+    expect(lowest).toBeGreaterThanOrEqual(0)
+    expect(step(start, OFFLINE_CAP_TICKS)).toEqual(t)
+  })
+})
+
+describe('batch 11: mining stays below the farm cap with the iron tier', () => {
+  const pumpkin = runCropBot('pumpkin').cashPerEnergy
+  const bench = (tier: PickaxeTier, lv10: boolean) =>
+    mineBench({ pickaxe: true, tier, vein: 3, xp: lv10 ? 400 * { wooden: 1, copper: 2, iron: 4 }[tier] : 0, mastered: lv10 }).cashPerEnergy
+  const mining = {
+    woodLv10Vein3: bench('wooden', true),
+    copperLv10Vein3: bench('copper', true),
+    ironLv0Vein3: bench('iron', false),
+    ironLv10Vein3: bench('iron', true),
+  }
+  // the miner spends no player energy: compare its net cash per hour (sales − its wages) with farm workers'
+  const miner = ironBench({ cadence: 120, loaders: false })
+  const farmWorkers = runCropBot('pumpkin', HOUR_TICKS, undefined, { plant: 1, water: 1, harvest: 1 }).perMin * 60
+  console.log('batch 11 mining', JSON.stringify({ pumpkin, mining, minerCashPerHour: miner.cash, farmWorkersCashPerHour: farmWorkers }, null, 1))
+
+  it('every pickaxe on vein Lv3 stays below 0.9 × pumpkin (cash per energy, repairs at input value)', () => {
+    for (const v of Object.values(mining)) expect(v).toBeLessThan(0.9 * pumpkin)
+  })
+
+  it('a miner nets less cash per hour than the three pumpkin farm workers', () => {
+    expect(miner.cash).toBeLessThan(farmWorkers)
   })
 })
