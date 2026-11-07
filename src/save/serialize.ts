@@ -76,6 +76,7 @@ function migrateV1(save: SaveV1): SaveV2 {
         ...fresh,
         ...run,
         energy: Math.min(run.energy, energyMax(upgrades.energyMax, meta)),
+        pickaxe: null,
         tiles,
         upgrades,
         // the v2 counter shape, not a new run's v4 one

@@ -8,7 +8,9 @@ import {
   masteryThresholds,
   mineHits,
   mineLicenseCost,
-  pickaxeRecipe,
+  pickaxeCraftCost,
+  pickaxeDurability,
+  pickaxeRepairCost,
   rockHits,
   veinDrops,
   veinMaxLevel,
@@ -16,7 +18,7 @@ import {
   woodCost,
   type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS } from '../core/data/items'
+import { ITEMS, ITEM_IDS, PICKAXE_NAMES } from '../core/data/items'
 import {
   activePickaxe,
   bagCount,
@@ -46,9 +48,10 @@ export function dropText(level: number): string {
     .join(' · ')
 }
 
-/** "🪨20 ⚫5 💰150" */
+/** "🪨20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
-  return [...ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`), `💰${price.cash}`].join(' ')
+  const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`)
+  return [...items, ...(price.cash ? [`💰${price.cash}`] : [])].join(' ')
 }
 
 function sellAll(s: GameState): ActionResult {
@@ -74,7 +77,6 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
   }
   // the core actions double as "can I?" checks, so the disabled reason is the action's own error
   const digCheck = dig(state)
-  const recipe = pickaxeRecipe('wooden')
   const hits = mineHits(activePickaxe(run)?.tier ?? null)
   const repair = repairPickaxe(state)
   const cracked = run.vein.progress > 0
@@ -86,6 +88,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
     0,
   )
   const tier = run.pickaxe?.tier
+  const copperCraft = craftPickaxe(state, 'copper')
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
   const level = tier ? masteryLevel(tier, xp) : 0
@@ -134,20 +137,26 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       </div>
       {run.pickaxe?.durability === 0 ? (
         <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
-          Blunt pickaxe — repair ({recipe.repairWood} 🪵)
+          Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
           {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
         </button>
       ) : run.pickaxe ? (
         <div className="mine-pickaxe">
           <span>
-            Wooden pickaxe {run.pickaxe.durability} / {recipe.durability} · lasts ~
+            {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · lasts ~
             {Math.round(expectedUses(run.pickaxe.tier, run))} uses
           </span>
-          <Bar value={run.pickaxe.durability / recipe.durability} kind="tool" />
+          <Bar value={run.pickaxe.durability / pickaxeDurability(run.pickaxe.tier)} kind="tool" />
         </div>
       ) : (
         <button disabled={!craftPickaxe(state).ok} onClick={() => act(craftPickaxe)}>
-          No pickaxe — craft ({recipe.wood} 🪵)
+          No pickaxe — craft ({priceText(pickaxeCraftCost('wooden', meta))})
+        </button>
+      )}
+      {run.furnace.built && tier !== 'copper' && (
+        <button disabled={!copperCraft.ok} onClick={() => act((s) => craftPickaxe(s, 'copper'))}>
+          Craft copper pickaxe ({priceText(pickaxeCraftCost('copper', meta))})
+          {!copperCraft.ok && <small> — {ERROR_TEXT[copperCraft.error]}</small>}
         </button>
       )}
       {tier && (

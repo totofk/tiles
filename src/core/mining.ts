@@ -7,7 +7,9 @@ import {
   masteryMaxLevel,
   mineHits,
   mineLicenseCost,
-  pickaxeRecipe,
+  pickaxeCraftCost,
+  pickaxeDurability,
+  pickaxeRepairCost,
   preserveChance,
   rockHits,
   storageCost,
@@ -19,7 +21,7 @@ import {
   woodCost,
   type Price,
 } from './balance'
-import { ITEM_IDS, type ItemId, type PickaxeTier } from './data/items'
+import { ITEM_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -60,15 +62,12 @@ export function buyWood(state: GameState, n: number): ActionResult {
   return withRun(state, { cash: run.cash - cost, inventory: addItems(run, 'wood', n) })
 }
 
-export function craftPickaxe(state: GameState): ActionResult {
+// A higher tier replaces the pickaxe in hand (blunt or not); every tier's mastery xp stays in run.mastery.
+// Order: ALREADY_OWNED (this tier or a higher one in hand), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
+export function craftPickaxe(state: GameState, tier: PickaxeTier = 'wooden'): ActionResult {
   const { run } = state
-  if (run.pickaxe) return fail('ALREADY_OWNED')
-  const recipe = pickaxeRecipe('wooden')
-  if ((run.inventory.wood ?? 0) < recipe.wood) return fail('NOT_ENOUGH_ITEMS')
-  return withRun(state, {
-    inventory: addItems(run, 'wood', -recipe.wood),
-    pickaxe: { tier: 'wooden', durability: recipe.durability },
-  })
+  if (run.pickaxe && PICKAXE_TIERS.indexOf(run.pickaxe.tier) >= PICKAXE_TIERS.indexOf(tier)) return fail('ALREADY_OWNED')
+  return pay(state, pickaxeCraftCost(tier, state.meta), { pickaxe: { tier, durability: pickaxeDurability(tier) } })
 }
 
 /** the pickaxe this mine action uses; null = by hand (none owned, or blunt) */
@@ -83,7 +82,7 @@ export function pickaxePreserve(tier: PickaxeTier, run: RunState): number {
 
 /** mine actions a fresh pickaxe of this tier lasts on average at the run's mastery: durability / (1 − preserve) */
 export function expectedUses(tier: PickaxeTier, run: RunState): number {
-  return pickaxeRecipe(tier).durability / (1 - pickaxePreserve(tier, run))
+  return pickaxeDurability(tier) / (1 - pickaxePreserve(tier, run))
 }
 
 /** +1 xp for the tier; reaching max mastery adds it to masteredTiers once */
@@ -121,17 +120,13 @@ export function dig(state: GameState): ActionResult {
   })
 }
 
-// Repair validates in this order: NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_WOOD. No energy; back to full durability.
+// Repair pays the tier's repair price (wood, copper bars). Order: NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_ITEMS, NO_CASH.
+// No energy; back to full durability.
 export function repairPickaxe(state: GameState): ActionResult {
-  const { run } = state
-  if (!run.pickaxe) return fail('NO_PICKAXE')
-  if (run.pickaxe.durability > 0) return fail('NOT_BLUNT')
-  const recipe = pickaxeRecipe(run.pickaxe.tier)
-  if ((run.inventory.wood ?? 0) < recipe.repairWood) return fail('NOT_ENOUGH_WOOD')
-  return withRun(state, {
-    inventory: addItems(run, 'wood', -recipe.repairWood),
-    pickaxe: { ...run.pickaxe, durability: recipe.durability },
-  })
+  const { pickaxe } = state.run
+  if (!pickaxe) return fail('NO_PICKAXE')
+  if (pickaxe.durability > 0) return fail('NOT_BLUNT')
+  return pay(state, pickaxeRepairCost(pickaxe.tier, state.meta), { pickaxe: { ...pickaxe, durability: pickaxeDurability(pickaxe.tier) } })
 }
 
 /** pays the items from storage, then the cash, and applies `gain`; NOT_ENOUGH_ITEMS before NO_CASH */

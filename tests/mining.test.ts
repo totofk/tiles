@@ -5,7 +5,9 @@ import {
   itemSellPrice,
   mineHits,
   mineLicenseCost,
-  pickaxeRecipe,
+  pickaxeCraftCost,
+  pickaxeDurability,
+  pickaxeRepairCost,
   rockHits,
   storageCost,
   storageMaxLevel,
@@ -90,7 +92,7 @@ describe('buyWood', () => {
 describe('craftPickaxe', () => {
   it('turns 3 wood into a wooden pickaxe', () => {
     const next = okState(craftPickaxe(withRun({ inventory: { wood: 4 } })))
-    expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: pickaxeRecipe('wooden').durability })
+    expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: pickaxeDurability('wooden') })
     expect(next.run.inventory.wood).toBe(1)
   })
   it('rejects without enough wood or with a pickaxe already in hand', () => {
@@ -281,8 +283,11 @@ describe('buyStorage', () => {
 describe('repairPickaxe', () => {
   const blunt = (wood: number) => miner({ pickaxe: { tier: 'wooden', durability: 0 }, inventory: { wood } })
   it('spends repair wood (less than crafting) and restores full durability, no energy', () => {
-    const recipe = pickaxeRecipe('wooden')
-    expect(recipe).toMatchObject({ wood: 3, repairWood: 2, durability: 25 })
+    expect([pickaxeCraftCost('wooden', meta), pickaxeRepairCost('wooden', meta), pickaxeDurability('wooden')]).toEqual([
+      { wood: 3, cash: 0 },
+      { wood: 2, cash: 0 },
+      25,
+    ])
     const s = blunt(3)
     const next = okState(repairPickaxe(s))
     expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: 25 })
@@ -295,7 +300,46 @@ describe('repairPickaxe', () => {
       ok: false,
       error: 'NOT_BLUNT',
     })
-    expect(repairPickaxe(blunt(1))).toEqual({ ok: false, error: 'NOT_ENOUGH_WOOD' })
+    expect(repairPickaxe(blunt(1))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+  })
+})
+
+describe('copper pickaxe', () => {
+  const copper = (durability = 200) => ({ tier: 'copper' as const, durability })
+  it('5 copper bars + 50 cash, durability 200, 3 hits per action; replaces the wooden one, whose mastery stays', () => {
+    expect([pickaxeCraftCost('copper', meta), pickaxeRepairCost('copper', meta), pickaxeDurability('copper'), mineHits('copper')]).toEqual([
+      { copperBar: 5, cash: 50 },
+      { copperBar: 2, cash: 0 },
+      200,
+      3,
+    ])
+    const s = miner({ cash: 60, inventory: { copperBar: 6 }, mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
+    const next = okState(craftPickaxe(s, 'copper'))
+    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([copper(), 10, { copperBar: 1 }, { wooden: 400 }])
+    expect(craftPickaxe({ ...next, run: { ...next.run, inventory: { wood: 9 } } })).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(craftPickaxe({ ...next, run: { ...next.run, cash: 1e3, inventory: { copperBar: 9 } } }, 'copper')).toEqual({
+      ok: false,
+      error: 'ALREADY_OWNED',
+    })
+  })
+  it('validates bars, then cash', () => {
+    expect(craftPickaxe(miner({ cash: 1e3, inventory: { copperBar: 4 } }), 'copper')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(craftPickaxe(miner({ cash: 49, inventory: { copperBar: 5 } }), 'copper')).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+  it('breaks any rock in one action and earns copper xp; preserve = copper mastery + the wooden mastered bonus', () => {
+    const s = miner({ pickaxe: copper(), vein: { level: 2, progress: 0, rock: 'copperOre' }, mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
+    const next = okState(dig(s))
+    expect([next.run.inventory.copperOre, next.run.vein.progress, next.run.mastery]).toEqual([1, 0, { wooden: 400, copper: 1 }])
+    // copper Lv0 + one mastered tier = 5 %; copper Lv1 (20 xp) = 1 − 1/1.4 + 5 %
+    expect(pickaxePreserve('copper', s.run)).toBeCloseTo(0.05)
+    expect(pickaxePreserve('copper', { ...s.run, mastery: { copper: 20 } })).toBeCloseTo(1 - 1 / 1.4 + 0.05)
+    expect(expectedUses('copper', { ...s.run, masteredTiers: [] })).toBe(200)
+  })
+  it('repairs with 2 copper bars when blunt', () => {
+    const s = miner({ pickaxe: copper(0), inventory: { copperBar: 2 } })
+    const next = okState(repairPickaxe(s))
+    expect([next.run.pickaxe, next.run.inventory]).toEqual([copper(), { copperBar: 0 }])
+    expect(repairPickaxe(miner({ pickaxe: copper(0), inventory: { copperBar: 1, wood: 9 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
   })
 })
 

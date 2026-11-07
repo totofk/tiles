@@ -32,7 +32,6 @@ export type ActionError =
   | 'NO_MINE_LICENSE'
   | 'NO_PICKAXE'
   | 'NOT_BLUNT'
-  | 'NOT_ENOUGH_WOOD'
   | 'BAG_FULL'
   | 'NOT_ENOUGH_ITEMS'
   | 'BAD_AMOUNT'

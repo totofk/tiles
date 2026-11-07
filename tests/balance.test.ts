@@ -13,7 +13,7 @@ import {
   masteryMaxLevel,
   masteryThresholds,
   moistureDrainPerTick,
-  pickaxeRecipe,
+  pickaxeDurability,
   preserveChance,
   tileCost,
   upgradeCost,
@@ -92,7 +92,7 @@ describe('balance', () => {
 })
 
 describe('pickaxe mastery', () => {
-  const lv10Lifetime = (tier: PickaxeTier) => pickaxeRecipe(tier).durability / (1 - preserveChance(masteryMaxLevel(), 0))
+  const lv10Lifetime = (tier: PickaxeTier) => pickaxeDurability(tier) / (1 - preserveChance(masteryMaxLevel(), 0))
 
   it('wooden thresholds, levels 0 … 10', () => {
     expect(masteryThresholds('wooden')).toEqual([10, 25, 45, 70, 100, 140, 190, 250, 320, 400])
@@ -116,11 +116,14 @@ describe('pickaxe mastery', () => {
   })
 
   // The tier rule (DECISIONS.md round 4): a new tier must outlast the previous tier at Lv10, so a new tier at Lv0
-  // never feels like a downgrade. With only wood it documents the rule for the furnace batch.
-  it('each tier base durability exceeds the previous tier Lv10 lifetime (wood Lv10 = 125 uses)', () => {
+  // never feels like a downgrade.
+  it('each tier base durability exceeds the previous tier Lv10 lifetime (wood Lv10 = 125 < copper 200)', () => {
     expect(lv10Lifetime('wooden')).toBeCloseTo(125)
-    PICKAXE_TIERS.slice(1).forEach((tier, i) =>
-      expect(pickaxeRecipe(tier).durability).toBeGreaterThan(lv10Lifetime(PICKAXE_TIERS[i])),
-    )
+    expect(pickaxeDurability('copper')).toBe(200)
+    PICKAXE_TIERS.slice(1).forEach((tier, i) => expect(pickaxeDurability(tier)).toBeGreaterThan(lv10Lifetime(PICKAXE_TIERS[i])))
+  })
+
+  it('copper mastery thresholds are wood ×2 (20 … 800 xp)', () => {
+    expect(masteryThresholds('copper')).toEqual([20, 50, 90, 140, 200, 280, 380, 500, 640, 800])
   })
 })

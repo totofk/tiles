@@ -65,9 +65,11 @@ const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 const SMELT = { ore: 2, fuel: { coal: 1, wood: 2 }, barTicks: 60, queueCap: 5 }
 export type FuelId = keyof typeof SMELT.fuel
 export const FUEL_IDS = Object.keys(SMELT.fuel) as FuelId[]
-// wood = craft cost, repairWood = cost to fix a blunt one (below craft), hits = stone hits per mine action
-const PICKAXES: Record<PickaxeTier, { wood: number; repairWood: number; durability: number; hits: number }> = {
-  wooden: { wood: 3, repairWood: 2, durability: 25, hits: 2 },
+// craft = price of a new one, repair = price to fix a blunt one (below craft), hits = rock hits per mine action.
+// Each tier's durability must beat the previous tier's Lv10 lifetime (balance test).
+const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: number; hits: number }> = {
+  wooden: { craft: { wood: 3, cash: 0 }, repair: { wood: 2, cash: 0 }, durability: 25, hits: 2 },
+  copper: { craft: { copperBar: 5, cash: 50 }, repair: { copperBar: 2, cash: 0 }, durability: 200, hits: 3 },
 }
 /** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2
@@ -241,8 +243,16 @@ export function furnaceQueueCap(): number {
   return SMELT.queueCap
 }
 
-export function pickaxeRecipe(tier: PickaxeTier): { wood: number; repairWood: number; durability: number } {
-  return PICKAXES[tier]
+export function pickaxeDurability(tier: PickaxeTier): number {
+  return PICKAXES[tier].durability
+}
+
+export function pickaxeCraftCost(tier: PickaxeTier, meta: MetaState): Price {
+  return scalePrice(PICKAXES[tier].craft, meta)
+}
+
+export function pickaxeRepairCost(tier: PickaxeTier, meta: MetaState): Price {
+  return scalePrice(PICKAXES[tier].repair, meta)
 }
 
 /** hits a rock that drops `rock` takes to break */

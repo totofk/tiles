@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
-import { itemSellPrice, pickaxeRecipe } from '../src/core/balance'
+import { itemSellPrice, pickaxeDurability } from '../src/core/balance'
 import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -20,7 +20,7 @@ function setup(run: Partial<GameState['run']>) {
   return { get: () => state, rerender: () => view.rerender(ui()) }
 }
 const text = () => document.body.textContent ?? ''
-const wooden = (durability = pickaxeRecipe('wooden').durability) => ({ tier: 'wooden' as const, durability })
+const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' as const, durability })
 
 describe('Mine panel', () => {
   it('shows the current vein with %, the next level greyed with its cost, and the iron teaser with no numbers', () => {
@@ -87,8 +87,23 @@ describe('Mine panel', () => {
 
   it('a blunt pickaxe shows the repair button with its wood cost', () => {
     setup({ pickaxe: wooden(0), inventory: { wood: 2 } })
-    const repair = screen.getByRole('button', { name: /Blunt pickaxe — repair \(2 🪵\)/ }) as HTMLButtonElement
+    const repair = screen.getByRole('button', { name: /Blunt wooden pickaxe — repair \(🪵2\)/ }) as HTMLButtonElement
     expect(repair.disabled).toBe(false)
+  })
+
+  it('with the furnace built, offers the copper pickaxe (disabled with the reason) and shows it once crafted', () => {
+    const furnace = { built: true, queue: 0, progress: 0, ready: 0 }
+    setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 4 } })
+    const craft = screen.getByRole('button', { name: /^Craft copper pickaxe/ }) as HTMLButtonElement
+    expect(craft.textContent).toBe('Craft copper pickaxe (🟧5 💰50) — Not enough items')
+    expect(craft.disabled).toBe(true)
+    cleanup()
+    const t = setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 5 }, mastery: { wooden: 33 } })
+    fireEvent.click(screen.getByRole('button', { name: /^Craft copper pickaxe/ }))
+    t.rerender()
+    expect(text()).toContain('Copper pickaxe 200 / 200 · lasts ~200 uses')
+    expect(text()).toContain('Mastery Lv 0/10 · 0/20 xp')
+    expect(screen.queryByRole('button', { name: /^Craft copper pickaxe/ })).toBeNull()
   })
 
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {

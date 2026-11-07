@@ -12,7 +12,8 @@ import {
   itemSellPrice,
   licenseCost,
   mineLicenseCost,
-  pickaxeRecipe,
+  pickaxeCraftCost,
+  pickaxeRepairCost,
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
@@ -129,11 +130,11 @@ function runBot(
     }
     if (bagCount(s.run) >= s.run.bagCapacity) tryAct(sellItem(s, 'stone', s.run.inventory.stone ?? 0), mine)
     if (!s.run.pickaxe) {
-      const need = pickaxeRecipe('wooden').wood - (s.run.inventory.wood ?? 0)
+      const need = pickaxeCraftCost('wooden', s.meta).wood! - (s.run.inventory.wood ?? 0)
       if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
       if (!tryAct(craftPickaxe(s), mine)) return false
     } else if (s.run.pickaxe.durability === 0) {
-      const need = pickaxeRecipe('wooden').repairWood - (s.run.inventory.wood ?? 0)
+      const need = pickaxeRepairCost('wooden', s.meta).wood! - (s.run.inventory.wood ?? 0)
       if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
       if (!tryAct(repairPickaxe(s), mine)) return false
     }
@@ -513,7 +514,7 @@ function mineBench({ pickaxe, xp = 0, mastered = false, vein = 0, actions = 5000
   const fixed = { mastery: { wooden: xp }, masteredTiers: mastered ? (['wooden'] as const).slice() : [] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1e6, mineLicense: true, vein: { level: vein, progress: 0, rock: 'stone' }, ...fixed } }
   const start = s.run.cash
-  const recipe = pickaxeRecipe('wooden')
+  const recipe = { wood: pickaxeCraftCost('wooden', init.meta).wood!, repairWood: pickaxeRepairCost('wooden', init.meta).wood! }
   let repairs = 0
   const act = (r: ActionResult) => {
     if (!r.ok) throw new Error(r.error)

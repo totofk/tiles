@@ -734,7 +734,7 @@ real v5 fixture first; chain v1–v5 → v6; backup key).
 39. [x] Vein Lv2 = 30 stone + 10 coal + 💰200, requires the furnace; drops 65 % stone / 20 % coal / 15 % copper ore;
     copper rock needs 3 hits (hits per rock type in balance.ts). Drop table: Lv2 row becomes copper ore; greyed
     "🔒 Lv3: iron ore — coming" with no numbers.
-40. [ ] Copper pickaxe: 5 copper bars + 💰50, durability 200, 3 hits per energy, repair 2 copper bars; it becomes
+40. [x] Copper pickaxe: 5 copper bars + 💰50, durability 200, 3 hits per energy, repair 2 copper bars; it becomes
     the equipped pickaxe (the wooden one's mastery and mastered reward persist). Copper mastery thresholds ×2.
 41. [ ] Furnace UI in the Mine panel (queue of 5 with progress, fuel choice, collect, compact at 375 px) + sim:
     report ticks for vein Lv1 → furnace → storage Lv2 → vein Lv2 → first bar → copper pickaxe; copper-pickaxe
