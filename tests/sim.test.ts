@@ -8,8 +8,14 @@ import {
   ACTION_ENERGY_COST,
   OFFLINE_CAP_TICKS,
   barTicks,
+  certificateCost,
   cropGrowTicks,
   cropSeedCost,
+  fireCapTicks,
+  fireUnitTicks,
+  furnaceUpgradeCost,
+  furnaceUpgradeMaxLevel,
+  FURNACE_UPGRADE_IDS,
   cropSellPrice,
   isSellable,
   itemSellPrice,
@@ -28,10 +34,10 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { addFuel, buildFurnace, collectBars, loadOre } from '../src/core/furnace'
+import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre } from '../src/core/furnace'
 import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
-import { createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
@@ -93,7 +99,17 @@ const lowestValue = ({ run }: GameState) =>
   )
 
 /** batch 7 ladder goals, in order; `keep` = items mining must not sell while this goal is next */
-type LadderStep = 'storageLv1' | 'veinLv1' | 'furnace' | 'storageLv2' | 'veinLv2' | 'copperPickaxe' | `copper:${ToolJob}`
+type LadderStep =
+  | 'storageLv1'
+  | 'veinLv1'
+  | 'furnace'
+  | 'storageLv2'
+  | 'veinLv2'
+  | 'copperPickaxe'
+  | `copper:${ToolJob}`
+  | 'oreCertificate'
+  | 'fuelCertificate'
+  | 'smart'
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
@@ -150,7 +166,36 @@ const COPPER_LADDER: Goal[] = [
     }),
   ),
 ]
-const smeltsFor = (g: Goal | undefined) => g !== undefined && (g.name === 'copperPickaxe' || g.name.startsWith('copper:'))
+/** batch 9: after the copper tools, the ore loader's and fuel loader's certificates, then the smart furnace */
+const FURNACE_LADDER: Goal[] = [
+  ...COPPER_LADDER,
+  ...(['ore', 'fuel'] as const).map(
+    (job): Goal => ({
+      name: `${job}Certificate`,
+      done: (s) => s.run.workers.certificates.includes(job),
+      buy: (s) => buyCertificate(s, job),
+      keep: keepBars(certificateCost(job, createInitialState().meta).copperBar!),
+    }),
+  ),
+  {
+    name: 'smart',
+    done: (s) => s.run.furnace.smart,
+    buy: (s) => buyFurnaceUpgrade(s, 'smart'),
+    keep: keepBars(furnaceUpgradeCost('smart', 0, createInitialState().meta)!.copperBar!),
+  },
+]
+const smeltsFor = (g: Goal | undefined) =>
+  g !== undefined && (g.name === 'copperPickaxe' || g.name.startsWith('copper:') || FURNACE_LADDER.slice(COPPER_LADDER.length).includes(g))
+
+/**
+ * batch 9: the player's share of the furnace once the ore loader loads ore and collects: coal for every cycle of ore in
+ * the slot and storage the fire does not cover yet (one coal per cycle), so the fire never burns without ore
+ */
+function fuelForOre(s: GameState): ActionResult {
+  const { inventory, furnace } = s.run
+  const k = Math.floor((furnace.ore + (inventory.copperOre ?? 0)) / cycleOre(furnace)) - Math.ceil(furnace.fire / barTicks())
+  return k >= 1 ? addFuel(s, 'coal', k * smeltFuel('coal')) : { ok: false, error: 'NOTHING_TO_DO' }
+}
 
 /** mineEarly: buy the mine license as soon as it is affordable while energy is idle;
  *  otherwise only once the pumpkin license is owned (the main crop is never delayed).
@@ -165,6 +210,7 @@ function runBot(
     ladder = false,
     copperTools = false,
     workers = false,
+    furnace = false,
     onEnd,
   }: {
     ticks?: number
@@ -175,11 +221,16 @@ function runBot(
     copperTools?: boolean
     /** batch 8: buys each certificate and hires whenever affordable, puts free workers on water first */
     workers?: boolean
+    /**
+     * batch 9 (with ladder, copperTools and workers): FURNACE_LADDER after the copper tools; a certified loader gets a
+     * worker (taken from the bigger farm job when none is free), and the bot stops doing what a loader does
+     */
+    furnace?: boolean
     /** receives the state at the cut-off */
     onEnd?: (s: GameState) => void
   } = {},
 ) {
-  const goals = copperTools ? COPPER_LADDER : LADDER
+  const goals = furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   let s = createInitialState()
@@ -235,8 +286,11 @@ function runBot(
       if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
       const next = goals.find((g) => !g.done(s))
       if (smeltsFor(next)) {
-        tryAct(smeltCoalJobs(s), null)
-        tryAct(collectBars(s), null)
+        const { assigned } = s.run.workers
+        if (assigned.ore === 0) {
+          tryAct(smeltCoalJobs(s), null)
+          tryAct(collectBars(s), null)
+        } else if (assigned.fuel === 0) tryAct(fuelForOre(s), null)
       }
       if (bagCount(s.run) >= s.run.bagCapacity) {
         const keep = next?.keep(s) ?? { cash: 0 }
@@ -271,7 +325,8 @@ function runBot(
   }
 
   // batch 8: certificates (water first), then every affordable hire; a free worker goes to water while water has no
-  // more workers than harvest, else to harvest. Farm jobs only: the batch-9 furnace loaders are task 61's bots.
+  // more workers than harvest, else to harvest. Certificates bought here are farm jobs only; the loaders' come from
+  // FURNACE_LADDER and, with `furnace`, each certified loader gets one worker before free ones go to the farm.
   const staff = (tick: number) => {
     for (const job of FARM_JOBS)
       if (tryAct(buyCertificate(s, job), null)) {
@@ -282,6 +337,13 @@ function runBot(
       workerTicks.firstHire ??= tick
       if (s.run.workers.pool >= 3) workerTicks.pool3 ??= tick
     }
+    if (furnace)
+      for (const job of ['ore', 'fuel'] as const) {
+        const { assigned, certificates } = s.run.workers
+        if (!certificates.includes(job) || assigned[job] > 0) continue
+        if (freeWorkers(s.run) < 1) tryAct(assignWorker(s, assigned.water > assigned.harvest ? 'water' : 'harvest', -1), null)
+        tryAct(assignWorker(s, job, 1), null)
+      }
     while (freeWorkers(s.run) > 0) {
       const { assigned, certificates } = s.run.workers
       const job: WorkerJob = certificates.includes('water') && (assigned.water <= assigned.harvest || !certificates.includes('harvest')) ? 'water' : 'harvest'
@@ -861,13 +923,19 @@ describe('batch 7: every multi-item price fits the storage the player has when i
   const items = (p: Price) => Object.entries(p).reduce((sum, [k, n]) => (k === 'cash' ? sum : sum + n), 0)
   // capacity when buyable: furnace right after vein Lv1 (storage Lv1 = 30); vein Lv2 and the copper pickaxe after
   // storage Lv2 (40)
-  it.each([
+  it.each<[string, Price, number]>([
     ['furnace', furnaceCost(meta), 30],
     ['vein Lv2', veinUpgradeCost(1, meta)!, 40],
     ['copper pickaxe', pickaxeCraftCost('copper', meta), 40],
     // batch 7.1: copper farm tools come after the copper pickaxe (storage Lv2)
     ['copper farm tool', toolTierCost(1, meta), 40],
-  ] as const)('%s', (_, price, capacity) => {
+    // batch 9: the loaders' certificates and every furnace upgrade level, all after the copper pickaxe (storage Lv2)
+    ['ore loader certificate', certificateCost('ore', meta), 40],
+    ['fuel loader certificate', certificateCost('fuel', meta), 40],
+    ...FURNACE_UPGRADE_IDS.flatMap((id) =>
+      Array.from({ length: furnaceUpgradeMaxLevel(id) }, (_, l): [string, Price, number] => [`${id} Lv${l + 1}`, furnaceUpgradeCost(id, l, meta)!, 40]),
+    ),
+  ])('%s', (_, price, capacity) => {
     expect(items(price)).toBeLessThanOrEqual(capacity)
   })
 })
@@ -1039,5 +1107,198 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
     expect(after.run.cash).toBeGreaterThan(before.run.cash)
     expect(bars(after)).toBeGreaterThanOrEqual(allowed)
     expect(runtimeMs).toBeLessThan(3000)
+  })
+})
+
+// ---- Batch 9: fuelled furnace, furnace loaders, smart furnace ----
+
+type Loaders = { ore?: boolean; fuel?: boolean }
+
+/** a built furnace at base levels with ore and coal in a roomy storage and cash for wages; loaders certified + staffed */
+function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
+  const init = createInitialState()
+  const assigned = { water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel) }
+  const furnace = { ...createFurnace(), built: true, fire, smart, levels: { fireCap, batch: 0 } }
+  const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
+  return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
+}
+
+/** what a furnace run did: bars smelted, fire wasted (units), coal used, wages, and the lowest value seen */
+function furnaceReport(before: GameState, after: GameState, lowest = lowestValue(after)) {
+  const { barsSmelted, fireWasted, wagesPaid } = after.run.lifetime
+  return {
+    bars: barsSmelted - before.run.lifetime.barsSmelted,
+    wastedUnits: (fireWasted - before.run.lifetime.fireWasted) / fireUnitTicks(),
+    coalUsed: (before.run.inventory.coal ?? 0) - (after.run.inventory.coal ?? 0),
+    wages: wagesPaid - before.run.lifetime.wagesPaid,
+    lowest,
+  }
+}
+
+const STOCK = { ore: 1000, coal: 500 }
+/**
+ * Bars per hour from an unlimited stock. The player tends the furnace every `cadence` ticks (collect the tray, load
+ * the ore slot full, fill the fire with coal) and skips what a loader does; loaders act on their own clock.
+ */
+function furnaceBench({ cadence = HOUR_TICKS, loaders = {}, smart = false, fireCap = 0 }: { cadence?: number; loaders?: Loaders; smart?: boolean; fireCap?: number }) {
+  const start = smeltery({ ...STOCK, smart, loaders, fireCap })
+  const tend: Array<(s: GameState) => ActionResult> = [
+    ...(loaders.ore ? [] : [collectBars, (s: GameState) => loadOre(s)]),
+    ...(loaders.fuel ? [] : [(s: GameState) => addFuel(s, 'coal')]),
+  ]
+  let s = start
+  let lowest = lowestValue(s)
+  for (let t = 0; t < HOUR_TICKS; t++) {
+    if (t % cadence === 0)
+      for (const f of tend) {
+        const r = f(s)
+        if (r.ok) s = r.state
+      }
+    s = step(s, 1)
+    lowest = Math.min(lowest, lowestValue(s))
+  }
+  return furnaceReport(start, s, lowest)
+}
+
+describe('batch 9: bars per hour, manual vs ore loader vs both loaders vs smart (unlimited stock, base levels)', () => {
+  const bench = {
+    manual120: furnaceBench({ cadence: 120 }),
+    manual600: furnaceBench({ cadence: 600 }),
+    oreLoader600: furnaceBench({ cadence: 600, loaders: { ore: true } }),
+    oreLoader600FireCap1: furnaceBench({ cadence: 600, loaders: { ore: true }, fireCap: 1 }),
+    both: furnaceBench({ loaders: { ore: true, fuel: true } }),
+    bothSmart: furnaceBench({ loaders: { ore: true, fuel: true }, smart: true }),
+    manual600Smart: furnaceBench({ cadence: 600, smart: true }),
+  }
+  console.log('batch 9 bars/hour', JSON.stringify(bench, null, 1))
+  const pick = (k: keyof typeof bench) => [bench[k].bars, bench[k].wages]
+
+  it('pins bars and wages per hour (PLAN.md "Batch 9 results")', () => {
+    expect(Object.keys(bench).map((k) => pick(k as keyof typeof bench))).toEqual([
+      [60, 0],
+      [30, 0],
+      [30, 66],
+      [60, 124],
+      [60, 188],
+      [60, 188],
+      [30, 0],
+    ])
+  })
+
+  it('both loaders run the furnace at full speed with no player; a 10-minute player needs the ore loader and fire cap Lv1 for it', () => {
+    const full = HOUR_TICKS / barTicks()
+    expect(bench.both.bars).toBe(full)
+    expect(bench.manual600.bars).toBeLessThan(full)
+    expect(bench.oreLoader600.bars).toBeLessThan(full) // one base tank lasts 5 cycles, half the 10 minutes
+    expect(bench.oreLoader600FireCap1.bars).toBe(full)
+  })
+
+  it('with ore always in stock nothing is wasted, smart or plain, and nothing goes negative', () => {
+    for (const r of Object.values(bench)) {
+      expect(r.wastedUnits).toBe(0)
+      expect(r.lowest).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe('batch 9: a plain furnace wastes at most one tank', () => {
+  it.each([0, 1, 2])('fire cap level %i: a full tank and no ore burns away in 8 h, and no more', (fireCap) => {
+    const s = smeltery({ fire: fireCapTicks(fireCap), fireCap })
+    const r = furnaceReport(s, catchUp(s, OFFLINE_CAP_TICKS * 1000))
+    console.log('batch 9 idle tank', fireCap, JSON.stringify(r))
+    expect(r.wastedUnits * fireUnitTicks()).toBe(fireCapTicks(fireCap))
+  })
+})
+
+describe('batch 9: 8 h offline with loaders when the ore runs out (ore for 10 bars, 30 coal)', () => {
+  const offline = (loaders: Loaders, smart: boolean, fire = 0) => {
+    const s = smeltery({ ore: 20, coal: 30, loaders, smart, fire })
+    return furnaceReport(s, catchUp(s, OFFLINE_CAP_TICKS * 1000))
+  }
+  const runs = {
+    bothPlain: offline({ ore: true, fuel: true }, false),
+    bothSmart: offline({ ore: true, fuel: true }, true),
+    orePlainFullTank: offline({ ore: true }, false, fireCapTicks(0)),
+    // ore for 3 bars only: the full tank outlasts it
+    orePlainFullTankShortOre: (() => {
+      const s = smeltery({ ore: 6, coal: 30, loaders: { ore: true }, fire: fireCapTicks(0) })
+      return furnaceReport(s, catchUp(s, OFFLINE_CAP_TICKS * 1000))
+    })(),
+  }
+  console.log('batch 9 offline 8 h', JSON.stringify(runs, null, 1))
+  const tank = fireCapTicks(0) / fireUnitTicks()
+
+  it('both loaders smelt every bar the ore allows, plain or smart; smart wastes nothing and keeps the coal', () => {
+    expect([runs.bothPlain.bars, runs.bothSmart.bars]).toEqual([10, 10])
+    expect(runs.bothSmart.wastedUnits).toBe(0)
+    expect(runs.bothSmart.coalUsed).toBe(15) // 10 bars + a full tank (5 coal) left in the fire
+  })
+
+  it('plain with only the ore loader wastes at most the tank it was left with', () => {
+    expect(runs.orePlainFullTankShortOre.bars).toBe(3)
+    expect(runs.orePlainFullTankShortOre.wastedUnits).toBeLessThanOrEqual(tank)
+    expect(runs.orePlainFullTank.wastedUnits).toBe(0)
+  })
+
+  // DECISIONS "Fuelled furnace": the fuel loader keeps a plain furnace burning after the ore runs out; that loss is
+  // what the smart furnace buys. Bounded by the coal in storage, not by one tank (see PLAN.md Deviations, task 61).
+  it('plain with both loaders burns the rest of the coal stock once the ore is gone (pinned, more than one tank)', () => {
+    expect(runs.bothPlain).toMatchObject({ wastedUnits: 40, coalUsed: 30 })
+    expect(runs.bothPlain.wastedUnits).toBeGreaterThan(tank)
+  })
+
+  it('cash and every stock stay ≥ 0', () => {
+    for (const r of Object.values(runs)) expect(r.lowest).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('batch 9: ladder bot continues to the ore / fuel certificates and the smart furnace', () => {
+  let end = createInitialState()
+  const summary = runBot(true, {
+    ticks: 2 * HOUR_TICKS,
+    licenses: LICENSE_ORDER,
+    crops: PLANT_ORDER,
+    ladder: true,
+    copperTools: true,
+    workers: true,
+    furnace: true,
+    onEnd: (s) => (end = s),
+  })
+  const { ladderTicks, workerTicks, finalCash, wagesPaid, counters, lowest, borrowed } = summary
+  const { fireBurnt, fireWasted, barsSmelted } = end.run.lifetime
+  console.log(
+    'batch 9 ladder',
+    JSON.stringify({ ladderTicks, workerTicks, finalCash, wagesPaid, counters, lowest, borrowed, fireBurnt, fireWasted, barsSmelted, workers: end.run.workers.assigned }, null, 1),
+  )
+
+  it('the batch-8 steps are unchanged; ore certificate → fuel certificate → smart furnace follow, pinned', () => {
+    expect(ladderTicks).toEqual({
+      storageLv1: 477,
+      veinLv1: 666,
+      furnace: 885,
+      storageLv2: 951,
+      veinLv2: 1255,
+      firstBar: 1389,
+      copperPickaxe: 1644,
+      'copper:water': 1884,
+      'copper:harvest': 2196,
+      'copper:plant': 2361,
+      oreCertificate: 2550,
+      fuelCertificate: 3141,
+      smart: 3741,
+    })
+    expect(workerTicks).toEqual({ firstCertificate: 628, waterCertificate: 628, harvestCertificate: 1141, firstHire: 643, pool3: 1024 })
+    expect([finalCash, wagesPaid, counters.bars, barsSmelted]).toEqual([13900, 898, 80, 80])
+  })
+
+  it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
+    expect(end.run.workers.assigned).toEqual({ water: 2, harvest: 2, ore: 1, fuel: 1 })
+    expect(fireBurnt).toBe(barsSmelted * barTicks())
+    expect(fireWasted).toBe(0)
+  })
+
+  it('nothing goes negative and it never borrows', () => {
+    expect(lowest).toBeGreaterThanOrEqual(0)
+    expect(borrowed).toBe(false)
   })
 })

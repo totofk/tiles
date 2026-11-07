@@ -560,6 +560,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   build report nothing). New export `ticksUntilWorkers(run)` is shared by the lookahead and the UI's flash check.
 - **Batch 9 (task 60): the flash fires only for a live step of ≤ `workerActionTicks()` ticks** that crosses the worker
   tick; a longer jump (stalled timer, catch-up) shows no flash, because the tiles of more than one round are unknown.
+- **Batch 9 (task 61): "8 h offline with both loaders on a plain furnace: waste ≤ one tank" is not asserted.** The
+  fuel loader adds coal whenever the fire has room, ore or not (task 58, DECISIONS "Fuelled furnace"), so a plain
+  furnace burns the whole coal stock after the ore runs out (40 units from 30 coal, pinned). Asserted instead:
+  ≤ one tank for a plain furnace left alone and for plain + ore loader only, 0 for smart. The loader was not changed
+  to fit the number: that waste is what the smart furnace sells.
+- **Batch 9 (task 61): bars per hour come from a furnace bench (`furnaceBench`), not the ladder bot**: in the ladder,
+  bars per hour are set by how much ore mining brings, so the bench gives the furnace unlimited ore and coal and a
+  stated player cadence (120 s / 600 s). The ladder bot measures the certificate and smart-furnace timings.
+- **Batch 9 (task 61): the furnace ladder runs 7200 ticks** (smart lands at 3741, past the hour), and the bot stops
+  doing a loader's job once one is assigned (the batch-8 rule for farm jobs), else it would load and collect before
+  the loader's 5-tick clock and the loaders would idle.
+- **Batch 9 (task 61): no `balance.ts` change**; the starting numbers pass every check.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1360,7 +1372,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
     (one rule, not a copy). Not saved. UI: a thin dashed ring on each target tile; when a worker acts on a tile (the UI
     sees it between two ticks), that tile flashes ~0.5 s with a small 💧 / 🌾 pop. No walking figures. Must stay
     readable on 375 px tiles and must not shift layout.
-- [ ] 61. **Sim + balance** (existing ladder bot / runCropBot). Measure and pin: plain furnace with no ore wastes at
+- [x] 61. **Sim + balance** (existing ladder bot / runCropBot). Measure and pin: plain furnace with no ore wastes at
     most one tank; time to first ore/fuel certificate and to smart furnace; bars/hour manual vs ore loader vs both vs
     smart; 8 h offline with both loaders on a plain vs smart furnace (waste ≤ one tank on plain when ore runs out);
     every copper-bar price ≤ what the player can hold; cash never negative; all older pins still pass. Tune only the
@@ -1476,3 +1488,52 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
   smaller when the viewport height limits the grid), floor **72 px**. The pop (18 × 18 at top 4 / right 6) stays in
   the tile's top-right corner at every size; at the 72 px floor it can cover the corner of the crop emoji for its
   0.5 s, never a neighbour tile (the 6 px grid gap is outside the cell box).
+
+### Sim (task 61, `tests/sim.test.ts` "batch 9", measured)
+No `balance.ts` number changed: every check below passes on the task-57/58 starting numbers. Save stays v9.
+- **Furnace ladder bot** = the batch-8 workers ladder bot (`runBot(…, { furnace: true })`) + after the three copper
+  tools: ore certificate → fuel certificate → smart furnace, smelting (k cycles of ore with k coal, collect) while one
+  of them is next. A certified loader gets one worker at once (from the bigger farm job when none is free), and the bot
+  stops doing that loader's job: no ore loading or collecting once the ore loader works (it only adds coal for the ore
+  cycles the fire does not cover yet), nothing once the fuel loader works. 7200 ticks, pinned: **ore certificate tick
+  2550, fuel certificate 3141, smart furnace 3741** (≈ 42, 52 and 62 min); every earlier step equals the batch-8
+  workers ladder (copper pickaxe 1644, last copper tool 2361). At 2 h: cash 💰13 900, wages 💰898, 80 bars smelted
+  and collected, staff water 2 / harvest 2 / ore 1 / fuel 1, fire wasted **0** (mining keeps ore coming, so the
+  loaders never run the fire dry of ore), cash never below 0, no loan.
+- **Bars per hour, unlimited stock, base levels** (`furnaceBench`: 1000 ore + 500 coal in storage; "manual @ N s" =
+  the player collects, loads the slot full and fills the fire with coal every N s; loaders act every 5 s):
+
+  | Setup | bars/h | wages/h | fire wasted |
+  |---|---|---|---|
+  | manual @ 120 s | **60** | 0 | 0 |
+  | manual @ 600 s | **30** | 0 | 0 |
+  | ore loader, player fuels @ 600 s | **30** | 66 | 0 |
+  | ore loader, player fuels @ 600 s, fire cap Lv1 | **60** | 124 | 0 |
+  | both loaders, no player | **60** | 188 | 0 |
+  | both loaders + smart | **60** | 188 | 0 |
+  | manual @ 600 s + smart | **30** | 0 | 0 |
+
+  60/h is the furnace's ceiling at batch Lv0 (one bar per 60 s). A base tank (10 units = 5 cycles) and the tray (5)
+  each last 300 s, so a player who checks every 10 min gets half; the ore loader alone does not change that (the fire
+  is the limit) until fire cap Lv1 (600 s of fire). Both loaders run it at full speed for ≈ 💰3.1 wages a bar. Smart
+  makes no difference while ore never runs out.
+- **Plain furnace left alone:** a full tank and no ore burns away and stops: waste = exactly one tank at every fire cap
+  level (**10 / 20 / 40 units**) over 8 h.
+- **8 h offline, ore for 10 bars + 30 coal in storage, fire empty:**
+
+  | Setup | bars | fire wasted | coal used | wages |
+  |---|---|---|---|---|
+  | both loaders, plain | 10 | **40 units** | 30 (all) | 50 |
+  | both loaders, smart | 10 | **0** | 15 (10 bars + a full tank kept) | 35 |
+  | ore loader only, plain, left with a full tank (ore for 3 bars) | 3 | **4 units** (≤ one tank) | 0 | 6 |
+
+  Both loaders on a plain furnace burn the whole coal stock once the ore runs out (DECISIONS: that is what smart
+  buys), so the plan's "≤ one tank" holds only without the fuel loader; see Deviations.
+- **Prices fit storage:** both loader certificates (🥉3, 🥉8) and every furnace upgrade level (🥉4, 8, 6, 12, 10) are
+  added to the batch-7 table: ≤ 40 items, the storage Lv2 every copper path needs. Cash ≥ 0 in every bench and bot.
+- **Unchanged pins:** batch 3–8 sims (ladder ticks, final cash 5980 / 6119 / 3452, wages 379, counters, PRNG state)
+  all replay; 421 tests.
+- **Reading:** the loaders turn a furnace a 10-minute player runs at half speed into a full-speed one for ~3 cash a
+  bar, and the order certificate → certificate → smart lands at ≈ 42 / 52 / 62 min of the ladder, after the copper
+  tools. Smart pays off only when ore runs out with the fuel loader on, which in active play (mining feeding ore) did
+  not happen in 2 h; offline it saves the whole coal stock.
