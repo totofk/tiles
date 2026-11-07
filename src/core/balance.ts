@@ -2,7 +2,7 @@
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import { PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
+import { PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
 import type { CounterId, MetaState, MultiplierKey } from './state'
@@ -62,11 +62,16 @@ export type Price = { cash: number } & Partial<Record<ItemId, number>>
 // Furnace (round-5 research): built once vein level `vein` is owned.
 const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 // Fuelled furnace (batch 9): fire is kept in burn ticks, one fire unit = FIRE_UNIT_TICKS; a fuel item adds FUEL_UNITS.
-// A smelt cycle burns barTicks of fire and turns `ore` × batch copper ore from the ore slot (oreSlot ore) into batch
-// bars; it needs tray room for them (ready + batch ≤ trayCap). One cycle = 2 units = 1 coal or 2 wood, as before.
+// A smelt cycle burns the ore kind's barTicks of fire and turns `ore` × batch ore of the slot's kind (oreSlot ore) into
+// batch bars of that ore's bar; it needs tray room for them (ready + batch ≤ trayCap). A copper cycle = 2 units = 1 coal
+// or 2 wood, as before; iron burns twice that (4 units, 120 ticks: DECISIONS "Iron tier").
 // oreSlot ≥ 2 × the top batch's cycle (2 × 3 × 2 = 12), so a slot short of one cycle always has room for a whole one:
 // at 10 a batch-3 slot holding 5 ore could neither smelt (< 6) nor take a loader's cycle (room 5 < 6).
-const SMELT = { ore: 2, barTicks: 60, trayCap: 5, oreSlot: 12 }
+const SMELT = { ore: 2, trayCap: 5, oreSlot: 12 }
+const SMELT_ORES: Record<OreId, { bar: ItemId; barTicks: number }> = {
+  copperOre: { bar: 'copperBar', barTicks: 60 },
+  ironOre: { bar: 'ironBar', barTicks: 120 },
+}
 const FIRE_UNIT_TICKS = 30
 const FUEL_UNITS = { coal: 2, wood: 1 }
 export type FuelId = keyof typeof FUEL_UNITS
@@ -80,6 +85,8 @@ const BATCH_BARS = [1, 2, 3]
 const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: number; hits: number }> = {
   wooden: { craft: { wood: 3, cash: 0 }, repair: { wood: 2, cash: 0 }, durability: 25, hits: 2 },
   copper: { craft: { copperBar: 5, cash: 50 }, repair: { copperBar: 2, cash: 0 }, durability: 200, hits: 3 },
+  // 1200 beats copper's Lv10 lifetime 200 × (1 + 0.4 × 10) = 1000 (the old 500 guess did not)
+  iron: { craft: { ironBar: 5, cash: 200 }, repair: { ironBar: 2, cash: 0 }, durability: 1200, hits: 4 },
 }
 /** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2
@@ -279,19 +286,24 @@ export function furnaceVeinLevel(): number {
   return FURNACE.vein
 }
 
-/** copper ore per bar */
+/** ore per bar (copper and iron alike) */
 export function smeltOre(): number {
   return SMELT.ore
 }
 
-/** items of this fuel one cycle burns (coal 1, wood 2) */
-export function smeltFuel(fuel: FuelId): number {
-  return SMELT.barTicks / fuelTicks(fuel)
+/** items of this fuel one cycle of this ore burns (copper: coal 1, wood 2; iron twice that) */
+export function smeltFuel(fuel: FuelId, ore: OreId = 'copperOre'): number {
+  return barTicks(ore) / fuelTicks(fuel)
 }
 
-/** fire ticks one cycle burns */
-export function barTicks(): number {
-  return SMELT.barTicks
+/** fire ticks one cycle of this ore burns (copper 60, iron 120) */
+export function barTicks(ore: OreId = 'copperOre'): number {
+  return SMELT_ORES[ore].barTicks
+}
+
+/** the bar this ore smelts into */
+export function oreBar(ore: OreId): ItemId {
+  return SMELT_ORES[ore].bar
 }
 
 /** burn ticks per fire unit */
@@ -329,7 +341,7 @@ export function furnaceTrayCap(): number {
   return SMELT.trayCap
 }
 
-/** copper ore the furnace's ore slot holds */
+/** ore the furnace's ore slot holds */
 export function oreSlotCap(): number {
   return SMELT.oreSlot
 }

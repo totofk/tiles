@@ -17,11 +17,12 @@ import {
   furnaceTrayCap,
   furnaceVeinLevel,
   isSellable,
+  oreBar,
   oreSlotCap,
   smeltFuel,
   smeltOre,
 } from '../src/core/balance'
-import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, furnaceUpgradeLevel, loadOre, smelting } from '../src/core/furnace'
+import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, furnaceUpgradeLevel, loadOre, setOreKind, smelting } from '../src/core/furnace'
 import { bagCount, sellItem } from '../src/core/mining'
 import { createFurnace, createInitialState, type Furnace, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -248,6 +249,55 @@ describe('collectBars', () => {
   it('validates furnace, empty tray, full storage in that order', () => {
     expect(collectBars(withRun({ furnace: { ...built, built: false, ready: 1 } }))).toEqual({ ok: false, error: 'NO_FURNACE' })
     expect(collectBars(smelter())).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+  })
+})
+
+describe('iron smelting (batch 11)', () => {
+  const iron = (f: Partial<Furnace> = {}, run: Partial<GameState['run']> = {}) => smelter({ furnace: { ...built, oreKind: 'ironOre', ...f }, ...run })
+
+  it('an iron cycle = 2 iron ore + 4 fire units (120 ticks: 2 coal or 4 wood) → 1 iron bar × batch', () => {
+    expect([smeltOre(), barTicks('ironOre'), barTicks('copperOre'), oreBar('ironOre'), oreBar('copperOre')]).toEqual([2, 120, 60, 'ironBar', 'copperBar'])
+    expect([smeltFuel('coal', 'ironOre'), smeltFuel('wood', 'ironOre')]).toEqual([2, 4])
+    const s = iron({ fire: 120, ore: 3 })
+    expect(step(s, 119).run.furnace).toEqual({ ...built, oreKind: 'ironOre', fire: 1, ore: 3, progress: 119 })
+    const done = step(s, 120)
+    expect(done.run.furnace).toEqual({ ...built, oreKind: 'ironOre', ore: 1, ready: 1 })
+    expect(done.run.lifetime).toMatchObject({ fireBurnt: 120, barsSmelted: 0, ironBarsSmelted: 1 })
+    const levels = { fireCap: 1, batch: 2 }
+    expect(step(iron({ fire: 120, ore: 6, levels }), 120).run.furnace).toEqual({ ...built, oreKind: 'ironOre', levels, ready: 3 })
+  })
+
+  it('loads iron ore only when the furnace is on iron, and collects iron bars (not counted as copper bars)', () => {
+    const inventory = { copperOre: 5, ironOre: 4 }
+    const loaded = okState(loadOre(iron({}, { inventory })))
+    expect([loaded.run.furnace.ore, loaded.run.inventory]).toEqual([4, { copperOre: 5, ironOre: 0 }])
+    expect(okState(loadOre(smelter({ inventory }))).run.inventory).toEqual({ copperOre: 0, ironOre: 4 })
+    const collected = okState(collectBars(iron({ ready: 2 })))
+    expect([collected.run.inventory, collected.run.counters.bars, collected.run.lifetime.bars, collected.run.lifetime.ironBars]).toEqual([
+      { ironBar: 2 },
+      0,
+      0,
+      2,
+    ])
+    expect(loadOre(iron({}, { inventory: { copperOre: 5 } }))).toEqual({ ok: false, error: 'NO_ORE' })
+  })
+
+  it('setOreKind switches only with an empty slot and tray; free', () => {
+    const s = smelter({ cash: 7 })
+    const onIron = okState(setOreKind(s, 'ironOre'))
+    expect([onIron.run.furnace, onIron.run.cash, onIron.run.energy]).toEqual([{ ...built, oreKind: 'ironOre' }, 7, s.run.energy])
+    expect(okState(setOreKind(onIron, 'copperOre')).run.furnace).toEqual(built)
+    expect(setOreKind(withRun({}), 'ironOre')).toEqual({ ok: false, error: 'NO_FURNACE' })
+    expect(setOreKind(s, 'copperOre')).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+    expect(setOreKind(furnace({ ore: 1 }), 'ironOre')).toEqual({ ok: false, error: 'NOT_EMPTY' })
+    expect(setOreKind(furnace({ ready: 1 }), 'ironOre')).toEqual({ ok: false, error: 'NOT_EMPTY' })
+  })
+
+  it('step(s, n) equals n × step(s, 1) on iron, plain and smart', () => {
+    for (const f of [{ fire: 300, ore: 5 }, { fire: 300, ore: 5, smart: true }, { fire: 1200, ore: 12, levels: { fireCap: 2, batch: 2 } }]) {
+      const s = iron(f)
+      for (const n of [119, 120, 121, 700]) expect(step(s, n)).toEqual(oneByOne(s, n))
+    }
   })
 })
 

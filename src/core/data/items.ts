@@ -7,9 +7,9 @@ export const ORE_IDS = ['copperOre', 'ironOre'] as const
 export type OreId = (typeof ORE_IDS)[number]
 
 /** pickaxe tiers in order; a tier's index sets its mastery thresholds (balance.ts) */
-export const PICKAXE_TIERS = ['wooden', 'copper'] as const
+export const PICKAXE_TIERS = ['wooden', 'copper', 'iron'] as const
 export type PickaxeTier = (typeof PICKAXE_TIERS)[number]
-export const PICKAXE_NAMES: Record<PickaxeTier, string> = { wooden: 'Wooden pickaxe', copper: 'Copper pickaxe' }
+export const PICKAXE_NAMES: Record<PickaxeTier, string> = { wooden: 'Wooden pickaxe', copper: 'Copper pickaxe', iron: 'Iron pickaxe' }
 
 // Every icon is from Unicode ≤ 11: newer ones (🪵 13, 🪨 13, 🟤 🟧 12) render as an empty box on older emoji fonts.
 // Every item icon in the UI reads this. Metal ladder: ore 🔶 / 🔷 (6.0), bars 🥉 / 🥈 (9.0), gold 🥇 later.

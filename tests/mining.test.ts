@@ -3,6 +3,7 @@ import { nextRandom, type ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
   itemSellPrice,
+  masteryThresholds,
   mineHits,
   mineLicenseCost,
   pickaxeCraftCost,
@@ -386,6 +387,31 @@ describe('copper pickaxe', () => {
     const next = okState(repairPickaxe(s))
     expect([next.run.pickaxe, next.run.inventory]).toEqual([copper(), { copperBar: 0 }])
     expect(repairPickaxe(miner({ pickaxe: copper(0), inventory: { copperBar: 1, wood: 9 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+  })
+})
+
+describe('iron pickaxe (batch 11)', () => {
+  const iron = (durability = 1200) => ({ tier: 'iron' as const, durability })
+  it('5 iron bars + 200 cash, durability 1200, 4 hits per action, repair 2 iron bars; replaces the copper one', () => {
+    expect([pickaxeCraftCost('iron', meta), pickaxeRepairCost('iron', meta), pickaxeDurability('iron'), mineHits('iron')]).toEqual([
+      { ironBar: 5, cash: 200 },
+      { ironBar: 2, cash: 0 },
+      1200,
+      4,
+    ])
+    const s = miner({ pickaxe: { tier: 'copper', durability: 0 }, cash: 250, inventory: { ironBar: 6 }, mastery: { copper: 30 } })
+    const next = okState(craftPickaxe(s, 'iron'))
+    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([iron(), 50, { ironBar: 1 }, { copper: 30 }])
+    expect(craftPickaxe({ ...next, run: { ...next.run, cash: 1e3, inventory: { copperBar: 9, ironBar: 9 } } }, 'copper')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(craftPickaxe(miner({ cash: 1e3, inventory: { ironBar: 4 } }), 'iron')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(craftPickaxe(miner({ cash: 199, inventory: { ironBar: 5 } }), 'iron')).toEqual({ ok: false, error: 'NO_CASH' })
+    const repaired = okState(repairPickaxe(miner({ pickaxe: iron(0), inventory: { ironBar: 2, copperBar: 5 } })))
+    expect([repaired.run.pickaxe, repaired.run.inventory]).toEqual([iron(), { ironBar: 0, copperBar: 5 }])
+  })
+  it('breaks an iron rock in one action and earns iron xp; iron mastery thresholds are copper × 2 (wooden × 4)', () => {
+    const next = okState(dig(miner({ pickaxe: iron(), vein: { level: 3, progress: 0, rock: 'ironOre' } })))
+    expect([next.run.inventory, next.run.vein.progress, next.run.mastery]).toEqual([{ ironOre: 1 }, 0, { iron: 1 }])
+    expect(masteryThresholds('iron')).toEqual(masteryThresholds('wooden').map((xp) => 4 * xp))
   })
 })
 

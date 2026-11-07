@@ -31,8 +31,8 @@ export type TileJob = 'plant' | 'water' | 'harvest'
 const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 
 /**
- * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of ore
- * (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
+ * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of the
+ * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
  * (coal only: wood stays for pickaxe repairs). null = nothing to do, so the worker idles unpaid.
  */
 const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => ActionResult | null> = {
@@ -43,7 +43,7 @@ const FURNACE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     const collected = f.ready > 0 ? collectBars(s) : null
     if (collected?.ok) return collected
     const need = cycleOre(f)
-    return (run.inventory.copperOre ?? 0) >= need && oreSlotCap() - f.ore >= need ? loadOre(s, need) : null
+    return (run.inventory[f.oreKind] ?? 0) >= need && oreSlotCap() - f.ore >= need ? loadOre(s, need) : null
   },
   fuel: (s) => {
     const f = s.run.furnace

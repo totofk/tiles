@@ -394,6 +394,14 @@ describe('furnace loaders: workersAct', () => {
     expect(workersAct(smeltery({ levels: { fireCap: 0, batch: 2 } }, { copperOre: 7 }, { ore: 1 })).run.furnace.ore).toBe(6)
   })
 
+  it('ore loader on an iron furnace loads iron ore (never copper) and collects iron bars', () => {
+    const next = workersAct(smeltery({ oreKind: 'ironOre' }, { copperOre: 5, ironOre: 3 }, { ore: 1 }))
+    expect([next.run.furnace.ore, next.run.inventory]).toEqual([2, { copperOre: 5, ironOre: 1 }])
+    const idle = smeltery({ oreKind: 'ironOre' }, { copperOre: 5, ironOre: 1 }, { ore: 1 })
+    expect(workersAct(idle)).toBe(idle)
+    expect(workersAct(smeltery({ oreKind: 'ironOre', ready: 2 }, {}, { ore: 1 })).run.inventory).toEqual({ ironBar: 2 })
+  })
+
   it('ore loader idles unpaid with nothing to do: no ore for a cycle, slot full, no furnace', () => {
     for (const s of [
       smeltery({}, { copperOre: 1 }, { ore: 1 }),

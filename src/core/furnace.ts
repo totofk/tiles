@@ -8,11 +8,13 @@ import {
   furnaceTrayCap,
   furnaceUpgradeCost,
   furnaceVeinLevel,
+  oreBar,
   oreSlotCap,
   smeltOre,
   type FuelId,
   type FurnaceUpgradeId,
 } from './balance'
+import type { OreId } from './data/items'
 import { bagCount, pay } from './mining'
 import type { Furnace, GameState, RunState } from './state'
 
@@ -54,16 +56,31 @@ export function addFuel(state: GameState, fuel: FuelId, max = Infinity): ActionR
   })
 }
 
-/** Moves copper ore from storage into the ore slot, as much as fits, at most `max`. Order: NO_FURNACE, FULL, NO_ORE. */
+/**
+ * Moves ore of the furnace's kind from storage into the ore slot, as much as fits, at most `max`.
+ * Order: NO_FURNACE, FULL, NO_ORE.
+ */
 export function loadOre(state: GameState, max = Infinity): ActionResult {
   const { run } = state
   const f = run.furnace
   if (!f.built) return fail('NO_FURNACE')
   const room = oreSlotCap() - f.ore
   if (room < 1) return fail('FULL')
-  const n = Math.min(room, run.inventory.copperOre ?? 0, max)
+  const n = Math.min(room, run.inventory[f.oreKind] ?? 0, max)
   if (n < 1) return fail('NO_ORE')
-  return withRun(state, { inventory: { ...run.inventory, copperOre: run.inventory.copperOre! - n }, furnace: { ...f, ore: f.ore + n } })
+  return withRun(state, { inventory: { ...run.inventory, [f.oreKind]: run.inventory[f.oreKind]! - n }, furnace: { ...f, ore: f.ore + n } })
+}
+
+/**
+ * Picks the ore kind the slot takes (copper or iron), free. Only with an empty slot and an empty tray, so ore and the
+ * tray's bars are always of the kind shown. Order: NO_FURNACE, NOTHING_TO_DO (already that kind), NOT_EMPTY.
+ */
+export function setOreKind(state: GameState, oreKind: OreId): ActionResult {
+  const f = state.run.furnace
+  if (!f.built) return fail('NO_FURNACE')
+  if (f.oreKind === oreKind) return fail('NOTHING_TO_DO')
+  if (f.ore > 0 || f.ready > 0) return fail('NOT_EMPTY')
+  return withRun(state, { furnace: { ...f, oreKind } })
 }
 
 /** a cycle progresses this tick: fire lit, a cycle's ore in the slot, tray room for its bars */
@@ -73,8 +90,8 @@ export function smelting(f: Furnace): boolean {
 
 /**
  * One tick inside step(). A plain furnace burns a tick of fire whenever it is lit, ore or not (wasted when no cycle
- * progresses); a smart one burns only while smelting. A completed cycle takes its ore and adds batch bars to the tray.
- * Called once per tick, so step(s, n) equals n × step(s, 1) by construction.
+ * progresses); a smart one burns only while smelting. A completed cycle (the ore kind's barTicks) takes its ore and adds
+ * batch bars to the tray. Called once per tick, so step(s, n) equals n × step(s, 1) by construction.
  */
 export function tickFurnace(run: RunState): RunState {
   const f = run.furnace
@@ -89,8 +106,9 @@ export function tickFurnace(run: RunState): RunState {
     }
   }
   const progress = f.progress + 1
-  const done = progress >= barTicks()
+  const done = progress >= barTicks(f.oreKind)
   const bars = done ? batchBars(f.levels.batch) : 0
+  const smelted = f.oreKind === 'ironOre' ? { ironBarsSmelted: lifetime.ironBarsSmelted + bars } : { barsSmelted: lifetime.barsSmelted + bars }
   return {
     ...run,
     furnace: {
@@ -100,11 +118,13 @@ export function tickFurnace(run: RunState): RunState {
       ore: done ? f.ore - cycleOre(f) : f.ore,
       ready: f.ready + bars,
     },
-    lifetime: { ...lifetime, fireBurnt: lifetime.fireBurnt + 1, barsSmelted: lifetime.barsSmelted + bars },
+    lifetime: { ...lifetime, fireBurnt: lifetime.fireBurnt + 1, ...smelted },
   }
 }
 
-// Moves as many tray bars into storage as fit. Order: NO_FURNACE, NOTHING_TO_DO (tray empty), BAG_FULL.
+// Moves as many tray bars (of the ore kind's bar) into storage as fit. The bars counter (the loader certificates' gate)
+// and lifetime.bars count copper bars; iron bars count in lifetime.ironBars. Order: NO_FURNACE, NOTHING_TO_DO (tray
+// empty), BAG_FULL.
 export function collectBars(state: GameState): ActionResult {
   const { run } = state
   const f = run.furnace
@@ -112,11 +132,13 @@ export function collectBars(state: GameState): ActionResult {
   if (f.ready === 0) return fail('NOTHING_TO_DO')
   const n = Math.min(f.ready, run.bagCapacity - bagCount(run))
   if (n <= 0) return fail('BAG_FULL')
+  const bar = oreBar(f.oreKind)
+  const iron = f.oreKind === 'ironOre'
   return withRun(state, {
-    inventory: { ...run.inventory, copperBar: (run.inventory.copperBar ?? 0) + n },
+    inventory: { ...run.inventory, [bar]: (run.inventory[bar] ?? 0) + n },
     furnace: { ...f, ready: f.ready - n },
-    counters: { ...run.counters, bars: run.counters.bars + n },
-    lifetime: { ...run.lifetime, bars: run.lifetime.bars + n },
+    counters: iron ? run.counters : { ...run.counters, bars: run.counters.bars + n },
+    lifetime: iron ? { ...run.lifetime, ironBars: run.lifetime.ironBars + n } : { ...run.lifetime, bars: run.lifetime.bars + n },
   })
 }
 

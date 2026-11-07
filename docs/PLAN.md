@@ -602,6 +602,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   `assigned.plant` like water / harvest); with no planter every earlier pin replays unchanged.
 - **Batch 10 (task 64): no `balance.ts` change.** Offline income (+💰69,849 in 8 h) is not capped by any batch-10 number;
   see the reading in "Batch 10 results".
+- **Batch 11 (task 66): switching the ore kind also needs an empty tray**, not only an empty slot. The tray holds a count
+  with no kind, so switching with bars in it would collect copper bars as iron (or the reverse). With an empty slot no
+  cycle can be part-way, so nothing paid is lost; the player (or the ore loader) collects first.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1686,7 +1689,7 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
     storage the player has then (assert in the sim): e.g. 40 stone + 🥉5 + 💰400. Save v11: FIRST commit
     `tests/fixtures/save-v10.json` from the current code; chain v1–v10 → v11 (iron items 0, furnace ore kind copper,
     mine worker 0).
-- [ ] 66. **Iron smelting + iron pickaxe.** The furnace's ore slot holds one ore kind; the player picks copper or
+- [x] 66. **Iron smelting + iron pickaxe.** The furnace's ore slot holds one ore kind; the player picks copper or
     iron (switching only when the slot is empty). Iron cycle = 2 iron ore + 4 fire units (120 ticks) → 1 iron bar ×
     batch level. The ore loader loads the selected kind. Iron pickaxe: 5 iron bars + 💰200, durability 1200, 4 hits,
     repair 2 iron bars. **Durability rule kept:** each tier's base durability must beat the previous tier's Lv10
@@ -1722,3 +1725,21 @@ Metal ladder step 2 (copper → iron → gold). Save v10 → v11. Iron farm tool
   drops stone (`minedRock(rock, tier)` in mining.ts, used by `dig`). A copper pickaxe (3 hits) takes 2 actions.
 - **Save v11:** `furnace.oreKind` (`createFurnace()` = `'copperOre'`). `RunV10` frozen in `serialize.ts`; v1…v10 chain to
   v11, backup key per version (v10 added to the backup test). Iron items are absent (= 0) from migrated bags.
+
+### Iron smelting + iron pickaxe (task 66)
+- **Numbers (`balance.ts`):** per ore kind, `barTicks(ore)` copper 60 / iron 120 (4 fire units) and `oreBar(ore)`
+  copperBar / ironBar; `smeltOre()` = 2 for both; `smeltFuel(fuel, ore)` iron = 2 coal or 4 wood. `barTicks` and
+  `smeltFuel` default to copper, so the copper UI lines and sims read as before.
+- **Rules (`furnace.ts`):** `setOreKind(state, 'copperOre' | 'ironOre')`, free, order NO_FURNACE, NOTHING_TO_DO (already
+  that kind), NOT_EMPTY (ore in the slot or bars in the tray; see Deviations). `loadOre`, the ore loader and the cycle
+  use `furnace.oreKind`; a cycle makes batch bars of its bar for its ticks. `collectBars` puts the tray into that bar;
+  copper bars count in `counters.bars` (the loaders' gate) and `lifetime.bars`, iron bars in `lifetime.ironBars` only.
+  Smelted: `lifetime.barsSmelted` (copper) / `lifetime.ironBarsSmelted` (iron). New error `NOT_EMPTY` ("Empty the ore slot
+  and tray first").
+- **Iron pickaxe:** `PICKAXE_TIERS = wooden, copper, iron`; 5 iron bars + 💰200, durability 1200, 4 hits per action
+  (breaks any rock in one), repair 2 iron bars; mastery thresholds × 4 of wooden (the existing ×2 per tier). The balance
+  test (each tier's durability > the previous Lv10 lifetime: 1200 > 1000) passes unchanged.
+- **Save v11 (amended, as batch 9 did in task 58):** lifetime `ironBars` and `ironBarsSmelted` start at 0.
+- Tested: iron cycle (119 / 120 ticks, batch 3), loading only the selected kind, collecting iron bars without touching
+  the copper counters, every setOreKind branch, step(s, n) = n × step(s, 1) on iron plain / smart / top levels, the ore
+  loader on iron, iron pickaxe craft / repair / one-action iron rock / thresholds.

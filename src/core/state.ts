@@ -102,7 +102,8 @@ export type Furnace = {
 /**
  * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
  * fireBurnt / fireWasted = furnace burn ticks in total / with no cycle progressing; barsSmelted = bars the furnace made;
- * workerPlants = crops the plant worker planted (its tills not counted)
+ * workerPlants = crops the plant worker planted (its tills not counted); bars / barsSmelted are copper bars, ironBars /
+ * ironBarsSmelted the same for iron
  */
 export type Lifetime = {
   cashEarned: number
@@ -114,6 +115,8 @@ export type Lifetime = {
   fireWasted: number
   barsSmelted: number
   workerPlants: number
+  ironBars: number
+  ironBarsSmelted: number
 }
 
 export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
@@ -156,7 +159,7 @@ export function createInitialState(): GameState {
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: createFurnace(),
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0 },
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ironBars: 0, ironBarsSmelted: 0 },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,

@@ -85,7 +85,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, ironBars: 0, ironBarsSmelted: 0 },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row
