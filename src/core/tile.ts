@@ -26,15 +26,15 @@ export function ticksUntilRot(tile: Tile, meta: MetaState): number | null {
   return cropRotGraceTicks(tile.cropId!, meta) - tile.ticksSinceMature + 1
 }
 
-/** harvest if mature → water if planted and dry → plant if tilled → till if untilled; null = nothing to do */
-export function nextTileAction(tile: Tile, meta: MetaState): TileAction | null {
+/** harvest if mature → water (top up) if growing → plant if tilled → till if untilled */
+export function nextTileAction(tile: Tile, meta: MetaState): TileAction {
   if (isMature(tile, meta)) return 'harvest'
-  if (tile.status === 'planted') return isDry(tile) ? 'water' : null
+  if (tile.status === 'planted') return 'water'
   return tile.status === 'tilled' ? 'plant' : 'till'
 }
 
-/** performs nextTileAction on tile i; null when there is nothing to do */
-export function tapTile(state: GameState, i: number, cropId: CropId): ActionResult | null {
+/** performs nextTileAction on tile i */
+export function tapTile(state: GameState, i: number, cropId: CropId): ActionResult {
   const tile = state.run.tiles[i]
   if (!tile) return { ok: false, error: 'BAD_TILE' }
   switch (nextTileAction(tile, state.meta)) {
@@ -46,7 +46,5 @@ export function tapTile(state: GameState, i: number, cropId: CropId): ActionResu
       return plant(state, i, cropId)
     case 'till':
       return till(state, i)
-    case null:
-      return null
   }
 }

@@ -1,14 +1,33 @@
-import { useState } from 'react'
-import { STARTING_CROP, type CropId } from '../core/data/crops'
-import { tapTile } from '../core/tile'
+import { useRef, useState } from 'react'
+import { CROPS, STARTING_CROP, type CropId } from '../core/data/crops'
+import { isMature, tapTile } from '../core/tile'
 import { FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { Shop } from './Shop'
 import { useGame } from './useGame'
 
+/** display-only: ignore taps on a tile for this long after harvesting it */
+const TAP_GUARD_MS = 400
+
 export default function App() {
   const { state, act, reset, toast, banner, dismissBanner } = useGame()
   const [cropId, setCropId] = useState<CropId>(STARTING_CROP)
+  // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
+  const guardUntil = useRef<Record<number, number>>({})
+
+  const onTap = (i: number) => {
+    const now = performance.now()
+    if (now < (guardUntil.current[i] ?? 0)) return
+    act(
+      (s) => tapTile(s, i, cropId),
+      (prev, next) => {
+        const tile = prev.run.tiles[i]
+        if (!isMature(tile, prev.meta)) return null
+        guardUntil.current[i] = now + TAP_GUARD_MS
+        return `+💰${next.run.cash - prev.run.cash} ${CROPS[tile.cropId!].name}`
+      },
+    )
+  }
 
   return (
     <main className="app">
@@ -21,7 +40,7 @@ export default function App() {
           </button>
         </div>
       )}
-      <FarmGrid state={state} onTap={(i) => act((s) => tapTile(s, i, cropId), 'Growing — water it when dry')} />
+      <FarmGrid state={state} onTap={onTap} />
       <Shop state={state} cropId={cropId} onSelectCrop={setCropId} act={act} />
       <button
         className="reset"

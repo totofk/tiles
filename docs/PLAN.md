@@ -93,8 +93,9 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   (energy, regen, moisture, rot factor) are unchanged.
 - **UI lives in `src/app/`; `src/App.tsx` moved there.** Tap logic (`nextTileAction` / `tapTile`) and display helpers
   (`isMature`, `isDry`, `growthProgress`, `ticksUntilRot`) are pure functions in `src/core/tile.ts` with tests.
-  "Dry" = moisture exactly 0, same as the sim bot: tapping a planted tile that is still moist and growing does nothing
-  (toast "Growing — water it when dry"), so the player cannot top up early. Revisit in playtest.
+  "Dry" = moisture exactly 0, same as the sim bot. Since batch 3 (round-1 playtest) tapping any growing tile waters it:
+  a moist tile is topped up to 1 for 1 energy, so the player decides when to top up. The old "Growing — water it
+  when dry" refusal is gone, and `tapTile` always returns a result.
 - **Rot warning threshold (last 25 % of grace) is a display constant in `FarmGrid.tsx`**, not in `balance.ts`: it
   changes colour only, never game state.
 - **`serialize(state, savedAtMs)` takes the wall time as an argument** (brief said `serialize(state)`), so
@@ -114,7 +115,7 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
 
-10. [ ] Fix the "radish became pumpkin" report: crop emoji + name on planted tiles, harvest toast "+💰N <crop>",
+10. [x] Fix the "radish became pumpkin" report: crop emoji + name on planted tiles, harvest toast "+💰N <crop>",
     tap guard after harvest (UI constant), watering allowed any time. Update `tile.ts` helpers + tests.
 11. [ ] Rebalance: START_TILES 9, ENERGY_MAX_BASE 10. Milestone counters in run state + `sellPrice` and `fertilizer`
     upgrades (hidden until unlocked). Save version 2 with migration from v1 (fill new fields with defaults).

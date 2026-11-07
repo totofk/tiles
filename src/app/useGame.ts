@@ -23,7 +23,8 @@ const TOAST_MS = 2000
 const LOOP_MS = 250
 const SAVE_DEBOUNCE_MS = 1000
 
-export type Act = (fn: (s: GameState) => ActionResult | null, idleText?: string) => void
+/** okToast: text to show when the action succeeds (null = no toast) */
+export type Act = (fn: (s: GameState) => ActionResult, okToast?: (prev: GameState, next: GameState) => string | null) => void
 
 export function useGame() {
   const [boot] = useState(() => loadGame(localStorage))
@@ -48,12 +49,13 @@ export function useGame() {
   }, [])
 
   const act: Act = useCallback(
-    (fn, idleText) => {
-      const r = fn(stateRef.current)
-      if (!r) {
-        if (idleText) showToast(idleText)
-      } else if (r.ok) commit(r.state)
-      else showToast(ERROR_TEXT[r.error])
+    (fn, okToast) => {
+      const prev = stateRef.current
+      const r = fn(prev)
+      if (!r.ok) return showToast(ERROR_TEXT[r.error])
+      const text = okToast?.(prev, r.state)
+      if (text) showToast(text)
+      commit(r.state)
     },
     [commit, showToast],
   )

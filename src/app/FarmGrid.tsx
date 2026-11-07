@@ -1,5 +1,5 @@
 import { cropRotGraceTicks } from '../core/balance'
-import type { CropId } from '../core/data/crops'
+import { CROPS, type CropId } from '../core/data/crops'
 import type { GameState, MetaState, Tile } from '../core/state'
 import { growthProgress, isDry, isMature, ticksUntilRot } from '../core/tile'
 import { Bar } from './Bar'
@@ -19,7 +19,10 @@ function Cell({ tile, meta, onTap }: { tile: Tile; meta: MetaState; onTap: () =>
   let label = 'Untilled'
   let mod = 'untilled'
   if (tile.status === 'tilled') [emoji, label, mod] = ['🟤', 'Tilled — plant', 'tilled']
-  if (growing) [emoji, label, mod] = ['🌱', dry ? 'Dry — water!' : 'Growing', dry ? 'dry' : 'growing']
+  if (growing) {
+    const name = `${CROPS[tile.cropId!].name} ${Math.floor(growthProgress(tile, meta) * 100)} %`
+    ;[emoji, label, mod] = [CROP_EMOJI[tile.cropId!], dry ? `${name} — dry!` : name, dry ? 'dry' : 'growing']
+  }
   if (mature) {
     const warn = rotIn! <= grace * ROT_WARN_FRACTION
     ;[emoji, label, mod] = [CROP_EMOJI[tile.cropId!], 'Mature — harvest!', warn ? 'rotting' : 'mature']

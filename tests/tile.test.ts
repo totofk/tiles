@@ -19,7 +19,7 @@ describe('nextTileAction', () => {
   it('follows harvest → water → plant → till', () => {
     expect(nextTileAction(planted({ growth: grow, moisture: 0 }), meta)).toBe('harvest')
     expect(nextTileAction(planted({ moisture: 0 }), meta)).toBe('water')
-    expect(nextTileAction(planted({ moisture: 0.5 }), meta)).toBeNull()
+    expect(nextTileAction(planted({ moisture: 0.5 }), meta)).toBe('water')
     expect(nextTileAction(tile({ status: 'tilled' }), meta)).toBe('plant')
     expect(nextTileAction(tile({ status: 'untilled' }), meta)).toBe('till')
   })
@@ -62,7 +62,11 @@ describe('tapTile', () => {
     expect(s.run.tiles[0].status).toBe('planted')
     tap()
     expect(s.run.tiles[0].moisture).toBe(1)
-    expect(tapTile(s, 0, 'radish')).toBeNull()
+    s = step(s, 10)
+    const energy = s.run.energy
+    tap() // a moist tile can be topped up: refills to 1 for 1 energy
+    expect(s.run.tiles[0].moisture).toBe(1)
+    expect(s.run.energy).toBe(energy - 1)
     s.run.tiles[0] = { ...s.run.tiles[0], growth: grow }
     const cash = s.run.cash
     tap()
