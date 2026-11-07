@@ -25,7 +25,7 @@ import { CROP_EMOJI } from './FarmGrid'
 import { SeedPouch } from './Farm'
 import { Item } from './Info'
 import { COPPER_TIPS, CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
-import type { Act } from './useGame'
+import { FIRE_EMOJI, type Act } from './useGame'
 
 /** per press, by level (index 0 = level 1) */
 const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)} tiles`, () => 'all tiles']
@@ -108,7 +108,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
         {run.vein.level >= furnaceVeinLevel() && !run.furnace.built && (
           <Item tip={TIPS.furnace}>
             <button disabled={!buildFurnace(state).ok} onClick={() => act(buildFurnace)}>
-              🔥 Furnace
+              {FIRE_EMOJI} Furnace
               <small>{priceText(furnaceCost(meta))}</small>
             </button>
           </Item>

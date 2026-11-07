@@ -175,12 +175,13 @@ describe('loan debt with a fake clock', () => {
     expect(badge()).toBe('🏦 −💰35') // live again: 34.2
   })
 
-  it('the welcome-back banner says how many bars the furnace finished while away', () => {
+  it('the welcome-back banner says the fire burnt, the bars smelted and the bars waiting in the tray while away', () => {
     const s = createInitialState()
     const furnace = { ...s.run.furnace, built: true, fire: 300, ore: 6 }
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, furnace } }, Date.now() - 150_000))
     render(<App />)
-    expect(screen.getByRole('status').textContent).toMatch(/ticks simulated · 🔥 2 bars ready/)
+    // 150 ticks: two 60-tick cycles done, the third half way; 150 burn ticks = 5 units
+    expect(screen.getByRole('status').textContent).toMatch(/150 ticks simulated · 🔥 fire burnt 5 · 🥉 2 smelted · 2 bars ready/)
   })
 })
 

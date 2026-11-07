@@ -21,8 +21,8 @@ export type Clock = () => number
 /** the only wall clock in the game; core sees time only as ticks */
 export const wallClock: Clock = () => Date.now()
 
-/** wagesPaid: what workers were paid during the catch-up, for the welcome-back banner */
-export type Loaded = { state: GameState; awayMs: number; ticks: number; wagesPaid: number }
+/** before: the saved state before the catch-up, so the welcome-back banner can diff it (wages, fire burnt, bars) */
+export type Loaded = { state: GameState; awayMs: number; ticks: number; before: GameState }
 
 export function loadGame(storage: KeyValueStore, now: Clock = wallClock): Loaded {
   const raw = storage.getItem(SAVE_KEY)
@@ -31,11 +31,11 @@ export function loadGame(storage: KeyValueStore, now: Clock = wallClock): Loaded
   const save = raw === null ? null : deserialize(raw)
   if (!save) {
     if (raw !== null) storage.setItem(BAD_SAVE_KEY, raw)
-    return { state: createInitialState(), awayMs: 0, ticks: 0, wagesPaid: 0 }
+    const fresh = createInitialState()
+    return { state: fresh, awayMs: 0, ticks: 0, before: fresh }
   }
   const awayMs = now() - save.savedAtMs
-  const state = catchUp(save.state, awayMs)
-  return { state, awayMs, ticks: offlineTicks(awayMs), wagesPaid: state.run.lifetime.wagesPaid - save.state.run.lifetime.wagesPaid }
+  return { state: catchUp(save.state, awayMs), awayMs, ticks: offlineTicks(awayMs), before: save.state }
 }
 
 export function saveGame(storage: KeyValueStore, state: GameState, now: Clock = wallClock): void {

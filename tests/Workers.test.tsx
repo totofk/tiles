@@ -102,7 +102,8 @@ describe('HUD and away banner', () => {
 
   it('the away banner adds the wages paid while away, only when there were some', () => {
     const s = createInitialState()
-    expect(bannerText(60_000, s, 0)).toBe('Away for 1m — 60 ticks simulated')
-    expect(bannerText(60_000, s, 12)).toBe('Away for 1m — 60 ticks simulated · wages paid 💰12')
+    const paid = (wagesPaid: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, wagesPaid } } })
+    expect(bannerText(60_000, s, s)).toBe('Away for 1m — 60 ticks simulated')
+    expect(bannerText(60_000, paid(3), paid(15))).toBe('Away for 1m — 60 ticks simulated · wages paid 💰12')
   })
 })

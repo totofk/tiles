@@ -444,6 +444,9 @@ button:disabled {
 .bar-tool > span {
   background: #8d6e63;
 }
+.bar-fire > span {
+  background: #ef6c00;
+}
 
 .mine {
   padding: 8px;
@@ -583,10 +586,23 @@ details > summary:focus-visible {
   background: #ffcdd2;
   font-size: 12px;
 }
+/* 2 columns in the 209 px Mine column at 1024, 3 at 1440 (301 px) and at 375 (343 px); see PLAN "Batch 9 results" */
 .mine-furnace-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 6px;
+}
+.furnace-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.mine .furnace-hint {
+  color: #bf360c;
+}
+.mine-furnace .item small {
+  display: block;
 }
 .mine-furnace-actions button {
   padding: 0 4px;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
-import { upgradeUnlocked } from '../core/balance'
+import { fireUnitTicks, upgradeUnlocked } from '../core/balance'
+import { ITEMS } from '../core/data/items'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
@@ -41,12 +42,28 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
 }
 
-/** the welcome-back banner: the catch-up summary, plus the furnace tray when bars wait in it and the workers' wages */
-export function bannerText(awayMs: number, s: GameState, wagesPaid: number): string {
-  const n = s.run.furnace.ready
-  return (
-    awayText(awayMs) + (n > 0 ? ` · 🔥 ${n} bar${n === 1 ? '' : 's'} ready` : '') + (wagesPaid > 0 ? ` · wages paid 💰${wagesPaid}` : '')
-  )
+export const FIRE_EMOJI = '🔥'
+
+/**
+ * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (fire burnt,
+ * bars smelted, workers' wages; each only when non-zero) and the bars waiting in the tray.
+ */
+export function bannerText(awayMs: number, before: GameState, after: GameState): string {
+  const was = before.run.lifetime
+  const now = after.run.lifetime
+  const burnt = Math.ceil((now.fireBurnt - was.fireBurnt) / fireUnitTicks())
+  const smelted = now.barsSmelted - was.barsSmelted
+  const ready = after.run.furnace.ready
+  const wages = now.wagesPaid - was.wagesPaid
+  return [
+    awayText(awayMs),
+    burnt > 0 && `${FIRE_EMOJI} fire burnt ${burnt}`,
+    smelted > 0 && `${ITEMS.copperBar.emoji} ${smelted} smelted`,
+    ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,
+    wages > 0 && `wages paid 💰${wages}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 const TOAST_MS = 2000
@@ -63,7 +80,7 @@ export function useGame() {
   const stateRef = useRef(state)
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
-  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.state, boot.wagesPaid) : null)
+  const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.before, boot.state) : null)
   const loop = useRef({ last: 0, acc: 0 })
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -150,7 +167,7 @@ export function useGame() {
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
       commit(caught)
-      setBanner(bannerText(awayMs, caught, caught.run.lifetime.wagesPaid - before.run.lifetime.wagesPaid))
+      setBanner(bannerText(awayMs, before, caught))
     }
     const onPageHide = () => saveGame(localStorage, stateRef.current)
     document.addEventListener('visibilitychange', onVisibility)

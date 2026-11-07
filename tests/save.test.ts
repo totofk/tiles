@@ -439,10 +439,10 @@ describe('loadGame / saveGame with an injected clock', () => {
     expect(loaded.ticks).toBe(65)
     expect(loaded.awayMs).toBe(65_400)
     expect(loaded.state.run.tick).toBe(75)
-    expect(loaded.wagesPaid).toBe(0)
+    expect(loaded.before).toEqual(state)
   })
 
-  it('reports the wages workers were paid during the catch-up', () => {
+  it('returns the saved state before the catch-up, so the banner can diff the wages workers were paid', () => {
     const store = memoryStore()
     const s = createInitialState()
     const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
@@ -450,9 +450,10 @@ describe('loadGame / saveGame with an injected clock', () => {
     const saved = { ...s, run: { ...s.run, cash: 50, tiles: [dry, ...s.run.tiles.slice(1)], workers, lifetime: { ...s.run.lifetime, wagesPaid: 7 } } }
     saveGame(store, saved, () => 0)
     const loaded = loadGame(store, () => 60_000)
-    expect(loaded.wagesPaid).toBeGreaterThan(0)
-    expect(loaded.wagesPaid).toBe(loaded.state.run.lifetime.wagesPaid - 7)
-    expect(loaded.state.run.cash).toBe(50 - loaded.wagesPaid)
+    const wages = loaded.state.run.lifetime.wagesPaid - loaded.before.run.lifetime.wagesPaid
+    expect(loaded.before.run.lifetime.wagesPaid).toBe(7)
+    expect(wages).toBeGreaterThan(0)
+    expect(loaded.state.run.cash).toBe(50 - wages)
   })
 
   it('loan debt does not grow while offline, and grows again on live ticks', () => {
@@ -477,7 +478,7 @@ describe('loadGame / saveGame with an injected clock', () => {
 
   it('starts fresh with no save', () => {
     const loaded = loadGame(memoryStore(), () => 0)
-    expect(loaded).toEqual({ state: createInitialState(), awayMs: 0, ticks: 0, wagesPaid: 0 })
+    expect(loaded).toEqual({ state: createInitialState(), awayMs: 0, ticks: 0, before: createInitialState() })
   })
 
   it('keeps an unreadable save aside instead of losing it', () => {

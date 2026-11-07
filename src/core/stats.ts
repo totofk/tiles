@@ -2,6 +2,7 @@ import {
   doubleHarvestChance,
   energyMax,
   energyRegenPerTick,
+  fireUnitTicks,
   growTimeFactor,
   masteredPreserveBonus,
   masteryLevel,
@@ -75,6 +76,8 @@ export function stats(state: GameState): Stats {
       value: `${lifetime.harvests[id] ?? 0}`,
     })),
     { label: 'Copper bars smelted', value: `${lifetime.barsSmelted}` },
+    // fire units burnt with no cycle progressing (a plain furnace lit with no ore or a full tray)
+    { label: 'Fire wasted', value: `${Math.ceil(lifetime.fireWasted / fireUnitTicks())} units` },
     { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
   ]
   const { pool, assigned } = run.workers

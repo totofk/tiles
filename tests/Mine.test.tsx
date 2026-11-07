@@ -123,20 +123,60 @@ describe('Mine panel', () => {
     const summary = () => document.querySelector('.mine-furnace summary')!.textContent
     expect(summary()).toBe('🔥 Furnace · fire 0/10 · ore 0 · 1 ready')
     const button = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
-    // short reasons on their own line, so a ≈ 100 px button stays two lines; stock items never split
-    expect(button(new RegExp(`^Fill with ${WOOD}`)).textContent).toBe(`Fill with ${WOOD}no fuel`)
+    // second line: how many items the press uses, or the short reason it cannot; stock items never split
+    expect(button(new RegExp(`^Fill with ${WOOD}`)).textContent).toBe(`Fill with ${WOOD} woodno fuel`)
+    expect(button(/^Fill with ⚫/).textContent).toBe('Fill with ⚫ coaluses 1')
+    expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreuses 3`)
+    expect(button(/^Collect 1/).textContent).toBe(`Collect 1 ${BAR}tray 1/5`)
     expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 0'])
+    expect(text()).toContain('🔥 fire 0 / 10')
+    expect(text()).toContain(`${ORE} ore 0 / 12`)
+    expect(text()).not.toContain('nothing to smelt')
     fireEvent.click(button(/^Load/))
     fireEvent.click(button(/^Fill with ⚫/))
     t.rerender()
     expect(t.get().run.furnace).toMatchObject({ ore: 3, fire: 60 })
     expect(summary()).toBe('🔥 Furnace · fire 2/10 · ore 3 · 1 ready')
+    expect(text()).toContain('🔥 fire 2 / 10')
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreno ore`)
     fireEvent.click(button(/^Collect 1/))
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
     // bars have no sell buttons
     t.rerender()
     expect(within(screen.getByText(/Copper bar ×1/).parentElement!).queryByRole('button')).toBeNull()
+  })
+
+  it('a plain furnace lit with nothing to smelt says so; a smart one does not', () => {
+    setup({ furnace: { ...built, fire: 90 } })
+    expect(document.querySelector('.furnace-hint')?.textContent).toBe('burning with nothing to smelt')
+    cleanup()
+    setup({ furnace: { ...built, fire: 90, ore: 2 } })
+    expect(document.querySelector('.furnace-hint')).toBeNull()
+    cleanup()
+    setup({ furnace: { ...built, fire: 90, smart: true } })
+    expect(document.querySelector('.furnace-hint')).toBeNull()
+    expect(text()).toContain('🔥 fire 3 / 10 · smart')
+  })
+
+  it('furnace upgrades: next level and price, disabled with the reason, bought, hidden at max', () => {
+    const t = setup({ furnace: built, cash: 150, inventory: { copperBar: 3 } })
+    const upgrade = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
+    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 10 → 20${BAR}4 💰150 · Not enough items`)
+    expect(upgrade(/^Fire cap/).disabled).toBe(true)
+    expect(upgrade(/^Batch/).textContent).toBe(`Batch 1 → 2 bars${BAR}6 💰200 · Not enough items`)
+    expect(upgrade(/^Smart furnace/).textContent).toBe(`Smart furnace${BAR}10 💰400 · Not enough items`)
+    cleanup()
+    const rich = setup({ furnace: { ...built, levels: { fireCap: 1, batch: 2 } }, cash: 1e4, inventory: { copperBar: 30 } })
+    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 20 → 40${BAR}8 💰300`)
+    expect(screen.queryByRole('button', { name: /^Batch/ })).toBeNull() // max level
+    fireEvent.click(upgrade(/^Fire cap/))
+    fireEvent.click(upgrade(/^Smart furnace/))
+    rich.rerender()
+    expect(rich.get().run.furnace).toMatchObject({ smart: true, levels: { fireCap: 2, batch: 2 } })
+    expect(screen.queryByRole('button', { name: /^(Fire cap|Smart furnace)/ })).toBeNull()
+    expect(t.get().run.furnace.levels.fireCap).toBe(0)
+    // the recipe line follows the batch level: 6 ore → 3 bars per cycle
+    expect(text()).toContain(`${ORE}6 + ⚫1 or ${WOOD}2 → ${BAR}3 · 60 s`)
   })
 
   it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {

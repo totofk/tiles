@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
-import { cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick } from '../src/core/balance'
+import { cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
@@ -24,6 +24,7 @@ describe('stats(state)', () => {
       { label: 'Copper bars collected', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Copper bars smelted', value: '0' },
+      { label: 'Fire wasted', value: '0 units' },
       { label: 'Wages paid', value: '💰0' },
     ])
     const meta = createInitialState().meta
@@ -83,7 +84,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 6 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6 },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row
@@ -97,6 +98,8 @@ describe('stats(state)', () => {
     expect(row(totals, 'Pumpkin harvests')).toMatchObject({ value: '1' })
     expect(row(totals, 'Carrot harvests')).toMatchObject({ value: '40' })
     expect(row(totals, 'Copper bars smelted')).toMatchObject({ value: '6' })
+    // 75 burn ticks = 2.5 units; a part-burnt unit counts as wasted
+    expect(row(totals, 'Fire wasted')).toMatchObject({ value: `${Math.ceil(75 / fireUnitTicks())} units` })
     expect(row(multipliers, 'Sell price')).toEqual({ label: 'Sell price', value: '×1.5', source: 'Better prices Lv5' })
     expect(row(multipliers, 'Grow time')).toEqual({ label: 'Grow time', value: '×0.7', source: 'Fertilizer Lv3' })
     // copper Lv1 (20 xp) = 1 − 1/1.4 ≈ 28.6 % + 5 % for the mastered wooden tier

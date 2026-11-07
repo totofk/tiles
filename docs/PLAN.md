@@ -546,6 +546,13 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   the current two-argument one.
 - **Batch 9 (task 58): the sim ladder bot staffs farm jobs only** (`FARM_JOBS`), so the batch-8 worker pins replay
   unchanged; loader bots are task 61.
+- **Batch 9 (task 59): `loadGame` returns `before` (the saved state before the catch-up) instead of `wagesPaid`**, and
+  `bannerText(awayMs, before, after)` diffs the lifetimes: the banner now needs three deltas (wages, fire burnt, bars
+  smelted), and bars smelted cannot be read off the tray once an ore loader moves bars into storage. Not a save change.
+- **Batch 9 (task 59): a furnace upgrade at its max level hides** (like the vein upgrade) instead of showing a disabled
+  "max" row; the smart furnace shows as " · smart" on the fire line.
+- **Batch 9 (task 59): fire is shown in whole units rounded up** (gauge, Stats "Fire wasted", banner "fire burnt"), so a
+  part-burnt unit never reads as 0.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -1335,7 +1342,7 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
       fire capacity (10 → 20 → 40 units), batch (1 → 2 → 3 bars per cycle: more bars per fuel), smart furnace
       (more expensive than the fuel certificate). Shown next to the furnace in the Mine panel, like the vein upgrade.
     - Remove `setAutoSmelt` / `autoSmelt` and its UI (task 59) — the ore loader replaces it.
-- [ ] 59. **Furnace + worker UI.** Furnace card: a fire gauge (`.bar`, units / cap, 🔥), the ore slot count, buttons
+- [x] 59. **Furnace + worker UI.** Furnace card: a fire gauge (`.bar`, units / cap, 🔥), the ore slot count, buttons
     "Load ore", "Fill with 🌲 wood", "Fill with ⚫ coal" (each shows how many items it will use, disabled with a reason
     when it cannot), the tray + Collect, the three upgrades, and a plain-furnace hint when the fire burns with no ore
     ("burning with nothing to smelt"). Workers card: ore and fuel rows with their certificates, the same −/count/+
@@ -1407,3 +1414,35 @@ fuel that burns away; furnace upgrades and furnace workers replace the toggle. P
   cycle for the same fire, smart = burns only while smelting.
 - **Save:** v9's final shape adds `counters.bars` (= lifetime.bars) and `workers.assigned.ore / fuel` = 0; the real v8
   fixture test asserts the whole migrated run (bars 13, so its ore certificate is already open).
+
+### Furnace + worker UI (task 59)
+- **🔥 Furnace card** (`Mine.tsx` `Furnace`, open): "🔥 fire n / cap" (+ " · smart") with an ⓘ, a fire `Bar` (`kind="fire"`,
+  orange, burn ticks / cap ticks), the plain-furnace hint "burning with nothing to smelt" (fire > 0, not smart, not
+  `smelting(f)`), "🔶 ore n / 12" (+ " · p/60 s" and the grow bar while a cycle runs), the recipe line at the current
+  batch (🔶2·batch + ⚫1 or 🌲2 → 🥉batch), then the buttons **Load 🔶 ore / Fill with 🌲 wood / Fill with ⚫ coal /
+  Collect n 🥉**, each with a second line read off the action's own result: "uses n" (items the press moves), the
+  short reason when disabled, "tray n/5" on Collect. Then one `Item` row per furnace upgrade not at max ("Fire cap
+  10 → 20", "Batch 1 → 2 bars", "Smart furnace", price + short reason, ⓘ); a maxed upgrade hides like the vein row.
+  Summary line unchanged. Tips (`FURNACE_TIPS`) carry no numbers. One `FIRE_EMOJI` (useGame.ts) for every 🔥.
+- **👷 Workers card:** the ore / fuel rows (certificate with "bars n/10" / "n/30", then −/n/+) were already rendered by
+  task 58's `JobRow`; no change.
+- **📊 Stats:** Lifetime "Fire wasted" (`lifetime.fireWasted` in fire units, a part unit counts) next to "Copper bars
+  smelted". **Away banner:** "Away for … · 🔥 fire burnt N · 🥉 M smelted · K bars ready · wages paid 💰W", each part
+  only when non-zero, all diffs of the state before vs after the catch-up.
+- **Widths, computed from `app.css`, not measured** (13 px buttons ≈ 6.5 px/char, 14 px ≈ 7, 12 px ≈ 6.5, emoji ≈ 17).
+  Mine column content (task 56): **209.3 px** at 1024, **300.8** at 1440, **343** at 375.
+  - Action grid `repeat(auto-fit, minmax(96px, 1fr))`, gap 6: **2 columns of 101.6 px** at 1024 (rows Load + Fill 🌲,
+    Fill ⚫ + Collect), **3 of 96.3** at 1440, **3 of 110.3** at 375 (Collect alone on row 2). Text room = column − 2 × 4
+    padding − 2 border = 91.6 / 86.3 / 100.3. "Load 🔶 ore" ≈ 76 and "Collect 5 🥉" ≈ 82 are one line; "Fill with 🌲
+    wood" ≈ 115 wraps after the emoji (≈ 82) at all three widths, so a fuel button is 2 lines + its 12 px line ≈ 47 px
+    (above the 44 px min). Second lines ≤ "storage full" ≈ 78. Grid cells never overlap; a taller cell grows its row.
+  - Upgrade rows (`.item`: button full width, `padding-inline: 30px`, ⓘ 28 px absolute at top/right 1 px, i.e. inside
+    the right padding): text room 209.3 − 60 − 2 = **147.3** at 1024 (238.8 at 1440, 281 at 375). Labels ≤ "Fire cap
+    10 → 20" / "Batch 1 → 2 bars" ≈ 112. Worst second line "🥉12 💰400 · Not enough items" ≈ 195 wraps to two 12 px lines
+    at 1024 only (≈ 47 + 15 px tall); one line at 1440 and 375.
+  - Fire line "🔥 fire 40 / 40 · smart" ≈ 143 + gap 4 + ⓘ 28 = 175 ≤ 209.3. Ore line "🔶 ore 12 / 12 · 59/60 s" ≈ 185.
+    Hint ≈ 189 at 12 px. All one line at 1024.
+  - Open card at 1024 ≈ 44 summary + 28 fire line + 6 bar + 20 ore + 6 bar + 34 recipe + 100 actions + 3 × 47
+    upgrades + 9 × 4 gaps ≈ **415 px** in the scrolling Mine column; closed it is the 44 px summary, as before.
+  - Workers ore / fuel rows: certificate row "⚫ Fuel" + "bars 12/30" ≈ 65 + Certificate 🥉8 💰200 ≈ 95 + ⓘ 28 + 8 ≈
+    196; staffed row ≈ 52 + 44 + 16 + 44 + "unpaid" 52 + 28 + 20 = 256 ≤ 284 (Farm tab at 1024) / 359 (375).

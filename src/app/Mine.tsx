@@ -2,12 +2,17 @@ import { Fragment } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import {
   FUEL_IDS,
+  FURNACE_UPGRADE_IDS,
   barTicks,
+  batchBars,
+  fireCapTicks,
   fireCapUnits,
   fireUnitTicks,
+  furnaceTrayCap,
+  furnaceUpgradeCost,
   furnaceVeinLevel,
+  oreSlotCap,
   smeltFuel,
-  smeltOre,
   isSellable,
   itemSellPrice,
   masteredPreserveBonus,
@@ -23,10 +28,11 @@ import {
   veinMaxLevel,
   veinUpgradeCost,
   woodCost,
+  type FurnaceUpgradeId,
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, PICKAXE_NAMES, type ItemId } from '../core/data/items'
-import { addFuel, collectBars, loadOre } from '../core/furnace'
+import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, smelting } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -42,7 +48,9 @@ import {
 } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
-import { ERROR_TEXT, type Act } from './useGame'
+import { Info, Item } from './Info'
+import { FURNACE_TIPS } from './tips'
+import { ERROR_TEXT, FIRE_EMOJI, type Act } from './useGame'
 
 /** the next ore after the last vein level; a teaser with no numbers until the iron batch */
 const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: iron ore — coming`
@@ -67,32 +75,61 @@ function sellAll(s: GameState): ActionResult {
 }
 
 /** a disabled furnace button's short reason */
-function reason(r: ActionResult) {
-  return !r.ok && <small>{SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error]}</small>
+function shortReason(r: ActionResult) {
+  return r.ok ? '' : (SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error])
+}
+
+/** a furnace button's second line: the reason it is disabled, else how many items the press moves */
+function uses(r: ActionResult, before: GameState, id: ItemId) {
+  const n = r.ok ? (before.run.inventory[id] ?? 0) - (r.state.run.inventory[id] ?? 0) : 0
+  return <small>{r.ok ? `uses ${n}` : shortReason(r)}</small>
+}
+
+const UPGRADE_LABEL: Record<FurnaceUpgradeId, (level: number) => string> = {
+  fireCap: (l) => `Fire cap ${fireCapUnits(l)} → ${fireCapUnits(l + 1)}`,
+  batch: (l) => `Batch ${batchBars(l)} → ${batchBars(l + 1)} bars`,
+  smart: () => 'Smart furnace',
 }
 
 /**
  * Collapsible so the Mine panel stays short at 375 px; the summary line alone says what the furnace is doing.
- * Minimal batch-9 controls (load ore, fill with each fuel, collect); task 59 brings the fire gauge and upgrades.
+ * Open: the fire gauge (units / cap), the ore slot and cycle progress, load / fill / collect, and the upgrades not yet
+ * at their max level (each hides at max, like the vein upgrade).
  */
 function Furnace({ state, act }: { state: GameState; act: Act }) {
-  const { run } = state
+  const { run, meta } = state
   const f = run.furnace
   const collect = collectBars(state)
   const ore = loadOre(state)
   const have = (id: ItemId) => run.inventory[id] ?? 0
   const fire = Math.ceil(f.fire / fireUnitTicks())
+  const cap = fireCapUnits(f.levels.fireCap)
+  const bars = batchBars(f.levels.batch)
   return (
     <details className="mine-furnace">
       <summary>
-        🔥 Furnace · fire {fire}/{fireCapUnits(f.levels.fireCap)} · ore {f.ore} · {f.ready} ready
+        {FIRE_EMOJI} Furnace · fire {fire}/{cap} · ore {f.ore} · {f.ready} ready
       </summary>
+      <div className="furnace-line">
+        <span>
+          {FIRE_EMOJI} fire {fire} / {cap}
+          {f.smart && ' · smart'}
+        </span>
+        <Info text={FURNACE_TIPS.fire} />
+      </div>
+      <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
+      {f.fire > 0 && !f.smart && !smelting(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
+      <span>
+        {ITEMS.copperOre.emoji} ore {f.ore} / {oreSlotCap()}
+        {f.progress > 0 && ` · ${f.progress}/${barTicks()} s`}
+      </span>
       {f.progress > 0 && <Bar value={f.progress / barTicks()} kind="grow" />}
       <small>
         {ITEMS.copperOre.emoji}
-        {smeltOre()} + {ITEMS.coal.emoji}
+        {cycleOre(f)} + {ITEMS.coal.emoji}
         {smeltFuel('coal')} or {ITEMS.wood.emoji}
-        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}1 · {barTicks()} s ·{' '}
+        {smeltFuel('wood')} → {ITEMS.copperBar.emoji}
+        {bars} · {barTicks()} s ·{' '}
         {(['copperOre', 'coal', 'wood'] as const).map((id, i) => (
           <Fragment key={id}>
             {i > 0 && ' · '}
@@ -105,22 +142,39 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       <div className="mine-furnace-actions">
         <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
           Load {ITEMS.copperOre.emoji} ore
-          {reason(ore)}
+          {uses(ore, state, 'copperOre')}
         </button>
         {FUEL_IDS.map((fuel) => {
           const r = addFuel(state, fuel)
           return (
             <button key={fuel} disabled={!r.ok} onClick={() => act((s) => addFuel(s, fuel))}>
-              Fill with {ITEMS[fuel].emoji}
-              {reason(r)}
+              Fill with {ITEMS[fuel].emoji} {ITEMS[fuel].name.toLowerCase()}
+              {uses(r, state, fuel)}
             </button>
           )
         })}
         <button disabled={!collect.ok} onClick={() => act(collectBars)}>
           Collect {f.ready} {ITEMS.copperBar.emoji}
-          {f.ready > 0 && reason(collect)}
+          <small>{f.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${f.ready}/${furnaceTrayCap()}`}</small>
         </button>
       </div>
+      {FURNACE_UPGRADE_IDS.map((id) => {
+        const level = furnaceUpgradeLevel(f, id)
+        const cost = furnaceUpgradeCost(id, level, meta)
+        if (!cost) return null
+        const r = buyFurnaceUpgrade(state, id)
+        return (
+          <Item key={id} tip={FURNACE_TIPS[id]}>
+            <button disabled={!r.ok} onClick={() => act((s) => buyFurnaceUpgrade(s, id))}>
+              {UPGRADE_LABEL[id](level)}
+              <small>
+                {priceText(cost)}
+                {!r.ok && ` · ${shortReason(r)}`}
+              </small>
+            </button>
+          </Item>
+        )
+      })}
     </details>
   )
 }
@@ -202,7 +256,7 @@ export function Mine({ state, act }: { state: GameState; act: Act }) {
       {run.furnace.built ? (
         <Furnace state={state} act={act} />
       ) : (
-        run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">🔥 Furnace — buy it in the 🛒 Shop</span>
+        run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">{FIRE_EMOJI} Furnace — buy it in the 🛒 Shop</span>
       )}
       {run.pickaxe?.durability === 0 ? (
         <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
