@@ -197,3 +197,18 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Mobile keeps the bar above the tab bar:** farm and side panel are separate tabs there, so putting the buttons in
   a tab would mean switching tabs on every water/harvest.
 - **Wood icon is one constant** (🪵 is missing on some fonts; it showed as ▯ on Toon's device).
+
+## Workers v1 (batch 8, 2026-11-07, Toon go; details are Hermes picks from docs/research/workers.md)
+- **Scope: water + harvest workers only** (the two chores; offline value). Plant and mine workers later, with
+  certificates priced in furnace/forge outputs, so manual → tooling → automation still holds. Never a dig worker
+  (dig for seeds is the anti-soft-lock floor).
+- **Pool +1 per hire, 💰80 × 1.7^(n−1), cap 6;** certificates water 💰100, harvest 💰150 + 20 stone, gated by 40
+  waters / 40 harvests; hire visible after 30 harvests.
+- **Wage 💰1 per action, paid at the action; no cash = the worker idles** (never debt, never a loan). Speed 1 action
+  per 5 s on their own clock, no player energy — a worker is a slow substitute (12/min vs the player's ~20/min).
+- **A worker does the job's own action, so the job's copper tier applies** (a copper can's worker waters to 2 and
+  needs half the actions, i.e. half the wages).
+- **Auto-smelt = free furnace toggle, coal only,** enqueues and collects by itself; wood stays manual so repair wood
+  is never eaten.
+- **Workers live in the 🌾 Farm tab (desktop) / below the grid (mobile)** with their certificates and hire button,
+  not in Shop: everything about who presses on the farm stays in one place, and no 7th tab is added.

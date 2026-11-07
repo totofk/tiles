@@ -1021,3 +1021,39 @@ UI only; no `balance.ts` number, no save shape (save stays v7), no core behaviou
 - **Wood icon (task 48): 🌲 (U+1F332, Unicode 6.0, 2010)** in `ITEMS.wood.emoji`, read by Shop "🌲 Wood", the furnace
   recipe line, "Smelt with 🌲2", and every price through `priceText` (pickaxe craft/repair). 🪓 (U+1FA93) sits in
   the same Symbols and Pictographs Extended-A block as 🪵 (U+1FAB5), so a font missing 🪵 likely misses 🪓 too.
+
+## Batch 8 — workers v1 (water + harvest) + auto-smelt (tasks 49–53)
+Question: once the farm is set up, can it keep running without every tap (and while away), without killing the
+reason to spend energy?
+Decisions: DECISIONS.md "Workers v1 (batch 8)"; research docs/research/workers.md (§3 certificates, §4 wages,
+§6 batch scope — its economy numbers predate batches 5–7, so the sim re-checks every one). Save v8 (capture a real
+v7 fixture first; chain v1–v7 → v8; backup key).
+
+49. [ ] Save v8 + workers core (`src/core/workers.ts`): `run.workers = { pool, assigned: Record<WorkerJob, number>,
+    certificates: WorkerJob[], cooldowns }` with `WorkerJob = 'water' | 'harvest'` (plant/mine later, typed so they
+    extend). `hireWorker()` cost 80 × 1.7^(n−1), cap 6; `buyCertificate(job)`: water 💰100 (visible after 40
+    waters), harvest 💰150 + 20 stone (visible after 40 harvests); hire button visible after 30 harvests;
+    `assignWorker(job, ±1)`. Typed errors (`LOCKED`, `NO_CERTIFICATE`, `POOL_FULL`, `NO_FREE_WORKER`,
+    `NOT_ENOUGH_ITEMS`, `NO_CASH`). New counter `wagesPaid` (+ lifetime). Every number in balance.ts.
+50. [ ] Worker tick inside `step`: every `WORKER_ACTION_TICKS` (5) each assigned worker does its job's existing
+    action once on the best target (water: driest tile below its tier's full moisture; harvest: ripe longest first)
+    if a target exists and cash ≥ `WORKER_WAGE` (1), paying the wage at that moment; no target or no cash = idle,
+    no charge. No player energy. The job's copper tier applies (same action). Closed-form or loop — but step(s, n)
+    must equal n × step(s, 1) and 8 h offline must stay fast (test both). Worker actions bump the same counters as
+    the player's (they count toward unlocks) and the PRNG draws of the copper sickle stay in action order.
+51. [ ] Auto-smelt: a toggle on the furnace (available once it is built, off by default). When on, the furnace
+    enqueues a job whenever ore ≥ 2, coal ≥ 1 and the queue has room (coal only — never wood, so repair wood is never
+    eaten), and moves finished bars into storage when there is room. Runs in `step` and offline, deterministic.
+52. [ ] Workers UI: a 👷 Workers card in the 🌾 Farm tab on desktop and below the grid in the mobile Farm view:
+    "free N / pool", one row per job "💧 Water [−] n [+]" / "🌾 Harvest [−] n [+]", a locked row shows its
+    certificate price and gate progress, the hire button with its price, an "unpaid" badge on a row whose worker
+    skipped for cash. HUD "👷 N"; away banner adds "wages paid 💰N". ⓘ tips (no numbers in text). 📊 Stats: workers,
+    wages paid, auto-smelt state. Also (Toon's device showed ▯ for 🪨 in the Furnace price, like 🪵): every emoji
+    from Unicode 12+ (🪨 stone, 🪏 dig, any other — list them) moves to one shared constant with an emoji from
+    Unicode ≤ 11, the way batch 7.2 did wood (`ITEMS.*.emoji`); the 👷 icon is fine (Unicode 6).
+53. [ ] Sim + results: a bot that buys certificates and hires when affordable, assigns water first. Assert: cash never
+    negative, including cash 0 with every worker assigned (they idle); a 9-tile pumpkin farm with workers on water +
+    harvest and the player only planting nets ≥ 80 % of the manual rate (report both); an 8 h offline catch-up with
+    workers and auto-smelt ends with more cash and ≥ the bars the queue allows; mining stays below farming; the
+    batch-7/7.1 ladder pins are unchanged when no worker is hired and auto-smelt is off. Report ticks for first
+    certificate, first hire, pool 3. Write "## Batch 8 results".
