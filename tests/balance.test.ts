@@ -88,8 +88,9 @@ describe('balance', () => {
   it('meta multipliers flow through balance functions', () => {
     const boosted: MetaState = { ...createInitialMeta(), legacyMultipliers: { growTime: 0.5, sellPrice: 1, cost: 1, energy: 1, moistureDrain: 1 } }
     expect(cropGrowTicks('radish', boosted, 0)).toBe(cropGrowTicks('radish', meta, 0) / 2)
-    const leveled: MetaState = { ...createInitialMeta(), upgrades: { growTime: 0, sellPrice: 1, cost: 0, energy: 0, moistureDrain: 0 } }
-    expect(multiplier(leveled, 'sellPrice')).toBe(1.1)
+    const leveled: MetaState = { ...createInitialMeta(), upgrades: { ...createInitialMeta().upgrades, sellPrice: 1 } }
+    // batch 20 retuned the sellPrice step from 1.1 to 1.05 (deed prices, DECISIONS "Sell the farm")
+    expect(multiplier(leveled, 'sellPrice')).toBe(1.05)
   })
 })
 

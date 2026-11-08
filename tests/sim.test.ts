@@ -3309,7 +3309,7 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   it('one planter+harvester pair moves 2 × grow tiles per cycle — the throughput bound and the second pair', () => {
-    const pairTiles = Math.floor((harvestBatch() / workerActionTicks()) * cropGrowTicks('lemon', end.meta, end.run.upgrades.fertilizer))
+    const pairTiles = Math.floor((harvestBatch() / workerActionTicks(end.meta)) * cropGrowTicks('lemon', end.meta, end.run.upgrades.fertilizer))
     const settled = step(forge(end, 300, 3, ['lemon']), 2 * HOUR_TICKS)
     console.log('PIN18d', { pairTiles, secondPairAt: pairTiles - end.run.tiles.length, stats300: fieldsStats(settled.run) })
     expect(pairTiles).toBe(720) // lemon: 10 tiles per 5 ticks × 360 grow — and the pair tends the home plot too

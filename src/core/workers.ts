@@ -5,6 +5,7 @@ import {
   moistureDrainPerTick,
   oreSlotCap,
   sprinklerHopper,
+  workerActsAt,
   workerActionTicks,
   workerHireCost,
   workerHireUnlock,
@@ -74,7 +75,7 @@ function jobTiles(state: GameState, job: TileJob): number[] {
   const targets = toolTargets(state, job)
   if (job === 'plant') return [...targets, ...state.run.tiles.flatMap((t, i) => (t.status === 'untilled' ? [i] : []))]
   if (job !== 'water') return targets
-  const due = workerActionTicks() * moistureDrainPerTick(state.meta)
+  const due = workerActionTicks(state.meta) * moistureDrainPerTick(state.meta)
   return targets.filter((i) => state.run.tiles[i].moisture <= due)
 }
 
@@ -131,9 +132,11 @@ function workRound(state: GameState): { state: GameState; touched: WorkerTarget[
 }
 
 /** ticks until the workers' next action tick (0 = the next step acts) */
-export function ticksUntilWorkers(run: RunState): number {
-  const every = workerActionTicks()
-  return (every - (run.tick % every)) % every
+export function ticksUntilWorkers(state: GameState): number {
+  const every = workerActionTicks(state.meta)
+  const tick = state.run.tick
+  if (workerActsAt(tick, every)) return 0
+  return Math.ceil((Math.floor(tick / every) + 1) * every) - tick
 }
 
 // Workers (batch 8, furnace loaders batch 9): hire into a pool, buy a job's certificate, assign pool workers to
@@ -183,7 +186,7 @@ export function buyCertificate(state: GameState, job: WorkerJob): ActionResult {
 export function workerTargets(state: GameState): WorkerTarget[] {
   const { assigned } = state.run.workers
   if (assigned.plant + assigned.water + assigned.harvest === 0) return []
-  return workRound(step(state, ticksUntilWorkers(state.run))).touched
+  return workRound(step(state, ticksUntilWorkers(state))).touched
 }
 
 /**
@@ -205,7 +208,7 @@ export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
  * moment. Nothing to do or cash < wage = it idles, no charge; never debt.
  */
 export function workersAct(state: GameState): GameState {
-  if (state.run.tick % workerActionTicks() !== 0) return state
+  if (!workerActsAt(state.run.tick, workerActionTicks(state.meta))) return state
   return workRound(state).state
 }
 

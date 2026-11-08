@@ -20,7 +20,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 17
+export const SAVE_VERSION = 18
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -105,17 +105,20 @@ type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime
 }
 type RunV11 = Omit<RunV12, 'market' | 'milestones'>
 type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: RunV11 } }
-type SaveV12 = { version: 12; savedAtMs: number; state: { meta: GameState['meta']; run: RunV12 } }
+/** meta from v12 to v17: the five multiplier rows only (batch 20 added the deed rows and the ledger) */
+type MetaV12 = { prestigeCount: number; upgrades: Record<MultiplierKey, number>; legacyMultipliers?: Record<MultiplierKey, number> }
+type SaveV12 = { version: 12; savedAtMs: number; state: { meta: MetaV12; run: RunV12 } }
 type RunV13 = Omit<GameState['run'], 'lifetime' | 'workshop' | 'fields'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
-type SaveV13 = { version: 13; savedAtMs: number; state: { meta: GameState['meta']; run: RunV13 } }
+type SaveV13 = { version: 13; savedAtMs: number; state: { meta: MetaV12; run: RunV13 } }
 type RunV14 = Omit<GameState['run'], 'workshop' | 'fields'>
-type SaveV14 = { version: 14; savedAtMs: number; state: { meta: GameState['meta']; run: RunV14 } }
+type SaveV14 = { version: 14; savedAtMs: number; state: { meta: MetaV12; run: RunV14 } }
 type RunV15 = Omit<GameState['run'], 'fields'>
-type SaveV15 = { version: 15; savedAtMs: number; state: { meta: GameState['meta']; run: RunV15 } }
+type SaveV15 = { version: 15; savedAtMs: number; state: { meta: MetaV12; run: RunV15 } }
 type RunV16 = Omit<GameState['run'], 'fields'> & { fields: Omit<GameState['run']['fields'], 'machines'> }
-type SaveV16 = { version: 16; savedAtMs: number; state: { meta: GameState['meta']; run: RunV16 } }
-type SaveV17 = { version: 17; savedAtMs: number; state: GameState }
-export type Save = SaveV17
+type SaveV16 = { version: 16; savedAtMs: number; state: { meta: MetaV12; run: RunV16 } }
+type SaveV17 = { version: 17; savedAtMs: number; state: { meta: MetaV12; run: GameState['run'] } }
+type SaveV18 = { version: 18; savedAtMs: number; state: GameState }
+export type Save = SaveV18
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -382,19 +385,33 @@ function migrateV16(save: SaveV16): SaveV17 {
   return { version: 17, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: { ...run.fields, machines: createMachines() } } } }
 }
 
+// v17 → v18: "Sell the farm" (batch 20). The sale itself resets values only, but meta gains the deed ledger: the
+// batch-20 upgrade rows (all level 0), deeds / deedsClaimed 0 and an empty run history — nothing earned yet. A v17
+// meta's upgrades carry over unchanged (missing rows fill with 0).
+function migrateV17(save: SaveV17): SaveV18 {
+  const { meta, run } = save.state
+  const fresh = createInitialMeta()
+  return {
+    version: 18,
+    savedAtMs: save.savedAtMs,
+    state: { meta: { ...fresh, ...meta, upgrades: { ...fresh.upgrades, ...meta.upgrades } }, run },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 17) return data as SaveV17
-  if (data.version === 16) return migrateV16(data as SaveV16)
-  if (data.version === 15) return migrateV16(migrateV15(data as SaveV15))
-  if (data.version === 14) return migrateV16(migrateV15(migrateV14(data as SaveV14)))
-  if (data.version === 13) return migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13))))
+  if (data.version === 18) return data as SaveV18
+  if (data.version === 17) return migrateV17(data as SaveV17)
+  if (data.version === 16) return migrateV17(migrateV16(data as SaveV16))
+  if (data.version === 15) return migrateV17(migrateV16(migrateV15(data as SaveV15)))
+  if (data.version === 14) return migrateV17(migrateV16(migrateV15(migrateV14(data as SaveV14))))
+  if (data.version === 13) return migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13)))))
   const v12 = toV12(data)
-  return v12 && migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12)))))
+  return v12 && migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12))))))
 }
 
 /** v1 … v12 up to v12; null for anything else */

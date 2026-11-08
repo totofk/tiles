@@ -184,7 +184,7 @@ describe('workersAct / step: workers', () => {
   })
 
   it('acts only on every workerActionTicks-th tick', () => {
-    expect(workerActionTicks()).toBe(5)
+    expect(workerActionTicks(meta)).toBe(5)
     const s = farm([growing(0)], { harvest: 0 })
     for (let tick = 1; tick < 5; tick++) {
       const at = { ...s, run: { ...s.run, tick } }
@@ -203,7 +203,7 @@ describe('workersAct / step: workers', () => {
   })
 
   it('a waterer only waters a tile that would run dry before its next turn', () => {
-    const due = workerActionTicks() * moistureDrainPerTick(meta)
+    const due = workerActionTicks(meta) * moistureDrainPerTick(meta)
     const s = farm([growing(due + 0.01), growing(due)], { harvest: 0 })
     expect(workerTargets(s)).toEqual([{ job: 'water', tile: 1 }])
     const none = farm([growing(due + 0.01)], { harvest: 0 })
@@ -285,10 +285,10 @@ describe('workerTargets (task 60)', () => {
   })
 
   it('between worker ticks it shows the next action tick: a tile that will be due by then is ringed already', () => {
-    const due = workerActionTicks() * moistureDrainPerTick(meta)
+    const due = workerActionTicks(meta) * moistureDrainPerTick(meta)
     // at tick 2 the tile is 2.5 drains above due: not due now, due after the 3 drains to tick 5
     const s = farm([growing(due + 2.5 * moistureDrainPerTick(meta))], { harvest: 0, tick: 2 })
-    expect(ticksUntilWorkers(s.run)).toBe(3)
+    expect(ticksUntilWorkers(s)).toBe(3)
     expect(workerTargets(s)).toEqual([{ job: 'water', tile: 0 }])
     expect(workerTargets({ ...s, run: { ...s.run, tick: 0 } })).toEqual([])
   })
@@ -306,7 +306,7 @@ describe('workerTargets (task 60)', () => {
     let actions = 0
     for (let t = 0; t < 60; t++) {
       const rings = workerTargets(s)
-      const at = step(s, ticksUntilWorkers(s.run))
+      const at = step(s, ticksUntilWorkers(s))
       const acted = workersAct(at)
       expect(touchedTiles(at, acted)).toEqual([...rings].sort((a, b) => a.tile - b.tile))
       actions += rings.length
@@ -644,7 +644,7 @@ describe('mine worker: workersAct', () => {
     expect([next.run.energy, next.run.lifetime.energySpent, next.run.cash]).toEqual([0, 0, 100 - wage])
     expect([next.run.lifetime.workerMines, next.run.lifetime.wagesPaid]).toEqual([1, wage])
     // the second press breaks the iron rock (copper or better) into iron ore
-    const broke = workersAct(step(next, workerActionTicks() - 1))
+    const broke = workersAct(step(next, workerActionTicks(next.meta) - 1))
     expect([broke.run.inventory.ironOre, broke.run.lifetime.workerMines]).toEqual([1, 2])
   })
 

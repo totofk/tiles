@@ -5,11 +5,12 @@ import { ITEMS } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
+import { sellFarm } from '../core/prestige'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
 import { sprinklerWatered } from '../core/workshop'
 import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
-import { RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
+import { PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { marketMoves } from './marketText'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
@@ -49,6 +50,8 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
   BAD_SLOT: 'No order in that slot',
   NO_STARS: `Not enough ${STAR_EMOJI}`,
+  NO_DEEDS: 'Not enough deeds',
+  NO_GAIN: 'No deeds to gain yet — play on',
 }
 
 export const FIRE_EMOJI = '🔥'
@@ -149,6 +152,20 @@ export function useGame() {
     setBanner(null)
   }, [commit])
 
+  // "Sell the farm": the pre-sale run is backed up like a reset, then the sale's fresh run goes in
+  const sell = useCallback(() => {
+    const r = sellFarm(stateRef.current)
+    if (!r.ok) return showToast(ERROR_TEXT[r.error])
+    try {
+      localStorage.setItem(PRESTIGE_BACKUP_KEY, serialize(stateRef.current, wallClock()))
+    } catch {
+      // storage blocked: the sale still goes ahead, as with the reset backup
+    }
+    commit(r.state)
+    saveGame(localStorage, r.state)
+    setBanner(null)
+  }, [commit, showToast])
+
   // the stored save lags the live run by up to a second, so both first write the live run
   const exportCode = useCallback(() => {
     saveGame(localStorage, stateRef.current)
@@ -190,7 +207,7 @@ export function useGame() {
       const after = step(before, ticks)
       // the ringed tiles (and the Mine button, when a miner pressed it) flash when this step runs the workers' action
       // tick; the sprinklers water on the same clock, so their tiles get the 💧 badge; a longer jump just moves on
-      const crossed = ticks > ticksUntilWorkers(before.run) && ticks <= workerActionTicks()
+      const crossed = ticks > ticksUntilWorkers(before) && ticks <= workerActionTicks(before.meta)
       setActed(crossed ? workerTargets(before) : [])
       setWatered(crossed ? sprinklerWatered(before) : [])
       setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
@@ -241,5 +258,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed }
+  return { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed }
 }

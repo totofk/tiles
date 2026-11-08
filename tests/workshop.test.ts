@@ -126,7 +126,7 @@ describe('sprinklersAct', () => {
       { status: 'planted' as const, cropId: 'lemon' as const, growth: 360, moisture: 0.3, ticksSinceMature: 5 },
       { status: 'tilled' as const, growth: 0, moisture: 0.1, ticksSinceMature: 0 },
     ]
-    const s = withWorkshop([24, 24], tiles, { tick: workerActionTicks() })
+    const s = withWorkshop([24, 24], tiles, { tick: workerActionTicks(init.meta) })
     const { run, held } = sprinklersAct(s)
     // machine 1 takes the 6 driest (0.2 … 1.2), machine 2 the next 2 (1.4, 1.6) — 12 covered, all at 4
     expect(run.tiles.slice(0, 8).map((t) => t.moisture)).toEqual([4, 4, 4, 4, 4, 4, 4, 4])

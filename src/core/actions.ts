@@ -59,6 +59,8 @@ export type ActionError =
   | 'NO_FREE_WORKER'
   | 'BAD_SLOT'
   | 'NO_STARS'
+  | 'NO_DEEDS'
+  | 'NO_GAIN'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 

@@ -3039,7 +3039,7 @@ already carries `fields.machines`.
 Why: after Fields the run plateaus again; prestige converts the pile into progress. Design: docs/research/prestige.md.
 The state split (run/meta) and `meta.upgrades` as LEVELS already exist since v12 — this batch only fills them.
 
-- [ ] 100. **Core.** Gate: every farm job covered by worker or machine AND `deedsFor(lifetime.cashEarned) ≥ 8`
+- [x] 100. **Core.** Gate: every farm job covered by worker or machine AND `deedsFor(lifetime.cashEarned) ≥ 8`
     (research: ≥ 8 deeds makes the first hour of run 2 ≈ ×2.2 faster; deeds = ⌊√(lifetime cashEarned ÷ 10,000)⌋,
     unchanged from the v12 meter). Action "Sell the farm" (two-press confirm like reset): run resets to a fresh
     start (tiles, cash, market, milestones-with-trackingStarted, fields, machines, ⭐ SPENT converts to deeds at

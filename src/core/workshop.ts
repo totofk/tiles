@@ -10,6 +10,7 @@ import {
   sprinklerTiles,
   valveCost,
   waterMoisture,
+  workerActsAt,
   workerActionTicks,
   workshopCost,
   workshopVeinLevel,
@@ -99,7 +100,7 @@ export function sprinklersAct(state: GameState): { run: RunState; held: boolean[
   if (!w.built || w.hoppers.length === 0) return { run, held }
   const fill = waterMoisture(2)
   let tiles = run.tiles
-  if (run.tick % workerActionTicks() === 0) {
+  if (workerActsAt(run.tick, workerActionTicks(state.meta))) {
     for (let m = 0; m < w.hoppers.length; m++) {
       if (w.hoppers[m] < 1) continue
       // tiles watered earlier this tick sit at the fill, so each machine's chunk falls out of the pool by itself

@@ -5,7 +5,7 @@ import type { UpgradeId } from './data/upgrades'
 import { PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
-import type { CounterId, MetaState, MetaUpgradeId, MultiplierKey } from './state'
+import type { CounterId, MetaState, MultiplierKey } from './state'
 
 export const START_TILES = 9
 export const TILE_CAP = 24
@@ -498,12 +498,33 @@ export function orderRerollStars(): number {
   return ORDER_REROLL_STARS
 }
 
-// Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); prestige spends them
-// in batch 13. The Stats deed meter is read through deedsFor.
+// Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); "Sell the farm"
+// (batch 20) grants and spends them. The Stats deed meter is read through deedsFor.
 export const DEED_DIVISOR = 10000
+/** the sale opens at this many lifetime-cash deeds AND every farm job covered by worker or machine */
+export const PRESTIGE_GATE_DEEDS = 8
+/** the ⭐ balance converts to deeds at this rate when the farm is sold (floored) */
+export const STARS_PER_DEED = 25
+/** how many sold runs meta.runs keeps */
+export const RUN_HISTORY_CAP = 20
 
-/** effect of one meta upgrade level on its multiplier (level 0 = ×1); priced when prestige lands (batch 13) */
-const META_UPGRADE_STEP: Record<MetaUpgradeId, number> = { growTime: 0.95, sellPrice: 1.1, cost: 0.95, energy: 1.1, moistureDrain: 0.95 }
+/**
+ * Effect of one multiplier-row level (level 0 = ×1). The batch-20 deed prices retuned these (DECISIONS "Sell the
+ * farm"): growTime / cost −4 %, sellPrice +5 %. energy's deed row is flat (+2 max, see energyMax), so its step is 1
+ * and only a legacy multiplier moves it; moistureDrain has no deed row (legacy only).
+ */
+const META_UPGRADE_STEP: Record<MultiplierKey, number> = { growTime: 0.96, sellPrice: 1.05, cost: 0.96, energy: 1, moistureDrain: 0.95 }
+/** flat max-energy per Legacy "energy" level */
+const META_ENERGY_MAX_FLAT = 2
+/** extra starting tiles per Legacy "start tiles" level */
+const META_START_TILES_PER_LEVEL = 2
+/** seconds shaved off the worker clock per Legacy "worker speed" level */
+const META_WORKER_SPEED_STEP = 0.5
+
+/** tiles a fresh run starts with (Legacy "start tiles" row) */
+export function startTiles(meta: MetaState): number {
+  return START_TILES + META_START_TILES_PER_LEVEL * meta.upgrades.startTiles
+}
 
 export function multiplier(meta: MetaState, key: MultiplierKey): number {
   return META_UPGRADE_STEP[key] ** meta.upgrades[key] * (meta.legacyMultipliers?.[key] ?? 1)
@@ -564,7 +585,7 @@ export function moistureDrainPerTick(meta: MetaState): number {
 }
 
 export function energyMax(level: number, meta: MetaState): number {
-  return (ENERGY_MAX_BASE + ENERGY_MAX_PER_LEVEL * level) * multiplier(meta, 'energy')
+  return (ENERGY_MAX_BASE + ENERGY_MAX_PER_LEVEL * level + META_ENERGY_MAX_FLAT * meta.upgrades.energy) * multiplier(meta, 'energy')
 }
 
 export function energyRegenPerTick(level: number, meta: MetaState): number {
@@ -855,9 +876,18 @@ export function certificateCost(job: WorkerJob, meta: MetaState): Price {
   return scalePrice(CERTIFICATES[job].price, meta)
 }
 
-/** ticks between two actions of one worker */
-export function workerActionTicks(): number {
-  return WORKER_ACTION_TICKS
+/** ticks between two actions of one worker; the Legacy "worker speed" row shaves META_WORKER_SPEED_STEP off it */
+export function workerActionTicks(meta: MetaState): number {
+  return WORKER_ACTION_TICKS - META_WORKER_SPEED_STEP * meta.upgrades.workerSpeed
+}
+
+/**
+ * The worker clock acts on the tick that crosses each whole multiple of the period (tick 0 included). With an integer
+ * period this is exactly the old `tick % every === 0`; the halved period of the worker-speed row spreads the actions
+ * evenly (4.5 s → 0, 5, 9, 14, …). Workers and sprinklers share this clock.
+ */
+export function workerActsAt(tick: number, every: number): boolean {
+  return Math.floor(tick / every) > Math.floor((tick - 1) / every)
 }
 
 /** cash per worker action */
@@ -891,8 +921,9 @@ export function loanRepayStep(meta: MetaState): number {
   return Math.round(LOAN_REPAY_STEP * multiplier(meta, 'cost'))
 }
 
-/** cost of the next tile; Infinity once TILE_CAP tiles are owned */
+/** cost of the next tile; Infinity once TILE_CAP tiles are owned. The ladder anchors on the run's starting tiles, so
+ * a Legacy "start tiles" level prices the first bought tile of every run the same */
 export function tileCost(ownedTiles: number, meta: MetaState): number {
   if (ownedTiles >= TILE_CAP) return Infinity
-  return Math.round(TILE_BASE_COST * TILE_COST_GROWTH ** (ownedTiles - START_TILES) * multiplier(meta, 'cost'))
+  return Math.round(TILE_BASE_COST * TILE_COST_GROWTH ** (ownedTiles - startTiles(meta)) * multiplier(meta, 'cost'))
 }

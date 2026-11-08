@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax, orderStartSlots } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, energyMax, orderStartSlots, startTiles } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
@@ -179,14 +179,24 @@ export type Lifetime = {
 
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
 export type MultiplierKey = (typeof MULTIPLIER_KEYS)[number]
-/** one meta upgrade per multiplier (prestige buys levels, batch 13) */
-export type MetaUpgradeId = MultiplierKey
+/** one meta upgrade per multiplier, plus the batch-20 deed rows; meta stores levels only, every number is in balance.ts */
+export type MetaUpgradeId = MultiplierKey | 'startTiles' | 'workerSpeed' | 'keepLicenses' | 'keepFirstCertificates'
 
-/** survives prestige; upgrades start at level 0 (multiplier 1); legacyMultipliers carries pre-v12 multipliers forward */
+/** one sold run in the Legacy history */
+export type RunHistoryEntry = { endedAtTick: number; deeds: number }
+
+/**
+ * Survives "Sell the farm"; upgrades start at level 0 (multiplier 1); legacyMultipliers carries pre-v12 multipliers
+ * forward. The batch-20 deed ledger: deeds = spendable, deedsClaimed = lifetime-cash deeds already granted (the
+ * claimable number is deedsFor(lifetime) − deedsClaimed, so the same cash is never paid twice), runs = the last sales.
+ */
 export type MetaState = {
   prestigeCount: number
   upgrades: Record<MetaUpgradeId, number>
   legacyMultipliers?: Record<MultiplierKey, number>
+  deeds: number
+  deedsClaimed: number
+  runs: RunHistoryEntry[]
 }
 
 export type GameState = { run: RunState; meta: MetaState }
@@ -195,52 +205,64 @@ export function createTile(): Tile {
   return { status: 'untilled', growth: 0, moisture: 0, ticksSinceMature: 0 }
 }
 
+const META_UPGRADE_KEYS: readonly MetaUpgradeId[] = [...MULTIPLIER_KEYS, 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates']
+
 export function createInitialMeta(): MetaState {
   return {
     prestigeCount: 0,
-    upgrades: Object.fromEntries(MULTIPLIER_KEYS.map((key) => [key, 0])) as Record<MetaUpgradeId, number>,
+    upgrades: Object.fromEntries(META_UPGRADE_KEYS.map((key) => [key, 0])) as Record<MetaUpgradeId, number>,
+    deeds: 0,
+    deedsClaimed: 0,
+    runs: [],
+  }
+}
+
+/** what a sold run carries into the next one: the Legacy keep rows' licenses and farm certificates, the ⭐-bought
+ * order slots, and the lifetime totals (they are Stats totals — and the deed meter reads them) */
+export type RunCarry = { licenses: CropId[]; certificates: WorkerJob[]; orderSlots: number; lifetime: Lifetime }
+
+/** a run at tick 0: what a new game starts, and what "Sell the farm" starts after it — honors the start-tiles and
+ * energy Legacy rows and the keeps */
+export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
+  return {
+    cash: STARTING_CASH,
+    energy: energyMax(0, meta),
+    tiles: Array.from({ length: startTiles(meta) }, createTile),
+    licenses: carry?.licenses ?? [STARTING_CROP],
+    upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
+    counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 },
+    tick: 0,
+    mineLicense: false,
+    pickaxe: null,
+    inventory: {},
+    bagCapacity: BAG_CAPACITY_START,
+    storageLevel: 0,
+    vein: { level: 0, progress: 0, rock: 'stone' },
+    furnace: createFurnace(),
+    workshop: createWorkshop(),
+    fields: createFields(),
+    lifetime: carry?.lifetime ?? { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
+    mastery: {},
+    masteredTiers: [],
+    rngState: INITIAL_RNG_SEED,
+    loan: null,
+    seeds: {},
+    autoBuySeeds: true,
+    plantCrop: STARTING_CROP,
+    tools: { water: 0, harvest: 0, plant: 0 },
+    toolN: { water: 1, harvest: 1, plant: 1 },
+    toolTier: { water: 0, harvest: 0, plant: 0 },
+    workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: carry?.certificates ?? [] },
+    market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
+    milestones: {},
+    orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
+    stars: 0,
   }
 }
 
 export function createInitialState(): GameState {
   const meta = createInitialMeta()
-  return {
-    meta,
-    run: {
-      cash: STARTING_CASH,
-      energy: energyMax(0, meta),
-      tiles: Array.from({ length: START_TILES }, createTile),
-      licenses: [STARTING_CROP],
-      upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
-      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 },
-      tick: 0,
-      mineLicense: false,
-      pickaxe: null,
-      inventory: {},
-      bagCapacity: BAG_CAPACITY_START,
-      storageLevel: 0,
-      vein: { level: 0, progress: 0, rock: 'stone' },
-      furnace: createFurnace(),
-      workshop: createWorkshop(),
-      fields: createFields(),
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
-      mastery: {},
-      masteredTiers: [],
-      rngState: INITIAL_RNG_SEED,
-      loan: null,
-      seeds: {},
-      autoBuySeeds: true,
-      plantCrop: STARTING_CROP,
-      tools: { water: 0, harvest: 0, plant: 0 },
-      toolN: { water: 1, harvest: 1, plant: 1 },
-      toolTier: { water: 0, harvest: 0, plant: 0 },
-      workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: [] },
-      market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
-      milestones: {},
-      orders: { unlocked: false, slots: orderStartSlots(), offers: [] },
-      stars: 0,
-    },
-  }
+  return { meta, run: createFreshRun(meta) }
 }
 
 /** a furnace not yet built: copper, no fire, empty slot and tray, base levels */

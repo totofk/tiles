@@ -8,6 +8,8 @@ export const BAD_SAVE_KEY = 'tiles.save.bad'
 export const backupKey = (version: number) => `${SAVE_KEY}.backup.v${version}`
 /** the run as it was just before the 📊 Stats reset (overwritten by the next reset) */
 export const RESET_BACKUP_KEY = `${SAVE_KEY}.backup.reset`
+/** the run as it was just before a 🏆 Legacy "Sell the farm" (overwritten by the next sale) */
+export const PRESTIGE_BACKUP_KEY = `${SAVE_KEY}.backup.prestige`
 
 function rawVersion(raw: string): unknown {
   try {
