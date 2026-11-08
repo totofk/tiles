@@ -335,3 +335,16 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - Numbers: moisture 4, double harvest 20 %, seed keep 35 %; price 4 iron bars + a cash part the sim sets to 0.5–1.5 h
   of measured income at unlock (rounded to 💰500). Workers use the tier like the player.
 - No save change: `run.toolTier` is a number per job.
+
+## Economy retune + gold tier (batch 16, 2026-11-08, Toon go: retune items not rejected)
+
+- **Order bonus 0.25 → 0.10, market depth 120 → 60:** batch 14's sim measured the board adding +27–41 % income
+  (research expected +12–18 %) and depth 120 touching a 24-tile farm by only −4…5 %; both work against the goal of
+  slowing cash inflation. ⭐ rates are untouched. Depth 60 must make a 2-crop split ≥ mono at 24 tiles (sim pin);
+  if mining ≥ 0.9 × farming at depth 60, raise depth in steps of 10 until the hierarchy pin holds.
+- **Gold:** vein Lv4 (stone 45 + iron bars 8 + cash set by the sim; needs the iron pickaxe), drops stone 50 / coal 20 /
+  copper 12 / iron 10 / gold 8 %, gold rock 5 hits; gold bar 2 ore + 6 fire; gold pickaxe 5 bars + 💰500, durability
+  6,500; gold farm tools = sickle 30 % double + dibber 50 % keep ONLY (no gold can: worker + iron can already covers
+  watering, docs/research/sprinkler-gold.md). Orders pool and milestones extend through their tables.
+- **Price rule:** every new cash price = 0.5–1.5 h of the ladder bot's measured income at that unlock, rounded to
+  💰500 (batch 15 set IRON_TOOL_CASH 10,000 the same way).

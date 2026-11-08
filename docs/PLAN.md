@@ -2592,3 +2592,33 @@ materials; their cash part = 0.5–1.5 h of income at unlock, measured by the si
   table); mining iron Lv10 vein Lv3 = 2.09 cash/energy < 0.9 × 24-tile pumpkin with iron tools = 22.08
   (pumpkin itself rose to 24.53 cash/energy with iron); `step(s, 600) = 600 × step(s, 1)` from the ladder end with the
   iron tiers, workers, the market and hand-picked sales on. Nothing goes negative, no loan, `finalCash 55430` at 6 h.
+
+## Batch 16 — economy retune + gold tier (tasks 86–89)
+
+Why: batch 14's sim measured the noticeboard adding +27–41 % income (research expected +12–18 %) and the market at
+depth 120 barely touching a 24-tile farm, while the goal of 12–14 was to slow cash inflation. Then gold: vein Lv4,
+gold ore/bar/pickaxe, gold sickle + dibber (no gold can — DECISIONS batch 15). Numbers: docs/research/sprinkler-gold.md
+and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the sim's measured income at unlock.
+
+- [ ] 86. **Economy retune (balance.ts only).** `ORDER_BONUS` 0.25 → 0.10; `MARKET_DEPTH_TILES` 120 → 60. Re-run and
+    re-pin the batch 12/13/14 sims with a one-line "re-pinned batch 16" note each. Report: 24-tile lemon income
+    before/after (idle, attentive, with board), best 2-crop split vs mono lemon at depth 60 (goal: a split earns at
+    least as much as mono), ⭐/h unchanged. Hierarchy pin must hold; if mining ≥ 0.9 × farming at depth 60, raise depth
+    in steps of 10 until it holds and report the value. No save change.
+- [ ] 87. **Gold core.** Vein Lv4: price `{ stone: 45, ironBar: 8, cash: GOLD_VEIN_CASH }` (start 💰5,000, set in 89),
+    needs the iron pickaxe owned; drop table at Lv4 stone 50 / coal 20 / copper ore 12 / iron ore 10 / gold ore 8 %;
+    gold rock takes 5 hits (weaker pickaxes: same rule as the batch-11 iron rock). Gold bar = 2 gold ore + 6 fire
+    units in the furnace (ore-kind picker gains gold). Gold pickaxe = `{ goldBar: 5, cash: 500 }`, durability 6,500,
+    mastery like the others. Storage: the vein Lv4 price (53 items) must fit — if the storage max is below, the
+    reason line names the storage level, as batch 13 did. Orders pool gains gold ore/bar through the tables (no
+    generator change). Milestones gain vein4, firstGoldBar, goldPickaxe. If new item ids change the save shape, bump
+    to v14 per CLAUDE.md (FIRST commit `tests/fixtures/save-v13.json`); otherwise no bump.
+- [ ] 88. **Gold farm tools + UI.** Tier 3 for harvest and plant only: `DOUBLE_HARVEST[3] = 0.3`, `SEED_KEEP[3] = 0.5`,
+    price `{ goldBar: 4, cash: GOLD_TOOL_CASH }` (set in 89), needs the iron tier of that job. Water stays capped at
+    iron (the tier button says "Iron is the last watering can"). UI: vein Lv4 row, gold rock look, gold emoji from shared
+    constants, furnace gold option, gold tool tier buttons, Stats rows. Layout computed from CSS at 375 / 1024 / 1440.
+- [ ] 89. **Sim (`tests/sim.test.ts` "batch 16").** Extend the ladder bot past batch 15: vein Lv4 → first gold bar →
+    gold pickaxe → gold sickle → gold dibber. Report the minute of each; gold bars/hour; set `GOLD_VEIN_CASH` and
+    `GOLD_TOOL_CASH` to 0.5–1.5 h of the bot's measured income at that moment (round to 💰500) and pin them. Pins: no
+    unlock step > 60 game-minutes; every price ≤ storage held; mining cash/energy (gold pickaxe, vein Lv4) < 0.9 ×
+    farming; step(s, n) = n × step(s, 1). Tune only batch-16 numbers; report each as a deviation.
