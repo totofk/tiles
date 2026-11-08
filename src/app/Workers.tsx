@@ -1,5 +1,6 @@
 import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
 import { ITEMS } from '../core/data/items'
+import { TOOLS, type ToolJob } from '../core/data/tools'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import { ironHidden } from './devFlags'
 import type { GameState } from '../core/state'
@@ -31,9 +32,14 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
 function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {
   const { run, meta } = state
   if (!run.workers.certificates.includes(job)) {
-    const { counter, at, vein = 0 } = certificateUnlock(job)
+    const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
+    const toolLevel = job in TOOLS ? run.tools[job as ToolJob] : 0
     // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
-    const missing = [run.counters[counter] < at && `${counter} ${run.counters[counter]}/${at}`, run.vein.level < vein && `vein Lv${vein}`]
+    const missing = [
+      run.counters[counter] < at && `${counter} ${run.counters[counter]}/${at}`,
+      run.vein.level < vein && `vein Lv${vein}`,
+      toolLevel < tool && `needs ${WORKER_JOB_EMOJI[job]} ${TOOLS[job as ToolJob].names[tool - 1]} (tool Lv${tool})`,
+    ]
     return (
       <div className="worker-row">
         <span>

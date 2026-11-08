@@ -136,10 +136,11 @@ export function hireUnlocked(run: RunState): boolean {
   return run.counters[counter] >= at
 }
 
-/** the job's certificate shows (and can be bought) once its unlock counter is reached and its vein level owned */
+/** the job's certificate shows (and can be bought) once its unlock counter is reached, its vein level and its tool level owned */
 export function certificateUnlocked(run: RunState, job: WorkerJob): boolean {
-  const { counter, at, vein = 0 } = certificateUnlock(job)
-  return run.counters[counter] >= at && run.vein.level >= vein
+  const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
+  const toolLevel = isTileJob(job) ? run.tools[job] : 0
+  return run.counters[counter] >= at && run.vein.level >= vein && toolLevel >= tool
 }
 
 // Order: LOCKED, POOL_FULL, NO_CASH.

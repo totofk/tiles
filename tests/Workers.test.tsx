@@ -44,16 +44,28 @@ describe('👷 Workers card', () => {
     setup({})
     expect(summary()).toBe('👷 Workers · free 0 / 0')
     expect(row('Water').textContent).toContain('waters 0/40')
-    expect(within(row('Water')).getByRole('button', { name: /Certificate/ }).textContent).toBe('Certificate 💰100')
-    expect(within(row('Harvest')).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.stone.emoji}20 💰150`)
+    expect(within(row('Water')).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.stone.emoji}20 💰500`)
+    expect(within(row('Harvest')).getByRole('button', { name: /Certificate/ }).textContent).toBe(
+      `Certificate ${ITEMS.stone.emoji}20 ${ITEMS.coal.emoji}5 💰750`,
+    )
     expect(row('Harvest').textContent).toContain('harvests 0/40')
+    expect(row('Water').textContent).toContain('needs 💧 Water Cart (tool Lv3)')
+    expect(row('Harvest').textContent).toContain('needs 🌾 Reaper (tool Lv3)')
     for (const b of screen.getAllByRole('button', { name: /Certificate/ })) expect((b as HTMLButtonElement).disabled).toBe(true)
     expect(screen.queryByRole('button', { name: /Hire/ })).toBeNull()
   })
 
-  it('buying the water certificate turns its row into [−] 0 [+]; the gate progress goes once unlocked', () => {
-    const t = setup({ cash: 100 }, { waters: 40 })
+  it('batch 13: the counter reached but the tool below Lv3 keeps the certificate locked with only the tool line', () => {
+    setup({ cash: 5000, inventory: { stone: 20 }, tools: { water: 2, harvest: 0, plant: 0 } }, { waters: 40 })
     expect(row('Water').textContent).not.toContain('waters')
+    expect(row('Water').textContent).toContain('needs 💧 Water Cart (tool Lv3)')
+    expect(within(row('Water')).getByRole('button', { name: /Certificate/ }).hasAttribute('disabled')).toBe(true)
+  })
+
+  it('buying the water certificate turns its row into [−] 0 [+]; the gate progress goes once unlocked', () => {
+    const t = setup({ cash: 500, inventory: { stone: 20 }, tools: { water: 3, harvest: 0, plant: 0 } }, { waters: 40 })
+    expect(row('Water').textContent).not.toContain('waters')
+    expect(row('Water').textContent).not.toContain('needs')
     fireEvent.click(within(row('Water')).getByRole('button', { name: /Certificate/ }))
     t.rerender()
     expect(t.get().run.workers.certificates).toEqual(['water'])

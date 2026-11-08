@@ -143,18 +143,19 @@ const TOOL_TIER_COST: ReadonlyArray<Price> = [{ copperBar: 4, cash: 100 }]
 // Workers v1 (batch 8, DECISIONS "Workers v1"): hire k (pool k − 1 → k) costs HIRE_BASE × HIRE_GROWTH^(k − 1), pool
 // capped; the hire button needs HIRE_UNLOCK. A job takes workers once its certificate is bought (needs its unlock
 // counter). Every WORKER_ACTION_TICKS each assigned worker does one action of its job, paid WORKER_WAGE at that moment.
-const WORKER_HIRE_BASE = 80
+const WORKER_HIRE_BASE = 150
 const WORKER_HIRE_GROWTH = 1.7
 const WORKER_POOL_CAP = 6
 const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harvests', at: 30 }
 const WORKER_ACTION_TICKS = 5
 const WORKER_WAGE = 1
-// `vein` = the vein level that must be owned as well
-const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number; vein?: number }> = {
+// `vein` = the vein level that must be owned as well; `tool` = the job's farm-tool level that must be owned (batch 13:
+// a worker replaces a press, so the press comes first at its top level)
+const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number; vein?: number; tool?: number }> = {
   // plant worker (batch 10): copper bars, so the mine → furnace path comes first
-  plant: { price: { copperBar: 10, cash: 300 }, counter: 'plants', at: 60 },
-  water: { price: { cash: 100 }, counter: 'waters', at: 40 },
-  harvest: { price: { stone: 20, cash: 150 }, counter: 'harvests', at: 40 },
+  plant: { price: { copperBar: 10, cash: 300 }, counter: 'plants', at: 60, tool: 3 },
+  water: { price: { stone: 20, cash: 500 }, counter: 'waters', at: 40, tool: 3 },
+  harvest: { price: { stone: 20, coal: 5, cash: 750 }, counter: 'harvests', at: 40, tool: 3 },
   // furnace loaders (batch 9): gated by copper bars collected, paid in bars
   ore: { price: { copperBar: 3, cash: 100 }, counter: 'bars', at: 10 },
   fuel: { price: { copperBar: 8, cash: 200 }, counter: 'bars', at: 30 },
@@ -539,8 +540,8 @@ export function workerHireUnlock(): { counter: CounterId; at: number } {
   return WORKER_HIRE_UNLOCK
 }
 
-/** buying the job's certificate needs counters[counter] ≥ at, and vein level ≥ vein when set */
-export function certificateUnlock(job: WorkerJob): { counter: CounterId; at: number; vein?: number } {
+/** buying the job's certificate needs counters[counter] ≥ at, vein level ≥ vein and the job's tool level ≥ tool when set */
+export function certificateUnlock(job: WorkerJob): { counter: CounterId; at: number; vein?: number; tool?: number } {
   const { price, ...unlock } = CERTIFICATES[job]
   void price
   return unlock

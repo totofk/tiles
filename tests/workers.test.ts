@@ -41,8 +41,11 @@ import {
 const init = createInitialState()
 const meta = init.meta
 
+/** every farm tool at Lv3 (batch 13: a farm job's certificate needs its top tool) */
+const TOP_TOOLS = { water: 3, harvest: 3, plant: 3 }
+
 function withRun(run: Partial<GameState['run']>, counters: Partial<Counters> = {}): GameState {
-  return { ...init, run: { ...init.run, ...run, counters: { ...init.run.counters, ...counters } } }
+  return { ...init, run: { ...init.run, tools: TOP_TOOLS, ...run, counters: { ...init.run.counters, ...counters } } }
 }
 
 function okState(r: ActionResult): GameState {
@@ -55,17 +58,17 @@ const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[]
 })
 
 describe('workers: balance', () => {
-  it('hire k costs 80 × 1.7^(k − 1), pool cap 6, hiring unlocks at 30 harvests', () => {
-    expect([0, 1, 2, 3, 4, 5].map((pool) => workerHireCost(pool, meta))).toEqual([80, 136, 231, 393, 668, 1136])
+  it('hire k costs 150 × 1.7^(k − 1), pool cap 6, hiring unlocks at 30 harvests', () => {
+    expect([0, 1, 2, 3, 4, 5].map((pool) => workerHireCost(pool, meta))).toEqual([150, 255, 433, 737, 1253, 2130])
     expect(workerPoolCap()).toBe(6)
     expect(workerHireUnlock()).toEqual({ counter: 'harvests', at: 30 })
   })
 
-  it('certificates: water 💰100 after 40 waters, harvest 💰150 + 20 stone after 40 harvests', () => {
-    expect(certificateCost('water', meta)).toEqual({ cash: 100 })
-    expect(certificateCost('harvest', meta)).toEqual({ stone: 20, cash: 150 })
-    expect(certificateUnlock('water')).toEqual({ counter: 'waters', at: 40 })
-    expect(certificateUnlock('harvest')).toEqual({ counter: 'harvests', at: 40 })
+  it('certificates (batch 13): water 💰500 + 20 stone after 40 waters, harvest 💰750 + 20 stone + 5 coal after 40 harvests, each with its tool Lv3', () => {
+    expect(certificateCost('water', meta)).toEqual({ stone: 20, cash: 500 })
+    expect(certificateCost('harvest', meta)).toEqual({ stone: 20, coal: 5, cash: 750 })
+    expect(certificateUnlock('water')).toEqual({ counter: 'waters', at: 40, tool: 3 })
+    expect(certificateUnlock('harvest')).toEqual({ counter: 'harvests', at: 40, tool: 3 })
   })
 })
 
@@ -73,11 +76,11 @@ describe('hireWorker', () => {
   it('is LOCKED until 30 harvests, then adds one to the pool for its price, no energy', () => {
     expect(hireUnlocked(withRun({ cash: 1000 }, { harvests: 29 }).run)).toBe(false)
     expect(hireWorker(withRun({ cash: 1000 }, { harvests: 29 }))).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withRun({ cash: 300 }, { harvests: 30 })
+    const s = withRun({ cash: 500 }, { harvests: 30 })
     const one = okState(hireWorker(s))
-    expect([one.run.cash, one.run.workers.pool, one.run.energy]).toEqual([220, 1, s.run.energy])
+    expect([one.run.cash, one.run.workers.pool, one.run.energy]).toEqual([350, 1, s.run.energy])
     const two = okState(hireWorker(one))
-    expect([two.run.cash, two.run.workers.pool]).toEqual([84, 2])
+    expect([two.run.cash, two.run.workers.pool]).toEqual([95, 2])
     expect(hireWorker(two)).toEqual({ ok: false, error: 'NO_CASH' })
   })
 
@@ -88,22 +91,37 @@ describe('hireWorker', () => {
 })
 
 describe('buyCertificate', () => {
-  it('water: LOCKED below 40 waters, then 💰100 once', () => {
-    expect(buyCertificate(withRun({ cash: 500 }, { waters: 39 }), 'water')).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withRun({ cash: 500 }, { waters: 40 })
+  it('water: LOCKED below 40 waters, then 💰500 + 20 stone once', () => {
+    expect(buyCertificate(withRun({ cash: 1000, inventory: { stone: 20 } }, { waters: 39 }), 'water')).toEqual({ ok: false, error: 'LOCKED' })
+    const s = withRun({ cash: 600, inventory: { stone: 20 } }, { waters: 40 })
     expect(certificateUnlocked(s.run, 'water')).toBe(true)
     const next = okState(buyCertificate(s, 'water'))
-    expect([next.run.cash, next.run.workers.certificates]).toEqual([400, ['water']])
+    expect([next.run.cash, next.run.inventory.stone, next.run.workers.certificates]).toEqual([100, 0, ['water']])
     expect(buyCertificate(next, 'water')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
 
-  it('harvest: 💰150 + 20 stone, NOT_ENOUGH_ITEMS before NO_CASH', () => {
-    const s = withRun({ cash: 150, inventory: { stone: 19 } }, { harvests: 40 })
+  it('harvest: 💰750 + 20 stone + 5 coal, NOT_ENOUGH_ITEMS before NO_CASH', () => {
+    const s = withRun({ cash: 750, inventory: { stone: 20, coal: 4 } }, { harvests: 40 })
     expect(buyCertificate(s, 'harvest')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
-    const broke = withRun({ cash: 149, inventory: { stone: 20 } }, { harvests: 40 })
+    const broke = withRun({ cash: 749, inventory: { stone: 20, coal: 5 } }, { harvests: 40 })
     expect(buyCertificate(broke, 'harvest')).toEqual({ ok: false, error: 'NO_CASH' })
-    const next = okState(buyCertificate({ ...s, run: { ...s.run, inventory: { stone: 25 } } }, 'harvest'))
-    expect([next.run.cash, next.run.inventory.stone, next.run.workers.certificates]).toEqual([0, 5, ['harvest']])
+    const next = okState(buyCertificate({ ...s, run: { ...s.run, inventory: { stone: 25, coal: 5 } } }, 'harvest'))
+    expect([next.run.cash, next.run.inventory.stone, next.run.inventory.coal, next.run.workers.certificates]).toEqual([0, 5, 0, ['harvest']])
+  })
+
+  it('batch 13: a farm job needs its tool Lv3 as well as the counter; furnace and mine jobs have no tool gate', () => {
+    for (const job of ['water', 'harvest', 'plant'] as const) {
+      const rich = { cash: 10_000, inventory: { stone: 50, coal: 50, copperBar: 50 } }
+      const counters = { waters: 40, harvests: 40, plants: 60 }
+      for (const level of [0, 1, 2]) {
+        const s = withRun({ ...rich, tools: { ...TOP_TOOLS, [job]: level } }, counters)
+        expect([job, level, certificateUnlocked(s.run, job), buyCertificate(s, job)]).toEqual([job, level, false, { ok: false, error: 'LOCKED' }])
+      }
+      expect(buyCertificate(withRun(rich, counters), job).ok).toBe(true)
+      // the tool alone does not open it: the counter gate stays
+      expect(certificateUnlocked(withRun(rich, {}).run, job)).toBe(false)
+    }
+    expect(['ore', 'fuel', 'mine'].map((job) => certificateUnlock(job as WorkerJob).tool)).toEqual([undefined, undefined, undefined])
   })
 })
 
@@ -471,7 +489,7 @@ const SEED = (crop: CropId) => cropSeedCost(crop, meta)
 describe('plant worker: certificate', () => {
   it('🥉10 + 💰300 after 60 plants; LOCKED below, NOT_ENOUGH_ITEMS before NO_CASH', () => {
     expect(certificateCost('plant', meta)).toEqual({ copperBar: 10, cash: 300 })
-    expect(certificateUnlock('plant')).toEqual({ counter: 'plants', at: 60 })
+    expect(certificateUnlock('plant')).toEqual({ counter: 'plants', at: 60, tool: 3 })
     expect(certificateUnlocked(withRun({}, { plants: 59 }).run, 'plant')).toBe(false)
     expect(buyCertificate(withRun({ cash: 1000, inventory: { copperBar: 10 } }, { plants: 59 }), 'plant')).toEqual({ ok: false, error: 'LOCKED' })
     expect(buyCertificate(withRun({ cash: 1000, inventory: { copperBar: 9 } }, { plants: 60 }), 'plant')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })

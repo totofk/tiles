@@ -683,6 +683,22 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   120. Not tuned: the plan allows `MARKET_DEPTH_TILES` only to rise (which weakens the market further) and only for
   the hierarchy pin, which passes at 120.
 - **Batch 12 (task 75): no `balance.ts` number changed** (`MARKET_DEPTH_TILES` 120, half-life 1800, floor 0.5).
+- **Batch 13 (task 76): the batch 3–12 sim runs replay the batch-12 rules through a test-only switch.** The task-76 rule
+  (tool Lv3 before a farm certificate) means the old workers bots, which never buy tool levels, could never staff a
+  farm job, so their pins would be not just shifted but meaningless. `tests/sim.test.ts` already mocks `balance.ts`
+  for the market switch; the same mock now gives the old `certificateUnlock` (no `tool`), the old water/harvest
+  certificate prices and hire base 80 (and, from task 77, a hand-picked bonus of 1) unless `rules.batch13` is on.
+  Only the "batch 13" describe turns it on. Every older pin passes with no number edited, so they stay the measured
+  history of each batch. The spec tests (workers, Workers card, save, milestones) use the new rules.
+- **Batch 13 (task 76): the reason line uses the job's own emoji**, `needs 💧 Water Cart (tool Lv3)` / `needs 🌾 Reaper
+  (tool Lv3)` / `needs 🌱 Seed Spreader (tool Lv3)` (`WORKER_JOB_EMOJI`, the row's icon), not the brief's 🚿: emoji
+  come from shared constants and there is no tool emoji. It is one more `<small>` gate line in the locked row, shown
+  only while missing, like the counter and vein lines.
+- **Batch 13 (task 76): no v12 fixture exists** (v12 is the current version), so the "kept certificates" test loads
+  the v9, v10 and v11 fixtures (all hold farm certificates with that job's tool below Lv3: v9/v10 Lv2, v11 Lv1) and a
+  v12 save written in-test from the v11 one, then checks the workers still act and get paid over 600 ticks.
+- **Batch 13 (task 76): hire 3 costs 💰433, not 434**: `150 × 1.7²` is 433.4999… in floating point; the existing
+  `Math.round` is kept. Hires: 150, 255, 433, 737, 1253, 2130.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2158,7 +2174,7 @@ Why (Toon 2026-11-08 field report + docs/research/pacing-liveops.md A1, A2, A4):
 ladder is finished, so manual → tool → worker is broken in the numbers, and once water + harvest are staffed the
 player has nothing to do with their energy. Balance-only changes plus one rule; save shape unchanged (v12).
 
-- [ ] 76. **Certificates need the job's top farm tool; repriced.**
+- [x] 76. **Certificates need the job's top farm tool; repriced.**
     - `CERTIFICATES` gains `tool?: number` = the job's TOOL_LEVELS level that must be owned (water/harvest/plant:
       3, i.e. the last level). `certificateUnlock` returns it; the buy check and every UI reason line read it
       ("needs 🚿 Water Cart (tool Lv3)"). The old counter gate stays alongside (both must hold).

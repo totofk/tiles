@@ -125,8 +125,10 @@ describe('serialize / deserialize', () => {
         },
       },
     })
-    // 100 plants already: the plant certificate shows (and is not owned); the smelt in progress carries on
-    expect(certificateUnlocked(save.state.run, 'plant')).toBe(true)
+    // 100 plants already, but the plant tool is Lv2: since batch 13 the plant certificate waits for the Seed Spreader
+    // (and is not owned); the smelt in progress carries on
+    expect(certificateUnlocked(save.state.run, 'plant')).toBe(false)
+    expect(certificateUnlocked({ ...save.state.run, tools: { ...save.state.run.tools, plant: 3 } }, 'plant')).toBe(true)
     expect(save.state.run.workers.certificates).not.toContain('plant')
     const later = step(save.state, 17)
     expect(later.run.lifetime.barsSmelted).toBe(lifetime.barsSmelted + 1)
@@ -488,6 +490,21 @@ describe('serialize / deserialize', () => {
     expect(multiplier(save.state.meta, 'sellPrice')).toBe(2)
     // the all-1 rest of the table contributes nothing
     expect(multiplier(save.state.meta, 'growTime')).toBe(1)
+  })
+
+  it('batch 13: certificates bought before their Lv3 tool are kept and their workers keep working (v9, v10, v11, v12)', () => {
+    const v11Save = deserialize(v11)!
+    // no v12 fixture yet (v12 is the current version): a v12 save written by this build from the v11 one
+    const v12 = serialize(v11Save.state, v11Save.savedAtMs)
+    for (const raw of [v9, v10, v11, v12]) {
+      const { state } = deserialize(raw)!
+      const early = (['water', 'harvest', 'plant'] as const).filter((job) => state.run.workers.certificates.includes(job) && state.run.tools[job] < 3)
+      expect(early.length).toBeGreaterThan(0)
+      expect(early.every((job) => !certificateUnlocked(state.run, job))).toBe(true)
+      const later = step(state, 600)
+      expect(later.run.workers.certificates).toEqual(state.run.workers.certificates)
+      expect(later.run.lifetime.wagesPaid).toBeGreaterThan(state.run.lifetime.wagesPaid)
+    }
   })
 })
 

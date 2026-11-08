@@ -63,7 +63,7 @@ describe('recordMilestones', () => {
   })
 
   it('tool levels, copper tiers and certificates each record their own step', () => {
-    let s = withRun({ tick: 3, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 1, harvest: 0, plant: 0 }, cash: 9999 })
+    let s = withRun({ tick: 3, tools: { water: 3, harvest: 1, plant: 1 }, toolTier: { water: 1, harvest: 0, plant: 0 }, cash: 9999, inventory: { stone: 20 } })
     s = ok(buyLicense(s, 'lemon'))
     expect(s.run.milestones.licenseLemon).toBe(3)
     // already true before this action (as in a migrated save): never back-dated

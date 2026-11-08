@@ -41,7 +41,7 @@ import { ITEM_IDS } from '../src/core/data/items'
 import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre, setOreKind } from '../src/core/furnace'
 import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
-import { createFurnace, createInitialState, createTile, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, createTile, type GameState, type MetaState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
@@ -49,9 +49,30 @@ import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../src/co
 
 // Batch 12: the crop market is on in every run; `withoutMarket` switches it off (factor 1) only for the "before" runs.
 const market = vi.hoisted(() => ({ on: true }))
+// Batch 13: every run before the "batch 13" describe replays the batch-12 rules (certificates without the tool gate at
+// their old prices, hire base 80, no hand-picked bonus), so their pins stay the measured history; `batch13` switches
+// the real rules on.
+const rules = vi.hoisted(() => ({ batch13: false }))
+const OLD_CERTIFICATE = vi.hoisted((): Record<string, { cash: number; stone?: number }> => ({ water: { cash: 100 }, harvest: { stone: 20, cash: 150 } }))
 vi.mock('../src/core/balance', async (importOriginal) => {
   const real = await importOriginal<typeof import('../src/core/balance')>()
-  return { ...real, marketFactor: (crop: CropId, glut: number) => (market.on ? real.marketFactor(crop, glut) : 1) }
+  return {
+    ...real,
+    marketFactor: (crop: CropId, glut: number) => (market.on ? real.marketFactor(crop, glut) : 1),
+    certificateUnlock: (job: WorkerJob) => {
+      const unlock = real.certificateUnlock(job)
+      if (rules.batch13) return unlock
+      const { tool, ...old } = unlock
+      void tool
+      return old
+    },
+    certificateCost: (job: WorkerJob, meta: MetaState) => {
+      const old = OLD_CERTIFICATE[job]
+      return rules.batch13 || !old ? real.certificateCost(job, meta) : { ...old, cash: Math.round(old.cash * real.multiplier(meta, 'cost')) }
+    },
+    workerHireCost: (pool: number, meta: MetaState) =>
+      rules.batch13 ? real.workerHireCost(pool, meta) : Math.round(80 * 1.7 ** pool * real.multiplier(meta, 'cost')),
+  }
 })
 function withoutMarket<T>(run: () => T): T {
   market.on = false
