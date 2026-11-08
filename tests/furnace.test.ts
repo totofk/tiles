@@ -282,15 +282,18 @@ describe('iron smelting (batch 11)', () => {
     expect(loadOre(iron({}, { inventory: { copperOre: 5 } }))).toEqual({ ok: false, error: 'NO_ORE' })
   })
 
-  it('setOreKind switches only with an empty slot and tray; free', () => {
+  it('setOreKind switches whenever the tray is empty, forfeiting ore left in the slot; free (re-pinned batch 21)', () => {
     const s = smelter({ cash: 7 })
     const onIron = okState(setOreKind(s, 'ironOre'))
     expect([onIron.run.furnace, onIron.run.cash, onIron.run.energy]).toEqual([{ ...built, oreKind: 'ironOre' }, 7, s.run.energy])
     expect(okState(setOreKind(onIron, 'copperOre')).run.furnace).toEqual(built)
     expect(setOreKind(withRun({}), 'ironOre')).toEqual({ ok: false, error: 'NO_FURNACE' })
     expect(setOreKind(s, 'copperOre')).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
-    expect(setOreKind(furnace({ ore: 1 }), 'ironOre')).toEqual({ ok: false, error: 'NOT_EMPTY' })
+    // ore in the slot is forfeited and its partial cycle discarded
+    const forfeit = okState(setOreKind(furnace({ ore: 3, progress: 17 }), 'ironOre'))
+    expect(forfeit.run.furnace).toEqual({ ...built, oreKind: 'ironOre' })
     expect(setOreKind(furnace({ ready: 1 }), 'ironOre')).toEqual({ ok: false, error: 'NOT_EMPTY' })
+    expect(setOreKind(furnace({ ore: 1, ready: 1 }), 'ironOre')).toEqual({ ok: false, error: 'NOT_EMPTY' })
   })
 
   it('step(s, n) equals n × step(s, 1) on iron, plain and smart', () => {

@@ -44,7 +44,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   FULL: 'Furnace is full',
   NO_ORE: 'No ore of the picked kind in storage',
   NO_FUEL: 'No fuel in storage',
-  NOT_EMPTY: 'Empty the ore slot and tray first',
+  NOT_EMPTY: 'Collect the tray bars first',
   NO_CERTIFICATE: 'Buy the certificate first',
   POOL_FULL: 'No more workers to hire',
   NO_FREE_WORKER: 'No free worker — hire one or unassign',

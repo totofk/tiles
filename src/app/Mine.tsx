@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import {
   FUEL_IDS,
@@ -33,7 +33,7 @@ import {
   type FurnaceUpgradeId,
   type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId } from '../core/data/items'
+import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
 import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, setOreKind } from '../core/furnace'
 import {
@@ -68,7 +68,7 @@ const SMELT_SHORT: Partial<Record<ActionError, string>> = {
   NO_FUEL: 'no fuel',
   FULL: 'full',
   BAG_FULL: 'storage full',
-  NOT_EMPTY: 'empty first',
+  NOT_EMPTY: 'collect first',
 }
 
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free */
@@ -104,12 +104,15 @@ const UPGRADE_LABEL: Record<FurnaceUpgradeId, (level: number) => string> = {
 
 /**
  * Collapsible so the Mine panel stays short at 375 px; the summary line alone says what the furnace is doing.
- * Open: the fire gauge (units / cap), the ore slot and cycle progress, load / fill / collect, and the upgrades not yet
- * at their max level (each hides at max, like the vein upgrade).
+ * Open: the fire gauge (units / cap), the ore slot and cycle progress, the ore-kind picker (a switch with ore in the
+ * slot asks twice — it forfeits that ore, batch 21), load / fill / collect, and the upgrades not yet at their max
+ * level (each hides at max, like the vein upgrade).
  */
 function Furnace({ state, act }: { state: GameState; act: Act }) {
   const { run, meta } = state
   const f = run.furnace
+  // batch 21: switching with ore in the slot forfeits it, so that press asks twice (the armed kind)
+  const [confirmKind, setConfirmKind] = useState<OreId | null>(null)
   const collect = collectBars(state)
   const ore = loadOre(state)
   const have = (id: ItemId) => run.inventory[id] ?? 0
@@ -141,10 +144,33 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           {ORE_IDS.map((id) => {
             const r = setOreKind(state, id)
             const picked = f.oreKind === id
+            const armed = confirmKind === id
             return (
-              <button key={id} aria-pressed={picked} disabled={picked || !r.ok} onClick={() => act((s) => setOreKind(s, id))}>
+              <button
+                key={id}
+                aria-pressed={picked}
+                disabled={picked || !r.ok}
+                onClick={() => {
+                  if (f.ore > 0 && !armed) {
+                    setConfirmKind(id)
+                    return
+                  }
+                  setConfirmKind(null)
+                  act((s) => setOreKind(s, id))
+                }}
+              >
                 {ITEMS[id].emoji} {ITEMS[id].name}
-                <small>{picked ? 'smelting' : r.ok ? 'switch' : shortReason(r)}</small>
+                <small>
+                  {picked
+                    ? f.ore < cycleOre(f)
+                      ? `needs ${cycleOre(f) - f.ore} more to smelt`
+                      : 'smelting'
+                    : armed
+                      ? `press again — forfeit ${f.ore} ${ITEMS[f.oreKind].emoji}`
+                      : r.ok
+                        ? `switch${f.ore > 0 ? ` — forfeits ${f.ore}` : ''}`
+                        : shortReason(r)}
+                </small>
               </button>
             )
           })}

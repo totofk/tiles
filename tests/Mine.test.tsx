@@ -236,14 +236,14 @@ describe('Mine panel', () => {
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
   })
 
-  it('ore picker: from vein Lv3, copper or iron; switching needs an empty slot and tray; the furnace follows the kind', () => {
+  it('ore picker: from vein Lv3, copper or iron; a switch with ore in the slot asks twice and forfeits it (batch 21)', () => {
     setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' } })
     expect(screen.queryByRole('group', { name: 'Ore to smelt' })).toBeNull()
     cleanup()
     const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
     const t = setup({ furnace: built, vein: lv3, inventory: { ironOre: 3, coal: 4 } })
     const kind = (name: RegExp) => within(screen.getByRole('group', { name: 'Ore to smelt' })).getByRole('button', { name }) as HTMLButtonElement
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oresmelting`)
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreneeds 2 more to smelt`)
     expect([kind(/Copper ore/).getAttribute('aria-pressed'), kind(/Copper ore/).disabled]).toEqual(['true', true])
     expect(kind(/Iron ore/).textContent).toBe(`${IRON_ORE} Iron oreswitch`)
     fireEvent.click(kind(/Iron ore/))
@@ -257,10 +257,20 @@ describe('Mine panel', () => {
     t.rerender()
     expect(screen.getByRole('button', { name: /^Load/ }).textContent).toBe(`Load ${IRON_ORE} oreno ore`)
     expect(t.get().run.furnace.ore).toBe(3)
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreempty first`)
-    expect(kind(/Copper ore/).disabled).toBe(true)
+    // tray empty: switching is allowed, forfeits the 3 ore, and needs a second press
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreswitch — forfeits 3`)
+    expect(kind(/Copper ore/).disabled).toBe(false)
+    fireEvent.click(kind(/Copper ore/))
+    t.rerender()
+    expect(t.get().run.furnace.oreKind).toBe('ironOre')
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper orepress again — forfeit 3 ${IRON_ORE}`)
+    fireEvent.click(kind(/Copper ore/))
+    t.rerender()
+    expect([t.get().run.furnace.oreKind, t.get().run.furnace.ore]).toEqual(['copperOre', 0])
     cleanup()
     setup({ furnace: { ...built, oreKind: 'ironOre', ready: 2, progress: 30 }, vein: lv3 })
+    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper orecollect first`)
+    expect(kind(/Copper ore/).disabled).toBe(true)
     expect(screen.getByRole('button', { name: /^Collect 2/ }).textContent).toBe(`Collect 2 ${IRON_BAR}tray 2/5`)
     expect(text()).toContain(`${IRON_ORE} ore 0 / 12 · 30/120 s`)
   })

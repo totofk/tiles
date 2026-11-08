@@ -72,15 +72,16 @@ export function loadOre(state: GameState, max = Infinity): ActionResult {
 }
 
 /**
- * Picks the ore kind the slot takes (copper, iron or gold), free. Only with an empty slot and an empty tray, so ore and
- * the tray's bars are always of the kind shown. Order: NO_FURNACE, NOTHING_TO_DO (already that kind), NOT_EMPTY.
+ * Picks the ore kind the slot takes (copper, iron or gold), free. Allowed whenever the tray is empty — ore left in
+ * the slot is forfeited and its partial cycle discarded (batch 21), so the tray's bars are always of the kind shown.
+ * Order: NO_FURNACE, NOTHING_TO_DO (already that kind), NOT_EMPTY (bars sit in the tray).
  */
 export function setOreKind(state: GameState, oreKind: OreId): ActionResult {
   const f = state.run.furnace
   if (!f.built) return fail('NO_FURNACE')
   if (f.oreKind === oreKind) return fail('NOTHING_TO_DO')
-  if (f.ore > 0 || f.ready > 0) return fail('NOT_EMPTY')
-  return withRun(state, { furnace: { ...f, oreKind } })
+  if (f.ready > 0) return fail('NOT_EMPTY')
+  return withRun(state, { furnace: { ...f, oreKind, ore: 0, progress: 0 } })
 }
 
 /** a cycle progresses this tick: fire lit, a cycle's ore in the slot, tray room for its bars */
