@@ -407,3 +407,20 @@ Each ladder step inherits the previous: the harvester machine rolls the player's
 double-harvest chance, exactly like the harvester worker (`reapFields` in `fields.ts`). This replaces batch 19's
 "a machine has no sickle and is never hand-picked" — the never-hand-picked half stays. The seeder machine already
 inherited the dibber's seed-keep via the planter's seed rules; no price, maintenance, machine rate or save change.
+
+## Market pacing retune + prestige UI home (batch 21, 2026-11-08, Toon go)
+
+- Market depth in tiles is the real "when does selling hurt" dial: at 60, a 12-tile mono farm already paid 0.90×
+  and a 24-tile farm 0.80× forever (measured on Toon's save report). Depth 60→240: the early game is safe (0.95×
+  at 24 tiles), pressure starts ~48 tiles/crop, floor at 240/crop, mono at Fields scale still hits 0.5× —
+  diversification stays worth it. Half-life 1800→900 so a stop-selling farm bounces 2× faster.
+- NO glut-mitigation upgrade now (Toon's idea, parked): depth 240 already fixes the early fear; if the late game
+  tightens again the lever is a MILESTONE row (mid-game reach), never the deed shop — deed-shop things must stay
+  cross-run meta only, and the first prestige comes ~17+ game-hours in.
+- Price tags show trend ▲▼ + a floor badge (cosmetic state in `tiles.ui` only).
+- Furnace: switching ore kind is allowed whenever the tray is empty — two-press confirm forfeits the partial slot
+  (bounded by the slot cap); bars must be collected first (free). The picker says how many more ore complete a
+  cycle. Removes the NOT_EMPTY soft lock.
+- The prestige group (SellCard, 🏆 Legacy shop, deed meter) lives in the 🏦 Bank tab, shown pre-gate as a locked
+  teaser. Bank = all money, in-run (loan) and cross-run (sell/Legacy). Stats keeps stats + feedback + reset.
+- Storage max level 5 → 10, same formula (Toon: mine-era bags are too tight at cap 50; Lv10 = cap 100).
