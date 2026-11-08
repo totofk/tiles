@@ -348,3 +348,16 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   watering, docs/research/sprinkler-gold.md). Orders pool and milestones extend through their tables.
 - **Price rule:** every new cash price = 0.5–1.5 h of the ladder bot's measured income at that unlock, rounded to
   💰500 (batch 15 set IRON_TOOL_CASH 10,000 the same way).
+
+## Workshop + sprinklers (batch 17, 2026-11-08, Toon go)
+
+- The sprinkler is the machine tier of WATERING only: its value is returning a worker slot (pool cap 6) and eating
+  coal so the mine stays loaded — not saving wage money (wages are 0.8–3 % of profit, docs/research/sprinkler-gold.md).
+- Coverage counts TILES, never rows/radius (columns change with viewport): each machine auto-waters the 6 driest
+  growing tiles every 5 s at iron-can moisture. Max 4 machines. No placement UI.
+- Coal pump: ~12 coal/h per machine, hopper 24 (≈ 2 h); the EXISTING fuel loader refills hoppers below half (no new
+  worker job). No coal → crops stall, never die; worst-case 8 h offline loss is bounded by hopper coal (sim reports
+  the number). Smart valve (gold 2) holds moisture while a machine is stalled.
+- Gold can stays unreleased (worker + iron can already covers watering). Workshop recipes are visible greyed with
+  per-material reason lines — no hidden or random recipes.
+- Cash prices set by the sim per the standing rule (0.5–1.5 h of measured income at unlock, rounded to 💰500).

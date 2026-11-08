@@ -2710,3 +2710,45 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
   with gold tools = **22.10** (pumpkin itself 24.55 cash/energy); `step(s, 600) = 600 × step(s, 1)` from the
   ladder end with the gold tiers, workers, the market and hand-picked sales on. Nothing goes negative, no loan,
   water never leaves iron, `finalCash 71422` at 12 h.
+
+## Batch 17 — Workshop + sprinklers (tasks 90–93, save v13 → v14 if ids require it)
+
+Why: watering is the last job a worker still does on a big farm (batch 15's iron can made it cheap but not free);
+the sprinkler is the machine tier of watering — crafted from materials, it returns a worker slot (pool cap 6) and
+eats coal so the mine stays relevant. Research: docs/research/sprinkler-gold.md + fields-market.md (throughput).
+Rules locked earlier (DECISIONS + this thread): coverage is counted in TILES (never rows/radius — column count varies
+with viewport); crafted from materials in quantity; worst-case 8 h offline loss is bounded by the coal in the
+hoppers; a dry sprinkler stalls crops (no growth tick), it never kills them.
+
+- [ ] 90. **Workshop + sprinkler core.** If the item ids change the save shape, FIRST commit
+    `tests/fixtures/save-v13.json` (realistic: orders unlocked, ⭐ > 0, iron tools owned) and chain to v14 per
+    CLAUDE.md; otherwise no bump.
+    - 🛒 Shop card "🔧 Workshop": `{ stone: 30, ironBar: 6, cash: WORKSHOP_CASH }`, needs vein Lv4; recipes are
+      listed greyed-out with their materials (no randomness, no hidden recipes). Buying it opens the Workshop
+      section in the 🌾 Farm tab.
+    - Sprinkler recipe: `{ goldBar: 4, ironBar: 8, copperBar: 8, cash: SPRINKLER_CASH }`, max `SPRINKLER_MAX = 4`
+      owned. A sprinkler waters `SPRINKLER_TILES = 6` tiles: each machine, once per WORKER_ACTION_TICKS (5 s),
+      refills the moisture of the 6 growing tiles with the least moisture fraction (no placement, no geometry).
+      Iron-can moisture amount (4). Works during offline catch-up like a worker.
+    - **Coal pump:** each sprinkler burns `SPRINKLER_COAL_PER_TICKS` so a machine eats ≈ 12 coal/h (1 per 5 min);
+      its hopper holds `SPRINKLER_HOPPER = 24` coal (≈ 2 h). The existing fuel-loader worker refills sprinkler
+      hoppers from storage when they drop below half (same 5-s clock, 💰1 wage, no new worker job). No coal → that
+      machine stops; growing tiles it covered simply stop gaining moisture (stall, not death). 8 h offline loss is
+      bounded by hopper coal; report the number in the sim.
+    - Smart valve (one-time upgrade, Workshop): `{ goldBar: 2, cash: VALVE_CASH }` — a stalled sprinkler (no coal)
+      keeps the tiles at their current moisture instead of letting it drain, until coal returns.
+    - Milestones: workshop, firstSprinkler, valve. Orders pool: Workshop goods are NOT orderable in this batch.
+- [ ] 91. **UI.** Workshop card + recipe rows (greyed with a reason line per missing material, like certificate
+    rows); owned sprinklers show as a row `💧 Sprinklers 2/4 — waters 12 tiles` with a coal gauge per machine
+    (or one aggregate gauge if simpler, say which); the grid shows a small 💧 corner badge on tiles a sprinkler
+    watered this tick (distinct from the ✋ badge). ⭐-free: cash parts only via the price rule. Compute layout from
+    CSS at 375 / 1024 / 1440 px; no 7th tab.
+- [ ] 92. **Sim (`tests/sim.test.ts` "batch 17").** Extend the batch-16 ladder: after gold tools → Workshop → first
+    sprinkler → valve → 4 sprinklers. Set WORKSHOP_CASH, SPRINKLER_CASH, VALVE_CASH to 0.5–1.5 h of the bot's
+    measured income at each unlock (round to 💰500) and pin them. Report: minute of each; coal/h needed vs the
+    miner's measured coal/h (the fuel budget must not starve the furnace — report both shares); income/h before vs
+    after 4 sprinklers (the water worker freed → reassign to planting, report the delta); worst-case 8 h offline
+    coal loss and what bounds it. Pins: no unlock step > 60 game-minutes; every price ≤ storage held; mining
+    cash/energy < 0.9 × farming; step(s, n) = n × step(s, 1) with sprinklers, the pump and catch-up on; the
+    hierarchy of watering value (sprinkler vs worker wage) documented in the results. Tune only batch-17 numbers;
+    report each change as a deviation.
