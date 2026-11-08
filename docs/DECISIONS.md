@@ -361,3 +361,18 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - Gold can stays unreleased (worker + iron can already covers watering). Workshop recipes are visible greyed with
   per-material reason lines — no hidden or random recipes.
 - Cash prices set by the sim per the standing rule (0.5–1.5 h of measured income at unlock, rounded to 💰500).
+
+## Fields part 1 (batch 18, 2026-11-08, Toon go: numbered items 1–3 not rejected)
+
+- **Fields is the earned late game, not a replacement:** the home plot keeps the grid, tools and mastery; Fields is
+  an unbounded COUNT shown as 3 bars (to plant / growing / ready). Games that deleted the hands-on layer lost it;
+  both layers stay (docs/research/fields-market.md §1).
+- **Systemic, not new jobs:** existing planter/harvester workers work the Fields automatically when the home plot
+  has nothing for them (same 5-s clock, same wage). Watering in Fields = pipes (coverage counted in TILES, sharing
+  the batch-17 coal pump), never a water worker. Machines come in batch 19 and need the job's certificate first
+  (manual → worker → machine ladder holds).
+- **Fields costs energy 0:** Fields income is cash per hour, not per energy — the cash/energy hierarchy pin stays a
+  home-plot comparison. Buying a field = 💰100 × (count + 1); the market (depth 60) is the real throttle; the UI
+  shows the sim-computed payback hours. Crop gate: 50 home-plot harvests of that crop first.
+- **Cohorts, never per-tile loops:** state is grouped cohorts (crop, count, readyTick); 8 h offline over 1,000+
+  tiles must stay under the perf pin (2,000 ms). Stalled (unwatered) tiles pause growth; nothing dies offline.

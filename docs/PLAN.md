@@ -2826,3 +2826,49 @@ hoppers; a dry sprinkler stalls crops (no growth tick), it never kills them.
     cash/energy < 0.9 × farming; step(s, n) = n × step(s, 1) with sprinklers, the pump and catch-up on; the
     hierarchy of watering value (sprinkler vs worker wage) documented in the results. Tune only batch-17 numbers;
     report each change as a deviation.
+
+## Batch 18 — Fields part 1: unlock, cohort core, 3 bars, field workers (tasks 93–96, save v15)
+
+Why: 24 home tiles cap income by design; Fields is the earned late game — unbounded tile COUNT as an aggregate, so
+cash prices regain meaning (docs/research/fields-market.md; the market is the throttle, not the price). Simulated as
+cohorts, never per-tile loops, so 8 h offline over 1,000+ tiles stays cheap. The home plot keeps its grid, tools and
+mastery (research §1: games that deleted the hands-on layer lost it; we keep both).
+
+- [ ] 93. **Fields core + save v15.** FIRST commit `tests/fixtures/save-v14.json` (realistic: workshop, sprinklers,
+    gold tools). Unlock "🚜 Fields": a 🛒 Shop card `{ ironBar: 10, cash: FIELDS_CASH }` that needs every farm job
+    covered by a worker or machine (planter/harvester certificates owned + watering covered by ≥1 sprinkler). A crop
+    can be planted in Fields once `lifetime.harvests[crop] ≥ 50` (home-plot mastery gate).
+    - `run.fields = { unlocked, count: 0, planted: Record<CropId, number>, cohorts: Array<{ crop, count, readyTick }>,
+    pipes: 0 }`. Buying a field: price `FIELDS_TILE_BASE(=100) × (count + 1)`, count += 1, planted stays (empty land).
+    - Planting N tiles of a crop (one action): cohort `{crop, count: N, readyTick: tick + growTicks(crop, fertilizer)}`
+    (fertilizer applies — it speeds harvests and glut, as the market already does). Max cohort per crop per action =
+    what the planter can do (below).
+    - Workers extend systemically: a planter/harvester worker whose 5-s action finds the home plot fully planted /
+    nothing ready works the Fields instead (same job, same wage, no new assignment UI). One action = plant one
+    cohort batch of `PLANT_BATCH` tiles (start 10) / harvest `HARVEST_BATCH` ready tiles (start 10). Player planting
+    in Fields: a button per licensed crop "plant 10" (no energy — Fields income is cash/h, not cash/energy), harvest
+    needs the harvester (machine later) or waits.
+    - Fields harvests pay the market price (glut + 1 per unit, hand-picked ×1 does NOT apply — nobody picks by hand),
+    and can route into accepted orders (bypass, ×(1+ORDER_BONUS)) exactly like home-plot harvests.
+    - Moisture: Fields crops do NOT need watering until the pipes tier 0 limit (`PIPE_COVER[0] = 0`): tiles beyond
+    pipe coverage stall (growth paused), never die. Pipes are task 94.
+    - Milestones: fields unlocked, firstField, fields100, fields500. step(s, n) = n × step(s, 1) over cohorts (test:
+    3 cohorts, 2 workers, market on, 600 ticks).
+- [ ] 94. **Field pipes (watering without workers).** 🛒 Workshop recipe tiers 1–3: coverage `PIPE_COVER = [60, 150,
+    300]` tiles, prices `{ copperBar: 8, cash }`, `{ ironBar: 8, cash }`, `{ goldBar: 8, cash }` (sim sets the cash).
+    Pipes share the batch-17 coal pump: total pump draw = sprinklers + `PIPE_COAL_PER_10_TILES(=0.5)/h × covered
+    tiles ÷ 10` (sim tunes). Fuel loader refills from the same hopper rule. Uncovered growing tiles stall; the 3-bar
+    UI marks stalled tiles in the growing bar.
+- [ ] 95. **UI.** A "🚜 Fields" section in the 🌾 Farm tab: 3 bars (to plant / growing / ready) with counts, one row
+    per licensed crop (plots planted, `plant 10` / `stop` buttons, the 50-harvest gate reason line), the field price
+    button with a payback label "~X h" (marginal income from the sim's formula, recomputed from state), pipes rows
+    with coverage and coal draw. No 7th tab; compute layout from CSS at 375 / 1024 / 1440 px.
+- [ ] 96. **Sim (`tests/sim.test.ts` "batch 18", at MARKET_DEPTH_TILES = 60).** Re-derive the research's arithmetic
+    at depth 60: steady-state income vs N for 10/50/100/300/1,000 tiles (best crop split the bot finds); the field
+    number where payback crosses 8 h (pin it; the UI label uses the same number); planter+harvester pair throughput
+    bound (tiles per pair) and the N where a second pair pays; coal budget: sprinklers + pipes draw vs the miner's
+    measured coal/h (the furnace must not starve — report both shares). Perf pin: an 8 h offline catch-up with 1,000
+    planted tiles across 4 crops, 2 planters + 2 harvesters + pipes, completes in < 2,000 ms and step(s, n) identity
+    holds. Set FIELDS_CASH and the pipe cash prices to 0.5–1.5 h of measured income at their unlock (round to 💰500).
+    Pins: no unlock step > 60 game-minutes (fields unlock → first pipes → fields 100); mining cash/energy < 0.9 ×
+    farming; every price ≤ storage held. Tune only batch-18 numbers; report each as a deviation.
