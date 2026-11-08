@@ -51,7 +51,11 @@ export function orderPool(run: RunState): OrderGood[] {
 /** how many of `good` the player makes per minute at full use (the basis of an order's count) */
 export function orderPerMinute(state: GameState, good: OrderGood): number {
   const { run, meta } = state
-  if (isCropGood(good)) return (run.tiles.length / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+  // batch 19: the Fields' standing tiles of the crop produce at the same per-tile pace as the home plot
+  if (isCropGood(good)) {
+    const standing = run.fields.cohorts.reduce((n, c) => (c.crop === good ? n + c.count : n), 0)
+    return ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+  }
   const ore = barOre(good)
   if (ore) return (batchBars(run.furnace.levels.batch) * 60) / barTicks(ore)
   const drops = veinDrops(run.vein.level)

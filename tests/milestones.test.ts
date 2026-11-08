@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buyLicense, buyTile, harvest } from '../src/core/actions'
 import { MILESTONES, earlierMilestones, recordMilestones } from '../src/core/data/milestones'
-import { createFurnace, createInitialState, type GameState, type RunState, type Tile } from '../src/core/state'
+import { createFurnace, createInitialState, createMachines, type GameState, type RunState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { assignWorker, buyCertificate, hireWorker } from '../src/core/workers'
 
@@ -112,5 +112,13 @@ describe('recordMilestones', () => {
     const next = ok(assignWorker(s, 'water', 1))
     expect(next.run.milestones).toEqual({})
     expect(recordMilestones(s.run, s.run)).toBe(s.run)
+  })
+
+  it('batch 19 machine rows: harvester1, seeder1 and harvester3 record with the owned tier, per tick after the buy', () => {
+    const s = withRun({ tick: 7, fields: { ...createInitialState().run.fields, machines: createMachines() } })
+    const fleet = { ...s.run, fields: { ...s.run.fields, machines: { ...createMachines(), harvester: [1, 3], seeder: [1] } } }
+    const next = recordMilestones(s.run, fleet)
+    expect([next.milestones.harvester1, next.milestones.seeder1, next.milestones.harvester3]).toEqual([7, 7, 7])
+    expect(next.milestones).toEqual({ harvester1: 7, seeder1: 7, harvester3: 7 })
   })
 })

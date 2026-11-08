@@ -32,6 +32,9 @@ export type MilestoneId =
   | 'firstField'
   | 'fields100'
   | 'fields500'
+  | 'harvester1'
+  | 'seeder1'
+  | 'harvester3'
   | 'firstBar'
   | 'firstGoldBar'
   | 'copperPickaxe'
@@ -83,6 +86,10 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'firstField', label: 'First field', when: (r) => r.fields.count >= 1 },
   { id: 'fields100', label: '100 fields', when: (r) => r.fields.count >= 100 },
   { id: 'fields500', label: '500 fields', when: (r) => r.fields.count >= 500 },
+  // batch 19: the throughput machines (a tier bought, not just affordable)
+  { id: 'harvester1', label: 'Harvester Mk1', when: (r) => r.fields.machines.harvester.includes(1) },
+  { id: 'seeder1', label: 'Seeder Mk1', when: (r) => r.fields.machines.seeder.includes(1) },
+  { id: 'harvester3', label: 'Harvester Mk3', when: (r) => r.fields.machines.harvester.includes(3) },
   { id: 'firstBar', label: 'First bar', when: (r) => r.lifetime.barsSmelted >= 1 },
   { id: 'firstGoldBar', label: 'First gold bar', when: (r) => r.lifetime.goldBarsSmelted >= 1 },
   { id: 'copperPickaxe', label: 'Copper pickaxe', when: (r) => pickaxeAt(r, 1) },

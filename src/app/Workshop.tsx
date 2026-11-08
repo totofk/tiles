@@ -11,15 +11,16 @@ const SPRINKLER_EMOJI = '💧' // Unicode 6, like every glyph in the UI
 const VALVE_EMOJI = '🎛️' // Unicode 7
 
 /** one token per material the recipe is short of, the TierTool "needs 🟨2 💰2500 more" pattern */
-function shortOf(cost: Price, run: GameState['run']): string[] {
+export function shortOf(cost: Price, run: GameState['run']): string[] {
   return [
     ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}${cost[id]! - (run.inventory[id] ?? 0)}`),
     ...(cost.cash > run.cash ? [`💰${cost.cash - run.cash}`] : []),
   ]
 }
 
-/** one recipe row: label + a buy button whose lines carry the effect, the price and what is missing */
-function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, ownedText, buy }: {
+/** one recipe row: label + a buy button whose lines carry the effect, the price and what is missing;
+ * `reason` replaces the "needs … more" line when the recipe is locked, not just unaffordable (the Fields machines) */
+export function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, ownedText, reason = null, buy }: {
   state: GameState
   act: Act
   emoji: string
@@ -29,9 +30,11 @@ function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, ownedTe
   effect: string
   owned: boolean
   ownedText: string
+  reason?: string | null
   buy: (s: GameState) => ActionResult
 }) {
   const short = shortOf(cost, state.run)
+  const hint = reason ?? (short.length > 0 ? `needs ${short.join(' ')} more` : '')
   return (
     <div className="worker-row">
       <span>
@@ -40,7 +43,7 @@ function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, ownedTe
       <button className={owned ? 'owned' : undefined} disabled={owned || !buy(state).ok} onClick={() => act((s) => buy(s))}>
         {verb}
         <small>{owned ? `✓ ${ownedText}` : `${effect} · ${priceText(cost)}`}</small>
-        {!owned && short.length > 0 && <small>{`needs ${short.join(' ')} more`}</small>}
+        {!owned && hint && <small>{hint}</small>}
       </button>
     </div>
   )

@@ -2970,7 +2970,7 @@ purchases after workers. Maintenance is a small flat cash/h (0.3 % of income at 
     (state-driven rule, no per-crop special cases). Max 1 of each machine tier. Ladder note: machines do NOT replace
     the certificates — a job needs its worker certificate before the machine recipe unlocks (manual → worker →
     machine). Watering stays pipes-only (no watering machine).
-- [ ] 98. **UI + orders integration.** Machine rows in the Fields section (tier, throughput, maintenance, coal-free),
+- [x] 98. **UI + orders integration.** Machine rows in the Fields section (tier, throughput, maintenance, coal-free),
     greyed with reason lines. The orders generator's capacity per good already reads state tables — extend the crop
     capacity to count Fields planted tiles (one line of arithmetic, no generator rule change). Milestones: harvester1,
     seeder1, harvester3.

@@ -88,6 +88,16 @@ describe('orderCount: tier minutes × what the player makes per minute', () => {
     expect(orderCount(lemon24, 'lemon', 2)).toBe(Math.round(orderTierMinutes(2) * (24 / cropGrowTicks('lemon', meta, 0)) * 60))
   })
 
+  it('batch 19: the Fields standing tiles of the crop count at the same per-tile pace, per crop only (no generator change)', () => {
+    const s = withRun({
+      fields: { ...init.run.fields, unlocked: true, count: 130, cohorts: [{ crop: 'radish', count: 40, readyTick: 9999 }, { crop: 'lemon', count: 30, readyTick: 8888 }] },
+    })
+    expect(orderCount(s, 'radish', 0)).toBe(Math.round(orderTierMinutes(0) * ((9 + 40) / RADISH) * 60))
+    expect(orderCount(s, 'lemon', 0)).toBe(Math.round(orderTierMinutes(0) * ((9 + 30) / cropGrowTicks('lemon', meta, 0)) * 60))
+    // another crop's standing tiles do not count for radish
+    expect(orderCount(s, 'chilli', 0)).toBe(Math.round(orderTierMinutes(0) * (9 / cropGrowTicks('chilli', meta, 0)) * 60))
+  })
+
   it('items: rocks per minute × drop share, clamped to half the storage; bars: furnace bars per minute; never below 1', () => {
     const s = withRun({ mineLicense: true, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 40 })
     expect(orderCount(s, 'coal', 0)).toBe(Math.round(orderTierMinutes(0) * orderRocksPerMin() * 0.2))

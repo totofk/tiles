@@ -1,16 +1,21 @@
-import { cropSeedCost, fieldTileCost, fieldsCropHarvests, pipeCoalPer10Tiles, pipeCost, pipeCover, plantBatch } from '../core/balance'
+import { cropSeedCost, fieldTileCost, fieldsCropHarvests, machineCost, machineMaintPerHour, machineMaxTiers, machineTilesPerHour, pipeCoalPer10Tiles, pipeCost, pipeCover, plantBatch } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import type { GameState } from '../core/state'
-import { buyField, buyPipes, fieldsPaybackHours, fieldsPlantable, fieldsStats, plantFields, stopFieldsPlant } from '../core/fields'
+import { buyField, buyMachine, buyPipes, fieldsPaybackHours, fieldsPlantable, fieldsStats, plantFields, stopFieldsPlant } from '../core/fields'
 import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
 import { priceText } from './Mine'
 import type { Act } from './useGame'
+import { RecipeRow } from './Workshop'
 
 const FIELDS_EMOJI = '🚜' // Unicode 6, like every glyph in the UI
 const PIPES_EMOJI = '🚰' // Unicode 6
 const WAIT_EMOJI = '⏳' // Unicode 6; a stalled crop waits, it never dies
+const HARVESTER_EMOJI = '🌾' // Unicode 6
+const SEEDER_EMOJI = '🌱' // Unicode 6
+const MACHINE_NAMES = { harvester: 'Harvester', seeder: 'Seeder' } as const
+const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
 
 /** one line of the 3-bar breakdown, the Workshop machine-gauge pattern (label · bar · count) */
 function StatLine({ label, value, total, kind }: { label: string; value: number; total: number; kind: 'water' | 'energy' }) {
@@ -86,6 +91,28 @@ export function Fields({ state, act }: { state: GameState; act: Act }) {
             <small>{priceText(pipePrice)}</small>
           </button>
         </div>
+      )}
+      {(['harvester', 'seeder'] as const).flatMap((kind) =>
+        Array.from({ length: machineMaxTiers(kind) }, (_, i) => i + 1).map((tier) => {
+          const rate = machineTilesPerHour(kind, tier)
+          const cert = kind === 'harvester' ? 'harvest' : 'plant'
+          return (
+            <RecipeRow
+              key={`${kind}${tier}`}
+              state={state}
+              act={act}
+              emoji={kind === 'harvester' ? HARVESTER_EMOJI : SEEDER_EMOJI}
+              name={`${MACHINE_NAMES[kind]} Mk${tier}`}
+              verb="Build"
+              cost={machineCost(kind, tier, meta)}
+              effect={`${MACHINE_VERBS[kind]} ${rate} tiles/h · 💰${machineMaintPerHour(tier)}/h upkeep · coal-free`}
+              owned={run.fields.machines[kind].includes(tier)}
+              ownedText={`${rate} tiles/h`}
+              reason={run.workers.certificates.includes(cert) ? null : `needs the ${cert} certificate (manual → worker → machine)`}
+              buy={(s) => buyMachine(s, kind, tier)}
+            />
+          )
+        }),
       )}
     </details>
   )
