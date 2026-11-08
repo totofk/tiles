@@ -5,6 +5,7 @@ import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
 import { DangerZone } from './DangerZone'
 import { FeedbackCard } from './FeedbackCard'
+import { Legacy } from './Legacy'
 import type { PanelProps } from './panelTabs'
 import { SaveTransfer, copyText } from './SaveTransfer'
 
@@ -77,12 +78,14 @@ export function Timeline({ state }: { state: GameState }) {
   )
 }
 
-/** the 📊 Stats tab: the stats, deeds, timeline, 💬 Feedback, Save export/import, then the Danger zone with Reset */
-export function StatsTab({ state, feedback, setFeedback, reset, exportCode, importCode }: PanelProps) {
+/** the 📊 Stats tab: the stats, deeds, 🏆 Legacy shop (once a farm has been sold), timeline, 💬 Feedback, Save export/import, then the Danger zone with Reset */
+export function StatsTab({ state, act, feedback, setFeedback, reset, exportCode, importCode }: PanelProps) {
+  const sold = state.meta.prestigeCount > 0 || state.meta.deeds > 0
   return (
     <>
       <Stats state={state} />
       <Deeds state={state} />
+      {sold && <Legacy state={state} act={act} />}
       <Timeline state={state} />
       <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
       <SaveTransfer exportCode={exportCode} importCode={importCode} />

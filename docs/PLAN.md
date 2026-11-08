@@ -3047,7 +3047,7 @@ The state split (run/meta) and `meta.upgrades` as LEVELS already exist since v12
     cosmetics sit in meta and survive; ⭐ BALANCE converts. `meta.prestigeCount += 1`. Nothing else carries: licenses,
     tools, workers, mine, furnace reset (the whole point). Save: same shape, values reset — no migration needed;
     a run-history array `meta.runs: Array<{ endedAtTick, deeds }>` (cap 20).
-- [ ] 101. **Meta shop (deeds).** Rows in a new "🏆 Legacy" Stats section, priced in deeds, as upgrade LEVELS on the
+- [x] 101. **Meta shop (deeds).** Rows in a new "🏆 Legacy" Stats section, priced in deeds, as upgrade LEVELS on the
     existing multiplier table (all balance.ts numbers, meta stores levels only): growTime −4 %/level (max 5),
     sellPrice +5 %/level (max 5), cost −4 %/level (max 5), energyMax +2/level (max 5), startTiles +2/level (max 3,
     start with 9+2L tiles), keepCarrotLicense (one-time, 2 deeds), keepFirstCertificates (one-time, 3 deeds: the

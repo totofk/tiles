@@ -3,7 +3,17 @@
 // one, ⭐ converts at STARS_PER_DEED, and the deeds move to meta's ledger. Lifetime totals carry (they are Stats
 // totals and the deed meter reads them), so deedsClaimed keeps the same lifetime cash from paying twice.
 import { fail, type ActionResult } from './actions'
-import { PRESTIGE_GATE_DEEDS, RUN_HISTORY_CAP, STARS_PER_DEED, deedsFor, orderStartSlots } from './balance'
+import {
+  DEED_ROW_IDS,
+  PRESTIGE_GATE_DEEDS,
+  RUN_HISTORY_CAP,
+  STARS_PER_DEED,
+  deedCost,
+  deedMaxLevel,
+  deedsFor,
+  orderStartSlots,
+  type DeedRowId,
+} from './balance'
 import { STARTING_CROP } from './data/crops'
 import { fieldsUnlockable } from './fields'
 import { createFreshRun, type GameState } from './state'
@@ -25,6 +35,19 @@ export function saleDeeds(state: GameState): number {
 export function sellFarmUnlocked(state: GameState): boolean {
   return fieldsUnlockable(state.run) && deedsFor(state.run.lifetime.cashEarned) >= PRESTIGE_GATE_DEEDS
 }
+
+// Order: MAX_LEVEL, NO_DEEDS.
+export function buyMetaUpgrade(state: GameState, id: DeedRowId): ActionResult {
+  const { meta } = state
+  const level = meta.upgrades[id]
+  if (level >= deedMaxLevel(id)) return fail('MAX_LEVEL')
+  const cost = deedCost(id, level)
+  if (meta.deeds < cost) return fail('NO_DEEDS')
+  return { ok: true, state: { ...state, meta: { ...meta, deeds: meta.deeds - cost, upgrades: { ...meta.upgrades, [id]: level + 1 } } } }
+}
+
+/** every Legacy row at its max level — the shop's "all done" state */
+export const legacyMaxed = (meta: GameState['meta']): boolean => DEED_ROW_IDS.every((id) => meta.upgrades[id] >= deedMaxLevel(id))
 
 // Order: LOCKED, LOAN_ACTIVE, NO_GAIN.
 export function sellFarm(state: GameState): ActionResult {
