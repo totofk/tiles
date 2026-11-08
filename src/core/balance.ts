@@ -228,6 +228,8 @@ const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: numbe
   { minutes: 20, weight: 0.15, stars: 4 },
 ]
 const ORDER_ROCKS_PER_MIN = 12
+/** an item order asks for at most this share of the storage capacity (rounded down) */
+const ORDER_ITEM_BAG_SHARE = 0.5
 const ORDER_COOLDOWN_TICKS = 600
 // ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th), and for a reroll (every slot without an
 // accepted order gets a fresh offer now, cooldowns skipped). Only ⭐ buys these; nothing here sells for cash.
@@ -278,6 +280,11 @@ export function rollOrderTier(r: number): number {
 /** rocks per minute an item order's count assumes */
 export function orderRocksPerMin(): number {
   return ORDER_ROCKS_PER_MIN
+}
+
+/** the largest item order count a storage of this capacity gets */
+export function orderItemCap(bagCapacity: number): number {
+  return Math.floor(bagCapacity * ORDER_ITEM_BAG_SHARE)
 }
 
 export function orderCooldownTicks(): number {

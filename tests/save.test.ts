@@ -543,7 +543,7 @@ describe('save v13: the 📋 Noticeboard', () => {
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]) {
       const { run } = deserialize(raw)!.state
       expect(run.orders).toEqual(createInitialState().run.orders)
-      expect([run.stars, run.counters.orders, run.lifetime.ordersCompleted, run.lifetime.starsEarned]).toEqual([0, 0, 0, 0])
+      expect([run.stars, run.counters.orders, run.lifetime.ordersCompleted, run.lifetime.starsEarned, run.workers.assigned.clerk]).toEqual([0, 0, 0, 0, 0])
     }
   })
 

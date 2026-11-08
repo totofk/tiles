@@ -13,6 +13,7 @@ import {
   orderBoardUnlock,
   orderBonus,
   orderCooldownTicks,
+  orderItemCap,
   orderRerollStars,
   orderRocksPerMin,
   orderSlotStars,
@@ -61,7 +62,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
 /** tier minutes × per-minute capacity, at least 1; items at most half the storage capacity */
 export function orderCount(state: GameState, good: OrderGood, tier: number): number {
   const n = Math.max(1, Math.round(orderTierMinutes(tier) * orderPerMinute(state, good)))
-  return isCropGood(good) ? n : Math.max(1, Math.min(n, Math.floor(state.run.bagCapacity / 2)))
+  return isCropGood(good) ? n : Math.max(1, Math.min(n, orderItemCap(state.run.bagCapacity)))
 }
 
 /** a fresh offer from the pool (two rolls: good, then tier) and the next rng state */

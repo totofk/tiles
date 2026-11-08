@@ -1,7 +1,7 @@
 import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount, orderTierStars } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
-import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI } from '../core/data/orders'
+import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
 import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
@@ -20,7 +20,12 @@ function orderCash(state: GameState, o: Offer): number {
 /** one slot: the good and progress, tier dots, ⭐ and cash; Accept, Deliver (accepted item orders) and Discard */
 function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: number }) {
   const s = state.run.orders.offers[slot]
-  if (!isOffer(s)) return <div className="order-row order-wait">⏳ next order in {clock(s.cooldownTicks)}</div>
+  if (!isOffer(s))
+    return (
+      <div className="order-row order-wait">
+        {WAIT_EMOJI} next order in {clock(s.cooldownTicks)}
+      </div>
+    )
   const name = isCropGood(s.good) ? CROPS[s.good].name : ITEMS[s.good].name
   const dots = '●'.repeat(s.tier + 1) + '○'.repeat(orderTierCount() - s.tier - 1)
   return (

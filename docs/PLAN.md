@@ -784,6 +784,16 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   harvests go through an order; on 24 tiles the board also skips the ≈ 10 % glut. If Toon wants it nearer the research,
   the lever is `ORDER_BOARD.bonus` (estimated, not run: at 0.1 the glut bypass alone stays, roughly +20 % on 24 lemon
   tiles).
+- **Batch 14 (task 79, recorded after review): a delivered item pays only the bonus, base value × 0.25, as the plan
+  says; it is not "sold + 25 %".** The research the plan cites reads two ways: rec. 4 says Deliver works "like sell",
+  and its §2 hierarchy sums (2.25 → 2.81 cash/energy, bars at 💰7.5) assume an item order pays ×1.25 in total. The plan
+  text "its cash = base value × ORDER_BONUS" was implemented literally, because the plan overrides the research and
+  item orders are meant as ⭐ carriers. Effect: delivering 18 copper ore pays 💰4.5 (rounded once, so 💰5) plus ⭐,
+  where selling them pays 💰18. The row's `+💰` shows that bonus only. The hierarchy pin (task 82) bounds mining at
+  ×1.25 in total, so it holds under either reading. To switch to the research reading, Deliver would add the items'
+  sale value (`itemOrderValue` × (1 + 1 / bonus)). The pin would still pass (2.62 < 9.20).
+- **Batch 14 (follow-up): the item-order storage share is `ORDER_ITEM_BAG_SHARE = 0.5` in balance.ts**, read through
+  `orderItemCap()`, instead of a `/ 2` in orders.ts.
 - **Batch 14 (task 82): `runBot` got an `onTick` hook** (test code only) so the property test sees the ladder's
   states; every older run passes no hook and replays unchanged.
 - **Batch 14 (task 80): `.hud` wraps.** The ⭐ span adds ≈ 58 px; with a loan the 375 px HUD needs ≈ 394 px of 343, so

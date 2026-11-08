@@ -4,6 +4,7 @@
 import type { RunState } from '../state'
 import { CROPS, CROP_IDS, type CropId } from './crops'
 import { PICKAXE_TIERS } from './items'
+import { STAR_EMOJI } from './orders'
 import { TOOLS, TOOL_JOBS, type ToolJob } from './tools'
 import { WORKER_JOBS, type WorkerJob } from './workers'
 
@@ -74,7 +75,7 @@ export const MILESTONES: readonly Milestone[] = [
   // batch 14; the clerk certificate is the certClerk row above (every worker job has one)
   { id: 'orderBoard', label: 'Notice board', when: (r) => r.orders.unlocked },
   { id: 'firstOrder', label: 'First order', when: (r) => r.lifetime.ordersCompleted >= 1 },
-  { id: 'stars10', label: 'Earned ⭐10', when: (r) => r.lifetime.starsEarned >= 10 },
+  { id: 'stars10', label: `Earned ${STAR_EMOJI}10`, when: (r) => r.lifetime.starsEarned >= 10 },
 ]
 
 /**
