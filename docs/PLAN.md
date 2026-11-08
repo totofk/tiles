@@ -857,6 +857,38 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   `collectBars` ran before the surplus sell and the dig refilled every freed slot, freezing the run at copper 7/8
   for 18 h. `mineOnce` now sells the surplus before collecting when the tray is ready; batches 7–16 replay their
   pins unchanged.
+- **Batch 18 (task 93): the v16 fields object saves `plantCrop` and `coalCarry` beside the planned keys.**
+  `plantCrop` is the crop the planter works (null until the player or bot picks one — the planter idles without it);
+  `coalCarry` is the pump's fractional accrual (0.5 coal/h per 10 tiles must accumulate between whole-coal burns).
+  Both are run state, so they live in the save.
+- **Batch 18 (task 93): "stop" clears the planter's crop (`plantCrop` → null), a free action.** The plan fixed no
+  way to un-pick a crop; without this a misclick locks the planter for the rest of the run. `NOTHING_TO_DO` when
+  none is picked.
+- **Batch 18 (task 93): the pre-bump fixture is a v15 save, not v14.** Batch 17 had already shipped v15
+  (workshop/sprinklers), so the fields bump is v15 → v16; the realistic fixture (workshop built, 2 sprinklers,
+  valve, orders unlocked) is saved at v15 and migrated forward in the chain tests.
+- **Batch 18 (task 93): `fieldsHarvest` reaps within the oldest ready cohort only** (up to HARVEST_BATCH = 10
+  tiles), never across cohorts; a partially reaped cohort stays ready at its date. The plan did not fix the batch
+  boundary; this keeps harvests strictly FIFO and makes the pair-throughput bound clean.
+- **Batch 18 (task 94): `buyPipes` shipped inside the task-93 commit** — the cohort core needs the coverage tiers
+  to grow anything, so the split was unbuildable. Task 94's own commit is docs-only; no code difference.
+- **Batch 18 (task 94): no new ActionError values.** `buyPipes` reuses LOCKED / NO_WORKSHOP / MAX_LEVEL /
+  NOT_ENOUGH_ITEMS / NO_CASH.
+- **Batch 18 (task 94): the pipes draw storage coal directly** (`inventory.coal`, 1 whole coal each time the
+  accrual reaches 1.0), not through a hopper. The fuel loader is unchanged — it fills hoppers; the pump is not a
+  hopper machine. Same coal budget either way, one fewer UI rule.
+- **Batch 18 (task 96): stall semantics corrected from a frozen `readyTick` to a receding one (+1/tick).** The
+  task-93 core left a stalled cohort's date frozen; the calendar then passed it (`readyTick <= tick` reads as
+  ready) — a free ripen that made pipes meaningless and put income(1,000) ABOVE income(300). A stalled cohort's
+  harvest date now recedes with the calendar (growth truly paused, nothing dies). `src/core/fields.ts` growth map
+  + 5 fields-test expectations updated; the sim pins the plateau it forced.
+- **Batch 18 (task 96): pipe cash prices retuned by the band rule.** The task-93/94 placeholders (7500 / 10000 /
+  12500) measured 0.07–0.5 h — at or below the floor. Final: **10000 / 100000 / 350000** = 0.68 / 0.69 / 0.84 h
+  of the income measured at each unlock (14635/h, 143908/h, 417808/h). FIELDS_CASH 10000 = 0.68 h was already in
+  band, unchanged.
+- **Batch 18 (task 96): the "fields 100 ≤ 60 game-minutes" pin is arithmetically impossible; measured and reported
+  instead.** 100 fields cost ≈ 💰505,000 cumulative at a rising income (14.6k/h → 79.6k/h): pipes1 → field 100 =
+  **448.5 game-minutes**. The ≤ 60-min pin holds where it can: fields unlock → first pipes = **47.0 min** (pinned).
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -2863,7 +2895,7 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
     per licensed crop (plots planted, `plant 10` / `stop` buttons, the 50-harvest gate reason line), the field price
     button with a payback label "~X h" (marginal income from the sim's formula, recomputed from state), pipes rows
     with coverage and coal draw. No 7th tab; compute layout from CSS at 375 / 1024 / 1440 px.
-- [ ] 96. **Sim (`tests/sim.test.ts` "batch 18", at MARKET_DEPTH_TILES = 60).** Re-derive the research's arithmetic
+- [x] 96. **Sim (`tests/sim.test.ts` "batch 18", at MARKET_DEPTH_TILES = 60).** Re-derive the research's arithmetic
     at depth 60: steady-state income vs N for 10/50/100/300/1,000 tiles (best crop split the bot finds); the field
     number where payback crosses 8 h (pin it; the UI label uses the same number); planter+harvester pair throughput
     bound (tiles per pair) and the N where a second pair pays; coal budget: sprinklers + pipes draw vs the miner's
@@ -2872,3 +2904,55 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
     holds. Set FIELDS_CASH and the pipe cash prices to 0.5–1.5 h of measured income at their unlock (round to 💰500).
     Pins: no unlock step > 60 game-minutes (fields unlock → first pipes → fields 100); mining cash/energy < 0.9 ×
     farming; every price ≤ storage held. Tune only batch-18 numbers; report each as a deviation.
+
+## Batch 18 results
+
+### Fields + pipes core and UI (tasks 93–95)
+
+- Save **v15 → v16** (`fields` object: unlocked, count, pipes, cohorts, plantCrop, coalCarry); realistic v15 fixture
+  committed first, every past fixture still migrates to latest in the chain tests.
+- Unlock gates: planter **and** harvester certificates owned + ≥ 1 sprinkler hopper (watering covered by machine);
+  cost `{ ironBar: 10, cash: FIELDS_CASH = 10000 }`. Fields are aggregate tiles (`count`), simulated as cohorts —
+  never per-tile loops; the 1,000-tile perf pin below is the proof.
+- Pipes: 3 tiers, coverage **0 → 60 → 150 → 300** tiles (`PIPE_COVER`), cost 8 bars of copper/iron/gold + cash
+  (final prices below); coal draw `PIPE_COAL_PER_10_TILES = 0.5` coal/h per 10 covered tiles, burned 1 whole coal
+  at a time from storage. Uncovered growing tiles stall; a stalled cohort's harvest date recedes with the calendar
+  (see Deviations — the sim caught the frozen-date free-ripen).
+- UI (task 95): 🚜 Fields section in the 🌾 Farm tab — 3 bars (to plant / growing with the stall mark / ready),
+  one row per licensed crop (planted count, `plant 10` / `stop`, the 50-harvest gate reason), field price button
+  with the "~X h" payback label (`fieldsPaybackHours`, the same number the sim pins), pipe tier rows with coverage
+  and coal draw. Layout computed from CSS, checked at 375 / 1024 / 1440 px.
+
+### Sim (task 96, `tests/sim.test.ts` "batch 18", measured, `rules.batch13` on, MARKET_DEPTH_TILES = 60)
+
+- The batch-17 bot extended (`fields: true` → `FIELDS_LADDER`): after sprinkler 4 (588.3 min) it unlocks the fields
+  (**632.9 min**) → first pipes (**679.9**) → field 100 (**1128.4**). Gap unlock → pipes **47.0 min ≤ 60** (pinned);
+  pipes → field 100 **448.5 min** (reported — the 60-min pin is impossible there, see Deviations); finalCash
+  **3453021** at 64 h. Income windows: unlock → pipes **14635/h**, pipes → field 100 **79608/h** (rising with
+  coverage). Measured incomes run ≈ 3× the research's floor arithmetic: orders pay glut-free (121 vs floor 55 per
+  lemon) and the gold sickle doubles harvests.
+- **Steady-state income vs N** (1 h warm-up, 2 h measured; best licensed crop = lemon; the 4-crop mix earns within
+  2 % of mono at the same N, so the split is near-indifferent at depth 60 — pinned):
+
+  | N tiles | 10 | 50 | 100 | 300 | 1,000 |
+  |---|---|---|---|---|---|
+  | cash/h | 25596 | 76368 | 143908 | 417808 | 437910 |
+
+  Past the 60-tile market floor every extra covered tile adds its full value (100 → 300 = 2.9×); 1,000 tiles sit on
+  the 300-tile pipe plateau (+4.8 %, burst-order timing — pinned ≤ +10 %).
+- **Payback crossing (pinned):** `fieldsPaybackHours` ≥ 8 h first at count **26** — the 27th field no longer pays
+  back inside 8 h. The UI label reads the same function, so "~8 h" appears on the field button at 26 fields.
+- **Pair throughput:** one planter + one harvester move **720 lemon tiles per grow cycle** (10 tiles per 5-tick
+  action × 360 grow ticks); minus the home plot's 9 tiles, a **second pair pays above 711 fields tiles**. A settled
+  300-tile field with one pair runs covered 270 / stalled 0 / ready 20 / free 10 — no harvest backlog.
+- **Coal budget** (all shares over the same pipes1 → field-100 window the income uses): the miner brings
+  **345 coal/h**; the sprinkler pump takes **36/h** (3 machines × 12/h — every 300-tick burn drains, the loader
+  refills; pinned), the furnace **0/h** (nothing left to smelt in the fields era) and the pipes **13.5/h**
+  (0.5 coal/h per 10 of 270 covered tiles). Total **49.5/h = 14 %** of supply — the furnace never starves; the
+  other 86 % sells as surplus.
+- **Cash prices at unlock (0.5–1.5 h band, rounded to 💰500):** FIELDS_CASH 10000 = **0.68 h**; pipes tier 1
+  10000 = **0.68 h**; tier 2 100000 = **0.69 h**; tier 3 350000 = **0.84 h** (pinned row).
+- Other pins held: every price ≤ storage held (fields unlock and first pipes both first-buyable at storage Lv3's
+  60 slots); mining cash/energy = **0.0002 ×** farming (< 0.9); 8 h offline catch-up with 1,000 planted tiles
+  across 4 crops, 2 planters + 2 harvesters + tier-3 pipes: **187 ms < 2,000 ms**; `step(big, 600) =
+  600 × step(big, 1)` and `catchUp(big, 600_000 ms) = step(big, 600)`.

@@ -274,9 +274,9 @@ const FIELDS_COST: Price = { ironBar: 10, cash: FIELDS_CASH }
 /** pipe coverage per tier owned (index = pipes): tier 0 = none, so fields planted before pipes simply stall */
 const PIPE_COVER = [0, 60, 150, 300]
 const PIPE_COSTS: ReadonlyArray<Price> = [
-  { copperBar: 8, cash: 7500 },
-  { ironBar: 8, cash: 10000 },
-  { goldBar: 8, cash: 12500 },
+  { copperBar: 8, cash: 10000 },
+  { ironBar: 8, cash: 100000 },
+  { goldBar: 8, cash: 350000 },
 ]
 const PIPE_COAL_PER_10_TILES = 0.5
 

@@ -218,7 +218,7 @@ export function fieldsPlantAction(state: GameState): ActionResult | null {
  * tick (readyTick − 1), cohorts beyond it stall — growth paused, nothing dies. The shared pump accrues coal for the
  * covered growing tiles (0.5 / h per 10 tiles) and burns 1 whole coal from storage per coal accrued; with no coal in
  * storage nothing grows this tick and nothing accrues (a dry pump is a stalled pump, never a debt). Returns the same
- * state when nothing grows and no coal is due.
+ * state only when nothing is growing (ready cohorts never take coverage or coal).
  */
 export function fieldsAct(state: GameState): GameState {
   const { run } = state
@@ -250,19 +250,17 @@ export function fieldsAct(state: GameState): GameState {
   const limit = watering ? budget : 0
   let used = 0
   let stalled = false
-  let grew = false
   const cohorts = f.cohorts.map((c) => {
     if (c.readyTick <= run.tick) return c
     // the prefix coverage rule: once a growing cohort does not fit whole, it and every later one stalls
     if (stalled || used + c.count > limit) {
       stalled = true
-      return c
+      // a stalled cohort's harvest date recedes with the calendar — growth truly paused, never a free ripen
+      return { ...c, readyTick: c.readyTick + 1 }
     }
     used += c.count
-    grew = true
     return { ...c, readyTick: c.readyTick - 1 }
   })
-  if (!grew && coalCarry === f.coalCarry) return state
   const inventory = coal === (run.inventory.coal ?? 0) ? run.inventory : { ...run.inventory, coal }
   return { ...state, run: { ...run, inventory, fields: { ...f, coalCarry, cohorts } } }
 }

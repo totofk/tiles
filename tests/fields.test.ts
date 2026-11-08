@@ -197,24 +197,23 @@ describe('fieldsAct: coverage, stalls and the shared coal pump', () => {
     { crop: 'lemon', count: 60, readyTick: 5100 },
   ]
 
-  it('covered cohorts grow one tick per step; a cohort beyond the coverage stalls whole, never dies', () => {
+  it('covered cohorts grow one tick per step; a stalled cohort recedes with the calendar, never dies or ripens free', () => {
     const s = withFields(120, { inventory: { coal: 99 } }, { pipes: 1, cohorts: growing })
     const after = fieldsAct(s)
     expect(after.run.fields.cohorts[0].readyTick).toBe(4999)
-    expect(after.run.fields.cohorts[1].readyTick).toBe(5100) // 60 covered, the rest stalls
-    expect(after.run.fields.cohorts[1]).toBe(s.run.fields.cohorts[1])
+    expect(after.run.fields.cohorts[1].readyTick).toBe(5101) // 60 covered grows; the rest stalls, its date recedes +1
   })
 
   it('the coverage is a strict prefix: a huge cohort first blocks every later growing cohort too', () => {
     const s = withFields(200, { inventory: { coal: 99 } }, { pipes: 1, cohorts: [{ crop: 'lemon', count: 100, readyTick: 5000 }, { crop: 'lemon', count: 30, readyTick: 5000 }] })
     const after = fieldsAct(s)
-    expect(after.run.fields.cohorts.map((c) => c.readyTick)).toEqual([5000, 5000]) // nothing grows, nothing accrues
+    expect(after.run.fields.cohorts.map((c) => c.readyTick)).toEqual([5001, 5001]) // nothing grows, nothing accrues, both recede
     expect(after.run.fields.coalCarry).toBe(0)
   })
 
   it('with no pipes everything stalls and nothing accrues; ready cohorts take no coverage', () => {
     const noPipes = step(withFields(60, { inventory: { coal: 10 } }, { cohorts: [{ crop: 'lemon', count: 10, readyTick: 400 }] }), 5)
-    expect([noPipes.run.fields.cohorts[0].readyTick, noPipes.run.fields.coalCarry]).toEqual([400, 0])
+    expect([noPipes.run.fields.cohorts[0].readyTick, noPipes.run.fields.coalCarry]).toEqual([405, 0]) // stalled: the date recedes
     const ready = withFields(60, { tick: 10, inventory: { coal: 10 } }, { pipes: 3, cohorts: [{ crop: 'lemon', count: 5, readyTick: 10 }] })
     expect(step(ready, 3).run.fields).toBe(ready.run.fields)
   })
@@ -223,7 +222,7 @@ describe('fieldsAct: coverage, stalls and the shared coal pump', () => {
     // 120 covered tiles at pipes 2 = 6 coal/h = 1 coal per 600 ticks
     const s = withFields(120, {}, { pipes: 2, cohorts: growing })
     const dry = step(s, 1200) // no coal in storage: growth runs the first grace window (600 ticks), then stalls
-    expect(dry.run.fields.cohorts[0].readyTick).toBe(5000 - 599)
+    expect(dry.run.fields.cohorts[0].readyTick).toBe(5000 - 599 + 601) // 599 grew, then 601 dry ticks each recede +1
     expect(dry.run.fields.coalCarry).toBeGreaterThanOrEqual(1)
     expect(dry.run.inventory.coal ?? 0).toBe(0)
     const withCoal = step({ ...s, run: { ...s.run, inventory: { coal: 5 } } }, 600)
@@ -232,7 +231,7 @@ describe('fieldsAct: coverage, stalls and the shared coal pump', () => {
     expect(withCoal.run.fields.cohorts[0].readyTick).toBe(5000 - 600)
     // coal back after a dry stall pays the due coal and growth resumes the same tick
     const rescue = step(dry, 1)
-    expect(rescue.run.fields.cohorts[0].readyTick).toBe(dry.run.fields.cohorts[0].readyTick) // still dry (no coal)
+    expect(rescue.run.fields.cohorts[0].readyTick).toBe(dry.run.fields.cohorts[0].readyTick + 1) // still dry: recede
     const refuelled = step({ ...dry, run: { ...dry.run, inventory: { coal: 2 } } }, 1)
     expect(refuelled.run.inventory.coal).toBe(1)
     expect(refuelled.run.fields.cohorts[0].readyTick).toBe(dry.run.fields.cohorts[0].readyTick - 1)
@@ -350,7 +349,7 @@ describe('buyPipes', () => {
     expect(buyPipes(noShop)).toEqual({ ok: false, error: 'NO_WORKSHOP' })
     const r = buyPipes(withFields(60, { inventory: full, cash: 99999 }))
     expect(r.ok && r.state.run.fields.pipes).toBe(1)
-    const two = buyPipes(withFields(60, { inventory: full, cash: 99999 }, { pipes: 1 }))
+    const two = buyPipes(withFields(60, { inventory: full, cash: 999999 }, { pipes: 1 }))
     expect(two.ok && two.state.run.inventory.ironBar).toBe(91)
     const top = buyPipes(withFields(60, { inventory: full, cash: 99999 }, { pipes: 3 }))
     expect(top).toEqual({ ok: false, error: 'MAX_LEVEL' })
@@ -360,7 +359,7 @@ describe('buyPipes', () => {
   it('coverage is what buyPipes buys: growth starts only past tier 1 (PIPE_COVER[0] = 0)', () => {
     const cohort = { crop: 'lemon' as const, count: 30, readyTick: 400 }
     const stalled = step(withFields(60, { inventory: { coal: 10 } }, { cohorts: [cohort] }), 10)
-    expect(stalled.run.fields.cohorts[0].readyTick).toBe(400)
+    expect(stalled.run.fields.cohorts[0].readyTick).toBe(410) // stalled at tier 0: the date recedes, still 400 away
     const piped = step(withFields(60, { inventory: { coal: 10 } }, { pipes: 1, cohorts: [cohort] }), 10)
     expect(piped.run.fields.cohorts[0].readyTick).toBe(390)
   })
