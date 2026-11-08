@@ -443,17 +443,25 @@ describe('buyMachine', () => {
 })
 
 describe('machinesAct: the harvester', () => {
-  it('reaps its exact tile rate oldest-first, one unit per tile whatever the sickle, and rolls nothing', () => {
-    // Mk3 = 2 tiles/tick, 3 ticks, a gold sickle in hand: a machine has no sickle, so units = tiles and rng stands still
+  it('reaps its exact tile rate oldest-first, rolling the best sickle double harvest per tile (tier-0 rolls nothing)', () => {
+    // Mk3 = 2 tiles/tick, 3 ticks: 6 tiles reaped whatever the sickle, but a gold sickle rolls the double per tile
     const s = withFields(60, { cash: 0, tick: 100, toolTier: { water: 0, harvest: 3, plant: 0 } }, {
       cohorts: [{ crop: 'lemon', count: 30, readyTick: 50 }],
       machines: fleet({ harvester: [3] }),
     })
     const after = step(s, 3)
     expect(fieldsStanding(after.run.fields)).toBe(24)
-    expect(after.run.rngState).toBe(s.run.rngState)
+    expect(after.run.rngState).not.toBe(s.run.rngState) // 6 double-harvest rolls moved the rng
     expect(after.run.cash).toBeGreaterThan(0)
     expect(after.run.fields.machines.carry.maint).toBeCloseTo((3 * machineMaintPerHour(3)) / 3600, 10)
+    // the tier-0 guard: a basic sickle rolls nothing, so the run keeps its exact RNG sequence
+    const basic = withFields(60, { cash: 0, tick: 100, toolTier: { water: 0, harvest: 0, plant: 0 } }, {
+      cohorts: [{ crop: 'lemon', count: 30, readyTick: 50 }],
+      machines: fleet({ harvester: [3] }),
+    })
+    const afterBasic = step(basic, 3)
+    expect(fieldsStanding(afterBasic.run.fields)).toBe(24)
+    expect(afterBasic.run.rngState).toBe(basic.run.rngState)
   })
 
   it('machines first, workers fill the gap: with one ready tile the machine takes it and the worker idles unpaid', () => {

@@ -318,7 +318,8 @@ export function seederCrop(state: GameState): CropId | null {
   return order ? order.crop : factor?.crop ?? null
 }
 
-/** reap `tiles` ready tiles oldest-first, one unit each, selling through harvestSale — a machine has no sickle and is never hand-picked */
+/** reap `tiles` ready tiles oldest-first, the best sickle's double harvest rolling per tile (batch 20.1), selling
+ * through harvestSale — a machine is never hand-picked */
 function reapFields(state: GameState, tiles: number): GameState {
   let s = state
   let left = tiles
@@ -327,7 +328,15 @@ function reapFields(state: GameState, tiles: number): GameState {
     if (i < 0) break
     const { crop, count } = s.run.fields.cohorts[i]
     const reaped = Math.min(left, count)
-    const sale = harvestSale(s, crop, reaped)
+    // the sickle's double harvest, per tile, rolled only above the basic tier (same roll as the harvester worker)
+    let { rngState } = s.run
+    let units = 0
+    for (let k = 0; k < reaped; k++) {
+      const [r, next] = s.run.toolTier.harvest > 0 ? nextRandom(rngState) : [0, rngState]
+      units += r < doubleHarvestChance(s.run.toolTier.harvest) ? 2 : 1
+      rngState = next
+    }
+    const sale = harvestSale({ ...s, run: { ...s.run, rngState } }, crop, units)
     const cohorts = [...s.run.fields.cohorts]
     cohorts[i] = { crop, count: count - reaped, readyTick: cohorts[i].readyTick }
     if (cohorts[i].count === 0) cohorts.splice(i, 1)
