@@ -24,6 +24,7 @@ import { buyCopperTool, buyTool } from '../core/tools'
 import { CROP_EMOJI } from './FarmGrid'
 import { SeedPouch } from './Farm'
 import { Item } from './Info'
+import { cropFactor, depthBand, marketTip, priceTag } from './marketText'
 import { COPPER_TIPS, CROP_TIPS, TIPS, TOOL_TIPS } from './tips'
 import { FIRE_EMOJI, type Act } from './useGame'
 
@@ -63,17 +64,28 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
       <div className="shop-row">
         {CROP_IDS.map((id) => {
           const cost = licenseCost(id, meta)
+          const factor = cropFactor(state, id)
+          const market = (
+            <>
+              <small>{priceTag(state, id)}</small>
+              <span className="depth" aria-hidden="true">
+                <span className={`depth-${depthBand(factor)}`} style={{ width: `${Math.round(factor * 100)}%` }} />
+              </span>
+            </>
+          )
           return (
-            <Item key={id} tip={CROP_TIPS[id]}>
+            <Item key={id} tip={`${CROP_TIPS[id]} ${marketTip(state, id)}`}>
               {run.licenses.includes(id) && farmTab ? (
                 <button className="owned" disabled>
                   {CROP_EMOJI[id]} {CROPS[id].name}
                   <small>seed 💰{cropSeedCost(id, meta)}</small>
+                  {market}
                 </button>
               ) : run.licenses.includes(id) ? (
                 <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
                   {CROP_EMOJI[id]} {CROPS[id].name}
                   <small>seed 💰{cropSeedCost(id, meta)}</small>
+                  {market}
                 </button>
               ) : (
                 <button className="locked" disabled={run.cash < cost} onClick={() => act((s) => buyLicense(s, id))}>

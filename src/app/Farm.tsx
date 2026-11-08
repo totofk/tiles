@@ -5,6 +5,7 @@ import { CROPS, CROP_IDS } from '../core/data/crops'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import { Info } from './Info'
+import { priceTag } from './marketText'
 import type { PanelProps } from './panelTabs'
 import { TIPS } from './tips'
 import { Tools } from './Tools'
@@ -77,6 +78,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
           <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
             {CROP_EMOJI[id]} {CROPS[id].name}
             <small>seeds {run.seeds[id] ?? 0}</small>
+            <small>{priceTag(state, id)}</small>
           </button>
         ))}
       </div>

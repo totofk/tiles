@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { priceTag } from '../src/app/marketText'
 import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
-import { cropSeedCost, toolCost } from '../src/core/balance'
+import { cropSeedCost, marketDepthGlut, toolCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
 
@@ -25,16 +26,23 @@ const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButton
 
 describe('Shop seeds', () => {
   it('lists every crop in license order: owned ones as seed buttons, the rest as 🔒 license cards', () => {
-    setup({ cash: 60, licenses: ['radish', 'pumpkin'] })
+    const { get } = setup({ cash: 60, licenses: ['radish', 'pumpkin'] })
     const row = btn(/Carrot/).closest('.shop-row')!
     expect([...row.querySelectorAll('button:not(.info-btn)')].map((b) => b.textContent)).toEqual([
-      '🥕 Carrotseed 💰2',
+      `🥕 Carrotseed 💰2${priceTag(get(), 'radish')}`,
       '🔒 Chillilicense 💰50',
-      '🎃 Pumpkinseed 💰10',
+      `🎃 Pumpkinseed 💰10${priceTag(get(), 'pumpkin')}`,
       '🔒 Lemonlicense 💰400',
     ])
     expect(btn(/Chilli/).disabled).toBe(false)
     expect(btn(/Lemon/).disabled).toBe(true)
+  })
+
+  it('an owned crop row shows its market price and a depth bar filled to the factor', () => {
+    setup({ licenses: ['radish'], market: { radish: 2 * 0.4 * marketDepthGlut('radish'), chilli: 0, pumpkin: 0, lemon: 0 } })
+    expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▼\)$/)
+    const bar = btn(/Carrot/).querySelector('.depth > span') as HTMLElement
+    expect([bar.className, bar.style.width]).toEqual(['depth-red', '60%'])
   })
 
   it('buying the chilli license adds a 🌶️ pouch row', () => {

@@ -2008,7 +2008,7 @@ Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renu
       multiply it in (never take value away) and add a test for that branch.
     - Save v12: chain v1–v11 → v12 with the backup key: market all 0, milestones `{ trackingStarted: tick }`,
       meta.upgrades all 0. step(s, n) = n × step(s, 1) with market decay and milestones (test with workers on).
-- [ ] 73. **Market UI.** Wherever a crop's price shows (Shop seed rows, Crop to plant, ⓘ tips, harvest toast) show
+- [x] 73. **Market UI.** Wherever a crop's price shows (Shop seed rows, Crop to plant, ⓘ tips, harvest toast) show
     the current price and factor: `🍋 💰99 (90 %)` with ▼ when < 100 %, plus "recovers in ~N min" in the ⓘ tip, and a
     thin 3-colour depth bar per crop (green ≥ 85 %, yellow ≥ 65 %, red below) on the Shop crop rows. The harvest toast
     shows the real cash received. The away banner shows "market: lemon 72 % → 95 %" for crops that moved > 5 points.
@@ -2040,3 +2040,30 @@ Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renu
       measured gap, list it under Deviations, and keep it passing at the measured value + 10 %.
     - Every price still ≤ the storage the player holds at that moment (existing pins pass unchanged).
     - Tune only batch-12 numbers; report every change as a deviation.
+
+## Batch 12 results
+
+### Market core + milestones + save v12 (task 72)
+
+See commit a4a8799 (market, milestones, `meta.upgrades`, save v12) and bc63cb9 (`tests/fixtures/save-v11.json`).
+
+### Market UI (task 73)
+
+- `src/app/marketText.ts`: `priceTag(state, crop)` = `🍋 💰99 (90 % ▼)` (the price of the next unit, `marketCropPrice`
+  at the current glut; ▼ while the rounded factor is below 100 %), `depthBand(factor)` (green ≥ 0.85, yellow ≥ 0.65,
+  red below; display-only constants in `src/app/`), `marketTip` ("Sells for … now; … Recovers in ~N min if you stop
+  selling." from `marketRecoveryTicks`, the recovery part only while glutted), `marketMoves(before, after)`.
+- 🛒 Shop: every owned crop row gets the price tag under "seed 💰N" and a 3 px depth bar (grey track, coloured fill
+  = factor × 100 %); every crop's ⓘ tip (owned or locked) ends with the market sentence. 🌾 Farm "Crop to plant"
+  buttons show the price tag under "seeds N".
+- Toasts: a tile tap already showed the real cash (`+💰N Carrot`, cash after − before); a Harvest tool press now
+  adds it too (`Harvested 6/6 (+1 bonus) +💰540`). The away banner ends with `market: lemon 72 % → 95 %` for crops
+  whose factor moved more than 5 points.
+- **Layout (computed from `app.css`, no browser):** a Shop crop button's text box = cell − 2 × 30 px (the ⓘ
+  padding) − 2 px border: **375** (343 − 6) / 2 − 62 = 106 px, **1024** (284 − 6) / 2 − 62 = 77 px, **1440**
+  (358 − 6) / 2 − 62 = 114 px. The longest tag, `🍋 💰NNN (90 % ▼)` at 12 px, is ≈ 107 px: one line at 1440, at the
+  edge at 375, two lines at 1024. It wraps inside the button (flex column), the button and its grid row grow, so
+  nothing overlaps; the ⓘ (absolute, 28 px, top-right) sits in the 30 px right padding the text never enters. The
+  depth bar is the button's last flex child (`align-self: stretch`), so it spans the text box below the tag. Crop to
+  plant buttons (desktop panel only) have 6 px padding: 125 px at 1024, 160 px at 1440, one line. Banner and toast
+  already wrap (`.banner` flex row with the ✕, toast `max-width: calc(100% − 32px)`).

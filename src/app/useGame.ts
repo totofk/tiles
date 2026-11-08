@@ -8,6 +8,7 @@ import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
 import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { RESET_BACKUP_KEY, loadGame, saveGame, wallClock } from '../save/storage'
+import { marketMoves } from './marketText'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
   NO_ENERGY: 'Not enough energy',
@@ -53,7 +54,7 @@ export const MINE_EMOJI = '⛏️'
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the
  * planters planted, miners' presses, fire burnt, copper and iron bars smelted, workers' wages; each only when non-zero)
- * and the bars waiting in the tray.
+ * the bars waiting in the tray and the crops whose market moved.
  */
 export function bannerText(awayMs: number, before: GameState, after: GameState): string {
   const was = before.run.lifetime
@@ -74,6 +75,7 @@ export function bannerText(awayMs: number, before: GameState, after: GameState):
     ironSmelted > 0 && `${ITEMS.ironBar.emoji} ${ironSmelted} smelted`,
     ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,
     wages > 0 && `wages paid 💰${wages}`,
+    marketMoves(before, after),
   ]
     .filter(Boolean)
     .join(' · ')

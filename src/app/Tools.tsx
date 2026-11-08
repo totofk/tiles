@@ -27,11 +27,15 @@ const BONUS_TEXT: Partial<Record<ToolJob, (n: number) => string>> = {
   plant: (n) => ` (${n} seed${n > 1 ? 's' : ''} kept)`,
 }
 
-/** "Watered 5/9 — out of energy", "Harvested 6/6 (+1 bonus)"; no reason when every wanted tile was done */
-export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extract<ToolPress, { ok: true }>): string {
+/**
+ * "Watered 5/9 — out of energy", "Harvested 6/6 (+1 bonus) +💰540"; no reason when every wanted tile was done.
+ * earned: the cash a harvest press really received (market prices included), shown for harvests only
+ */
+export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extract<ToolPress, { ok: true }>, earned = 0): string {
   const extra = bonus > 0 ? (BONUS_TEXT[job]?.(bonus) ?? '') : ''
+  const cash = job === 'harvest' && earned > 0 ? ` +💰${earned}` : ''
   const why = stoppedBy ? ` — ${STOP_TEXT[stoppedBy] ?? ERROR_TEXT[stoppedBy]}` : ''
-  return `${VERB[job].past} ${done}/${wanted}${extra}${why}`
+  return `${VERB[job].past} ${done}/${wanted}${extra}${cash}${why}`
 }
 
 /** stacked rows (desktop): the farm loop order */
@@ -96,7 +100,7 @@ export function Tools({ state, act, cropId, stacked = false }: { state: GameStat
     // act runs fn synchronously, so r holds the press result when okToast reads it
     act(
       (s) => (r = pressTool(s, job, cropId)),
-      () => (r?.ok ? pressText(job, r) : null),
+      (prev, next) => (r?.ok ? pressText(job, r, next.run.cash - prev.run.cash) : null),
     )
   }
   const cancelHold = () => clearTimeout(timer.current)
