@@ -400,3 +400,10 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   or mining.
 - Sim pin: run 2 reaches the first fields unlock ≥ 1.8× faster than run 1 (research says ×2.2 at 8 deeds; slack for
   tuning).
+
+## The harvester machine inherits the sickle (batch 20.1, 2026-11-08, Toon go)
+
+Each ladder step inherits the previous: the harvester machine rolls the player's BEST owned sickle's per-tile
+double-harvest chance, exactly like the harvester worker (`reapFields` in `fields.ts`). This replaces batch 19's
+"a machine has no sickle and is never hand-picked" — the never-hand-picked half stays. The seeder machine already
+inherited the dibber's seed-keep via the planter's seed rules; no price, maintenance, machine rate or save change.

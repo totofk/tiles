@@ -3119,5 +3119,30 @@ Save v18: meta gains `deeds / deedsClaimed / runs` and the four new upgrade keys
 - **Bot-side fix (test code only, core untouched):** the batch-20 runs pass `drainSlot` — the hand-smelt loads
   `smeltOre` units while a cycle takes `smeltOre × batchBars`, and once the surplus ore is sold a partial slot can
   never finish, so `setOreKind` stays NOT_EMPTY forever (run 2 wedged 150 h on 1 copper ore). The bot reserves the
-  top-up and completes the partial cycle before an ore-kind switch; pinned runs don't pass the flag and replay
+  the top-up and completes the partial cycle before an ore-kind switch; pinned runs don't pass the flag and replay
   unchanged.
+
+## Batch 20.1 — Machine retune: the harvester machine inherits the sickle (tasks 103–105, no save bump)
+
+Why: the batch-19 sim found the machine fleet never out-earns gold-sickle workers (352k vs 436k/h at 1,000 tiles;
+only harvester2 pays) because `reapFields` gives a machine exactly 1.0 units/tile while `fieldsHarvest` rolls the
+sickle's double harvest per tile. The seeder machine already plants "through the planter's own seed rules (pouch,
+auto-buy, the dibber's seed-keep)" — inheritance is already the rule there. Fix agreed with Toon 2026-11-08:
+each ladder step inherits the previous, so the harvester machine uses the player's BEST owned sickle too.
+No price/maintenance/machine-rate change, no save change.
+
+- [ ] 103. **Core inheritance.** `reapFields` (`src/core/fields.ts`, the "a machine has no sickle" rule) rolls the
+  SAME per-tile `doubleHarvestChance(run.toolTier.harvest)` that `fieldsHarvest` rolls — with the established
+  tier-0 guard (`run.toolTier.harvest > 0 ? nextRandom(...) : [0, rngState]`, cf. the dibber roll at fields.ts:158)
+  so basic-tier runs keep their exact RNG sequence. Machines stay never-hand-picked. Update the docstring and the
+  unit tests in `tests/fields.test.ts` that assert one-unit-per-tile machine reaps.
+- [ ] 104. **Copy.** Any machine-row/tooltip text in the Fields card that states or implies a fixed 1 crop/tile
+  harvest gets one short line saying the machine uses your best sickle (text only, no layout change; seeder rows
+  may name the dibber symmetrically). Update `tests/Fields.test.tsx` copy assertions.
+- [ ] 105. **Sim re-pins** (`tests/sim.test.ts`, the "batch 19" and "batch 20" sections): re-measure the income
+  curve full-fleet vs workers-only at 100/300/1,000 tiles (gold sickle owned) — the fleet at 300 AND 1,000 tiles
+  must be ≥ the workers-only arm measured in the same run (shipped: 353k vs 414k, 352k vs 436k/h). Re-measure
+  every machine tier's marginal payback over 100–1,000 tiles and report the hours (harvester2 must still pay
+  ≤ 8.4 h somewhere). The batch-19 no-stall ladder pin, coal re-check, and the batch-20 prestige pins must replay
+  unchanged or better (≥ 1.4×). Change NO balance constant besides the inheritance; a pin that still fails gets
+  reported under Deviations, not tuned away. Report all numbers under `## Batch 20.1 results`.
