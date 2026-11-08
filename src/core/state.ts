@@ -42,6 +42,7 @@ export type RunState = {
   /** rock = what the current rock drops (rolled when the previous one broke); progress = hits into it */
   vein: { level: number; progress: number; rock: ItemId }
   furnace: Furnace
+  workshop: Workshop
   /** totals for the Stats tab; never unlock anything */
   lifetime: Lifetime
   /** mastery xp per pickaxe tier (1 per mine action with that tier) */
@@ -118,6 +119,13 @@ export type Furnace = {
 }
 
 /**
+ * The workshop (batch 17): built once, then sprinklers are bought one at a time. hoppers = coal in each machine's
+ * hopper (one entry per machine, filled by the fuel loader); valve = the one-time smart valve that holds a stalled
+ * machine's tiles at their moisture until coal returns.
+ */
+export type Workshop = { built: boolean; hoppers: number[]; valve: boolean }
+
+/**
  * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
  * fireBurnt / fireWasted = furnace burn ticks in total / with no cycle progressing; barsSmelted = bars the furnace made;
  * workerPlants = crops the plant worker planted (its tills not counted); workerMines = mine presses by mine workers; bars / barsSmelted are copper bars, ironBars /
@@ -186,6 +194,7 @@ export function createInitialState(): GameState {
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: createFurnace(),
+      workshop: createWorkshop(),
       lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
       mastery: {},
       masteredTiers: [],
@@ -209,4 +218,9 @@ export function createInitialState(): GameState {
 /** a furnace not yet built: copper, no fire, empty slot and tray, base levels */
 export function createFurnace(): Furnace {
   return { built: false, oreKind: 'copperOre', fire: 0, ore: 0, progress: 0, ready: 0, smart: false, levels: { fireCap: 0, batch: 0 } }
+}
+
+/** a workshop not yet built: no machines, no valve */
+export function createWorkshop(): Workshop {
+  return { built: false, hoppers: [], valve: false }
 }

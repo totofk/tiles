@@ -4,6 +4,7 @@ import {
   certificateUnlock,
   moistureDrainPerTick,
   oreSlotCap,
+  sprinklerHopper,
   workerActionTicks,
   workerHireCost,
   workerHireUnlock,
@@ -18,6 +19,7 @@ import type { GameState, RunState } from './state'
 // step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { step } from './step'
 import { toolTargets } from './tools'
+import { fillHopper } from './workshop'
 
 /**
  * The job's own action (so its copper tier applies), with no player energy. Plant = the player's tap on an empty tile:
@@ -34,7 +36,7 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 /**
  * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of the
  * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
- * (coal only: wood stays for pickaxe repairs). Miner: one press of the Mine button with no energy (the active pickaxe's
+ * (coal only: wood stays for pickaxe repairs), else one coal into a sprinkler hopper below half (batch 17). Miner: one press of the Mine button with no energy (the active pickaxe's
  * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
  * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
  * do, so the worker idles unpaid.
@@ -51,7 +53,11 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
   fuel: (s) => {
     const f = s.run.furnace
-    return f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1 ? addFuel(s, 'coal', 1) : null
+    if (f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1) return addFuel(s, 'coal', 1)
+    // the furnace first, then any sprinkler hopper below half (workshop, batch 17) — the same one coal per action
+    const hoppers = s.run.workshop.hoppers
+    const machine = hoppers.findIndex((h) => h < sprinklerHopper() / 2)
+    return s.run.workshop.built && machine >= 0 ? fillHopper(s, machine) : null
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
   clerk: clerkAction,

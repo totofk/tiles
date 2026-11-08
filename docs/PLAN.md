@@ -2720,7 +2720,7 @@ Rules locked earlier (DECISIONS + this thread): coverage is counted in TILES (ne
 with viewport); crafted from materials in quantity; worst-case 8 h offline loss is bounded by the coal in the
 hoppers; a dry sprinkler stalls crops (no growth tick), it never kills them.
 
-- [ ] 90. **Workshop + sprinkler core.** If the item ids change the save shape, FIRST commit
+- [x] 90. **Workshop + sprinkler core.** If the item ids change the save shape, FIRST commit
     `tests/fixtures/save-v13.json` (realistic: orders unlocked, ⭐ > 0, iron tools owned) and chain to v14 per
     CLAUDE.md; otherwise no bump.
     - 🛒 Shop card "🔧 Workshop": `{ stone: 30, ironBar: 6, cash: WORKSHOP_CASH }`, needs vein Lv4; recipes are

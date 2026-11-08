@@ -25,6 +25,9 @@ export type MilestoneId =
   | 'vein3'
   | 'vein4'
   | 'furnace'
+  | 'workshop'
+  | 'firstSprinkler'
+  | 'valve'
   | 'firstBar'
   | 'firstGoldBar'
   | 'copperPickaxe'
@@ -67,6 +70,10 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'vein3', label: 'Vein Lv3', when: (r) => r.vein.level >= 3 },
   { id: 'vein4', label: 'Vein Lv4', when: (r) => r.vein.level >= 4 },
   { id: 'furnace', label: 'Furnace', when: (r) => r.furnace.built },
+  // batch 17: the workshop itself, the first machine, the smart valve
+  { id: 'workshop', label: 'Workshop', when: (r) => r.workshop.built },
+  { id: 'firstSprinkler', label: 'First sprinkler', when: (r) => r.workshop.hoppers.length >= 1 },
+  { id: 'valve', label: 'Smart valve', when: (r) => r.workshop.valve },
   { id: 'firstBar', label: 'First bar', when: (r) => r.lifetime.barsSmelted >= 1 },
   { id: 'firstGoldBar', label: 'First gold bar', when: (r) => r.lifetime.goldBarsSmelted >= 1 },
   { id: 'copperPickaxe', label: 'Copper pickaxe', when: (r) => pickaxeAt(r, 1) },

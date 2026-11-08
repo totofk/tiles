@@ -14,6 +14,7 @@ import { decayMarket } from './market'
 import { tickOrders } from './orders'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { workersAct } from './workers'
+import { sprinklersAct } from './workshop'
 
 /** a tile with its crop removed (harvest or rot); keeps the soil moisture */
 export function clearedTile(tile: Tile): Tile {
@@ -21,8 +22,9 @@ export function clearedTile(tile: Tile): Tile {
 }
 
 // Growth checks moisture BEFORE this tick's drain: a full bar (1) buys exactly
-// 1 / moistureDrainPerTick growth ticks.
-function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number): Tile {
+// 1 / moistureDrainPerTick growth ticks. `held` (the smart valve holding a stalled sprinkler's tiles) skips the
+// drain, so the tile keeps growing at the moisture it froze at.
+function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number, held = false): Tile {
   let next = tile
   if (tile.status === 'planted' && tile.cropId) {
     if (tile.growth < cropGrowTicks(tile.cropId, meta, fertilizerLevel)) {
@@ -35,6 +37,7 @@ function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number): Tile {
           : { ...tile, ticksSinceMature }
     }
   }
+  if (held) return next
   const drained = next.moisture - moistureDrainPerTick(meta)
   const moisture = drained < FLOAT_EPSILON ? 0 : drained
   return moisture === next.moisture ? next : { ...next, moisture }
@@ -49,7 +52,10 @@ function stepLoan(loan: Loan | null): Loan | null {
 
 function stepOnce(state: GameState): GameState {
   const before = state.run
-  const { run, meta } = workersAct(state)
+  // sprinklers run first (batch 17): their watering lands before the water worker picks targets, and `held`
+  // (valve) is index-aligned with the tiles the drain step below runs on
+  const machines = sprinklersAct(state)
+  const { run, meta } = workersAct({ ...state, run: machines.run })
   const max = energyMax(run.upgrades.energyMax, meta)
   let energy = Math.min(max, run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta))
   const rounded = Math.round(energy)
@@ -57,7 +63,7 @@ function stepOnce(state: GameState): GameState {
   const nextRun: RunState = {
     ...run,
     energy,
-    tiles: run.tiles.map((t) => stepTile(t, meta, run.upgrades.fertilizer)),
+    tiles: run.tiles.map((t, i) => stepTile(t, meta, run.upgrades.fertilizer, machines.held[i])),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),
     market: decayMarket(run.market),

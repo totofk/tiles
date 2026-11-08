@@ -201,6 +201,62 @@ const FURNACE_UPGRADES: Record<'fireCap' | 'batch' | 'smart', ReadonlyArray<Pric
 export type FurnaceUpgradeId = keyof typeof FURNACE_UPGRADES
 export const FURNACE_UPGRADE_IDS = Object.keys(FURNACE_UPGRADES) as FurnaceUpgradeId[]
 
+// Workshop (batch 17, DECISIONS "Workshop + sprinklers"): a Shop card once vein Lv4 is owned. A sprinkler waters
+// the SPRINKLER_TILES driest growing tiles to iron-can moisture on the worker clock (WORKER_ACTION_TICKS), machine
+// after machine, so n machines cover n × 6 tiles; its coal pump burns 1 coal per SPRINKLER_COAL_TICKS (≈ 12 coal/h),
+// the hopper holds SPRINKLER_HOPPER coal (≈ 2 h) and the existing fuel loader tops up hoppers below half from
+// storage, furnace first. Out of coal the machine stops — its tiles stall, never die; the one-time smart valve holds
+// them at their moisture until coal returns. Workshop goods are never orderable.
+const WORKSHOP_VEIN_LEVEL = 4
+const SPRINKLER_MAX = 4
+/** tiles one machine waters per action (the driest growing ones) */
+const SPRINKLER_TILES = 6
+/** ticks between coal burns (1 coal per machine per burn ≈ 12 coal/h) */
+const SPRINKLER_COAL_TICKS = 300
+/** coal one machine's hopper holds (≈ 2 h of pumping) */
+const SPRINKLER_HOPPER = 24
+// cash parts = 0.5–1.5 h of the batch-17 ladder bot's income at each purchase (pinned in PLAN.md "Batch 17 results")
+const WORKSHOP_CASH = 7500
+const SPRINKLER_CASH = 7500
+const VALVE_CASH = 5000
+const WORKSHOP_COST: Price = { stone: 30, ironBar: 6, cash: WORKSHOP_CASH }
+const SPRINKLER_COST: Price = { goldBar: 4, ironBar: 8, copperBar: 8, cash: SPRINKLER_CASH }
+const VALVE_COST: Price = { goldBar: 2, cash: VALVE_CASH }
+
+export function workshopCost(meta: MetaState): Price {
+  return scalePrice(WORKSHOP_COST, meta)
+}
+
+/** the vein level the workshop needs */
+export function workshopVeinLevel(): number {
+  return WORKSHOP_VEIN_LEVEL
+}
+
+export function sprinklerCost(meta: MetaState): Price {
+  return scalePrice(SPRINKLER_COST, meta)
+}
+
+/** machines one workshop may hold */
+export function sprinklerMax(): number {
+  return SPRINKLER_MAX
+}
+
+export function sprinklerTiles(): number {
+  return SPRINKLER_TILES
+}
+
+export function sprinklerCoalTicks(): number {
+  return SPRINKLER_COAL_TICKS
+}
+
+export function sprinklerHopper(): number {
+  return SPRINKLER_HOPPER
+}
+
+export function valveCost(meta: MetaState): Price {
+  return scalePrice(VALVE_COST, meta)
+}
+
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
 const DIG_SEED_CHANCE = 0.2

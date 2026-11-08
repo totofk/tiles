@@ -49,6 +49,7 @@ export type ActionError =
   | 'NOTHING_TO_DO'
   | 'NOT_SELLABLE'
   | 'NO_FURNACE'
+  | 'NO_WORKSHOP'
   | 'FULL'
   | 'NO_ORE'
   | 'NO_FUEL'
