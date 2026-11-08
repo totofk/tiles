@@ -68,7 +68,7 @@ export function DigSeeds({ act }: { act: Act }) {
 }
 
 /** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
+export function Farm({ state, act, cropId, onSelectCrop, ui }: PanelProps) {
   const { run } = state
   return (
     <section className="farm-tab">
@@ -80,7 +80,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
           <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
             {CROP_EMOJI[id]} {CROPS[id].name}
             <small>seeds {run.seeds[id] ?? 0}</small>
-            <small>{priceTag(state, id)}</small>
+            <small>{priceTag(state, id, ui.priceShown[id])}</small>
           </button>
         ))}
       </div>

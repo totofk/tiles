@@ -1,3 +1,4 @@
+import { CROP_IDS } from '../core/data/crops'
 import { BADGE_TABS, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 
@@ -15,9 +16,11 @@ export type UiState = {
   collapsed: boolean
   /** badge keys (badges.ts) the player has seen on each tab; a key not in here is news */
   seen: Record<BadgeTab, string[]>
+  /** the market factor each licensed crop's price tag last showed on screen (▲▼ trend arrows, batch 21) */
+  priceShown: Partial<Record<CropId, number>>
 }
 
-export const DEFAULT_UI: UiState = { view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] } }
+export const DEFAULT_UI: UiState = { view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] }, priceShown: {} }
 
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
 
@@ -31,6 +34,7 @@ export function parseUi(raw: string | null): UiState {
   }
   if (typeof v !== 'object' || v === null) return DEFAULT_UI
   const o = v as Record<string, unknown>
+  const shown = (o.priceShown ?? null) as Record<string, unknown> | null
   return {
     view: VIEWS.find((x) => x === o.view) ?? DEFAULT_UI.view,
     tab: PANEL_TABS.find((t) => t.id === o.tab)?.id ?? DEFAULT_UI.tab,
@@ -41,6 +45,7 @@ export function parseUi(raw: string | null): UiState {
         return [t, isStrings(v) ? v : DEFAULT_UI.seen[t]]
       }),
     ) as UiState['seen'],
+    priceShown: Object.fromEntries(CROP_IDS.filter((c) => typeof shown?.[c] === 'number').map((c) => [c, shown![c] as number])) as UiState['priceShown'],
   }
 }
 

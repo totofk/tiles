@@ -30,7 +30,16 @@ describe('parseUi', () => {
       tab: 'upgrades',
       collapsed: true,
       seen: { shop: [], upgrades: [] },
+      priceShown: {},
     })
+  })
+
+  it('priceShown keeps the numeric factors per crop and drops everything else (batch 21)', () => {
+    expect(parseUi(JSON.stringify({ priceShown: { radish: 0.9, lemon: 1, chilli: 'low', bogus: 0.5 } })).priceShown).toEqual({
+      radish: 0.9,
+      lemon: 1,
+    })
+    expect(parseUi(JSON.stringify({ priceShown: 'all' })).priceShown).toEqual({})
   })
 
   it('a value from before badges (no seen) loads with nothing seen; a broken seen list falls back per tab', () => {
@@ -46,7 +55,7 @@ describe('parseUi', () => {
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] } }
+    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)

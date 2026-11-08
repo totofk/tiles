@@ -38,13 +38,15 @@ import { SeedPouch } from './Farm'
 import { Item } from './Info'
 import { cropFactor, depthBand, marketTip, priceTag } from './marketText'
 import { CROP_TIPS, TIER_TIPS, TIPS, TOOL_TIPS } from './tips'
+import type { UiState } from './uiState'
 import { FIRE_EMOJI, type Act } from './useGame'
 
 /** per press, by level (index 0 = level 1) */
 const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)} tiles`, () => 'all tiles']
 
-/** farmTab: the desktop 🌾 Farm tab holds the crop picker and the pouch, so the Shop only sells */
-type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act; farmTab?: boolean }
+/** farmTab: the desktop 🌾 Farm tab holds the crop picker and the pouch, so the Shop only sells;
+ * ui: the remembered price-tag factors (trend arrows), optional so stand-alone renders show no arrow */
+type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act; farmTab?: boolean; ui?: Pick<UiState, 'priceShown'> }
 
 /** what one material tier does to each action of the job */
 const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
@@ -87,7 +89,7 @@ function TierTool({ state, act, job }: { state: GameState; act: Act; job: ToolJo
   )
 }
 
-export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Props) {
+export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: Props) {
   const { run, meta } = state
   const tiles = run.tiles.length
   const nextTile = tileCost(tiles, meta)
@@ -101,7 +103,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
           const factor = cropFactor(state, id)
           const market = (
             <>
-              <small>{priceTag(state, id)}</small>
+              <small>{priceTag(state, id, ui?.priceShown[id])}</small>
               <span className="depth" aria-hidden="true">
                 <span className={`depth-${depthBand(factor)}`} style={{ width: `${Math.round(factor * 100)}%` }} />
               </span>

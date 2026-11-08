@@ -12,11 +12,15 @@ function at(crop: CropId, factor: number, s: GameState = createInitialState()): 
 }
 
 describe('market text', () => {
-  it('priceTag: the next unit price and factor, ▼ only below 100 %', () => {
+  it('priceTag: the next unit price and factor; ▲▼ vs the last shown factor, "floor" at the bottom (batch 21)', () => {
     const s = createInitialState()
     const base = cropSellPrice('lemon', s.meta, 0)
     expect(priceTag(s, 'lemon')).toBe(`🍋 💰${base} (100 %)`)
-    expect(priceTag(at('lemon', 0.9), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.9)} (90 % ▼)`)
+    expect(priceTag(at('lemon', 0.9), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.9)} (90 %)`)
+    expect(priceTag(at('lemon', 0.9), 'lemon', 0.95)).toBe(`🍋 💰${Math.round(base * 0.9)} (90 % ▼)`)
+    expect(priceTag(at('lemon', 0.9), 'lemon', 0.85)).toBe(`🍋 💰${Math.round(base * 0.9)} (90 % ▲)`)
+    expect(priceTag(at('lemon', 0.9), 'lemon', 0.9)).toBe(`🍋 💰${Math.round(base * 0.9)} (90 %)`)
+    expect(priceTag(at('lemon', 0.5), 'lemon', 0.6)).toBe(`🍋 💰${Math.round(base * 0.5)} (50 % ▼ floor)`)
   })
 
   it('depthBand: green ≥ 85 %, yellow ≥ 65 %, red below', () => {

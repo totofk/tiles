@@ -10,14 +10,14 @@ import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
 
-function setup(run: Partial<GameState['run']>) {
+function setup(run: Partial<GameState['run']>, uiState?: { priceShown: { radish?: number } }) {
   const s = createInitialState()
   let state: GameState = { ...s, run: { ...s.run, ...run } }
   const act: Act = (fn) => {
     const r = fn(state)
     if (r.ok) state = r.state
   }
-  const ui = () => <Shop state={state} act={act} cropId="radish" onSelectCrop={() => {}} />
+  const ui = () => <Shop state={state} act={act} cropId="radish" onSelectCrop={() => {}} ui={uiState} />
   const view = render(ui())
   return { get: () => state, rerender: () => view.rerender(ui()) }
 }
@@ -40,9 +40,21 @@ describe('Shop seeds', () => {
 
   it('an owned crop row shows its market price and a depth bar filled to the factor', () => {
     setup({ licenses: ['radish'], market: { radish: 2 * 0.4 * marketDepthGlut('radish'), chilli: 0, pumpkin: 0, lemon: 0 } })
-    expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▼\)$/)
+    expect(btn(/Carrot/).textContent).toMatch(/\(60 %\)$/)
     const bar = btn(/Carrot/).querySelector('.depth > span') as HTMLElement
     expect([bar.className, bar.style.width]).toEqual(['depth-red', '60%'])
+  })
+
+  it('the price tag trends ▲▼ against the last shown factor and badges the floor (batch 21)', () => {
+    const glut = 2 * 0.4 * marketDepthGlut('radish')
+    setup({ licenses: ['radish'], market: { radish: glut, chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.7 } })
+    expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▼\)$/)
+    cleanup()
+    setup({ licenses: ['radish'], market: { radish: glut, chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.5 } })
+    expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▲\)$/)
+    cleanup()
+    setup({ licenses: ['radish'], market: { radish: marketDepthGlut('radish'), chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.6 } })
+    expect(btn(/Carrot/).textContent).toMatch(/\(50 % ▼ floor\)$/)
   })
 
   it('buying the chilli license adds a 🌶️ pouch row', () => {

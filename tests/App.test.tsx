@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
@@ -114,6 +114,12 @@ describe('badge dot on Shop / Upgrades (jsdom = mobile layout)', () => {
 })
 
 describe('persisted UI state (tiles.ui)', () => {
+  it('records the factor each licensed crop\'s price tag showed while the Shop tab is on screen (batch 21 trend arrows)', async () => {
+    render(<App />)
+    fireEvent.click(mobileTab(/Shop/))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(UI_KEY)!).priceShown).toEqual({ radish: 1 }))
+  })
+
   it('restores view, tab and collapse after a reload', () => {
     render(<App />)
     fireEvent.click(mobileTab(/Mine/))
@@ -124,6 +130,7 @@ describe('persisted UI state (tiles.ui)', () => {
       tab: 'upgrades',
       collapsed: true,
       seen: { shop: [], upgrades: [] },
+      priceShown: {},
     })
 
     cleanup()

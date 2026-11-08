@@ -1,4 +1,4 @@
-import { handPickedBonus, marketFactor, marketRecoveryTicks } from '../core/balance'
+import { MARKET_FLOOR, handPickedBonus, marketFactor, marketRecoveryTicks } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { marketCropPrice } from '../core/market'
 import type { GameState } from '../core/state'
@@ -14,10 +14,14 @@ const percent = (f: number) => Math.round(f * 100)
 
 export const cropFactor = (state: GameState, crop: CropId) => marketFactor(crop, state.run.market[crop])
 
-/** "🍋 💰99 (90 % ▼)": the price the next unit sells for and its market factor; ▼ while below 100 % */
-export function priceTag(state: GameState, crop: CropId): string {
-  const p = percent(cropFactor(state, crop))
-  return `${CROP_EMOJI[crop]} 💰${marketCropPrice(state, crop, state.run.market[crop])} (${p} %${p < 100 ? ' ▼' : ''})`
+/** "🍋 💰99 (90 % ▼)": the price the next unit sells for and its market factor; ▲▼ against the factor the tag last
+ * showed on screen (`last`, remembered in `tiles.ui`), and "floor" once the factor sits on MARKET_FLOOR */
+export function priceTag(state: GameState, crop: CropId, last?: number): string {
+  const factor = cropFactor(state, crop)
+  const p = percent(factor)
+  const trend = last === undefined || factor === last ? '' : factor > last ? ' ▲' : ' ▼'
+  const floor = factor <= MARKET_FLOOR ? ' floor' : ''
+  return `${CROP_EMOJI[crop]} 💰${marketCropPrice(state, crop, state.run.market[crop])} (${p} %${trend}${floor})`
 }
 
 /** the Shop depth bar's colour band */

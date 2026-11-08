@@ -7,16 +7,19 @@ import { Shop } from './Shop'
 import type { FeedbackProps } from './FeedbackCard'
 import type { SaveTransferProps } from './SaveTransfer'
 import { StatsTab } from './Stats'
+import type { UiState } from './uiState'
 import { Upgrades } from './Upgrades'
 import type { Act } from './useGame'
 
-/** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded); feedback: the 📊 Stats tab's form, held by App */
+/** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded); feedback: the 📊 Stats tab's form, held by App;
+ * ui: the cosmetic `tiles.ui` state, so the price tags can trend against what they last showed */
 export type PanelProps = {
   state: GameState
   act: Act
   cropId: CropId
   onSelectCrop: (id: CropId) => void
   farmTab: boolean
+  ui: UiState
   reset: () => void
   sell: () => void
 } & Omit<FeedbackProps, 'state'> &

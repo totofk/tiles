@@ -7,7 +7,7 @@ import { EMPTY_FEEDBACK } from './feedback'
 import { Fields } from './Fields'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
-import { HAND_PICKED } from './marketText'
+import { HAND_PICKED, cropFactor } from './marketText'
 import { Mine } from './Mine'
 import { Orders } from './Orders'
 import { availableKeys, isBadgeTab } from './badges'
@@ -61,6 +61,28 @@ export default function App() {
     })
   const dot = (t: PanelTabId) => badge(t) && <span className="badge-dot" aria-hidden="true" />
 
+  // batch 21: while price tags are on screen, remember the factor each showed, so the next render trends ▲▼ against
+  // it; deferred past paint (in a timer callback), so this render's arrow is what the player sees, and
+  // equality-guarded, so a quiet tick re-renders nothing
+  useEffect(() => {
+    if (!panelOnScreen || (shown.id !== 'shop' && shown.id !== 'farm')) return
+    const record = setTimeout(() => {
+      setUi((u) => {
+        const priceShown = { ...u.priceShown }
+        let changed = false
+        for (const id of state.run.licenses) {
+          const factor = cropFactor(state, id)
+          if (priceShown[id] !== factor) {
+            priceShown[id] = factor
+            changed = true
+          }
+        }
+        return changed ? { ...u, priceShown } : u
+      })
+    }, 0)
+    return () => clearTimeout(record)
+  }, [panelOnScreen, shown.id, state, setUi])
+
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
   const guardUntil = useRef<Record<number, number>>({})
 
@@ -78,7 +100,7 @@ export default function App() {
     )
   }
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback, reset, sell, exportCode, importCode }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, feedback, setFeedback, reset, sell, exportCode, importCode }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
