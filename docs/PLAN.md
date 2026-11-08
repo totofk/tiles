@@ -2956,3 +2956,25 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
   60 slots); mining cash/energy = **0.0002 ×** farming (< 0.9); 8 h offline catch-up with 1,000 planted tiles
   across 4 crops, 2 planters + 2 harvesters + tier-3 pipes: **187 ms < 2,000 ms**; `step(big, 600) =
   600 × step(big, 1)` and `catchUp(big, 600_000 ms) = step(big, 600)`.
+
+## Batch 19 — Fields part 2: throughput machines (tasks 97–99, no save bump expected)
+
+Why: with land unbounded the bottleneck is processing speed, not tiles (research §3/§4): machines are the next
+purchases after workers. Maintenance is a small flat cash/h (0.3 % of income at 100 fields) — never a % of holdings.
+
+- [ ] 97. **Machines.** Workshop recipes: `🌾 Harvester Mk1/2/3` harvest 1,800 / 3,600 / 7,200 tiles/h
+    (maintenance `MACHINE_MAINT = 60/120/240` cash/h each, paid per live hour while any crop is ready), prices
+    `{ ironBar: 12, cash }`, `{ ironBar: 24, goldBar: 4, cash }`, `{ goldBar: 12, cash }` (sim sets cash). A harvester
+    works ready cohorts before worker harvesters (machines first, workers fill the gap). `🌱 Seeder Mk1/2` plant
+    1,800 / 3,600 tiles/h into the biggest under-planted licensed crop with an open order or the best market factor
+    (state-driven rule, no per-crop special cases). Max 1 of each machine tier. Ladder note: machines do NOT replace
+    the certificates — a job needs its worker certificate before the machine recipe unlocks (manual → worker →
+    machine). Watering stays pipes-only (no watering machine).
+- [ ] 98. **UI + orders integration.** Machine rows in the Fields section (tier, throughput, maintenance, coal-free),
+    greyed with reason lines. The orders generator's capacity per good already reads state tables — extend the crop
+    capacity to count Fields planted tiles (one line of arithmetic, no generator rule change). Milestones: harvester1,
+    seeder1, harvester3.
+- [ ] 99. **Sim (`tests/sim.test.ts` "batch 19").** Income curve 100 → 1,000 tiles with machines vs workers-only
+    (report the machine payback hours); the N where each machine tier pays; coal budget re-check; no-stall pin from
+    fields unlock to harvester3; offline 8 h catch-up with 3,000 tiles + machines < 2,000 ms; step identity; mining
+    < 0.9 × farming. Tune only batch-19 numbers; report each as a deviation.

@@ -376,3 +376,12 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   shows the sim-computed payback hours. Crop gate: 50 home-plot harvests of that crop first.
 - **Cohorts, never per-tile loops:** state is grouped cohorts (crop, count, readyTick); 8 h offline over 1,000+
   tiles must stay under the perf pin (2,000 ms). Stalled (unwatered) tiles pause growth; nothing dies offline.
+
+## Fields part 2: throughput machines (batch 19, 2026-11-08, Toon go)
+
+- With land unbounded the bottleneck is processing speed, not tiles (docs/research/fields-market.md §4): machines
+  are the purchases after workers. The ladder holds — a machine's recipe needs its job's certificate first
+  (manual → worker → machine).
+- Machines are flat-maintenance (cash/h while working), never a % of holdings; watering stays pipes-only.
+- The batch-18 sim found the pipe cap (300 tiles) is the real income plateau — this batch's machines (and any
+  later pipe tier) push past it; the sim re-derives the curve.
