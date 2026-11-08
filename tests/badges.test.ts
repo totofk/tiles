@@ -32,4 +32,14 @@ describe('availableKeys', () => {
     expect(affordable.filter((k) => k.startsWith('copper'))).toEqual(['copper:harvest', 'copper:harvest:buy'])
     expect(availableKeys(withRun({ ...maxed, toolTier: { ...s.run.toolTier, harvest: 1 } })).shop).toEqual([])
   })
+
+  it('the workshop key is news once the build is affordable, and gone once it is built (batch 17)', () => {
+    const s = createInitialState()
+    const vein4 = { ...s.run.vein, level: 4 as const }
+    const affordable = { vein: vein4, cash: 20000, inventory: { stone: 30, ironBar: 6 } }
+    expect(availableKeys(withRun(affordable)).shop).toContain('workshop')
+    expect(availableKeys(withRun({ ...affordable, workshop: { built: true, hoppers: [], valve: false } })).shop).not.toContain('workshop')
+    // the gate open but materials short: no key yet
+    expect(availableKeys(withRun({ vein: vein4, cash: 20000 })).shop).not.toContain('workshop')
+  })
 })

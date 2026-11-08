@@ -7,6 +7,7 @@ import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
+import { sprinklerWatered } from '../core/workshop'
 import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { marketMoves } from './marketText'
@@ -38,6 +39,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NOTHING_TO_DO: 'Nothing to do',
   NOT_SELLABLE: 'Cannot be sold',
   NO_FURNACE: 'Build the furnace first',
+  NO_WORKSHOP: 'Build the workshop first',
   FULL: 'Furnace is full',
   NO_ORE: 'No ore of the picked kind in storage',
   NO_FUEL: 'No fuel in storage',
@@ -101,6 +103,7 @@ export function useGame() {
   const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.before, boot.state) : null)
   const loop = useRef({ last: 0, acc: 0 })
   const [acted, setActed] = useState<WorkerTarget[]>([])
+  const [watered, setWatered] = useState<number[]>([])
   const [minerActed, setMinerActed] = useState(false)
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -159,6 +162,7 @@ export function useGame() {
       if (!r.ok) return r
       const loaded = loadGame(localStorage)
       setActed([])
+      setWatered([])
       setMinerActed(false)
       commit(loaded.state)
       setBanner(loaded.ticks > 0 ? bannerText(loaded.awayMs, loaded.before, loaded.state) : null)
@@ -185,9 +189,10 @@ export function useGame() {
       const before = stateRef.current
       const after = step(before, ticks)
       // the ringed tiles (and the Mine button, when a miner pressed it) flash when this step runs the workers' action
-      // tick; a longer jump (a stalled timer) just moves on
+      // tick; the sprinklers water on the same clock, so their tiles get the 💧 badge; a longer jump just moves on
       const crossed = ticks > ticksUntilWorkers(before.run) && ticks <= workerActionTicks()
       setActed(crossed ? workerTargets(before) : [])
+      setWatered(crossed ? sprinklerWatered(before) : [])
       setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
       commit(after)
     }, LOOP_MS)
@@ -220,6 +225,7 @@ export function useGame() {
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
       setActed([])
+      setWatered([])
       setMinerActed(false)
       commit(caught)
       setBanner(bannerText(awayMs, before, caught))
@@ -235,5 +241,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, minerActed }
+  return { state, act, reset, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed }
 }

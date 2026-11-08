@@ -15,12 +15,13 @@ import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
 import { Workers } from './Workers'
+import { Workshop } from './Workshop'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, exportCode, importCode, toast, banner, dismissBanner, acted, minerActed } = useGame()
+  const { state, act, reset, exportCode, importCode, toast, banner, dismissBanner, acted, watered, minerActed } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -120,12 +121,13 @@ export default function App() {
             <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
           </>
         )}
-        <FarmGrid state={state} onTap={onTap} acted={acted} />
+        <FarmGrid state={state} onTap={onTap} acted={acted} watered={watered} />
         {!farmTab && (
           <>
             <DigSeeds act={act} />
             <Orders state={state} act={act} card />
             <Workers state={state} act={act} />
+            <Workshop state={state} act={act} />
           </>
         )}
       </section>

@@ -25,9 +25,11 @@ type CellProps = {
   flash?: TileJob
   /** an accepted order takes this tile's crop: a 📋 corner badge while it is ready */
   ordered?: boolean
+  /** a sprinkler watered this tile in the last tick: a 💧 corner badge (task 91) */
+  watered?: boolean
 }
 
-function Cell({ tile, state, onTap, ring, flash, ordered }: CellProps) {
+function Cell({ tile, state, onTap, ring, flash, ordered, watered }: CellProps) {
   const mature = isMature(tile, state)
   const rotIn = ticksUntilRot(tile, state)
   const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta) : 1
@@ -60,6 +62,11 @@ function Cell({ tile, state, onTap, ring, flash, ordered }: CellProps) {
           {BOARD_EMOJI}
         </span>
       )}
+      {growing && watered && (
+        <span className="cell-order" title="A sprinkler waters this tile">
+          💧
+        </span>
+      )}
       <span className="cell-emoji">{emoji}</span>
       <span className="cell-label">{label}</span>
       {growing && <Bar value={growthProgress(tile, state)} kind="grow" />}
@@ -78,7 +85,7 @@ function Cell({ tile, state, onTap, ring, flash, ordered }: CellProps) {
  * acted: the farm workers' actions in the last tick (useGame). It is [] again after the next tick (workers act at most
  * every few ticks), so the flash class and the pop are removed between two actions and each one replays its animation.
  */
-export function FarmGrid({ state, onTap, acted = [] }: { state: GameState; onTap: (i: number) => void; acted?: WorkerTarget[] }) {
+export function FarmGrid({ state, onTap, acted = [], watered = [] }: { state: GameState; onTap: (i: number) => void; acted?: WorkerTarget[]; watered?: number[] }) {
   // a near-square grid on wider screens (9 → 3, 16 → 4, 24 → 5 columns); mobile CSS keeps 3
   const cols = Math.ceil(Math.sqrt(state.run.tiles.length))
   const rows = Math.ceil(state.run.tiles.length / cols)
@@ -90,7 +97,7 @@ export function FarmGrid({ state, onTap, acted = [] }: { state: GameState; onTap
     <div className="farm-fit">
       <div className="grid" style={{ '--n': cols, '--rows': rows } as CSSProperties}>
         {state.run.tiles.map((tile, i) => (
-          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} ring={jobOn(rings, i)} flash={jobOn(acted, i)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} />
+          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} ring={jobOn(rings, i)} flash={jobOn(acted, i)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} watered={watered.includes(i)} />
         ))}
       </div>
     </div>

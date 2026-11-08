@@ -12,6 +12,7 @@ import { TIPS } from './tips'
 import { Tools } from './Tools'
 import type { Act } from './useGame'
 import { Workers } from './Workers'
+import { Workshop } from './Workshop'
 
 /** seed pouch rows + auto-buy: in 🌾 Farm on desktop, in 🛒 Shop where there is no Farm tab */
 export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
@@ -85,6 +86,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
       <SeedPouch state={state} act={act} />
       <DigSeeds act={act} />
       <Workers state={state} act={act} />
+      <Workshop state={state} act={act} />
     </section>
   )
 }

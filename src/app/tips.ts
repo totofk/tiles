@@ -56,6 +56,7 @@ export const TIPS = {
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
   furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
+  workshop: 'A shed for the sprinkler machines you build inside it. Sprinklers water your driest tiles on their own clock, burning coal from their hopper; a fuel loader keeps the hoppers topped up. Bought once; it needs the deepest vein.',
   hire: 'Adds one worker to your pool; put them on a job with + and −. Workers act on their own clock without your energy, also while you are away. Each action costs a small wage, paid only when they work; with no cash they wait. Each hire costs more than the last, up to a cap.',
 }
 

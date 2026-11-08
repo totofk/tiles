@@ -121,3 +121,8 @@ export function sprinklersAct(state: GameState): { run: RunState; held: boolean[
   const workshop = run.tick % sprinklerCoalTicks() === 0 ? { ...w, hoppers: w.hoppers.map((h) => (h >= 1 ? h - 1 : h)) } : w
   return { run: { ...run, tiles, workshop }, held }
 }
+
+/** the tiles the machines water on their next worker-clock tick (useGame shows a 💧 badge on them); [] when nothing runs */
+export function sprinklerWatered(state: GameState): number[] {
+  return state.run.workshop.hoppers.flatMap((_, m) => sprinklerTargets(state, m))
+}

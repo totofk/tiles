@@ -17,8 +17,11 @@ import {
   toolUnlock,
   waterMoisture,
   woodCost,
+  workshopCost,
+  workshopVeinLevel,
 } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
+import { buildWorkshop } from '../core/workshop'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
@@ -151,6 +154,14 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
             <button disabled={!buildFurnace(state).ok} onClick={() => act(buildFurnace)}>
               {FIRE_EMOJI} Furnace
               <small>{priceText(furnaceCost(meta))}</small>
+            </button>
+          </Item>
+        )}
+        {run.vein.level >= workshopVeinLevel() && !run.workshop.built && (
+          <Item tip={TIPS.workshop}>
+            <button disabled={!buildWorkshop(state).ok} onClick={() => act(buildWorkshop, () => 'Workshop built — its card sits with 👷 Workers')}>
+              🔧 Workshop
+              <small>{priceText(workshopCost(meta))}</small>
             </button>
           </Item>
         )}

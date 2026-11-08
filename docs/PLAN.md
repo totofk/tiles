@@ -2738,7 +2738,7 @@ hoppers; a dry sprinkler stalls crops (no growth tick), it never kills them.
     - Smart valve (one-time upgrade, Workshop): `{ goldBar: 2, cash: VALVE_CASH }` — a stalled sprinkler (no coal)
       keeps the tiles at their current moisture instead of letting it drain, until coal returns.
     - Milestones: workshop, firstSprinkler, valve. Orders pool: Workshop goods are NOT orderable in this batch.
-- [ ] 91. **UI.** Workshop card + recipe rows (greyed with a reason line per missing material, like certificate
+- [x] 91. **UI.** Workshop card + recipe rows (greyed with a reason line per missing material, like certificate
     rows); owned sprinklers show as a row `💧 Sprinklers 2/4 — waters 12 tiles` with a coal gauge per machine
     (or one aggregate gauge if simpler, say which); the grid shows a small 💧 corner badge on tiles a sprinkler
     watered this tick (distinct from the ✋ badge). ⭐-free: cash parts only via the price rule. Compute layout from

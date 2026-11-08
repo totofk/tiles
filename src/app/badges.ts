@@ -4,6 +4,7 @@ import { TOOL_JOBS } from '../core/data/tools'
 import { UPGRADE_IDS } from '../core/data/upgrades'
 import { TILE_CAP, licenseCost, mineLicenseCost, tileCost, toolMaxLevel, toolUnlock, upgradeUnlocked } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
+import { buildWorkshop } from '../core/workshop'
 import { buyStorage, upgradeVein } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyToolTier, buyTool } from '../core/tools'
@@ -23,6 +24,8 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
   for (const id of CROP_IDS) if (!run.licenses.includes(id) && run.cash >= licenseCost(id, meta)) shop.push(`license:${id}`)
   if (!run.mineLicense && run.cash >= mineLicenseCost(meta)) shop.push('mineLicense')
   if (buildFurnace(state).ok) shop.push('furnace')
+  // the sprinkler and valve recipes live in the 🌾 Farm tab's Workshop card, which is not a badge tab — no keys for them
+  if (buildWorkshop(state).ok) shop.push('workshop')
   const tiles = run.tiles.length
   if (tiles < TILE_CAP && run.cash >= tileCost(tiles, meta)) shop.push(`tile:${tiles}`)
   for (const job of TOOL_JOBS) {
