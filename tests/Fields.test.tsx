@@ -37,6 +37,7 @@ describe('the machine rows in the 🚜 Fields card (batch 19, task 98)', () => {
     const mk1 = row(/Harvester Mk1/)
     expect(mk1.textContent).toContain('harvests 1800 tiles/h')
     expect(mk1.textContent).toContain('💰60/h upkeep · coal-free')
+    expect(mk1.textContent).toContain('uses your best sickle') // batch 20.1: the machine inherits the sickle
     expect(mk1.textContent).toContain('needs the harvest certificate')
     expect(mk1.querySelector('button')!.disabled).toBe(true)
     const seeder = row(/Seeder Mk2/)

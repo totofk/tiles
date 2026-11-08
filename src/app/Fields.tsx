@@ -105,7 +105,7 @@ export function Fields({ state, act }: { state: GameState; act: Act }) {
               name={`${MACHINE_NAMES[kind]} Mk${tier}`}
               verb="Build"
               cost={machineCost(kind, tier, meta)}
-              effect={`${MACHINE_VERBS[kind]} ${rate} tiles/h · 💰${machineMaintPerHour(tier)}/h upkeep · coal-free`}
+              effect={`${MACHINE_VERBS[kind]} ${rate} tiles/h · 💰${machineMaintPerHour(tier)}/h upkeep · coal-free${kind === 'harvester' ? ' · uses your best sickle' : ''}`}
               owned={run.fields.machines[kind].includes(tier)}
               ownedText={`${rate} tiles/h`}
               reason={run.workers.certificates.includes(cert) ? null : `needs the ${cert} certificate (manual → worker → machine)`}
