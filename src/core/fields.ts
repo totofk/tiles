@@ -14,18 +14,22 @@ import {
   fieldsCost,
   fieldsCropHarvests,
   harvestBatch,
+  machineCost,
+  machineMaintPerHour,
+  machineTilesPerHour,
   marketFactor,
   plantBatch,
   pipeCoalPerTick,
   pipeCost,
   pipeCover,
   seedKeepChance,
+  type MachineKind,
 } from './balance'
 import { CROP_IDS, type CropId } from './data/crops'
-import { harvestSale } from './orders'
+import { harvestSale, isOffer } from './orders'
 import { pay } from './mining'
 import { marketSteadyGlut } from './market'
-import type { Cohort, Fields, GameState, RunState } from './state'
+import type { Cohort, Fields, GameState, Machines, Offer, RunState } from './state'
 
 /** tiles standing in the Fields (planted, growing or ready) */
 export const fieldsStanding = (f: Fields): number => f.cohorts.reduce((n, c) => n + c.count, 0)
@@ -88,6 +92,18 @@ export function buyPipes(state: GameState): ActionResult {
   const cost = pipeCost(run.fields.pipes, state.meta)
   if (!cost) return fail('MAX_LEVEL')
   return pay(state, cost, { fields: { ...run.fields, pipes: run.fields.pipes + 1 } })
+}
+
+// Machines (batch 19, a Workshop recipe that works the Fields): max 1 of each tier, tiers stack. The recipe needs
+// the Fields and the kind's job worked by a worker first (manual → worker → machine).
+// Order: LOCKED, ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH.
+export function buyMachine(state: GameState, kind: MachineKind, tier: number): ActionResult {
+  const { run } = state
+  if (!run.fields.unlocked || !run.workers.certificates.includes(kind === 'harvester' ? 'harvest' : 'plant')) return fail('LOCKED')
+  if (run.fields.machines[kind].includes(tier)) return fail('ALREADY_OWNED')
+  return pay(state, machineCost(kind, tier, state.meta), {
+    fields: { ...run.fields, machines: { ...run.fields.machines, [kind]: [...run.fields.machines[kind], tier] } },
+  })
 }
 
 /** the 3-bar breakdown for the UI, by the same prefix rule fieldsAct grows by: free, growing (covered vs stalled), ready */
@@ -263,6 +279,124 @@ export function fieldsAct(state: GameState): GameState {
   })
   const inventory = coal === (run.inventory.coal ?? 0) ? run.inventory : { ...run.inventory, coal }
   return { ...state, run: { ...run, inventory, fields: { ...f, coalCarry, cohorts } } }
+}
+
+// ─── Machines (batch 19) ───────────────────────────────────────────────────────────────────────────────────────
+
+/** the fleet's whole tiles per tick (3600 ticks per hour), summed over the owned tiers */
+function fleetTilesPerTick(machines: Machines, kind: MachineKind): number {
+  return machines[kind].reduce((rate, tier) => rate + machineTilesPerHour(kind, tier) / 3600, 0)
+}
+
+/** flat maintenance cash per tick for the owned tiers of this kind */
+function fleetMaintPerTick(machines: Machines, kind: MachineKind): number {
+  return machines[kind].reduce((rate, tier) => rate + machineMaintPerHour(tier) / 3600, 0)
+}
+
+/** tiles standing ready in the Fields (ready cohorts take no pipe coverage and no coal) */
+const readyTiles = (f: Fields, tick: number): number => f.cohorts.reduce((n, c) => (c.readyTick <= tick ? n + c.count : n), 0)
+
+/**
+ * The seeder's crop, state-driven with no per-crop special cases: the fields-plantable crop with an accepted open
+ * order planted furthest below the order's remaining units (the biggest shortfall); with no under-planted crop order,
+ * the plantable crop with the best market factor (the least glutted price). null = nothing worth planting.
+ */
+export function seederCrop(state: GameState): CropId | null {
+  const { run } = state
+  let order: { crop: CropId; shortfall: number } | null = null
+  let factor: { crop: CropId; factor: number } | null = null
+  for (const crop of CROP_IDS) {
+    if (!fieldsPlantable(run, crop)) continue
+    const slot = run.orders.offers.find((s): s is Offer => isOffer(s) && s.accepted && s.good === crop && s.done < s.count)
+    if (slot) {
+      const shortfall = slot.count - slot.done - (run.fields.planted[crop] ?? 0)
+      if (shortfall > 0 && (!order || shortfall > order.shortfall)) order = { crop, shortfall }
+    }
+    const f = marketFactor(crop, run.market[crop])
+    if (!factor || f > factor.factor) factor = { crop, factor: f }
+  }
+  return order ? order.crop : factor?.crop ?? null
+}
+
+/** reap `tiles` ready tiles oldest-first, one unit each, selling through harvestSale — a machine has no sickle and is never hand-picked */
+function reapFields(state: GameState, tiles: number): GameState {
+  let s = state
+  let left = tiles
+  while (left > 0) {
+    const i = s.run.fields.cohorts.findIndex((c) => c.readyTick <= s.run.tick)
+    if (i < 0) break
+    const { crop, count } = s.run.fields.cohorts[i]
+    const reaped = Math.min(left, count)
+    const sale = harvestSale(s, crop, reaped)
+    const cohorts = [...s.run.fields.cohorts]
+    cohorts[i] = { crop, count: count - reaped, readyTick: cohorts[i].readyTick }
+    if (cohorts[i].count === 0) cohorts.splice(i, 1)
+    s = {
+      ...s,
+      run: {
+        ...sale.run,
+        cash: sale.run.cash + sale.cash,
+        lifetime: { ...sale.run.lifetime, cashEarned: sale.run.lifetime.cashEarned + sale.cash },
+        fields: withCohorts(s.run.fields, cohorts),
+      },
+    }
+    left -= reaped
+  }
+  return s
+}
+
+/**
+ * One tick of the machines (batch 19), run in step BEFORE the workers: a harvester takes the ready cohorts first and
+ * the harvester workers fill the gap; the seeder plants whole PLANT_BATCH cohorts through the planter's own seed
+ * rules (pouch, auto-buy, the dibber's seed-keep) at the machine's tile rate. Maintenance is flat cash per live hour
+ * worked — a harvester works while any cohort is ready, a seeder while it has free land and a target crop; an hour
+ * the cash cannot pay pauses the fleet (the debt caps at that hour, never grows — like the dry pump, never a loan).
+ * Accrual only happens while a machine works, so idle time banks nothing. Returns the same state when idle.
+ */
+export function machinesAct(state: GameState): GameState {
+  const { run } = state
+  const f = run.fields
+  const m = f.machines
+  if (!f.unlocked || (m.harvester.length === 0 && m.seeder.length === 0)) return state
+  const carry = { ...m.carry }
+  let s = state
+  const ready = readyTiles(f, run.tick)
+  const crop = m.seeder.length > 0 && fieldsFree(run) > 0 ? seederCrop(s) : null
+  // maintenance first: the working machines accrue, whole cash is paid as it comes due
+  const maint = (ready > 0 ? fleetMaintPerTick(m, 'harvester') : 0) + (crop !== null ? fleetMaintPerTick(m, 'seeder') : 0)
+  let working = true
+  if (maint > 0) {
+    carry.maint += maint
+    if (carry.maint >= 1) {
+      const paid = Math.min(Math.floor(carry.maint), s.run.cash)
+      if (paid > 0) {
+        carry.maint -= paid
+        s = { ...s, run: { ...s.run, cash: s.run.cash - paid } }
+      }
+      if (carry.maint >= 1) working = false
+      carry.maint = Math.min(carry.maint, 1)
+    }
+  }
+  if (working && ready > 0 && m.harvester.length > 0) {
+    carry.harvest += fleetTilesPerTick(m, 'harvester')
+    const reaped = Math.min(Math.floor(carry.harvest), ready)
+    if (reaped >= 1) {
+      carry.harvest -= reaped
+      s = reapFields(s, reaped)
+    }
+  }
+  if (working && crop !== null) {
+    carry.plant += fleetTilesPerTick(m, 'seeder')
+    if (carry.plant >= plantBatch()) {
+      const planted = plantFields(s, crop)
+      if (planted.ok) {
+        carry.plant -= fieldsStanding(planted.state.run.fields) - fieldsStanding(s.run.fields)
+        s = planted.state
+      } else carry.plant = plantBatch() // NO_SEEDS / NO_CASH: hold one batch, retry when it clears
+    }
+  }
+  if (s === state && carry.harvest === m.carry.harvest && carry.plant === m.carry.plant && carry.maint === m.carry.maint) return state
+  return { ...s, run: { ...s.run, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry } } } }
 }
 
 /**

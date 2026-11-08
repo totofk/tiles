@@ -130,9 +130,16 @@ export type Workshop = { built: boolean; hoppers: number[]; valve: boolean }
 export type Cohort = { crop: CropId; count: number; readyTick: number }
 
 /**
+ * The batch-19 throughput machines: owned tiers per kind (max 1 of each, tiers stack) and the fleet's fractional
+ * accumulators — whole tiles to reap / to plant, and maintenance cash accrued past the last whole cash paid.
+ */
+export type Machines = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number } }
+
+/**
  * The 🚜 Fields (batch 18): unlocked once, then field tiles are bought one at a time (count). cohorts hold the
  * planted tiles (planted per crop is derived from them); pipes = the watering tiers (coverage beyond it stalls);
- * plantCrop = the crop the planter works here ("stop" clears it); coalCarry = the shared pump's fractional coal.
+ * plantCrop = the crop the planter works here ("stop" clears it); coalCarry = the shared pump's fractional coal;
+ * machines = the batch-19 harvester/seeder tiers and their accumulators.
  */
 export type Fields = {
   unlocked: boolean
@@ -142,6 +149,7 @@ export type Fields = {
   pipes: number
   plantCrop: CropId | null
   coalCarry: number
+  machines: Machines
 }
 
 /**
@@ -255,5 +263,11 @@ export function createFields(): Fields {
     pipes: 0,
     plantCrop: null,
     coalCarry: 0,
+    machines: createMachines(),
   }
+}
+
+/** no machines bought; the fleet's accumulators start empty */
+export function createMachines(): Machines {
+  return { harvester: [], seeder: [], carry: { harvest: 0, plant: 0, maint: 0 } }
 }

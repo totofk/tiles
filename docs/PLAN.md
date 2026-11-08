@@ -2962,7 +2962,7 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
 Why: with land unbounded the bottleneck is processing speed, not tiles (research §3/§4): machines are the next
 purchases after workers. Maintenance is a small flat cash/h (0.3 % of income at 100 fields) — never a % of holdings.
 
-- [ ] 97. **Machines.** Workshop recipes: `🌾 Harvester Mk1/2/3` harvest 1,800 / 3,600 / 7,200 tiles/h
+- [x] 97. **Machines.** Workshop recipes: `🌾 Harvester Mk1/2/3` harvest 1,800 / 3,600 / 7,200 tiles/h
     (maintenance `MACHINE_MAINT = 60/120/240` cash/h each, paid per live hour while any crop is ready), prices
     `{ ironBar: 12, cash }`, `{ ironBar: 24, goldBar: 4, cash }`, `{ goldBar: 12, cash }` (sim sets cash). A harvester
     works ready cohorts before worker harvesters (machines first, workers fill the gap). `🌱 Seeder Mk1/2` plant

@@ -327,6 +327,51 @@ export function pipeCoalPerTick(coveredTiles: number): number {
   return (coveredTiles * PIPE_COAL_PER_10_TILES) / 10 / 3600
 }
 
+// Machines (batch 19, DECISIONS "Fields part 2"): Workshop recipes that work the Fields. A harvester reaps ready
+// cohorts before the harvester workers (machines first, workers fill the gap); a seeder plants whole PLANT_BATCH
+// cohorts through the same seed rules as the planter. Max 1 of each tier; tiers stack. Coal-free — each machine pays
+// MACHINE_MAINT cash per live hour worked (never a % of holdings); watering stays pipes-only. A tier's recipe needs
+// its job's worker certificate first (manual → worker → machine).
+export type MachineKind = 'harvester' | 'seeder'
+const MACHINE_TILES_PER_HOUR: Record<MachineKind, ReadonlyArray<number>> = {
+  harvester: [1800, 3600, 7200],
+  seeder: [1800, 3600],
+}
+const MACHINE_MAINT: ReadonlyArray<number> = [60, 120, 240]
+// cash parts = 0.5–1.5 h of the batch-19 ladder bot's income at each purchase (pinned in PLAN.md "Batch 19 results");
+// the seeder tiers cost their harvester equals (same throughput, one tier fewer)
+const MACHINE_CASH: ReadonlyArray<number> = [50000, 100000, 350000]
+const MACHINE_COSTS: Record<MachineKind, ReadonlyArray<Price>> = {
+  harvester: [
+    { ironBar: 12, cash: MACHINE_CASH[0]! },
+    { ironBar: 24, goldBar: 4, cash: MACHINE_CASH[1]! },
+    { goldBar: 12, cash: MACHINE_CASH[2]! },
+  ],
+  seeder: [
+    { ironBar: 12, cash: MACHINE_CASH[0]! },
+    { ironBar: 24, goldBar: 4, cash: MACHINE_CASH[1]! },
+  ],
+}
+
+/** tiers a machine kind has (harvester 3, seeder 2) */
+export function machineMaxTiers(kind: MachineKind): number {
+  return MACHINE_TILES_PER_HOUR[kind].length
+}
+
+/** tiles per hour one machine of this kind and tier (1-based) reaps / plants */
+export function machineTilesPerHour(kind: MachineKind, tier: number): number {
+  return MACHINE_TILES_PER_HOUR[kind][tier - 1]!
+}
+
+/** flat maintenance cash per live hour this machine tier costs while it works */
+export function machineMaintPerHour(tier: number): number {
+  return MACHINE_MAINT[tier - 1]!
+}
+
+export function machineCost(kind: MachineKind, tier: number, meta: MetaState): Price {
+  return scalePrice(MACHINE_COSTS[kind][tier - 1]!, meta)
+}
+
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
 const DIG_SEED_CHANCE = 0.2

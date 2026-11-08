@@ -14,15 +14,16 @@ import v12 from './fixtures/save-v12.json?raw'
 import v13 from './fixtures/save-v13.json?raw'
 import v14 from './fixtures/save-v14.json?raw'
 import v15 from './fixtures/save-v15.json?raw'
+import v16 from './fixtures/save-v16.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick, multiplier } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
 import { certificateUnlocked, freeWorkers } from '../src/core/workers'
 import { dig } from '../src/core/mining'
-import { createFields, createFurnace, createInitialMeta, createInitialState, createTile, createWorkshop } from '../src/core/state'
+import { createFields, createFurnace, createInitialMeta, createInitialState, createMachines, createTile, createWorkshop } from '../src/core/state'
 import { step } from '../src/core/step'
 import { buildWorkshop } from '../src/core/workshop'
-import { unlockFields } from '../src/core/fields'
+import { buyMachine, unlockFields } from '../src/core/fields'
 import { SAVE_VERSION, awayText, catchUp, deserialize, offlineTicks, serialize, type Save } from '../src/save/serialize'
 import {
   BAD_SAVE_KEY,
@@ -96,7 +97,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 16, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 17, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -359,10 +360,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v15 and v16 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v16 and v17 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(16)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 17 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(17)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 18 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -451,7 +452,7 @@ describe('serialize / deserialize', () => {
   it('migrates a real v1 save (6 tiles, energy above the new max) to v12', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(16)
+    expect(save.version).toBe(17)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(v12Meta(old.meta))
@@ -539,7 +540,7 @@ describe('save v13: the 📋 Noticeboard', () => {
     expect(old.state.run.milestones).toMatchObject({ trackingStarted: 7210, tiles12: 7210 })
     const save = deserialize(v12)!
     expect(save).toEqual({
-      version: 16,
+      version: 17,
       savedAtMs: old.savedAtMs,
       state: { meta: old.state.meta, run: { ...old.state.run, ...v13Run(old.state.run), workshop: createWorkshop(), fields: createFields() } },
     })
@@ -580,7 +581,7 @@ describe('save v14: the gold tier', () => {
     expect(old.state.run).toMatchObject({ vein: { level: 3 }, pickaxe: { tier: 'iron' }, orders: { unlocked: true }, stars: 5 })
     const save = deserialize(v13)!
     expect(save).toEqual({
-      version: 16,
+      version: 17,
       savedAtMs: old.savedAtMs,
       state: {
         meta: old.state.meta,
@@ -604,7 +605,7 @@ describe('save v15: the workshop', () => {
     expect(old.state.run).toMatchObject({ vein: { level: 4 }, pickaxe: { tier: 'gold' }, orders: { unlocked: true } })
     const save = deserialize(v14)!
     expect(save).toEqual({
-      version: 16,
+      version: 17,
       savedAtMs: old.savedAtMs,
       state: { meta: old.state.meta, run: { ...old.state.run, workshop: createWorkshop(), fields: createFields() } },
     })
@@ -621,7 +622,7 @@ describe('save v16: the fields', () => {
     expect(old.state.run).toMatchObject({ workshop: { built: true, hoppers: [23, 11], valve: true }, orders: { unlocked: true } })
     const save = deserialize(v15)!
     expect(save).toEqual({
-      version: 16,
+      version: 17,
       savedAtMs: old.savedAtMs,
       state: { meta: old.state.meta, run: { ...old.state.run, fields: createFields() } },
     })
@@ -632,10 +633,27 @@ describe('save v16: the fields', () => {
   })
 })
 
+describe('save v17: the machines', () => {
+  it('migrates the real v16 fixture (fields unlocked, 320 tiles, pipes 2, 200 standing) to v17: everything kept, machines fresh', () => {
+    const old = JSON.parse(v16)
+    expect(old.version).toBe(16)
+    expect(old.state.run).toMatchObject({ fields: { unlocked: true, count: 320, pipes: 2 } })
+    const save = deserialize(v16)!
+    expect(save).toEqual({
+      version: 17,
+      savedAtMs: old.savedAtMs,
+      state: { meta: old.state.meta, run: { ...old.state.run, fields: { ...old.state.run.fields, machines: createMachines() } } },
+    })
+    // the migrated run plays on, and the harvester's gate is open (the certificate is held): it fails only on materials
+    expect(step(save.state, 120).run.tick).toBe(old.state.run.tick + 120)
+    expect(buyMachine(save.state, 'harvester', 1)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+  })
+})
+
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(16)
-    for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]) {
+    expect(SAVE_VERSION).toBe(17)
+    for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
       expect(run.licenses).toEqual(old.licenses)

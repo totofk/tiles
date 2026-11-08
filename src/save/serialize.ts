@@ -8,6 +8,7 @@ import {
   createFields,
   createInitialMeta,
   createInitialState,
+  createMachines,
   createTile,
   createWorkshop,
   type Counters,
@@ -19,7 +20,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 16
+export const SAVE_VERSION = 17
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -111,8 +112,10 @@ type RunV14 = Omit<GameState['run'], 'workshop' | 'fields'>
 type SaveV14 = { version: 14; savedAtMs: number; state: { meta: GameState['meta']; run: RunV14 } }
 type RunV15 = Omit<GameState['run'], 'fields'>
 type SaveV15 = { version: 15; savedAtMs: number; state: { meta: GameState['meta']; run: RunV15 } }
-type SaveV16 = { version: 16; savedAtMs: number; state: GameState }
-export type Save = SaveV16
+type RunV16 = Omit<GameState['run'], 'fields'> & { fields: Omit<GameState['run']['fields'], 'machines'> }
+type SaveV16 = { version: 16; savedAtMs: number; state: { meta: GameState['meta']; run: RunV16 } }
+type SaveV17 = { version: 17; savedAtMs: number; state: GameState }
+export type Save = SaveV17
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -372,18 +375,26 @@ function migrateV15(save: SaveV15): SaveV16 {
   return { version: 16, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: createFields() } } }
 }
 
+// v16 → v17: the throughput machines (batch 19). None bought — every machine purchase is a new buy; the fleet's
+// accumulators (whole tiles to reap / plant, maintenance cash past the last whole paid) start at 0.
+function migrateV16(save: SaveV16): SaveV17 {
+  const { meta, run } = save.state
+  return { version: 17, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: { ...run.fields, machines: createMachines() } } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 16) return data as SaveV16
-  if (data.version === 15) return migrateV15(data as SaveV15)
-  if (data.version === 14) return migrateV15(migrateV14(data as SaveV14))
-  if (data.version === 13) return migrateV15(migrateV14(migrateV13(data as SaveV13)))
+  if (data.version === 17) return data as SaveV17
+  if (data.version === 16) return migrateV16(data as SaveV16)
+  if (data.version === 15) return migrateV16(migrateV15(data as SaveV15))
+  if (data.version === 14) return migrateV16(migrateV15(migrateV14(data as SaveV14)))
+  if (data.version === 13) return migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13))))
   const v12 = toV12(data)
-  return v12 && migrateV15(migrateV14(migrateV13(migrateV12(v12))))
+  return v12 && migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12)))))
 }
 
 /** v1 … v12 up to v12; null for anything else */

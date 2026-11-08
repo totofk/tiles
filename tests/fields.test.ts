@@ -4,6 +4,10 @@ import {
   fieldsCost,
   fieldsCropHarvests,
   harvestBatch,
+  machineCost,
+  machineMaintPerHour,
+  machineMaxTiers,
+  machineTilesPerHour,
   plantBatch,
   pipeCoalPer10Tiles,
   pipeCoalPerTick,
@@ -13,6 +17,7 @@ import {
 } from '../src/core/balance'
 import {
   buyField,
+  buyMachine,
   buyPipes,
   fieldsAct,
   fieldsFree,
@@ -23,7 +28,9 @@ import {
   fieldsPlantable,
   fieldsStanding,
   fieldsStats,
+  machinesAct,
   plantFields,
+  seederCrop,
   stopFieldsPlant,
   unlockFields,
 } from '../src/core/fields'
@@ -375,6 +382,7 @@ describe('fields: fresh run', () => {
       pipes: 0,
       plantCrop: null,
       coalCarry: 0,
+      machines: { harvester: [], seeder: [], carry: { harvest: 0, plant: 0, maint: 0 } },
     })
     expect([fieldsFree(init.run), fieldsStanding(init.run.fields)]).toEqual([0, 0])
     expect(fieldsStats(init.run)).toEqual({ free: 0, growing: 0, covered: 0, stalled: 0, ready: 0 })
@@ -392,5 +400,177 @@ describe('fields: fresh run', () => {
     })
     // ready 5; the 40 then the 20 fill the 60 coverage exactly, the 30 beyond them stalls with the rest of the queue
     expect(fieldsStats(s.run)).toEqual({ free: 120 - 95, growing: 90, covered: 60, stalled: 30, ready: 5 })
+  })
+})
+
+// ─── Machines (batch 19) ──────────────────────────────────────────────────────────────────────────────────────
+
+/** a machine fleet: owned tiers with fresh accumulators */
+const fleet = (machines: Partial<GameState['run']['fields']['machines']>): GameState['run']['fields']['machines'] => ({
+  harvester: [],
+  seeder: [],
+  carry: { harvest: 0, plant: 0, maint: 0 },
+  ...machines,
+})
+
+describe('machines: balance', () => {
+  it('harvester 1800/3600/7200 and seeder 1800/3600 tiles/h, maintenance 60/120/240 cash/h, the pinned prices', () => {
+    expect([machineMaxTiers('harvester'), machineMaxTiers('seeder')]).toEqual([3, 2])
+    expect([1, 2, 3].map((tier) => machineTilesPerHour('harvester', tier))).toEqual([1800, 3600, 7200])
+    expect([1, 2].map((tier) => machineTilesPerHour('seeder', tier))).toEqual([1800, 3600])
+    expect([1, 2, 3].map((tier) => machineMaintPerHour(tier))).toEqual([60, 120, 240])
+    expect(machineCost('harvester', 1, init.meta)).toEqual({ ironBar: 12, cash: machineCost('harvester', 1, init.meta).cash })
+    expect(machineCost('harvester', 2, init.meta)).toEqual({ ironBar: 24, goldBar: 4, cash: machineCost('harvester', 2, init.meta).cash })
+    expect(machineCost('harvester', 3, init.meta)).toEqual({ goldBar: 12, cash: machineCost('harvester', 3, init.meta).cash })
+    expect(machineCost('seeder', 1, init.meta)).toEqual({ ironBar: 12, cash: machineCost('seeder', 1, init.meta).cash })
+    expect(machineCost('seeder', 2, init.meta)).toEqual({ ironBar: 24, goldBar: 4, cash: machineCost('seeder', 2, init.meta).cash })
+  })
+})
+
+describe('buyMachine', () => {
+  it('is LOCKED before the fields or the job certificate, ALREADY_OWNED per tier, then pays items and cash', () => {
+    expect(buyMachine(init, 'harvester', 1)).toEqual({ ok: false, error: 'LOCKED' })
+    const noCert = withFields(60, { workers: { ...init.run.workers, pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant'] } })
+    expect(buyMachine(noCert, 'harvester', 1)).toEqual({ ok: false, error: 'LOCKED' }) // the seeder's gate is open, the harvester's is not
+    expect(buyMachine({ ...noCert, run: { ...noCert.run, inventory: { ironBar: 12 }, cash: 999999 } }, 'seeder', 1).ok).toBe(true)
+    const r = buyMachine(withFields(60, { inventory: { ironBar: 99 }, cash: 999999 }), 'harvester', 1)
+    expect(r.ok && r.state.run.fields.machines.harvester).toEqual([1])
+    expect(r.ok && r.state.run.inventory.ironBar).toBe(87)
+    expect(r.ok && buyMachine(r.state, 'harvester', 1)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(buyMachine(withFields(60, { inventory: {}, cash: 999999 }), 'seeder', 2)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyMachine(withFields(60, { inventory: { ironBar: 24, goldBar: 4 }, cash: 10 }), 'seeder', 2)).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
+describe('machinesAct: the harvester', () => {
+  it('reaps its exact tile rate oldest-first, one unit per tile whatever the sickle, and rolls nothing', () => {
+    // Mk3 = 2 tiles/tick, 3 ticks, a gold sickle in hand: a machine has no sickle, so units = tiles and rng stands still
+    const s = withFields(60, { cash: 0, tick: 100, toolTier: { water: 0, harvest: 3, plant: 0 } }, {
+      cohorts: [{ crop: 'lemon', count: 30, readyTick: 50 }],
+      machines: fleet({ harvester: [3] }),
+    })
+    const after = step(s, 3)
+    expect(fieldsStanding(after.run.fields)).toBe(24)
+    expect(after.run.rngState).toBe(s.run.rngState)
+    expect(after.run.cash).toBeGreaterThan(0)
+    expect(after.run.fields.machines.carry.maint).toBeCloseTo((3 * machineMaintPerHour(3)) / 3600, 10)
+  })
+
+  it('machines first, workers fill the gap: with one ready tile the machine takes it and the worker idles unpaid', () => {
+    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const base = withFields(60, {
+      tiles,
+      tick: 5,
+      cash: 1000,
+      licenses: [...init.run.licenses, 'lemon'],
+      lifetime: { ...init.run.lifetime, harvests: { lemon: 50 } },
+      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'harvest'] },
+    }, { cohorts: [{ crop: 'lemon', count: 1, readyTick: 4 }], machines: fleet({ harvester: [2] }) })
+    const after = step(base, 1)
+    expect(fieldsStanding(after.run.fields)).toBe(0)
+    expect(after.run.lifetime.wagesPaid).toBe(0) // the machine reaped the tile first: nothing ready for the worker
+    const control = step({ ...base, run: { ...base.run, fields: { ...base.run.fields, machines: fleet({}) } } }, 1)
+    expect(fieldsStanding(control.run.fields)).toBe(0)
+    expect(control.run.lifetime.wagesPaid).toBe(1) // without the machine the worker takes the tile and is paid
+  })
+
+  it('maintenance: none while idle, and an hour the cash cannot pay pauses the fleet with the debt capped at it', () => {
+    const idle = withFields(60, { cash: 500 }, { machines: fleet({ harvester: [1, 2, 3] }) })
+    expect(step(idle, 3600).run.cash).toBe(500) // nothing ready, no free-land crop: nothing accrues, nothing reaps
+    const due = withFields(60, { cash: 0, tick: 100 }, {
+      cohorts: [{ crop: 'lemon', count: 30, readyTick: 50 }],
+      machines: fleet({ harvester: [3], carry: { harvest: 0, plant: 0, maint: 0.999 } }),
+    })
+    const paused = machinesAct(due)
+    expect(paused.run.cash).toBe(0) // no cash for the due hour: no reaping either, and the debt stays capped at 1
+    expect(fieldsStanding(paused.run.fields)).toBe(30)
+    expect(paused.run.fields.machines.carry.maint).toBe(1)
+    const paid = machinesAct({ ...due, run: { ...due.run, cash: 5 } })
+    expect(paid.run.cash).toBe(5 - 1 + paid.run.lifetime.cashEarned) // cash back pays the hour, the fleet reaps again
+    expect(fieldsStanding(paid.run.fields)).toBe(28)
+    expect(paid.run.fields.machines.carry.maint).toBeLessThan(1)
+  })
+})
+
+describe('machinesAct: the seeder', () => {
+  const market = { radish: 0, chilli: 0, pumpkin: 99, lemon: 0 }
+  const seedRun = (extra: Partial<GameState['run']> = {}, f: Partial<GameState['run']['fields']> = {}): GameState =>
+    withFields(60, {
+      cash: 1000,
+      market,
+      licenses: [...init.run.licenses, 'lemon', 'pumpkin'],
+      lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
+      ...extra,
+    }, { machines: fleet({ seeder: [2] }), ...f })
+
+  it('chases the most under-planted accepted order; with none (or none under-planted) the best market factor', () => {
+    const orders = (offers: GameState['run']['orders']['offers']): Partial<GameState['run']> => ({ orders: { unlocked: true, slots: 2, offers } })
+    const chase = seedRun({ ...orders([{ good: 'pumpkin', count: 40, done: 0, tier: 0, accepted: true }]) }, {})
+    expect(seederCrop(chase)).toBe('pumpkin') // order 40 short of 0 planted → under-planted beats lemon's clean price
+    const overPlanted = seedRun({ ...orders([{ good: 'pumpkin', count: 40, done: 35, tier: 0, accepted: true }]) }, {
+      cohorts: [{ crop: 'pumpkin', count: 10, readyTick: 99999 }],
+      planted: { radish: 0, chilli: 0, pumpkin: 10, lemon: 0 },
+    })
+    expect(seederCrop(overPlanted)).toBe('lemon') // the order is covered (5 left, 10 planted): fall to the best factor
+    expect(seederCrop(seedRun({}, {}))).toBe('lemon') // no orders: the least glutted plantable crop (pumpkin sits at 99)
+  })
+
+  it('plants whole batches at its tile rate through the planter seed rules, and sets the fields crop', () => {
+    // Mk2 = 1 tile/tick, pipes 1: after 20 ticks two batches of 10 lemon, seeds auto-bought, no wage, no maintenance due
+    const after = step(seedRun({}, { pipes: 1 }), 20)
+    expect(after.run.fields.planted.lemon).toBe(20)
+    expect(after.run.fields.cohorts).toEqual([
+      { crop: 'lemon', count: 10, readyTick: 9 + 360 - 1 - 10 }, // planted at tick 9, grown the same tick, 10 more ticks
+      { crop: 'lemon', count: 10, readyTick: 19 + 360 - 1 },
+    ])
+    expect(after.run.fields.plantCrop).toBe('lemon')
+    expect(after.run.cash).toBe(1000 - 20 * 20) // seeds only: machines pay no wage, maintenance under an hour
+    expect(after.run.fields.machines.carry.plant).toBeCloseTo(0, 10)
+  })
+
+  it('holds one batch when the seeds cannot be paid and retries; nothing to plant accrues nothing', () => {
+    const broke = step(seedRun({ cash: 5 }, { pipes: 1 }), 30) // one seed costs 20: every plant fails, the carry holds a batch
+    expect(broke.run.fields.cohorts).toEqual([])
+    expect(broke.run.fields.machines.carry.plant).toBe(plantBatch())
+    const full = step(seedRun({}, { cohorts: [{ crop: 'lemon', count: 60, readyTick: 99999 }] }), 30)
+    expect(full.run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0 }) // no free land: the seeder idles free
+  })
+})
+
+describe('step identity with machines', () => {
+  it('step(s, 600) = 600 × step(s, 1) with both machine kinds, cohorts, pipes, the market and catch-up on', () => {
+    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const s: GameState = {
+      ...init,
+      run: {
+        ...init.run,
+        tiles,
+        tick: 4,
+        cash: 5000,
+        licenses: [...init.run.licenses, 'lemon', 'pumpkin'],
+        lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
+        inventory: { coal: 50 },
+        workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'harvest'] },
+        workshop: { built: true, hoppers: [24], valve: false },
+        orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true }] },
+        fields: {
+          ...init.run.fields,
+          unlocked: true,
+          count: 100,
+          pipes: 2,
+          plantCrop: 'lemon',
+          cohorts: [
+            { crop: 'lemon', count: 8, readyTick: 300 },
+            { crop: 'lemon', count: 30, readyTick: 3600 },
+            { crop: 'pumpkin', count: 20, readyTick: 5000 },
+          ],
+          machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9 } }),
+        },
+      },
+    }
+    let one = s
+    for (let i = 0; i < 600; i++) one = step(one, 1)
+    expect(step(s, 600)).toEqual(one)
+    expect(catchUp(s, 600_000)).toEqual(step(s, 600))
   })
 })

@@ -9,7 +9,7 @@ import {
   moistureDrainPerTick,
 } from './balance'
 import { recordMilestones } from './data/milestones'
-import { fieldsAct } from './fields'
+import { fieldsAct, machinesAct } from './fields'
 import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
 import { tickOrders } from './orders'
@@ -56,8 +56,11 @@ function stepOnce(state: GameState): GameState {
   // sprinklers run first (batch 17): their watering lands before the water worker picks targets, and `held`
   // (valve) is index-aligned with the tiles the drain step below runs on
   const machines = sprinklersAct(state)
+  // batch 19: the Fields machines work before the workers — a harvester takes the ready cohorts first, the harvester
+  // workers fill the gap; the seeder plants before the planter
+  const worked = machinesAct({ ...state, run: machines.run })
   // the Fields cohorts grow after the workers (a batch planted this tick starts growing this tick, like a home tile)
-  const { run, meta } = fieldsAct(workersAct({ ...state, run: machines.run }))
+  const { run, meta } = fieldsAct(workersAct(worked))
   const max = energyMax(run.upgrades.energyMax, meta)
   let energy = Math.min(max, run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta))
   const rounded = Math.round(energy)
