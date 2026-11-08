@@ -339,8 +339,9 @@ const MACHINE_TILES_PER_HOUR: Record<MachineKind, ReadonlyArray<number>> = {
 }
 const MACHINE_MAINT: ReadonlyArray<number> = [60, 120, 240]
 // cash parts = 0.5–1.5 h of the batch-19 ladder bot's income at each purchase (pinned in PLAN.md "Batch 19 results");
-// the seeder tiers cost their harvester equals (same throughput, one tier fewer)
-const MACHINE_CASH: ReadonlyArray<number> = [50000, 100000, 350000]
+// tier 2 costs 2.5 h of the pre-machine income — after the tier-1 pair the bot's income triples, so the old 100 000
+// landed at 0.26 h; the seeder tiers cost their harvester equals (same throughput, one tier fewer)
+const MACHINE_CASH: ReadonlyArray<number> = [50000, 250000, 350000]
 const MACHINE_COSTS: Record<MachineKind, ReadonlyArray<Price>> = {
   harvester: [
     { ironBar: 12, cash: MACHINE_CASH[0]! },

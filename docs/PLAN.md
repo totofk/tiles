@@ -889,6 +889,19 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 18 (task 96): the "fields 100 ≤ 60 game-minutes" pin is arithmetically impossible; measured and reported
   instead.** 100 fields cost ≈ 💰505,000 cumulative at a rising income (14.6k/h → 79.6k/h): pipes1 → field 100 =
   **448.5 game-minutes**. The ≤ 60-min pin holds where it can: fields unlock → first pipes = **47.0 min** (pinned).
+- **Batch 19 (task 97): the plan priced only the harvesters; seeder tiers cost their harvester equals.** Seeder
+  Mk1 = `{ ironBar: 12, cash }`, Mk2 = `{ ironBar: 24, goldBar: 4, cash }` — same throughput class, one tier
+  fewer, so the same recipe parts and cash as the matching harvester tier.
+- **Batch 19 (task 99): machine cash tier 2 retuned 💰100,000 → 💰250,000.** The task-97 placeholder measured
+  0.26–0.33 h of ladder-bot income (income triples after the tier-1 pair); the band rule wants 0.5–1.5 h, and
+  💰250,000 lands at 0.81 h (harvester2) / 0.65 h (seeder2). Tier 1 (💰50,000, 0.56/0.59 h) and tier 3
+  (💰350,000, 0.94 h) were in band untouched.
+- **Batch 19 (task 99): machines never out-earn gold-sickle workers at 100–1,000 tiles; the curve is measured,
+  not tuned to flip.** Worker harvests roll the gold sickle's double harvest (~1.5 units/tile; a machine reaps
+  exactly 1.0 — a pinned task-97 rule) and the seeder fleet caps at 5,400 tiles/h, so the workers arm wins at
+  every measured N (144k vs 118k, 414k vs 353k, 436k vs 352k per hour). No rate was tuned to force a machine
+  edge: the task says tune only what the band requires, and throughput changes would break task-97 pins. The
+  machines' payoff is wage-free throughput — harvester2's marginal is the one that pays (3.4 h at 300 tiles).
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -2974,7 +2987,49 @@ purchases after workers. Maintenance is a small flat cash/h (0.3 % of income at 
     greyed with reason lines. The orders generator's capacity per good already reads state tables — extend the crop
     capacity to count Fields planted tiles (one line of arithmetic, no generator rule change). Milestones: harvester1,
     seeder1, harvester3.
-- [ ] 99. **Sim (`tests/sim.test.ts` "batch 19").** Income curve 100 → 1,000 tiles with machines vs workers-only
+- [x] 99. **Sim (`tests/sim.test.ts` "batch 19").** Income curve 100 → 1,000 tiles with machines vs workers-only
     (report the machine payback hours); the N where each machine tier pays; coal budget re-check; no-stall pin from
     fields unlock to harvester3; offline 8 h catch-up with 3,000 tiles + machines < 2,000 ms; step identity; mining
     < 0.9 × farming. Tune only batch-19 numbers; report each as a deviation.
+
+## Batch 19 results
+
+### Machines, UI, orders (tasks 97–98)
+Shipped as planned: `MACHINE_RATE` 1,800 / 3,600 / 7,200 tiles/h, `MACHINE_MAINT` 60 / 120 / 240 cash/h
+(flat, per live hour while any crop is ready — seeders pay it too), max 1 of each tier, recipes gated on the
+job's worker certificate, harvesters act before worker harvesters, watering stays pipes-only. Cash prices are
+sim-set per the task's note: tier 1 💰50,000, tier 2 💰250,000, tier 3 💰350,000 (band check below). The orders
+generator's crop capacity counts Fields standing tiles; machine rows live in the Fields card on the batch-18
+worker-row grid (layout statement at 375 / 1024 / 1440 unchanged); milestones harvester1 / seeder1 / harvester3
+are step-driven (recorded by the per-tick `recordMilestones`, like `firstBar`). No save bump — v17 from batch 18
+already carries `fields.machines`.
+
+### Sim (task 99, `tests/sim.test.ts` "batch 19", measured, seeded pins)
+- **Ladder (no-stall pin, fields unlock → harvester3):** fields100 18.8 min, harvester1 19.5, seeder1 20.2,
+  pipes2 21.6, pipes3 24.7, fields300 44.1, harvester2 45.3, seeder2 46.3, harvester3 **47.0 game-minutes**.
+  0 full stalls, 0 fleet pauses; end state 300 fields, pipes 3, 6 workers, 💰35.98M.
+- **Income into each machine purchase (window ending at the buy):** harvester1 89.8k/h, seeder1 84.3k/h,
+  harvester2 307.3k/h, seeder2 382.1k/h, harvester3 370.6k/h.
+- **Price band (cash = 0.5–1.5 h of that income):** harvester1 0.56 h, seeder1 0.59 h, harvester2 0.81 h,
+  seeder2 0.65 h, harvester3 0.94 h — all in band. Tier 2 was retuned 💰100,000 → 💰250,000 to get there
+  (see Deviations).
+- **Income curve, full fleet vs workers-only (1 h warm-up + 2 h measured):** 100 tiles 118k vs 144k/h,
+  300 tiles 353k vs 414k/h, 1,000 tiles 352k vs 436k/h. **The machine fleet never beats gold-sickle workers
+  in 100–1,000 tiles** — worker harvests roll the gold sickle's double harvest (~1.5 units/tile; the task-97
+  rule gives a machine exactly 1.0) and past 300 tiles the seeder fleet caps at 5,400 tiles/h while the
+  workers arm keeps growing. Machines trade the sickle's yield for wage-free throughput.
+- **Marginal payback (8 h bar):** at 300 tiles harvester1 −100.1k/h, harvester2 **+72.5k/h → pays in 3.4 h**,
+  harvester3 −37.8k/h, seeder pair +4.2k/h (71.3 h); at 1,000 tiles only harvester2 still pays (+29.7k/h,
+  8.4 h). N where each tier pays: **harvester2 only, at N = 300**; harvester1, harvester3 and the seeder pair
+  never pay in this range.
+- **Coal re-check:** machine era (fields100 → harvester3) mines 1,019 coal/h against a 193/h average pump
+  draw — the pump never outruns mining; steady tier-3 draw at 300 fields 13.8 coal/h ≤ the 15/h cap. Full-fleet
+  maintenance 600 cash/h = 0.17 % of the 300-tile fleet income (353k/h).
+- **Offline:** 8 h catch-up with 3,000 tiles + full fleet = **340–346 ms** (< 2,000), with the
+  `step(s, n) = n × step(s, 1)` identity asserted on the same state.
+- **Mining < 0.9 × farming:** machine-era mining runs at 2.3 × 10⁻⁵ of farming cash per energy.
+- **Bot-side fixes (test code only, core untouched):** the machine-era ladder bot banks a 2-gold-bar gold
+  pickaxe repair reserve on every goal — a blunt gold pickaxe mines iron/gold rocks as stone, and with no bars
+  left to repair the wedge is permanent (the first run stalled 106 h on exactly that). Combined keeps also take
+  `max` on coal, not the sum: the furnace smelts one kind at a time, and the summed 48 + 16 coal budgets
+  topped bag capacity 60 and wedged the miner on a full coal bag.
