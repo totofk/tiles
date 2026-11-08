@@ -717,6 +717,25 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   moved into `Mine.tsx`. `reportLines` / `feedbackSummary` lost their `hideIron` parameter, and the Stats zero-iron row
   filter and the Mine iron teaser are gone. The gate tests became "iron is open" tests. A player's browser may keep a
   stale `tiles.dev` key; nothing reads it.
+- **Batch 13 (task 78): the ladder bot got a `buyTools` option** (used by the batch-13 run only). It buys the water and
+  harvest tool levels (and plant, with `planter`) as soon as each is unlocked and affordable, keeps the unbought farm
+  certificates' stone and coal when it sells a full storage, and hires only once a farm certificate is owned. Without
+  the first it could never certify a farm job. Without the second the ladder's sell-off could sell the 20 stone. Without
+  the third it would spend 💰150 + 255 + … on workers with no job, because hiring unlocks at 30 harvests, long before any
+  certificate.
+- **Batch 13 (task 78): certificates land later than the plan's ~16 / ~40 min; nothing retuned.** The bot buys water at
+  24.8 min and harvest at 66.5. The research figures assume 100 % uptime on a growing farm. The ladder bot never buys
+  tiles (9 tiles all run), spends idle energy mining, and its harvest Lv3 tool waits for 120 harvests (reached at
+  65.8 min). The task's pin holds: no wait between two milestones is over 60 game-minutes, and the longest is 15.3 min
+  (harvest certificate → plant certificate). So no batch-13 number moved.
+- **Batch 13 (task 78): the hand-picked gain is +💰2,820/h gross with basic tools, not ≈ +💰6,600.** The 6,600 figure
+  assumes 240 picks an hour at 💰110 × 0.25. With one waterer and no copper can, 24 lemon tiles need 24 waterings a
+  minute and get 12, so the farm yields ~116 lemons an hour. With the three copper tools the ladder owns by the time it
+  staffs, the farm yields ~222 an hour and the gain is **+💰5,421/h gross** (+💰5,680 net), close to the research figure.
+  Both are reported, and neither is a pin target in the brief. Untuned.
+- **Batch 13 (task 78): observation for Toon, not tuned (not a batch-13 number):** the 👷 hire button still unlocks at 30
+  harvests (`WORKER_HIRE_UNLOCK`, ~8 min in) while the first certificate now comes at ~25 min. A player can hire 💰150
+  workers who have no job for ~15 min. Moving the hire unlock to "owns a certificate" would close that gap.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2207,7 +2226,7 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
       "workers sell at ×1".
     - Remove the `?dev=iron` UI gate from batch 11 (vein Lv3 row and every iron element visible to everyone). Keep
       the `tiles.dev` reader if anything else uses it; otherwise delete it with its test.
-- [ ] 78. **Sim + balance (`tests/sim.test.ts` "batch 13").**
+- [x] 78. **Sim + balance (`tests/sim.test.ts` "batch 13").**
     - Ladder bot from tick 0: report the minute each certificate becomes buyable and the minute it is bought
       (expect water ~16 min, harvest ~40 min; research model, 100 % uptime). Pin: no unlock step > 60 game-minutes.
     - Income with the market on: 24-tile lemon fully staffed — idle (workers harvest) vs attentive (player picks
@@ -2216,3 +2235,72 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
     - Hierarchy pin with hand-picked on: max mining cash/energy < 0.9 × pumpkin farming cash/energy.
     - Every price ≤ storage held at that moment (existing pins pass unchanged).
     - Tune only batch-13 numbers; report each change as a deviation.
+
+## Batch 13 results
+
+### Tool-gated certificates + prices (task 76)
+
+- `CERTIFICATES` rows carry `tool` (water / harvest / plant: 3). `certificateUnlock` returns it, and `certificateUnlocked`
+  (the buy check, `LOCKED`) needs `run.tools[job] ≥ tool` as well as the counter (and vein) gate. Prices: water
+  `{ stone: 20, cash: 500 }`, harvest `{ stone: 20, coal: 5, cash: 750 }`, plant unchanged. `WORKER_HIRE_BASE` 150:
+  hires cost 150, 255, 433, 737, 1253, 2130.
+- 👷 Workers card: a locked farm row lists each missing gate on its own line, `waters 12/40` and/or `needs 💧 Water Cart
+  (tool Lv3)` (`needs 🌾 Reaper …`, `needs 🌱 Seed Spreader …`). The ⓘ tips name what the certificate is paid in and
+  which tool it needs.
+- Owned certificates are never re-checked. The v9, v10, v11 fixtures and a v12 round trip load with farm certificates
+  whose tool is below Lv3, and their workers keep acting and getting paid.
+- **Layout (computed from `app.css`, no browser):** `.worker-row` is a wrapping flex row; the label span is
+  `nowrap`, and its gate lines are 12 px `<small>` blocks. The longest, `needs 🌱 Seed Spreader (tool Lv3)` (≈ 33 chars),
+  is ≈ 200 px. The certificate button's price is a block `<small>`, so the button is two lines, ≈ 100 px wide (`⛰️20 ⚫5
+  💰750` at 12 px + 16 px padding), and the ⓘ is 28 px. The row needs ≈ 200 + 4 + 100 + 4 + 28 = 336 px. At **1024**
+  (284 px content) the button and ⓘ wrap to a second flex line. At **375** (343) and **1440** (358) the row is at the edge
+  and fits or wraps the same way. Everything is in normal flow, so nothing overlaps.
+
+### Hand-picked ×1.25 + iron open (task 77)
+
+- `HAND_PICKED_BONUS = 1.25` (`handPickedBonus()`). `harvest` passes it to `cropSale` when the action spends energy
+  (taps, tool presses), and a worker's harvest (energy 0) sells at ×1. Each unit is `Math.round(market price × 1.25)`,
+  and the glut still adds 1 a unit.
+- UI: tile-tap toast `+💰13 Carrot ✋ ×1.25`, Harvest press toast `… +💰540 ✋ ×1.25`. Every crop ⓘ ends "You harvest
+  it: ✋ ×1.25; workers sell at ×1.", and the Harvest worker ⓘ adds "Workers sell at ×1; …". The toasts already wrap
+  (`max-width: calc(100% − 32px)`), and the tips float (batch 8.1), so the longer texts move nothing.
+- The `?dev=iron` gate is removed: everyone sees the vein Lv3 upgrade, the iron-rock hint, the ⛏️ mine-worker row, the
+  iron stats and the mine worker in Copy report / feedback context. Those elements are the batch-11 layout, already
+  computed in "Batch 11 results".
+
+### Sim (task 78, `tests/sim.test.ts` "batch 13", measured, `rules.batch13` on)
+
+No `balance.ts` number changed in this task.
+- **Ladder bot from tick 0** (the batch-11 iron ladder + `buyTools`, 2 h). Minutes: buyable → bought.
+
+  | Certificate | buyable | bought |
+  |---|---|---|
+  | 💧 water | 23.3 | 24.8 |
+  | 🥉 ore loader | 38.0 | 52.5 |
+  | 🌱 plant | 59.8 | 81.8 |
+  | ⚫ fuel loader | 61.8 | 61.9 |
+  | 🌾 harvest | 65.8 | 66.5 |
+  | ⛏️ mine | 86.8 | 109.8 |
+
+  Tool Lv3: water 23.3 min, plant 59.8, harvest 65.8 (each certificate became buyable the tick its tool did, except
+  ore / fuel / mine). Hires: first 25.9 min, pool 3 at 31.0, 6 at 50.9. Final cash 💰10,651 (batch-12 ladder 💰11,508).
+  Never negative, never borrows.
+- **No stall:** 36 recorded milestones from firstHarvest (tick 100) to certMine (6588). Longest wait **920 ticks
+  (15.3 min), harvest certificate → plant certificate**, under the 60-minute pin.
+- **Storage:** water 20 items, harvest 25, plant 10, all ≤ 40 storage held when each became buyable. Every older
+  price-vs-storage pin passes unchanged.
+- **24-tile lemon, fully staffed (1 planter, 1 waterer, 1 harvester), market on, 2 h, per hour:**
+
+  | Farm | idle gross | attentive gross | gain gross | idle net | attentive net | gain net |
+  |---|---|---|---|---|---|---|
+  | basic tools | 12,346 | 15,166 | **+2,820** | 9,093 | 12,340 | +3,247 |
+  | three copper tools | 24,571 | 29,992 | **+5,421** | 20,580 | 26,260 | +5,680 |
+
+  Attentive = 4 energy/min of player harvests ahead of the harvester (227 / 390 picks in 2 h). The harvester then idles
+  unpaid, so net gains more than gross. Why the basic-tools gain is below ≈ 6,600: see Deviations.
+- **Hierarchy with hand-picked on:** iron pickaxe Lv10 on vein Lv3 **2.09** cash/energy < 0.9 × 24-tile pumpkin by hand
+  (**10.22**, was 7.87 at ×1 → cap 9.20).
+- **step(s, n) = n × step(s, 1)** over 600 ticks from the ladder end, with workers on, glut > 0 and hand-picked
+  sales just made.
+- **Older pins:** every batch 3–12 run replays under the batch-12 rules (test-only switch, see Deviations) with no
+  number edited.

@@ -32,6 +32,7 @@ import {
   smeltOre,
   storageCost,
   storageSlotsPerLevel,
+  toolMaxLevel,
   toolTierCost,
   veinUpgradeCost,
   type Price,
@@ -45,7 +46,7 @@ import { createFurnace, createInitialState, createTile, type GameState, type Met
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
-import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../src/core/workers'
+import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWorker } from '../src/core/workers'
 
 // Batch 12: the crop market is on in every run; `withoutMarket` switches it off (factor 1) only for the "before" runs.
 const market = vi.hoisted(() => ({ on: true }))
@@ -300,6 +301,7 @@ function runBot(
     furnace = false,
     planter = false,
     iron = false,
+    buyTools = false,
     onEnd,
   }: {
     ticks?: number
@@ -326,6 +328,12 @@ function runBot(
      * once the slot and tray are empty; the mine worker, once certified, gets one worker like a loader
      */
     iron?: boolean
+    /**
+     * batch 13 (with workers): buys the water and harvest tool levels (and plant with `planter`) as soon as each is
+     * unlocked and affordable, since a farm certificate needs its job's Lv3 tool; keeps the unbought farm
+     * certificates' stone and coal when storage is full; hires only once a farm certificate is owned
+     */
+    buyTools?: boolean
     /** receives the state at the cut-off */
     onEnd?: (s: GameState) => void
   } = {},
@@ -333,6 +341,9 @@ function runBot(
   const goals = iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironPicked' | 'firstIronBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
+  // batch 13: the first tick each certificate could be bought (its gates met) and the storage held then
+  const certUnlocked: Partial<Record<WorkerJob, { tick: number; bagCapacity: number }>> = {}
+  const toolJobs: ToolJob[] = buyTools ? ['water', 'harvest', ...(planter ? (['plant'] as const) : [])] : []
   let s = createInitialState()
   const m: Milestones = {}
   let minCash = s.run.cash
@@ -393,7 +404,11 @@ function runBot(
         } else if (assigned.fuel === 0) tryAct(fuelForOre(s), null)
       }
       if (bagCount(s.run) >= s.run.bagCapacity) {
-        const keep = next?.keep(s) ?? { cash: 0 }
+        const keep: Price = { ...(next?.keep(s) ?? { cash: 0 }) }
+        for (const job of buyTools ? FARM_JOBS : [])
+          if (!s.run.workers.certificates.includes(job))
+            for (const [id, n] of Object.entries(certificateCost(job, s.meta)) as [keyof Price, number][])
+              if (id !== 'cash') keep[id] = Math.max(keep[id] ?? 0, n)
         for (const id of ['stone', 'coal', 'copperOre', 'ironOre'] as const) {
           const extra = (s.run.inventory[id] ?? 0) - (keep[id] ?? 0)
           if (extra > 0) tryAct(sellItem(s, id, extra), mine)
@@ -433,7 +448,8 @@ function runBot(
         workerTicks.firstCertificate ??= tick
         workerTicks[`${job}Certificate`] = tick
       }
-    while (tryAct(hireWorker(s), null)) {
+    const certified = !buyTools || FARM_JOBS.some((job) => s.run.workers.certificates.includes(job))
+    while (certified && tryAct(hireWorker(s), null)) {
       workerTicks.firstHire ??= tick
       if (s.run.workers.pool >= 3) workerTicks.pool3 ??= tick
     }
@@ -470,6 +486,9 @@ function runBot(
     milestones()
     const want = nextLicense()
     if (want && tryAct(buyLicense(s, want), null)) licenseBought[want] ??= tick
+    for (const job of toolJobs) while (s.run.tools[job] < toolMaxLevel(job) && tryAct(buyTool(s, job), null));
+    if (buyTools)
+      for (const job of WORKER_JOBS) if (certificateUnlocked(s.run, job)) certUnlocked[job] ??= { tick, bagCapacity: s.run.bagCapacity }
     if (workers) staff(tick)
     while (s.run.energy >= ACTION_ENERGY_COST) {
       const next = bestFarmAction(s, crops)
@@ -510,6 +529,7 @@ function runBot(
   return {
     borrowed,
     workerTicks,
+    certUnlocked,
     wagesPaid: s.run.lifetime.wagesPaid,
     milestones: { ...m, pumpkinLicenseAffordable: licenseAffordable.pumpkin, pumpkinLicenseBought: licenseBought.pumpkin },
     licenseAffordable,
@@ -1959,5 +1979,175 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     let one = start
     for (let i = 0; i < 600; i++) one = step(one, 1)
     expect(step(start, 600)).toEqual(one)
+  })
+})
+
+function withBatch13<T>(run: () => T): T {
+  rules.batch13 = true
+  try {
+    return run()
+  } finally {
+    rules.batch13 = false
+  }
+}
+
+/** the player's harvest pace on a staffed farm in the research model (docs/research/pacing-liveops.md A4) */
+const ATTENTIVE_ENERGY_PER_MIN = 4
+
+/**
+ * 24 lemon tiles fully staffed (one planter, waterer and harvester), 💰1000 so seeds never block, for `ticks`. Idle =
+ * the player does nothing; attentive = before each tick the player harvests ripe tiles (the same 1-energy harvest a
+ * tool press does per tile), at most ATTENTIVE_ENERGY_PER_MIN a minute, before the harvester gets to them. Gross = crop
+ * sales; net = cash change plus standing crops at sell price × growth (runCropBot's accounting), both per hour.
+ */
+function staffedLemon(attentive: boolean, toolTier = createInitialState().run.toolTier, ticks = MARKET_TICKS) {
+  const init = createInitialState()
+  const tiles = [...init.run.tiles, ...Array.from({ length: TILE_CAP - init.run.tiles.length }, createTile)]
+  const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0 }
+  const workers = { pool: 3, assigned, certificates: [...WORKER_JOBS] }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: ['radish', 'lemon'], plantCrop: 'lemon', toolTier, workers, tiles } }
+  let budget = 0
+  let picked = 0
+  let lowest = s.run.cash
+  for (let t = 0; t < ticks; t++) {
+    if (attentive) {
+      budget = Math.min(budget + ATTENTIVE_ENERGY_PER_MIN / 60, ATTENTIVE_ENERGY_PER_MIN)
+      for (let i = 0; i < s.run.tiles.length && budget >= 1; i++) {
+        const r = harvest(s, i)
+        if (!r.ok) continue
+        s = r.state
+        budget -= 1
+        picked++
+      }
+    }
+    s = step(s, 1)
+    lowest = Math.min(lowest, s.run.cash)
+  }
+  const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
+  const hours = ticks / HOUR_TICKS
+  return {
+    grossPerHour: Math.round(s.run.lifetime.cashEarned / hours),
+    netPerHour: Math.round((s.run.cash - 1000 + field) / hours),
+    picked,
+    harvests: s.run.counters.harvests,
+    wages: s.run.lifetime.wagesPaid,
+    lowest,
+  }
+}
+
+describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rules.batch13 on)', () => {
+  const r = withBatch13(() => {
+    let end = createInitialState()
+    const ladder = runBot(true, {
+      ticks: IRON_TICKS,
+      licenses: LICENSE_ORDER,
+      crops: PLANT_ORDER,
+      ladder: true,
+      copperTools: true,
+      workers: true,
+      furnace: true,
+      planter: true,
+      iron: true,
+      buyTools: true,
+      onEnd: (s) => (end = s),
+    })
+    const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
+    const certificates = Object.fromEntries(
+      WORKER_JOBS.map((job) => [
+        job,
+        {
+          unlocked: minute(ladder.certUnlocked[job]?.tick),
+          bought: minute(job === 'water' || job === 'harvest' ? ladder.workerTicks[`${job}Certificate`] : ladder.ladderTicks[`${job}Certificate`]),
+        },
+      ]),
+    )
+    // farm certificate items vs the storage held the tick each became buyable
+    const fits = (['water', 'harvest', 'plant'] as const).map((job) => {
+      const { cash, ...items } = certificateCost(job, end.meta)
+      void cash
+      return { job, items: Object.values(items).reduce((a, b) => a + (b ?? 0), 0), bagCapacity: ladder.certUnlocked[job]?.bagCapacity }
+    })
+    const reached = Object.entries(end.run.milestones).sort((a, b) => a[1]! - b[1]!)
+    const gaps = reached.map(([id, tick], i) => ({ id, gap: tick! - (i ? reached[i - 1][1]! : 0) }))
+    const longest = gaps.reduce((a, b) => (b.gap > a.gap ? b : a))
+    const idle = staffedLemon(false)
+    const attentive = staffedLemon(true)
+    // the same farm with the three copper tools the ladder owns by the time it staffs (a copper can halves the waterings)
+    const copper = { idle: staffedLemon(false, ALL_COPPER), attentive: staffedLemon(true, ALL_COPPER) }
+    const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+    const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
+    return { ladder, end, certificates, fits, reached, longest, idle, attentive, copper, pumpkin24, ironLv10 }
+  })
+  const { ladder, end, certificates, fits, reached, longest, idle, attentive, copper, pumpkin24, ironLv10 } = r
+  const gain = (a: typeof idle, b: typeof idle) => ({ gross: b.grossPerHour - a.grossPerHour, net: b.netPerHour - a.netPerHour })
+  const handPickedGain = gain(idle, attentive)
+  const copperGain = gain(copper.idle, copper.attentive)
+  console.log(
+    'batch 13',
+    JSON.stringify(
+      { certificates, workerTicks: ladder.workerTicks, ladderTicks: ladder.ladderTicks, finalCash: ladder.finalCash, fits, reached, longest, idle, attentive, handPickedGain, copper, copperGain, pumpkin24, ironLv10, lowest: ladder.lowest, borrowed: ladder.borrowed },
+      null,
+      1,
+    ),
+  )
+
+  it('the ladder buys the water and harvest certificates once each tool is at Lv3, water first (pinned minutes)', () => {
+    expect(certificates.water.unlocked).not.toBeNull()
+    expect(certificates.harvest.unlocked).not.toBeNull()
+    expect(certificates.water.bought!).toBeGreaterThanOrEqual(certificates.water.unlocked!)
+    expect(certificates.harvest.bought!).toBeGreaterThanOrEqual(certificates.harvest.unlocked!)
+    expect(certificates.water.bought!).toBeLessThan(certificates.harvest.bought!)
+    expect(end.run.tools).toEqual({ water: 3, harvest: 3, plant: 3 })
+    expect(certificates).toEqual({
+      plant: { unlocked: 59.8, bought: 81.8 },
+      water: { unlocked: 23.3, bought: 24.8 },
+      harvest: { unlocked: 65.8, bought: 66.5 },
+      ore: { unlocked: 38, bought: 52.5 },
+      fuel: { unlocked: 61.8, bought: 61.9 },
+      mine: { unlocked: 86.8, bought: 109.8 },
+    })
+    expect([ladder.finalCash, longest]).toEqual([10651, { id: 'certPlant', gap: 920 }])
+  })
+
+  it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {
+    expect(longest.gap).toBeLessThanOrEqual(HOUR_TICKS)
+  })
+
+  it('every farm certificate fits the storage the player holds when it becomes buyable', () => {
+    for (const f of fits) expect(f.items).toBeLessThanOrEqual(f.bagCapacity!)
+  })
+
+  it('nothing goes negative and it never borrows', () => {
+    expect(ladder.lowest).toBeGreaterThanOrEqual(0)
+    expect(ladder.borrowed).toBe(false)
+  })
+
+  it('24 lemon tiles fully staffed: the attentive player (✋ ×1.25) out-earns idle workers, gross and net', () => {
+    expect(attentive.picked).toBeGreaterThan(0)
+    expect(handPickedGain.gross).toBeGreaterThan(0)
+    expect(handPickedGain.net).toBeGreaterThan(0)
+    expect([idle.lowest, attentive.lowest, copper.idle.lowest, copper.attentive.lowest].every((c) => c >= 0)).toBe(true)
+    expect(copperGain.gross).toBeGreaterThan(handPickedGain.gross)
+    expect({ handPickedGain, copperGain }).toEqual({ handPickedGain: { gross: 2820, net: 3247 }, copperGain: { gross: 5421, net: 5680 } })
+  })
+
+  it('mining stays below farming with hand-picked on: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin by hand', () => {
+    expect(ironLv10).toBeLessThan(0.9 * pumpkin24)
+  })
+
+  it('step(s, n) = n × step(s, 1) with workers, the market and hand-picked sales on', () => {
+    withBatch13(() => {
+      // a few hand-picked sales on top of the ladder end, so the glut holds player sales too
+      let start = end
+      for (let i = 0; i < start.run.tiles.length; i++) {
+        const h = harvest(start, i)
+        if (h.ok) start = h.state
+      }
+      expect(Object.values(start.run.market).some((g) => g > 0)).toBe(true)
+      expect(Object.values(start.run.workers.assigned).some((n) => n > 0)).toBe(true)
+      let one = start
+      for (let i = 0; i < 600; i++) one = step(one, 1)
+      expect(step(start, 600)).toEqual(one)
+    })
   })
 })
