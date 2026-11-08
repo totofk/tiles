@@ -8,8 +8,9 @@ import {
   workerActionTicks,
   type DeedRowId,
 } from '../core/balance'
-import { buyMetaUpgrade } from '../core/prestige'
+import { buyMetaUpgrade, deedsClaimable, saleDeeds, starDeeds } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
+import { useTwoPress } from './DangerZone'
 import { Item } from './Info'
 import type { Act } from './useGame'
 
@@ -85,6 +86,45 @@ export function Legacy({ state, act }: { state: GameState; act: Act }) {
           )
         })}
       </div>
+    </section>
+  )
+}
+
+/**
+ * The sale card (shown once the gate is open — the Fields card carries the coverage gates before that): exactly what
+ * resets and what carries, the deeds to be gained, then the two-press "Sell the farm". Disabled with no gain.
+ */
+export function SellCard({ state, sell }: { state: GameState; sell: () => void }) {
+  const [armed, press] = useTwoPress(sell)
+  const { run, meta } = state
+  const fromCash = deedsClaimable(state)
+  const fromStars = starDeeds(state)
+  const gain = saleDeeds(state)
+  return (
+    <section className="shop">
+      <h2>🏆 Sell the farm</h2>
+      <p className="deeds">
+        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{fromCash} + {fromStars} from ⭐)
+      </p>
+      <h3>Resets</h3>
+      <ul className="sell-list">
+        <li>Tiles, cash, market, storage, tools</li>
+        <li>Mine, furnace, workshop, fields, machines</li>
+        <li>
+          Licenses{meta.upgrades.keepLicenses > 0 ? ' — kept (Seed vault)' : ''}, workers and certificates
+          {meta.upgrades.keepFirstCertificates > 0 ? ' — the 3 farm ones kept' : ''}
+        </li>
+        <li>⭐ balance (it converts above) and this run's timeline</li>
+      </ul>
+      <h3>Carries</h3>
+      <ul className="sell-list">
+        <li>🏆 deeds and every Legacy row bought</li>
+        <li>The ⭐-bought order slots ({run.orders.slots})</li>
+        <li>Lifetime totals — the deed meter keeps counting</li>
+      </ul>
+      <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
+        {gain < 1 ? 'No deeds to gain — play on' : armed ? 'Press again to sell the farm' : 'Sell the farm'}
+      </button>
     </section>
   )
 }

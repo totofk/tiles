@@ -18,6 +18,7 @@ export type PanelProps = {
   onSelectCrop: (id: CropId) => void
   farmTab: boolean
   reset: () => void
+  sell: () => void
 } & Omit<FeedbackProps, 'state'> &
   SaveTransferProps
 

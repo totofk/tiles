@@ -3,7 +3,7 @@ import { act as reactAct, cleanup, fireEvent, render, screen } from '@testing-li
 import { afterEach, describe, expect, it } from 'vitest'
 import { deedCost, startTiles } from '../src/core/balance'
 import { buyMetaUpgrade } from '../src/core/prestige'
-import { Legacy } from '../src/app/Legacy'
+import { Legacy, SellCard } from '../src/app/Legacy'
 import { createInitialState, type GameState } from '../src/core/state'
 import type { Act } from '../src/app/useGame'
 
@@ -16,6 +16,22 @@ const act = (): Act => (fn) => {
   if (r.ok) current = r.state
 }
 let current: GameState | null = null
+
+/** a run at the sale gate (prestige.test.ts has the same shape; repeated here to keep the files independent) */
+const atGate = (): GameState => {
+  const s = createInitialState()
+  return {
+    ...s,
+    run: {
+      ...s.run,
+      lifetime: { ...s.run.lifetime, cashEarned: 640_000 },
+      workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
+      workshop: { built: true, hoppers: [5], valve: false },
+      stars: 37,
+      orders: { unlocked: true, slots: 4, offers: [] },
+    },
+  }
+}
 
 describe('🏆 Legacy deed shop', () => {
   it('spends deeds on levels: the button buys through act, the price curve doubles, MAX_LEVEL and NO_DEEDS disable', () => {
@@ -59,5 +75,36 @@ describe('🏆 Legacy deed shop', () => {
     expect(current!.meta.upgrades.startTiles).toBe(3)
     expect(startTiles(current!.meta)).toBe(15)
     expect(screen.getByRole('button', { name: /Bigger start/ }).textContent).toMatch(/Start 15 tiles · kept/)
+  })
+})
+
+describe('🏆 Sell the farm card', () => {
+  it('previews exactly what resets and what carries, the deeds gained, and sells on the second press', () => {
+    const sold: GameState[] = []
+    const s = atGate()
+    render(<SellCard state={s} sell={() => sold.push(s)} />)
+    expect(screen.getByText('Sell now: +9 deeds (💰8 + 1 from ⭐)')).toBeTruthy()
+    expect([...screen.getAllByRole('list')].map((l) => l.textContent)).toEqual([
+      'Tiles, cash, market, storage, tools' +
+        'Mine, furnace, workshop, fields, machines' +
+        'Licenses, workers and certificates' +
+        "⭐ balance (it converts above) and this run's timeline",
+      '🏆 deeds and every Legacy row bought' + 'The ⭐-bought order slots (4)' + 'Lifetime totals — the deed meter keeps counting',
+    ])
+    // two presses: the first arms, the second sells exactly once
+    reactAct(() => fireEvent.click(screen.getByRole('button', { name: 'Sell the farm' })))
+    expect(sold).toHaveLength(0)
+    expect(screen.getByRole('button', { name: 'Press again to sell the farm' })).toBeTruthy()
+    reactAct(() => fireEvent.click(screen.getByRole('button', { name: 'Press again to sell the farm' })))
+    expect(sold).toHaveLength(1)
+  })
+
+  it('is disabled with no gain (gate open, deeds already claimed, ⭐ under 25)', () => {
+    const claimed = { ...atGate(), meta: { ...atGate().meta, deedsClaimed: 8 } }
+    const sold: GameState[] = []
+    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 3 } }} sell={() => sold.push(claimed)} />)
+    expect(screen.getByText('Sell now: +0 deeds (💰0 + 0 from ⭐)')).toBeTruthy()
+    const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
+    expect(button.disabled).toBe(true)
   })
 })

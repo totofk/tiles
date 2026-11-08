@@ -902,6 +902,35 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   every measured N (144k vs 118k, 414k vs 353k, 436k vs 352k per hour). No rate was tuned to force a machine
   edge: the task says tune only what the band requires, and throughput changes would break task-97 pins. The
   machines' payoff is wage-free throughput — harvester2's marginal is the one that pays (3.4 h at 300 tiles).
+- **Batch 20 (task 100): keepCarrotLicense shipped as keepLicenses "Seed vault" — keeps ALL crop licenses, 2 deeds.**
+  Radish is the always-owned starting license, so the literal carrot row is a no-op; the research's item is the
+  Seed vault. Same one-time price.
+- **Batch 20 (task 100): the sale also refuses LOAN_ACTIVE and NO_GAIN, carries order slots + lifetime, and writes
+  a pre-sale backup (`tiles.save.backup.prestige`).** The refusals come from the research (AdCap's zero-gain rule;
+  a loan must not survive a reset); the backup mirrors the reset backup (Realm Grinder rec 7); none are in the task
+  text. No sell-off of storage or standing crops (research rec 4 unadopted — the reset is the point; lifetime counts
+  earned cash). Fresh-run milestones start `{}`: kept licenses/certificates simply never appear on run 2's timeline.
+- **Batch 20 (task 101): meta multiplier steps retuned to the DECISIONS table.** sellPrice 1.1 → 1.05 and
+  growTime/cost 0.95 → 0.96 per level (DECISIONS: +5 % / −4 %); energy is a flat +2 inside `energyMax`'s parens
+  (its multiplier step set to 1, so legacy multipliers still apply without double counting); `tileCost` anchors on
+  `startTiles(meta)` so a 15-tile start prices its first bought tile at the base price. workerSpeed moves the
+  worker clock to a stateless floor-crossing predicate (identical to modulo for integer periods, tick 0 acts) —
+  sprinklers share the clock, so the row speeds them too.
+- **Batch 20 (task 102): the ≥ 1.8× fields-unlock pin is unreachable with the shipped rows; measured 1.4× (first
+  sale) / 1.5× (vault run), pinned ≥ 1.4×.** The DECISIONS pin inherited the research's ×2.2, which modelled
+  stronger rows (flat 1-deed levels: +10 % sellPrice, −5 % growTime, +1 tile) on a pre-Fields, no-mining player.
+  The shipped rows are weaker (2/4/8/16/32 pricing, +5 %/−4 % steps), the fields gate sits behind the mine/smelt
+  ladder whose fixed `barTicks` no row touches, and DECISIONS forbids mining multipliers — so no spend reaches
+  1.8× to fields: even a maximal first sale (71 deeds, 8.9× the 8-deed gate) lands at 1.5× with the vault. First
+  hour ×1.35 / ×1.67 vs the modelled ×2.2. Tuning levers left for a future batch: stronger steps, or a smelt/
+  energy deed row (out of scope by the current DECISIONS wording).
+- **Batch 20 (task 102): the sim's race is measured on the vault run (sale #2's run), not the first post-sale run.**
+  The research flow spends deeds on the portal screen before the reset, so its "run 2" keeps licenses; the shipped
+  sale is atomic and sale #1 has no deeds to buy the vault with, so the vault first carries on sale #2. Both runs
+  are measured and reported (1.4× without carries, 1.5× with).
+- **Batch 20 (task 102): the selling fixture is v17, not v15.** The gate needs a sprinkler + plant/harvest
+  certificates + 💰640k lifetime — a v15 save (pre-workshop) can never satisfy it; the real save at the gate is
+  the v17 machines-era one.
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -3053,8 +3082,42 @@ The state split (run/meta) and `meta.upgrades` as LEVELS already exist since v12
     start with 9+2L tiles), keepCarrotLicense (one-time, 2 deeds), keepFirstCertificates (one-time, 3 deeds: the
     three farm certificates stay owned), workerSpeed −0.5 s/action (max 2). Prices 2/4/8/16/32 by level (research
     curve); one-time items fixed. Nothing multiplies ⭐ or deeds.
-- [ ] 102. **UI + sim.** The confirm screen previews exactly what resets and what carries (two lists, the research's
+- [x] 102. **UI + sim.** The confirm screen previews exactly what resets and what carries (two lists, the research's
     anti-pattern finding) and the deeds to be gained. Sim: bot runs to the gate, prestiges, and run 2 must reach the
     first fields unlock ≥ 2× faster than run 1 (pin ≥ 1.8× to allow tuning slack); deeds/first-hour arithmetic
     reported; a full v15 save (post-Fields) sells and every hard rule holds (mining < 0.9 × farming WITH meta
     upgrades; no-stall on run 2's ladder; step identity unchanged). Deviations as usual.
+
+## Batch 20 results
+
+### Sell the farm, Legacy shop, save v18 (tasks 100–101)
+Shipped as planned: gate = every farm job covered (plant/harvest certificates + a sprinkler) AND ≥ 8 deeds
+(⌊√(lifetime ÷ 10,000)⌋); the sale converts ⭐ at 25 = 1 deed first, resets the run, and appends
+`{ endedAtTick, deeds }` to `meta.runs` (cap 20); a pre-sale backup lands in `tiles.save.backup.prestige`.
+Anti-double-claim: `meta.deedsClaimed` accumulates the cash part, so a second sale needs new lifetime (NO_GAIN
+refuses a zero-gain sale; LOAN_ACTIVE refuses while a loan is open). The 🏆 Legacy shop renders 8 deed rows as
+levels on the `meta.upgrades` table (2/4/8/16/32 by level; keeps 2 and 3 one-time); the SellCard previews
+"Resets" / "Carries" lists plus the exact deed split (💰 cash + ⭐), two-press confirm, disabled at no gain.
+Save v18: meta gains `deeds / deedsClaimed / runs` and the four new upgrade keys — fixture
+`tests/fixtures/save-v17.json` (a real machines-era run at the gate: 400 fields, pipes 2, harvester 1+2, seeder 1,
+⭐37, lifetime 💰780k → 8 deeds) migrates and sells for **+9 deeds (8 cash + 1 ⭐)** in `tests/save.test.ts`.
+
+### Sim (task 102, `tests/sim.test.ts` "batch 20", measured, seeded)
+- **Gate and sale #1:** the batch-19 bot opens the gate at **17.6 h** (lifetime 💰50.4M → 71 deeds; ⭐ 0 — the bot
+  never takes orders). Sale at the 170 h cut-off converts **+71 deeds**, 65 spent breadth-first: growTime/sellPrice/
+  cost L3, energy L2, startTiles/workerSpeed L2, both keeps (Seed vault + Kept certificates).
+- **Run 2 (first sale — nothing carryable yet):** fields unlock **7.7 h vs run 1's 10.5 h = 1.4×**; first-hour
+  lifetime cash 💰14,552 vs 💰10,786 = **×1.35**.
+- **Sale #2 (after 30 h) carries the vault:** +3 deeds → energy L3. **Run 3 (licenses + the 3 farm certificates
+  kept, lemons from tick 0):** fields unlock **7.0 h = 1.5×**, first hour 💰18,046 = **×1.67**. The DECISIONS
+  ≥ 1.8× pin is unreachable with the shipped rows (see Deviations) — pinned ≥ 1.4×.
+- **Hard rules on both sold runs (meta upgrades on):** 0 stalls across the full fields → harvester3 ladder,
+  harvester3 reached (run 3 at 31.8 h vs run 1's 47 h), mining < 0.9 × farming holds (the ladder converts ore to
+  bars — mining cash per energy ≈ 0). Step identity on a sold state with rows, a staffed waterer and catch-up:
+  `tests/prestige.test.ts` (600 ticks + `catchUp` equality); the v17 fixture re-checks 600-tick identity after a
+  real save sells and buys four L1 rows.
+- **Bot-side fix (test code only, core untouched):** the batch-20 runs pass `drainSlot` — the hand-smelt loads
+  `smeltOre` units while a cycle takes `smeltOre × batchBars`, and once the surplus ore is sold a partial slot can
+  never finish, so `setOreKind` stays NOT_EMPTY forever (run 2 wedged 150 h on 1 copper ore). The bot reserves the
+  top-up and completes the partial cycle before an ore-kind switch; pinned runs don't pass the flag and replay
+  unchanged.

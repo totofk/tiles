@@ -1120,6 +1120,17 @@ details > summary:focus-visible {
   font-size: 13px;
   line-height: 1.4;
 }
+/* 🏆 Sell the farm: the two preview lists (Resets / Carries) between the gain line and the button */
+.shop > h3 {
+  margin: 10px 0 2px;
+  font-size: 13px;
+}
+.sell-list {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.4;
+}
 .report {
   margin-top: 8px;
 }
