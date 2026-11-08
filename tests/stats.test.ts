@@ -204,7 +204,7 @@ describe('timelineLines / reportLines', () => {
       `Tiles: ${s.run.tiles.length}`,
       'Workers: 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0, clerk 0)',
       'Vein: Lv0',
-      'Market: carrot 100 %, chilli 100 %, pumpkin 100 %, lemon 100 %',
+      'Market: carrot 100 %, chilli 100 %, pumpkin 100 %, lemon 100 %, tomato 100 %, corn 100 %, grape 100 %, strawberry 100 %',
       'Timeline:',
       'First harvest — 1m',
     ])

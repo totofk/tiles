@@ -377,7 +377,7 @@ describe('fields: fresh run', () => {
     expect(init.run.fields).toEqual({
       unlocked: false,
       count: 0,
-      planted: { radish: 0, chilli: 0, pumpkin: 0, lemon: 0 },
+      planted: { radish: 0, chilli: 0, pumpkin: 0, lemon: 0, tomato: 0, corn: 0, grape: 0, strawberry: 0 },
       cohorts: [],
       pipes: 0,
       plantCrop: null,

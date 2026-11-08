@@ -2261,7 +2261,9 @@ describe('batch 11: mining stays below the farm cap with the iron tier', () => {
 
 /** batch 12 farm runs: 2 h, so the glut (30 min half-life) is near its steady state for most of the run */
 const MARKET_TICKS = 2 * HOUR_TICKS
-const FARM_PAIRS: [CropId, CropId][] = CROP_IDS.flatMap((a, i) => CROP_IDS.slice(i + 1).map((b): [CropId, CropId] => [a, b]))
+// frozen at the four crops the batch-12 pin was measured with; batch 22's own sim measures the 8-crop mixes
+const FARM_PAIR_CROPS = ['radish', 'chilli', 'pumpkin', 'lemon'] as const satisfies readonly CropId[]
+const FARM_PAIRS: [CropId, CropId][] = FARM_PAIR_CROPS.flatMap((a, i) => FARM_PAIR_CROPS.slice(i + 1).map((b): [CropId, CropId] => [a, b]))
 
 /**
  * 24 tiles, the first `first` planted with pair[0] and the rest with pair[1], farmed by hand with bestFarmAction's
@@ -2328,7 +2330,7 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   // the best 2-crop split (steps of 4 tiles) with the market on, then the same split and the best one-crop farm off
   const splits = FARM_PAIRS.flatMap((pair) => [4, 8, 12, 16, 20].map((first) => ({ pair, first, perHour: splitFarm(pair, first) })))
   const best = splits.reduce((a, b) => (b.perHour > a.perHour ? b : a))
-  const single = CROP_IDS.map((c) => ({ crop: c, perHour: splitFarm([c, c], TILE_CAP) })).reduce((a, b) => (b.perHour > a.perHour ? b : a))
+  const single = FARM_PAIR_CROPS.map((c) => ({ crop: c, perHour: splitFarm([c, c], TILE_CAP) })).reduce((a, b) => (b.perHour > a.perHour ? b : a))
   const bestSplit = {
     ...best,
     before: withoutMarket(() => splitFarm(best.pair, best.first)),

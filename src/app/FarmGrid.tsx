@@ -9,7 +9,16 @@ import { workerTargets, type TileJob, type WorkerTarget } from '../core/workers'
 import { Bar } from './Bar'
 import { WORKER_JOB_EMOJI } from './Workers'
 
-export const CROP_EMOJI: Record<CropId, string> = { radish: '🥕', chilli: '🌶️', pumpkin: '🎃', lemon: '🍋' }
+export const CROP_EMOJI: Record<CropId, string> = {
+  radish: '🥕',
+  chilli: '🌶️',
+  pumpkin: '🎃',
+  lemon: '🍋',
+  tomato: '🍅',
+  corn: '🌽',
+  grape: '🍇',
+  strawberry: '🍓',
+}
 /** empty tiles; Unicode ≤ 11 like ITEMS.*.emoji (the old 🟫 🟤 are Unicode 12 and show as a box on older fonts) */
 const SOIL_EMOJI = { untilled: '🌿', tilled: '🕳️' }
 // display only: the rot countdown turns red in the last quarter of the grace window

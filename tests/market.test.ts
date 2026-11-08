@@ -83,7 +83,7 @@ describe('decay', () => {
 
   it('decays every crop\'s glut each tick, never another field', () => {
     const s = glutted(0)
-    const some: GameState = { ...s, run: { ...s.run, market: { radish: 100, chilli: 50, pumpkin: 10, lemon: 1 } } }
+    const some: GameState = { ...s, run: { ...s.run, market: { ...s.run.market, radish: 100, chilli: 50, pumpkin: 10, lemon: 1 } } }
     const after = step(some, 1).run.market
     for (const crop of CROP_IDS) expect(after[crop]).toBeCloseTo(some.run.market[crop] * MARKET_DECAY, 12)
   })

@@ -23,6 +23,11 @@ const CROP_BASE: Record<CropId, { growTicks: number; seedCost: number; sellPrice
   // license 100 (was 150): affordable after the 2nd radish cycle, so pumpkins planted at ~300 mature by 600
   pumpkin: { growTicks: 240, seedCost: 10, sellPrice: 60, licenseCost: 100 },
   lemon: { growTicks: 360, seedCost: 20, sellPrice: 110, licenseCost: 400 },
+  // batch 22: the ladder keeps its compression — sell ×~1.8, seed ×~1.9, floor margin ≥ 2.2×, income/tick rising
+  tomato: { growTicks: 480, seedCost: 40, sellPrice: 200, licenseCost: 800 },
+  corn: { growTicks: 620, seedCost: 75, sellPrice: 360, licenseCost: 1_600 },
+  grape: { growTicks: 780, seedCost: 140, sellPrice: 640, licenseCost: 3_200 },
+  strawberry: { growTicks: 960, seedCost: 260, sellPrice: 1_150, licenseCost: 6_400 },
 }
 const ROT_GRACE_FACTOR = 2
 

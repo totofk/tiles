@@ -11,6 +11,10 @@ export const CROP_TIPS: Record<CropId, string> = {
   chilli: 'Grows slower than carrot but earns more per energy. The license is paid once; each seed costs a little.',
   pumpkin: 'A long grow for a big sale, more cash per energy than chilli. Seeds cost more, so keep cash for replanting.',
   lemon: 'The slowest crop and the best cash per energy. Seeds are expensive, and waiting, not energy, becomes the limit.',
+  tomato: 'The first of the second ladder: slower than lemon again, with more cash per harvest. Its market is its own, so it dilutes a glut.',
+  corn: 'A long grow with a big sale. Beyond lemon the seeds get dear — keep cash for replanting before buying anything else.',
+  grape: 'Slow and rich. Each seed costs a lot, so plant it on land you will not need to re-plan quickly.',
+  strawberry: 'The slowest, richest crop. Waiting, not energy or water, is the limit; its deep market absorbs a whole farm alone.',
 }
 
 /** index 0 = level 1 */

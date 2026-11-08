@@ -33,6 +33,10 @@ describe('Shop seeds', () => {
       '🔒 Chillilicense 💰50',
       `🎃 Pumpkinseed 💰10${priceTag(get(), 'pumpkin')}`,
       '🔒 Lemonlicense 💰400',
+      '🔒 Tomatolicense 💰800',
+      '🔒 Cornlicense 💰1600',
+      '🔒 Grapelicense 💰3200',
+      '🔒 Strawberrylicense 💰6400',
     ])
     expect(btn(/Chilli/).disabled).toBe(false)
     expect(btn(/Lemon/).disabled).toBe(true)

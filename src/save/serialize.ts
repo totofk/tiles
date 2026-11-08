@@ -20,7 +20,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 18
+export const SAVE_VERSION = 19
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -117,8 +117,15 @@ type SaveV15 = { version: 15; savedAtMs: number; state: { meta: MetaV12; run: Ru
 type RunV16 = Omit<GameState['run'], 'fields'> & { fields: Omit<GameState['run']['fields'], 'machines'> }
 type SaveV16 = { version: 16; savedAtMs: number; state: { meta: MetaV12; run: RunV16 } }
 type SaveV17 = { version: 17; savedAtMs: number; state: { meta: MetaV12; run: GameState['run'] } }
-type SaveV18 = { version: 18; savedAtMs: number; state: GameState }
-export type Save = SaveV18
+/** v18's four crops; a v19 run's market / planted tables hold all eight keys */
+type V18CropId = 'radish' | 'chilli' | 'pumpkin' | 'lemon'
+type RunV18 = Omit<GameState['run'], 'market' | 'fields'> & {
+  market: Record<V18CropId, number>
+  fields: Omit<GameState['run']['fields'], 'planted'> & { planted: Record<V18CropId, number> }
+}
+type SaveV18 = { version: 18; savedAtMs: number; state: { meta: GameState['meta']; run: RunV18 } }
+type SaveV19 = { version: 19; savedAtMs: number; state: GameState }
+export type Save = SaveV19
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -398,20 +405,33 @@ function migrateV17(save: SaveV17): SaveV18 {
   }
 }
 
+// v18 → v19: tomato / corn / grape / strawberry join the crop table. Their glut and planted counts start at 0 and
+// their licenses stay absent (a license is bought, never granted) — no earned value changes.
+function migrateV18(save: SaveV18): SaveV19 {
+  const { meta, run } = save.state
+  const zeros = { tomato: 0, corn: 0, grape: 0, strawberry: 0 }
+  return {
+    version: 19,
+    savedAtMs: save.savedAtMs,
+    state: { meta, run: { ...run, market: { ...run.market, ...zeros }, fields: { ...run.fields, planted: { ...run.fields.planted, ...zeros } } } },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 18) return data as SaveV18
-  if (data.version === 17) return migrateV17(data as SaveV17)
-  if (data.version === 16) return migrateV17(migrateV16(data as SaveV16))
-  if (data.version === 15) return migrateV17(migrateV16(migrateV15(data as SaveV15)))
-  if (data.version === 14) return migrateV17(migrateV16(migrateV15(migrateV14(data as SaveV14))))
-  if (data.version === 13) return migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13)))))
+  if (data.version === 19) return data as SaveV19
+  if (data.version === 18) return migrateV18(data as SaveV18)
+  if (data.version === 17) return migrateV18(migrateV17(data as SaveV17))
+  if (data.version === 16) return migrateV18(migrateV17(migrateV16(data as SaveV16)))
+  if (data.version === 15) return migrateV18(migrateV17(migrateV16(migrateV15(data as SaveV15))))
+  if (data.version === 14) return migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(data as SaveV14)))))
+  if (data.version === 13) return migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13))))))
   const v12 = toV12(data)
-  return v12 && migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12))))))
+  return v12 && migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12)))))))
 }
 
 /** v1 … v12 up to v12; null for anything else */
