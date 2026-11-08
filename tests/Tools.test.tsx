@@ -110,10 +110,10 @@ describe('farm tool buttons', () => {
 
   it('the moisture bar is a fraction of the can tier max: 0 … 100 %, clamped, no overflow band', () => {
     render(<Bar value={0.4} kind="water" />)
-    expect(document.querySelector('.bar-water > span')!.style.width).toBe('40%')
+    expect(document.querySelector<HTMLElement>('.bar-water > span')!.style.width).toBe('40%')
     cleanup()
     render(<Bar value={1.5} kind="water" />)
-    expect(document.querySelector('.bar-water > span')!.style.width).toBe('100%')
+    expect(document.querySelector<HTMLElement>('.bar-water > span')!.style.width).toBe('100%')
     expect(document.querySelector('.bar-over')).toBeNull()
   })
 
