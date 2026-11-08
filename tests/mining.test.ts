@@ -326,14 +326,19 @@ describe('upgradeVein', () => {
 })
 
 describe('buyStorage', () => {
-  it('costs 15 stone +5 per level and 50 cash ×1.6 per level in whole numbers, max 5', () => {
-    expect(storageMaxLevel()).toBe(5)
-    expect([0, 1, 2, 3, 4].map((l) => storageCost(l, meta))).toEqual([
+  it('costs 15 stone +5 per level and 50 cash ×1.6 per level in whole numbers, max 10 (batch 21)', () => {
+    expect(storageMaxLevel()).toBe(10)
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((l) => storageCost(l, meta))).toEqual([
       { stone: 15, cash: 50 },
       { stone: 20, cash: 80 },
       { stone: 25, cash: 128 },
       { stone: 30, cash: 205 },
       { stone: 35, cash: 328 },
+      { stone: 40, cash: 524 },
+      { stone: 45, cash: 839 },
+      { stone: 50, cash: 1342 },
+      { stone: 55, cash: 2147 },
+      { stone: 60, cash: 3436 },
     ])
   })
   it('every stone price fits the storage the player has when it becomes buyable', () => {
@@ -351,7 +356,7 @@ describe('buyStorage', () => {
   })
   it('validates license, max level, stone, cash in that order', () => {
     expect(buyStorage(withRun({ cash: 1e6, inventory: { stone: 15 } }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
-    expect(buyStorage(miner({ cash: 1e6, inventory: { stone: 1e3 }, storageLevel: 5 }))).toEqual({ ok: false, error: 'MAX_LEVEL' })
+    expect(buyStorage(miner({ cash: 1e6, inventory: { stone: 1e3 }, storageLevel: 10 }))).toEqual({ ok: false, error: 'MAX_LEVEL' })
     expect(buyStorage(miner({ cash: 1e6, inventory: { stone: 14 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(buyStorage(miner({ cash: 49, inventory: { stone: 15 } }))).toEqual({ ok: false, error: 'NO_CASH' })
   })

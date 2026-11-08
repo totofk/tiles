@@ -133,7 +133,7 @@ const VEIN_FURNACE_LEVEL = 2
 const VEIN_PICKAXE_LEVEL = 4
 // Storage upgrade (the stone sink): +slots capacity per level; level 1 costs the base, stone +stoneStep per level
 // (so each price fits the capacity before it), cash ×growth per level.
-const STORAGE = { slots: 10, stone: 15, stoneStep: 5, cash: 50, growth: 1.6, maxLevel: 5 }
+const STORAGE = { slots: 10, stone: 15, stoneStep: 5, cash: 50, growth: 1.6, maxLevel: 10 }
 
 // Farm tools (PLAN.md batch 5 starting numbers): per job, the counter that unlocks each level and the level's
 // one-time price; levels[0] is level 1. Level 2 does toolN tiles per press, 1 … ceil(tiles × TOOL_N_RATIO).
