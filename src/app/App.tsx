@@ -4,6 +4,7 @@ import { CROPS, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { DigSeeds } from './Farm'
 import { EMPTY_FEEDBACK } from './feedback'
+import { Fields } from './Fields'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { HAND_PICKED } from './marketText'
@@ -128,6 +129,7 @@ export default function App() {
             <Orders state={state} act={act} card />
             <Workers state={state} act={act} />
             <Workshop state={state} act={act} />
+            <Fields state={state} act={act} />
           </>
         )}
       </section>

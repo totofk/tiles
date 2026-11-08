@@ -4,6 +4,7 @@ import { cropSeedCost, digSeedDrop } from '../core/balance'
 import { CROPS, CROP_IDS } from '../core/data/crops'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
+import { Fields } from './Fields'
 import { Info } from './Info'
 import { HAND_EMOJI, priceTag } from './marketText'
 import { Orders } from './Orders'
@@ -87,6 +88,7 @@ export function Farm({ state, act, cropId, onSelectCrop }: PanelProps) {
       <DigSeeds act={act} />
       <Workers state={state} act={act} />
       <Workshop state={state} act={act} />
+      <Fields state={state} act={act} />
     </section>
   )
 }

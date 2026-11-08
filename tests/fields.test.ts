@@ -22,6 +22,7 @@ import {
   fieldsPaybackHours,
   fieldsPlantable,
   fieldsStanding,
+  fieldsStats,
   plantFields,
   stopFieldsPlant,
   unlockFields,
@@ -204,6 +205,13 @@ describe('fieldsAct: coverage, stalls and the shared coal pump', () => {
     expect(after.run.fields.cohorts[1]).toBe(s.run.fields.cohorts[1])
   })
 
+  it('the coverage is a strict prefix: a huge cohort first blocks every later growing cohort too', () => {
+    const s = withFields(200, { inventory: { coal: 99 } }, { pipes: 1, cohorts: [{ crop: 'lemon', count: 100, readyTick: 5000 }, { crop: 'lemon', count: 30, readyTick: 5000 }] })
+    const after = fieldsAct(s)
+    expect(after.run.fields.cohorts.map((c) => c.readyTick)).toEqual([5000, 5000]) // nothing grows, nothing accrues
+    expect(after.run.fields.coalCarry).toBe(0)
+  })
+
   it('with no pipes everything stalls and nothing accrues; ready cohorts take no coverage', () => {
     const noPipes = step(withFields(60, { inventory: { coal: 10 } }, { cohorts: [{ crop: 'lemon', count: 10, readyTick: 400 }] }), 5)
     expect([noPipes.run.fields.cohorts[0].readyTick, noPipes.run.fields.coalCarry]).toEqual([400, 0])
@@ -370,5 +378,20 @@ describe('fields: fresh run', () => {
       coalCarry: 0,
     })
     expect([fieldsFree(init.run), fieldsStanding(init.run.fields)]).toEqual([0, 0])
+    expect(fieldsStats(init.run)).toEqual({ free: 0, growing: 0, covered: 0, stalled: 0, ready: 0 })
+  })
+
+  it('fieldsStats splits by the same prefix rule the growth uses: ready skips the queue, one misfit stalls the rest', () => {
+    const s = withFields(120, { tick: 1000 }, {
+      pipes: 1,
+      cohorts: [
+        { crop: 'lemon', count: 5, readyTick: 900 },
+        { crop: 'lemon', count: 40, readyTick: 1100 },
+        { crop: 'lemon', count: 20, readyTick: 1200 },
+        { crop: 'lemon', count: 30, readyTick: 1300 },
+      ],
+    })
+    // ready 5; the 40 then the 20 fill the 60 coverage exactly, the 30 beyond them stalls with the rest of the queue
+    expect(fieldsStats(s.run)).toEqual({ free: 120 - 95, growing: 90, covered: 60, stalled: 30, ready: 5 })
   })
 })

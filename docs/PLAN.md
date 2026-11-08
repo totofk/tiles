@@ -2859,7 +2859,7 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
     Pipes share the batch-17 coal pump: total pump draw = sprinklers + `PIPE_COAL_PER_10_TILES(=0.5)/h × covered
     tiles ÷ 10` (sim tunes). Fuel loader refills from the same hopper rule. Uncovered growing tiles stall; the 3-bar
     UI marks stalled tiles in the growing bar.
-- [ ] 95. **UI.** A "🚜 Fields" section in the 🌾 Farm tab: 3 bars (to plant / growing / ready) with counts, one row
+- [x] 95. **UI.** A "🚜 Fields" section in the 🌾 Farm tab: 3 bars (to plant / growing / ready) with counts, one row
     per licensed crop (plots planted, `plant 10` / `stop` buttons, the 50-harvest gate reason line), the field price
     button with a payback label "~X h" (marginal income from the sim's formula, recomputed from state), pipes rows
     with coverage and coal draw. No 7th tab; compute layout from CSS at 375 / 1024 / 1440 px.

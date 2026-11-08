@@ -90,9 +90,23 @@ export function buyPipes(state: GameState): ActionResult {
   return pay(state, cost, { fields: { ...run.fields, pipes: run.fields.pipes + 1 } })
 }
 
-/** tiles the pipes water now (the coverage, never more than the tiles standing) */
-export function fieldsCovered(run: RunState): number {
-  return Math.min(pipeCover(run.fields.pipes), fieldsStanding(run.fields))
+/** the 3-bar breakdown for the UI, by the same prefix rule fieldsAct grows by: free, growing (covered vs stalled), ready */
+export function fieldsStats(run: RunState): { free: number; growing: number; covered: number; stalled: number; ready: number } {
+  const f = run.fields
+  const budget = pipeCover(f.pipes)
+  let covered = 0
+  let stalled = false
+  let growing = 0
+  let ready = 0
+  for (const c of f.cohorts) {
+    if (c.readyTick <= run.tick) ready += c.count
+    else {
+      growing += c.count
+      if (!stalled && covered + c.count <= budget) covered += c.count
+      else stalled = true
+    }
+  }
+  return { free: f.count - growing - ready, growing, covered, stalled: growing - covered, ready }
 }
 
 /**
@@ -235,9 +249,15 @@ export function fieldsAct(state: GameState): GameState {
   }
   const limit = watering ? budget : 0
   let used = 0
+  let stalled = false
   let grew = false
   const cohorts = f.cohorts.map((c) => {
-    if (c.readyTick <= run.tick || used + c.count > limit) return c
+    if (c.readyTick <= run.tick) return c
+    // the prefix coverage rule: once a growing cohort does not fit whole, it and every later one stalls
+    if (stalled || used + c.count > limit) {
+      stalled = true
+      return c
+    }
     used += c.count
     grew = true
     return { ...c, readyTick: c.readyTick - 1 }
