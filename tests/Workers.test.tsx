@@ -32,7 +32,7 @@ const LABEL = { Water: '💧 Water', Harvest: '🌾 Harvest' }
 const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.worker-row') as HTMLElement
 const summary = () => document.querySelector('summary')!.textContent
 const certified = (pool: number, water = 0, harvest = 0) => ({
-  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
 })
 
 describe('👷 Workers card', () => {
@@ -103,10 +103,14 @@ describe('👷 Workers card', () => {
     expect(summary()).toBe('👷 Workers · free 0 / 2unpaid')
   })
 
-  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine; the plant certificate shows its price and gate', () => {
+  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine, then Clerk; the plant certificate shows its price and gate', () => {
     setup({}, { plants: 12 })
     const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.firstChild!.textContent)
-    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine'])
+    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine', '📋 Clerk'])
+    // the clerk certificate is priced in ⭐ + copper bars + cash and gated by orders completed
+    const clerk = screen.getByText('📋 Clerk').closest('.worker-row') as HTMLElement
+    expect(clerk.textContent).toContain('orders 0/20')
+    expect(within(clerk).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}6 ⭐20 💰200`)
     const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
     expect(plant.textContent).toContain('plants 12/60')
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
@@ -131,7 +135,7 @@ describe('👷 Workers card', () => {
   })
 
   it('a certified planter gets [−] n [+] like the other jobs', () => {
-    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant'] } })
+    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant'] } })
     fireEvent.click(btn(/One more on Plant/))
     t.rerender()
     expect(t.get().run.workers.assigned.plant).toBe(1)
@@ -176,7 +180,7 @@ describe('worker targets on the grid (task 60)', () => {
         ...s.run,
         cash: 10,
         tiles: s.run.tiles.map((_, i) => (i === 2 ? tilled : planted)),
-        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant'] },
+        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant'] },
       },
     }
     const { rerender } = render(<FarmGrid state={state} onTap={() => {}} />)
@@ -207,7 +211,7 @@ describe('worker targets on the grid (task 60)', () => {
         cash: 10,
         mineLicense: true,
         pickaxe: { tier: 'wooden', durability: 25 },
-        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1 }, certificates: ['mine'] },
+        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1, clerk: 0 }, certificates: ['mine'] },
       },
     }
     localStorage.setItem(SAVE_KEY, serialize(miner, Date.now()))

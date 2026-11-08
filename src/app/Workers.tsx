@@ -1,5 +1,6 @@
 import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
 import { ITEMS } from '../core/data/items'
+import { BOARD_EMOJI } from '../core/data/orders'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
@@ -18,6 +19,7 @@ export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
   ore: ITEMS.copperOre.emoji,
   fuel: ITEMS.coal.emoji,
   mine: MINE_EMOJI,
+  clerk: BOARD_EMOJI,
 }
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   plant: `${WORKER_JOB_EMOJI.plant} Plant`,
@@ -26,6 +28,7 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   ore: `${WORKER_JOB_EMOJI.ore} Ore`,
   fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
   mine: `${WORKER_JOB_EMOJI.mine} Mine`,
+  clerk: `${WORKER_JOB_EMOJI.clerk} Clerk`,
 }
 
 /** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
@@ -38,8 +41,8 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
     const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
     const toolLevel = job in TOOLS ? run.tools[job as ToolJob] : 0
     // items the price needs beyond what storage holds can never be gathered (the harvest certificate's 25 at the start's 20)
-    const { cash, ...items } = certificateCost(job, meta)
-    void cash
+    const { cash, stars, ...items } = certificateCost(job, meta)
+    void [cash, stars]
     const itemCount = Object.values(items).reduce((n, k) => n + (k ?? 0), 0)
     // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
     const missing = [

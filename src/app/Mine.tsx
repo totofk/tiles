@@ -35,6 +35,7 @@ import {
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId } from '../core/data/items'
+import { STAR_EMOJI } from '../core/data/orders'
 import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, setOreKind } from '../core/furnace'
 import {
   activePickaxe,
@@ -75,7 +76,7 @@ const SMELT_SHORT: Partial<Record<ActionError, string>> = {
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free */
 export function priceText(price: Price): string {
   const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`)
-  return [...items, ...(price.cash ? [`💰${price.cash}`] : [])].join(' ')
+  return [...items, ...(price.stars ? [`${STAR_EMOJI}${price.stars}`] : []), ...(price.cash ? [`💰${price.cash}`] : [])].join(' ')
 }
 
 function sellAll(s: GameState): ActionResult {

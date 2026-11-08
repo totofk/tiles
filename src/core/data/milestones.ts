@@ -33,6 +33,9 @@ export type MilestoneId =
   | 'cash10k'
   | 'cash100k'
   | 'cash1M'
+  | 'orderBoard'
+  | 'firstOrder'
+  | 'stars10'
   | 'trackingStarted'
 
 export type Milestone = { id: MilestoneId; label: string; when: (run: RunState) => boolean }
@@ -68,6 +71,10 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'cash10k', label: 'Earned 💰10k', when: (r) => r.lifetime.cashEarned >= 10_000 },
   { id: 'cash100k', label: 'Earned 💰100k', when: (r) => r.lifetime.cashEarned >= 100_000 },
   { id: 'cash1M', label: 'Earned 💰1M', when: (r) => r.lifetime.cashEarned >= 1_000_000 },
+  // batch 14; the clerk certificate is the certClerk row above (every worker job has one)
+  { id: 'orderBoard', label: 'Notice board', when: (r) => r.orders.unlocked },
+  { id: 'firstOrder', label: 'First order', when: (r) => r.lifetime.ordersCompleted >= 1 },
+  { id: 'stars10', label: 'Earned ⭐10', when: (r) => r.lifetime.starsEarned >= 10 },
 ]
 
 /**

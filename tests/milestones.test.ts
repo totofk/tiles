@@ -74,7 +74,7 @@ describe('recordMilestones', () => {
   })
 
   it('hire milestones record at 2, 4 and 6 pool workers', () => {
-    let s = withRun({ tick: 9, counters: { ...withRun({}).run.counters, harvests: 30 }, cash: 99999, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] } })
+    let s = withRun({ tick: 9, counters: { ...withRun({}).run.counters, harvests: 30 }, cash: 99999, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: [] } })
     s = ok(hireWorker(s))
     expect(s.run.milestones.hire2).toBe(9)
     expect(s.run.milestones.hire4).toBeUndefined()
@@ -99,7 +99,7 @@ describe('recordMilestones', () => {
   })
 
   it('assignWorker milestones: nothing records for a free action with no new predicate', () => {
-    const s = withRun({ tick: 5, workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['water', 'harvest'] } })
+    const s = withRun({ tick: 5, workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['water', 'harvest'] } })
     const next = ok(assignWorker(s, 'water', 1))
     expect(next.run.milestones).toEqual({})
     expect(recordMilestones(s.run, s.run)).toBe(s.run)

@@ -59,7 +59,8 @@ const v12Meta = (meta: { prestigeCount: number }) => ({ prestigeCount: meta.pres
 const v12Run = (run: { tick: number }) => ({ market: createInitialState().run.market, milestones: { trackingStarted: run.tick } })
 /** v12 → v13: the 📋 Noticeboard not bought, no ⭐, no orders completed */
 const v13Lifetime = { ordersCompleted: 0, starsEarned: 0 }
-const v13Run = (run: { counters: object; lifetime: object }) => ({
+const v13Run = (run: { counters: object; lifetime: object; workers: { assigned: object } }) => ({
+  workers: { ...run.workers, assigned: { ...run.workers.assigned, clerk: 0 } },
   orders: createInitialState().run.orders,
   stars: 0,
   counters: { ...run.counters, orders: 0 },
@@ -67,11 +68,13 @@ const v13Run = (run: { counters: object; lifetime: object }) => ({
 })
 /** a v13 save seen as v12 (the v13 additions stripped), so the v1 … v12 migration expectations stay as written */
 function asV12(save: Save) {
-  const { orders, stars, counters, lifetime, ...run } = save.state.run
+  const { orders, stars, counters, lifetime, workers, ...run } = save.state.run
   const { orders: completed, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, ...v12Lifetime } = lifetime
-  void [orders, stars, completed, ordersCompleted, starsEarned]
-  return { version: 12, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...run, counters: v12Counters, lifetime: v12Lifetime } } }
+  const { clerk, ...v12Assigned } = workers.assigned
+  void [orders, stars, completed, ordersCompleted, starsEarned, clerk]
+  const v12Workers = { ...workers, assigned: v12Assigned }
+  return { version: 12, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...run, counters: v12Counters, lifetime: v12Lifetime, workers: v12Workers } } }
 }
 /** v9 lifetime totals a migrated save starts with: no fire burnt, bars smelted 0 (no furnace before v6); v10 plants by workers 0 */
 const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ...v11Lifetime, ...v13Lifetime }
@@ -236,7 +239,7 @@ describe('serialize / deserialize', () => {
       ...s,
       run: {
         ...s.run,
-        workers: { pool: 6, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0, mine: 1 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const, 'mine' as const] },
+        workers: { pool: 6, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0, mine: 1, clerk: 0 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const, 'mine' as const] },
         plantCrop: 'pumpkin' as const,
         lifetime: { ...s.run.lifetime, wagesPaid: 57, workerPlants: 12 },
       },
@@ -639,7 +642,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     const store = memoryStore()
     const s = createInitialState()
     const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
-    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: ['water' as const] }
+    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['water' as const] }
     const saved = { ...s, run: { ...s.run, cash: 50, tiles: [dry, ...s.run.tiles.slice(1)], workers, lifetime: { ...s.run.lifetime, wagesPaid: 7 } } }
     saveGame(store, saved, () => 0)
     const loaded = loadGame(store, () => 60_000)

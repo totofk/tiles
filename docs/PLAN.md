@@ -764,6 +764,14 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 14 (task 80): the board is a closed card in the farm column where there is no 🌾 Farm tab.** The plan places
   it only in the desktop Farm tab; mobile, tablet and the collapsed desktop have no Farm tab, so it sits beside 👷
   Workers there (the same rule that put Workers there), closed so the grid keeps its height.
+- **Batch 14 (task 81): a reroll refills every slot that holds no accepted order** (open offers and cooling slots);
+  accepted orders keep their progress, since rerolling them would throw away harvests already counted. All slots
+  accepted = `NOTHING_TO_DO` (no ⭐ spent). The token is spent on press, not held.
+- **Batch 14 (task 81): "a good the farm grows" = a crop planted on some tile or set as "Crop to plant"** (the plant
+  worker's crop), so a clerk on an empty farm still accepts the crop that is about to be planted. Bars are neither grown
+  nor dropped by the vein, so the clerk leaves bar orders to the player (it still delivers one the player accepted).
+- **Batch 14 (task 81): the batch-13 sim's certificate table skips `clerk`** (the batch-13 ladder never reaches the
+  board); no number in it changed.
 - **Batch 14 (task 80): `.hud` wraps.** The ⭐ span adds ≈ 58 px; with a loan the 375 px HUD needs ≈ 394 px of 343, so
   it now wraps to a second line rather than overflowing (the overflow with a loan existed before at ≈ 336 + 👷).
 
@@ -2369,7 +2377,7 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
     show `next order in 7:12`. Accepted crop orders mark ready tiles of that crop with a small 📋 corner badge.
     ⭐ total in the HUD next to cash only once the board is bought. Compact at 375 px; compute layout from CSS and
     check overlap at 375 / 1024 / 1440 px.
-- [ ] 81. **⭐ shop + order clerk.** Rows in the Noticeboard section (⭐ only, cash cannot buy ⭐, nothing sells
+- [x] 81. **⭐ shop + order clerk.** Rows in the Noticeboard section (⭐ only, cash cannot buy ⭐, nothing sells
     for cash): 3rd slot 10 ⭐; 4th slot 30 ⭐; reroll token 2 ⭐ (refill every open slot now, ignores cooldown).
     Order clerk = new worker job: certificate `{ stars: 20, copperBar: 6, cash: 200 }`, needs `counters.orders ≥ 20`;
     action every WORKER_ACTION_TICKS, 💰1 wage, same pool cap 6: deliver an item order storage can fill, else accept
@@ -2425,3 +2433,20 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
     overflow already existed with a loan and 👷 before this batch. 1024 / 1440: the HUD spans the full top row.
   - Tile badge: 14 px at top 4 / left 6, absolute, no layout space; the worker pop is top-right, so they never meet.
     In the smallest tile (72 px, 24 tiles) the 28 px crop emoji leaves a 22 px gutter each side, ≥ 6 + 14.
+
+### ⭐ shop + order clerk (task 81)
+
+- ⭐ shop row under the order rows: `+ Slot 3 ⭐10` (then `+ Slot 4 ⭐30`, hidden at 4 slots) and `🔄 Reroll ⭐2`.
+  `buyOrderSlot` / `rerollOrders` pay through `pay()` with `{ cash: 0, stars }`, so cash can never buy ⭐ and nothing
+  bought sells. Numbers: `ORDER_SLOT_STARS = [10, 30]`, `ORDER_REROLL_STARS = 2`, read through `orderSlotStars`,
+  `orderMaxSlots`, `orderRerollStars`.
+- Order clerk = `WORKER_JOBS` entry `clerk` (acts last in a round, 💰1 wage, same pool cap 6): certificate
+  `{ stars: 20, copperBar: 6, cash: 200 }` after `counters.orders ≥ 20`. Action (`clerkAction`): deliver the first
+  accepted item order storage can fill, else accept the first open offer for a crop on a tile / the "Crop to plant",
+  or an item the current vein drops; never discards; nothing to do = idles unpaid. v13 adds
+  `workers.assigned.clerk = 0`.
+- Milestones: `orderBoard` (Notice board), `firstOrder`, `stars10` (Earned ⭐10); `certClerk` comes from the
+  per-job certificate rows.
+- Layout (computed, as above): ⭐ shop row = `+ Slot 3`/⭐10 ≈ 70 px + 4 + `🔄 Reroll`/⭐2 ≈ 81 px ≈ 155 px ≤ 284
+  (1024), 358 (1440), 359 (375). 👷 Clerk row = label + `orders 0/20` ≈ 70 + Certificate button over
+  `🥉6 ⭐20 💰200` ≈ 108 + ⓘ 28 + gaps 8 ≈ 214 px ≤ 284, the width every other certificate row already fits.

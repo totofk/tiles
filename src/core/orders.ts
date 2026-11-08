@@ -13,7 +13,9 @@ import {
   orderBoardUnlock,
   orderBonus,
   orderCooldownTicks,
+  orderRerollStars,
   orderRocksPerMin,
+  orderSlotStars,
   orderTierMinutes,
   orderTierStars,
   oreBar,
@@ -215,6 +217,52 @@ export function deliverOrder(state: GameState, slot: number): ActionResult {
     },
   }
   return withRun(state, fillOrder(paid, slot, need).run)
+}
+
+// ⭐ shop. One more slot, holding a fresh offer. Order: LOCKED, MAX_LEVEL, NO_STARS.
+export function buyOrderSlot(state: GameState): ActionResult {
+  const { orders } = state.run
+  if (!orders.unlocked) return fail('LOCKED')
+  const stars = orderSlotStars(orders.slots)
+  if (stars === null) return fail('MAX_LEVEL')
+  const [offer, rngState] = rollOffer(state, state.run.rngState)
+  return pay(state, { cash: 0, stars }, { rngState, orders: { ...orders, slots: orders.slots + 1, offers: [...orders.offers, offer] } })
+}
+
+// ⭐ shop. Every slot without an accepted order (open offers and cooling slots) gets a fresh offer now, in slot order;
+// accepted orders keep their progress. Order: LOCKED, NOTHING_TO_DO (every slot accepted), NO_STARS.
+export function rerollOrders(state: GameState): ActionResult {
+  const { orders } = state.run
+  if (!orders.unlocked) return fail('LOCKED')
+  if (orders.offers.every((s) => isOffer(s) && s.accepted)) return fail('NOTHING_TO_DO')
+  let rngState = state.run.rngState
+  const offers = orders.offers.map((s): OrderSlot => {
+    if (isOffer(s) && s.accepted) return s
+    const [offer, next] = rollOffer(state, rngState)
+    rngState = next
+    return offer
+  })
+  return pay(state, { cash: 0, stars: orderRerollStars() }, { rngState, orders: { ...orders, offers } })
+}
+
+/** goods the clerk accepts: a crop planted on a tile or set as "Crop to plant", or an item the current vein drops */
+function clerkTakes(run: RunState, good: OrderGood): boolean {
+  if (isCropGood(good)) return run.plantCrop === good || run.tiles.some((t) => t.cropId === good)
+  return (veinDrops(run.vein.level)[good] ?? 0) > 0
+}
+
+/**
+ * The order clerk's action (a worker job): deliver the first accepted item order storage can fill, else accept the
+ * first open offer whose good clerkTakes; never discards. null = nothing to do (the clerk idles unpaid).
+ */
+export function clerkAction(state: GameState): ActionResult | null {
+  const { run } = state
+  if (!run.orders.unlocked) return null
+  const offers = run.orders.offers
+  const deliver = offers.findIndex((s) => isOffer(s) && s.accepted && !isCropGood(s.good) && (run.inventory[s.good] ?? 0) >= s.count - s.done)
+  if (deliver >= 0) return deliverOrder(state, deliver)
+  const accept = offers.findIndex((s) => isOffer(s) && !s.accepted && clerkTakes(run, s.good))
+  return accept >= 0 ? acceptOrder(state, accept) : null
 }
 
 /** one tick inside step(): every cooling slot counts down; at 0 a fresh offer is rolled into it */

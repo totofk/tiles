@@ -161,6 +161,8 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   fuel: { price: { copperBar: 8, cash: 200 }, counter: 'bars', at: 30 },
   // mine worker (batch 11): iron bars, one metal tier above the farm and furnace workers
   mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
+  // order clerk (batch 14): ⭐ + copper bars after 20 orders completed
+  clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
 }
 // Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
 // (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.
@@ -227,6 +229,10 @@ const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: numbe
 ]
 const ORDER_ROCKS_PER_MIN = 12
 const ORDER_COOLDOWN_TICKS = 600
+// ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th), and for a reroll (every slot without an
+// accepted order gets a fresh offer now, cooldowns skipped). Only ⭐ buys these; nothing here sells for cash.
+const ORDER_SLOT_STARS = [10, 30]
+const ORDER_REROLL_STARS = 2
 
 /** the Noticeboard's price */
 export function orderBoardCost(meta: MetaState): Price {
@@ -276,6 +282,19 @@ export function orderRocksPerMin(): number {
 
 export function orderCooldownTicks(): number {
   return ORDER_COOLDOWN_TICKS
+}
+
+export function orderMaxSlots(): number {
+  return ORDER_BOARD.slots + ORDER_SLOT_STARS.length
+}
+
+/** ⭐ for the next slot when `slots` are owned; null at the max */
+export function orderSlotStars(slots: number): number | null {
+  return ORDER_SLOT_STARS[slots - ORDER_BOARD.slots] ?? null
+}
+
+export function orderRerollStars(): number {
+  return ORDER_REROLL_STARS
 }
 
 // Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); prestige spends them

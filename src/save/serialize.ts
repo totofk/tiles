@@ -94,9 +94,11 @@ type SaveV7 = { version: 7; savedAtMs: number; state: { meta: MetaV11; run: RunV
 type SaveV8 = { version: 8; savedAtMs: number; state: { meta: MetaV11; run: RunV8 } }
 type SaveV9 = { version: 9; savedAtMs: number; state: { meta: MetaV11; run: RunV9 } }
 type SaveV10 = { version: 10; savedAtMs: number; state: { meta: MetaV11; run: RunV10 } }
-type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime'> & {
+type JobV11 = JobV10 | 'mine'
+type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers'> & {
   counters: Omit<Counters, 'orders'>
   lifetime: Omit<Lifetime, 'ordersCompleted' | 'starsEarned'>
+  workers: { pool: number; assigned: Record<JobV11, number>; certificates: JobV11[] }
 }
 type RunV11 = Omit<RunV12, 'market' | 'milestones'>
 type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: RunV11 } }
@@ -317,7 +319,7 @@ function migrateV11(save: SaveV11): SaveV12 {
 }
 
 // v12 → v13: the 📋 Noticeboard. Not bought (it is a Shop purchase, never granted), the starting slots, no ⭐, no
-// orders completed. Nothing else changes.
+// orders completed; the order clerk has no worker (its certificate is bought, never granted). Nothing else changes.
 function migrateV12(save: SaveV12): SaveV13 {
   const { meta, run } = save.state
   const fresh = createInitialState().run
@@ -328,6 +330,7 @@ function migrateV12(save: SaveV12): SaveV13 {
       meta,
       run: {
         ...run,
+        workers: { ...run.workers, assigned: { ...run.workers.assigned, clerk: 0 } },
         orders: fresh.orders,
         stars: 0,
         counters: { ...run.counters, orders: 0 },

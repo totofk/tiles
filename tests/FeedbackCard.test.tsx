@@ -56,7 +56,7 @@ describe('💬 Feedback card', () => {
     const body = new URLSearchParams(String(post.mock.calls[0][1]!.body))
     expect(body.get('entry.247767374')).toBe('Idea')
     expect(sentDetails()).toMatch(/^More please\n\n---\nBuild: \S+\nSave: v\d+\nScreen: .+\nUA: .+\nTime: \d{4}-.+Z\nGame: cash /)
-    expect(sentDetails()).toContain('fuel 0, mine 0)')
+    expect(sentDetails()).toContain('fuel 0, mine 0, clerk 0)')
     expect(screen.getByRole('status').textContent).toBe('Sent — thank you')
     expect(field(/Title/).value).toBe('')
   })

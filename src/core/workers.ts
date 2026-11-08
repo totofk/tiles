@@ -13,6 +13,7 @@ import {
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
 import { activePickaxe, dig, pay } from './mining'
+import { clerkAction } from './orders'
 import type { GameState, RunState } from './state'
 // step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { step } from './step'
@@ -35,7 +36,8 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
  * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
  * (coal only: wood stays for pickaxe repairs). Miner: one press of the Mine button with no energy (the active pickaxe's
  * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
- * failed press (storage full) idles too. null = nothing to do, so the worker idles unpaid.
+ * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
+ * do, so the worker idles unpaid.
  */
 const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => ActionResult | null> = {
   ore: (s) => {
@@ -52,6 +54,7 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     return f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1 ? addFuel(s, 'coal', 1) : null
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
+  clerk: clerkAction,
 }
 
 /**

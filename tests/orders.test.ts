@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, type ActionResult } from '../src/core/actions'
 import {
+  certificateCost,
   cropGrowTicks,
   cropSellPrice,
+  orderMaxSlots,
+  orderSlotStars,
+  workerWage,
   handPickedBonus,
   itemSellPrice,
   orderBoardCost,
@@ -14,9 +18,13 @@ import {
   orderTierStars,
   rollOrderTier,
 } from '../src/core/balance'
+import { MILESTONES } from '../src/core/data/milestones'
+import { buyCertificate, certificateUnlocked, workersAct } from '../src/core/workers'
 import {
   acceptOrder,
   buyOrderBoard,
+  buyOrderSlot,
+  rerollOrders,
   deliverOrder,
   discardOrder,
   isOffer,
@@ -219,7 +227,7 @@ describe('crop orders fill from harvests', () => {
         tiles: mixed,
         licenses: ['radish', 'lemon'],
         market: { radish: 40, chilli: 0, pumpkin: 0, lemon: 5 },
-        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0 }, certificates: ['plant', 'water', 'harvest'] },
+        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'water', 'harvest'] },
         orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }] },
       },
     }
@@ -237,5 +245,104 @@ describe('crop orders fill from harvests', () => {
   it('tickOrders returns the same state when no slot is cooling', () => {
     const s = board([offer({})])
     expect(tickOrders(s)).toBe(s)
+  })
+})
+
+describe('⭐ shop: slots and reroll (⭐ only)', () => {
+  it('3rd slot ⭐10, 4th ⭐30, then MAX_LEVEL; each new slot holds a fresh offer; cash never pays', () => {
+    expect(buyOrderSlot(init)).toEqual({ ok: false, error: 'LOCKED' })
+    const s = board([offer({}), offer({})], { stars: 40, cash: 1e6 })
+    expect([orderSlotStars(2), orderSlotStars(3), orderSlotStars(4), orderMaxSlots()]).toEqual([10, 30, null, 4])
+    const three = okState(buyOrderSlot(s))
+    expect([three.run.stars, three.run.cash, three.run.orders.slots, three.run.orders.offers.length]).toEqual([30, 1e6, 3, 3])
+    expect(three.run.orders.offers[2]).toMatchObject({ done: 0, accepted: false })
+    expect(buyOrderSlot({ ...three, run: { ...three.run, stars: 29 } })).toEqual({ ok: false, error: 'NO_STARS' })
+    const four = okState(buyOrderSlot(three))
+    expect([four.run.stars, four.run.cash, four.run.orders.slots]).toEqual([0, 1e6, 4])
+    expect(buyOrderSlot(four)).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+
+  it('reroll: ⭐2 refills every slot without an accepted order now (cooldowns too); accepted orders keep their progress', () => {
+    const accepted = offer({ done: 4 })
+    const s = board([accepted, offer({ accepted: false, good: 'radish', count: 999 }), { cooldownTicks: 500 }], { stars: 2 })
+    const next = okState(rerollOrders(s))
+    expect(next.run.stars).toBe(0)
+    expect(next.run.orders.offers[0]).toBe(accepted)
+    expect(next.run.orders.offers[1]).not.toEqual(s.run.orders.offers[1])
+    expect(next.run.orders.offers.every(isOffer)).toBe(true)
+    expect(rerollOrders(next)).toEqual({ ok: false, error: 'NO_STARS' })
+    expect(rerollOrders(board([accepted], { stars: 9 }))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+  })
+})
+
+describe('order clerk (worker job)', () => {
+  const clerkFarm = (offers: RunState['orders']['offers'], run: Partial<RunState> = {}) =>
+    board(offers, {
+      cash: 100,
+      mineLicense: true,
+      vein: { level: 1, progress: 0, rock: 'stone' },
+      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 1 }, certificates: ['clerk'] },
+      ...run,
+    })
+
+  it('certificate: ⭐20 + 🥉6 + 💰200 after 20 orders completed', () => {
+    expect(certificateCost('clerk', meta)).toEqual({ stars: 20, copperBar: 6, cash: 200 })
+    const ready = board([], { stars: 20, cash: 200, inventory: { copperBar: 6 }, counters: { ...init.run.counters, orders: 20 } })
+    expect(certificateUnlocked({ ...ready.run, counters: { ...ready.run.counters, orders: 19 } }, 'clerk')).toBe(false)
+    const bought = okState(buyCertificate(ready, 'clerk'))
+    expect([bought.run.stars, bought.run.cash, bought.run.inventory.copperBar]).toEqual([0, 0, 0])
+    expect(bought.run.milestones.certClerk).toBe(bought.run.tick)
+    expect(buyCertificate({ ...ready, run: { ...ready.run, stars: 19 } }, 'clerk')).toEqual({ ok: false, error: 'NO_STARS' })
+  })
+
+  it('delivers an item order storage can fill first, paying the wage; else accepts an offer the farm grows or the vein drops', () => {
+    const s = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 3 } })
+    const once = workersAct(s)
+    expect(once.run.inventory.coal).toBe(0)
+    expect(once.run.counters.orders).toBe(1)
+    expect(once.run.lifetime.wagesPaid).toBe(workerWage(meta))
+    // next action: lemon is neither planted nor "Crop to plant" → skipped; the fresh slot-1 offer is checked next
+    const plantedLemon = { ...once, run: { ...once.run, plantCrop: 'lemon' as const, tick: 5 } }
+    const twice = workersAct(plantedLemon)
+    expect(twice.run.orders.offers[0]).toMatchObject({ good: 'lemon', accepted: true })
+  })
+
+  it('idles unpaid with nothing to do, never discards, and never accepts what the farm does not grow', () => {
+    const s = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 2 } })
+    expect(workersAct(s)).toBe(s)
+    const later = step(s, 600)
+    expect(later.run.orders.offers).toEqual(s.run.orders.offers)
+    expect(later.run.lifetime.wagesPaid).toBe(0)
+  })
+
+  it('step(s, n) = n × step(s, 1) with the clerk, harvest workers, accepted crop orders and the market', () => {
+    const s = createInitialState()
+    const tiles = s.run.tiles.map((t): Tile => ({ ...t, status: 'planted', cropId: 'radish', growth: RADISH - 2, moisture: 1 }))
+    const start = clerkFarm([offer({ count: 2, accepted: false }), offer({ good: 'stone', count: 2, accepted: false }), { cooldownTicks: 7 }], {
+      tick: 15,
+      tiles,
+      inventory: { stone: 5 },
+      market: { radish: 30, chilli: 0, pumpkin: 0, lemon: 0 },
+      workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1 }, certificates: ['harvest', 'clerk'] },
+    })
+    let single = start
+    for (let n = 1; n <= 40; n++) {
+      single = step(single, 1)
+      expect(single).toEqual(step(start, n))
+    }
+    expect(single.run.counters.orders).toBeGreaterThanOrEqual(2)
+    expect(single.run.milestones.firstOrder).toBeDefined()
+  })
+})
+
+describe('batch-14 milestones', () => {
+  it('board bought, first order, 10 ⭐ earned', () => {
+    const ids = MILESTONES.map((m) => m.id)
+    expect(ids).toEqual(expect.arrayContaining(['orderBoard', 'firstOrder', 'stars10', 'certClerk']))
+    const before = board([offer({ good: 'stone', count: 1, tier: 2 })], { inventory: { stone: 1 }, lifetime: { ...init.run.lifetime, starsEarned: 8 } })
+    const after = okState(deliverOrder(before, 0))
+    expect(after.run.milestones).toMatchObject({ firstOrder: 0, stars10: 0 })
+    const bought = okState(buyOrderBoard(withRun({ cash: 500, inventory: { stone: 10 }, counters: { ...init.run.counters, sales: 50 }, tick: 77 })))
+    expect(bought.run.milestones.orderBoard).toBe(77)
   })
 })

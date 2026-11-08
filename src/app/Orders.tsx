@@ -1,8 +1,8 @@
-import { cropSellPrice, orderBonus, orderTierCount, orderTierStars } from '../core/balance'
+import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount, orderTierStars } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
-import { BOARD_EMOJI, STAR_EMOJI } from '../core/data/orders'
-import { acceptOrder, deliverOrder, discardOrder, isCropGood, isOffer, itemOrderValue } from '../core/orders'
+import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI } from '../core/data/orders'
+import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import type { Act } from './useGame'
@@ -61,7 +61,25 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
       Accepted crop orders take every harvest of that crop at +{Math.round(orderBonus() * 100)} %, with no market glut.
     </small>
   )
-  const rows = orders.offers.map((_, i) => <OrderRow key={i} state={state} act={act} slot={i} />)
+  const slotStars = orderSlotStars(orders.slots)
+  const rows = (
+    <>
+      {orders.offers.map((_, i) => (
+        <OrderRow key={i} state={state} act={act} slot={i} />
+      ))}
+      {/* the ⭐ shop: only ⭐ buys these, and nothing here sells */}
+      <div className="order-row order-shop">
+        {slotStars !== null && (
+          <button disabled={!buyOrderSlot(state).ok} onClick={() => act(buyOrderSlot)}>
+            + Slot {orders.slots + 1} <small>{STAR_EMOJI}{slotStars}</small>
+          </button>
+        )}
+        <button disabled={!rerollOrders(state).ok} onClick={() => act(rerollOrders)}>
+          {REROLL_EMOJI} Reroll <small>{STAR_EMOJI}{orderRerollStars()}</small>
+        </button>
+      </div>
+    </>
+  )
   if (card)
     return (
       <details className="orders">

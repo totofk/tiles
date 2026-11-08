@@ -195,7 +195,7 @@ export function createInitialState(): GameState {
       tools: { water: 0, harvest: 0, plant: 0 },
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
-      workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] },
+      workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: [] },
       market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
       milestones: {},
       orders: { unlocked: false, slots: orderStartSlots(), offers: [] },

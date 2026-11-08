@@ -850,7 +850,7 @@ function runCropBot(
   tileCount = createInitialState().run.tiles.length,
 ) {
   const init = createInitialState()
-  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0 }
+  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0, clerk: 0 }
   const workers = { pool: jobs.plant + jobs.water + jobs.harvest, assigned: jobs, certificates: [...WORKER_JOBS] }
   const tiles = [...init.run.tiles, ...Array.from({ length: tileCount - init.run.tiles.length }, createTile)]
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, toolTier, workers, tiles } }
@@ -1275,7 +1275,7 @@ type Loaders = { ore?: boolean; fuel?: boolean }
 /** a built furnace at base levels with ore and coal in a roomy storage and cash for wages; loaders certified + staffed */
 function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
   const init = createInitialState()
-  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0 }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0, clerk: 0 }
   const furnace = { ...createFurnace(), built: true, fire, smart, levels: { fireCap, batch: 0 } }
   const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
   return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
@@ -1450,7 +1450,7 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
-    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1, mine: 0 })
+    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1, mine: 0, clerk: 0 })
     expect(fireBurnt).toBe(barsSmelted * barTicks())
     expect(fireWasted).toBe(0)
   })
@@ -1674,7 +1674,7 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
 /** vein Lv3, storage Lv3, a fresh iron pickaxe and a furnace on iron, with a miner (and the two loaders) staffed */
 function ironWorks({ smart = false, loaders = true }: { smart?: boolean; loaders?: boolean }): GameState {
   const init = createInitialState()
-  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1 }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1, clerk: 0 }
   const furnace = { ...createFurnace(), built: true, smart, oreKind: 'ironOre' as const }
   const workers = { pool: assigned.ore + assigned.fuel + 1, assigned, certificates: ['ore', 'fuel', 'mine'] as WorkerJob[] }
   return {
@@ -2003,7 +2003,7 @@ const ATTENTIVE_ENERGY_PER_MIN = 4
 function staffedLemon(attentive: boolean, toolTier = createInitialState().run.toolTier, ticks = MARKET_TICKS) {
   const init = createInitialState()
   const tiles = [...init.run.tiles, ...Array.from({ length: TILE_CAP - init.run.tiles.length }, createTile)]
-  const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0 }
+  const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }
   const workers = { pool: 3, assigned, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: ['radish', 'lemon'], plantCrop: 'lemon', toolTier, workers, tiles } }
   let budget = 0
@@ -2052,8 +2052,9 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
       onEnd: (s) => (end = s),
     })
     const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
+    // the order clerk (batch 14) is not on the batch-13 ladder
     const certificates = Object.fromEntries(
-      WORKER_JOBS.map((job) => [
+      WORKER_JOBS.filter((job) => job !== 'clerk').map((job) => [
         job,
         {
           unlocked: minute(ladder.certUnlocked[job]?.tick),
