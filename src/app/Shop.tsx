@@ -6,6 +6,7 @@ import {
   furnaceVeinLevel,
   licenseCost,
   mineLicenseCost,
+  orderBoardCost,
   tileCost,
   toolCost,
   toolNMax,
@@ -14,6 +15,8 @@ import {
   woodCost,
 } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
+import { BOARD_EMOJI } from '../core/data/orders'
+import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
@@ -122,6 +125,14 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
             <button disabled={!buildFurnace(state).ok} onClick={() => act(buildFurnace)}>
               {FIRE_EMOJI} Furnace
               <small>{priceText(furnaceCost(meta))}</small>
+            </button>
+          </Item>
+        )}
+        {orderBoardUnlocked(run) && !run.orders.unlocked && (
+          <Item tip={TIPS.board}>
+            <button disabled={!buyOrderBoard(state).ok} onClick={() => act(buyOrderBoard)}>
+              {BOARD_EMOJI} Notice board
+              <small>{priceText(orderBoardCost(meta))}</small>
             </button>
           </Item>
         )}

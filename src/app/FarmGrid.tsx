@@ -1,6 +1,8 @@
 import type { CSSProperties } from 'react'
 import { cropRotGraceTicks } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
+import { BOARD_EMOJI } from '../core/data/orders'
+import { isOffer } from '../core/orders'
 import type { GameState, Tile } from '../core/state'
 import { growthProgress, isDry, isMature, ticksUntilRot } from '../core/tile'
 import { workerTargets, type TileJob, type WorkerTarget } from '../core/workers'
@@ -21,9 +23,11 @@ type CellProps = {
   ring?: TileJob
   /** a worker acted on this tile in the last tick: a short flash and the job's emoji popping */
   flash?: TileJob
+  /** an accepted order takes this tile's crop: a 📋 corner badge while it is ready */
+  ordered?: boolean
 }
 
-function Cell({ tile, state, onTap, ring, flash }: CellProps) {
+function Cell({ tile, state, onTap, ring, flash, ordered }: CellProps) {
   const mature = isMature(tile, state)
   const rotIn = ticksUntilRot(tile, state)
   const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta) : 1
@@ -51,6 +55,11 @@ function Cell({ tile, state, onTap, ring, flash }: CellProps) {
           {WORKER_JOB_EMOJI[flash]}
         </span>
       )}
+      {mature && ordered && (
+        <span className="cell-order" title="Goes to an order">
+          {BOARD_EMOJI}
+        </span>
+      )}
       <span className="cell-emoji">{emoji}</span>
       <span className="cell-label">{label}</span>
       {growing && <Bar value={growthProgress(tile, state)} kind="grow" />}
@@ -75,12 +84,13 @@ export function FarmGrid({ state, onTap, acted = [] }: { state: GameState; onTap
   const rows = Math.ceil(state.run.tiles.length / cols)
   const rings = workerTargets(state)
   const jobOn = (list: WorkerTarget[], i: number) => list.find((t) => t.tile === i)?.job
+  const orderedCrops = state.run.orders.offers.flatMap((s) => (isOffer(s) && s.accepted ? [s.good] : []))
   // .farm-fit is the box the grid must fit (width and height, ≥ 768 px), so tiles size by the smaller side
   return (
     <div className="farm-fit">
       <div className="grid" style={{ '--n': cols, '--rows': rows } as CSSProperties}>
         {state.run.tiles.map((tile, i) => (
-          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} ring={jobOn(rings, i)} flash={jobOn(acted, i)} />
+          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} ring={jobOn(rings, i)} flash={jobOn(acted, i)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} />
         ))}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { energyMax } from '../core/balance'
 import { debtDue } from '../core/bank'
+import { STAR_EMOJI } from '../core/data/orders'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 
@@ -9,6 +10,11 @@ export function Hud({ state }: { state: GameState }) {
   return (
     <header className="hud">
       <span>💰 {run.cash}</span>
+      {run.orders.unlocked && (
+        <span title="Stars, from orders">
+          {STAR_EMOJI} {run.stars}
+        </span>
+      )}
       <span className="hud-energy">
         ⚡ {Math.floor(run.energy)} / {max}
         <Bar value={run.energy / max} kind="energy" />

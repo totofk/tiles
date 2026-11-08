@@ -8,6 +8,7 @@ import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { HAND_PICKED } from './marketText'
 import { Mine } from './Mine'
+import { Orders } from './Orders'
 import { availableKeys, isBadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { Tools } from './Tools'
@@ -123,6 +124,7 @@ export default function App() {
         {!farmTab && (
           <>
             <DigSeeds act={act} />
+            <Orders state={state} act={act} card />
             <Workers state={state} act={act} />
           </>
         )}

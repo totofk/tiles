@@ -52,6 +52,7 @@ export const TIPS = {
   mineLicense: 'Opens the mine: spend spare energy on stone while crops grow. A one-time cost.',
   wood: 'Crafts and repairs pickaxes. A pickaxe wears with use, so it needs wood again from time to time.',
   tile: 'One more farm tile. Each new tile costs more than the last, up to the tile cap.',
+  board: 'Orders for what you make now. An accepted crop order takes your harvests of that crop at a bonus price, with no market glut; item orders are delivered from storage. Every finished order pays stars. No timers: discard any order for free.',
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
   furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',

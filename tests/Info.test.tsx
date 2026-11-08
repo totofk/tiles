@@ -111,8 +111,8 @@ describe('placeTip', () => {
       </>,
     )
     const rows = [...container.querySelectorAll('.shop-row > *, .pouch-row, .pouch-auto')]
-    // 4 crops + wood + furnace + tile + 9 tools + 3 copper tools, 4 pouch rows + auto-buy, 4 upgrades + storage + vein
-    expect(rows).toHaveLength(19 + 5 + 6)
+    // 4 crops + wood + furnace + noticeboard + tile + 9 tools + 3 copper tools, 4 pouch rows + auto-buy, 4 upgrades + storage + vein
+    expect(rows).toHaveLength(20 + 5 + 6)
     for (const r of rows) {
       expect(r.querySelectorAll('.info-btn')).toHaveLength(1)
       expect(r.querySelector('.tip')?.textContent?.length).toBeGreaterThan(20)

@@ -758,6 +758,14 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   earned. Two accepted orders for one crop fill in slot order.
 - **Batch 14 (task 79): new errors `BAD_SLOT` (no such slot, or it is cooling down) and `NO_STARS`;** `pay()` takes an
   optional `stars` in `Price` (checked after items, before cash, never scaled by the cost multiplier).
+- **Batch 14 (task 80): the Shop card reads "📋 Notice board", not "📋 Noticeboard".** At 1024 px a Shop button has a
+  77 px text box; the one word "Noticeboard" (≈ 91 px) cannot wrap and would run under the ⓘ. Two words wrap cleanly.
+  Code names (`buyOrderBoard`, `BOARD_EMOJI`) and the section title "📋 Orders" are unchanged.
+- **Batch 14 (task 80): the board is a closed card in the farm column where there is no 🌾 Farm tab.** The plan places
+  it only in the desktop Farm tab; mobile, tablet and the collapsed desktop have no Farm tab, so it sits beside 👷
+  Workers there (the same rule that put Workers there), closed so the grid keeps its height.
+- **Batch 14 (task 80): `.hud` wraps.** The ⭐ span adds ≈ 58 px; with a loan the 375 px HUD needs ≈ 394 px of 343, so
+  it now wraps to a second line rather than overflowing (the overflow with a loan existed before at ≈ 336 + 👷).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2356,7 +2364,7 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
     - Reward on completion: ⭐ 1 / 2 / 4 by tier. No expiry, no timers. Discard = free; the slot refills after
       `ORDER_COOLDOWN_TICKS = 600`, counted in step(). Start with 2 slots.
     - step(s, n) = n × step(s, 1) with accepted crop orders and worker harvests (test).
-- [ ] 80. **Noticeboard UI.** A "📋 Orders" section at the top of the 🌾 Farm side-panel tab (no 7th tab): one row
+- [x] 80. **Noticeboard UI.** A "📋 Orders" section at the top of the 🌾 Farm side-panel tab (no 7th tab): one row
     per slot — good emoji + `12 / 40`, tier dots, ⭐ reward, cash bonus, Accept / Deliver / Discard; cooldown rows
     show `next order in 7:12`. Accepted crop orders mark ready tiles of that crop with a small 📋 corner badge.
     ⭐ total in the HUD next to cash only once the board is bought. Compact at 375 px; compute layout from CSS and
@@ -2372,3 +2380,48 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
     hierarchy pin (mining cash/energy incl. item-order bonus < 0.9 × pumpkin farming); every item order count ≤ bag
     capacity at its moment; generator only offers goods the state can produce (property test over the ladder bot's
     states). Tune only batch-14 numbers; report each change as a deviation.
+
+## Batch 14 results
+
+### Orders core + save v13 (task 79)
+
+- `src/core/orders.ts` (tests `tests/orders.test.ts`): `orderPool`, `orderPerMinute`, `orderCount`, `rollOffer`,
+  `harvestSale` (the harvest's order-then-market split), `buyOrderBoard`, `acceptOrder`, `discardOrder`,
+  `deliverOrder`, `tickOrders` (step). Numbers in balance.ts: `ORDER_BOARD` (price, 50-sales gate, bonus 0.25,
+  2 slots), `ORDER_TIERS` (5 / 10 / 20 min, 50 / 35 / 15 %, ⭐ 1 / 2 / 4), `ORDER_ROCKS_PER_MIN` 12,
+  `ORDER_COOLDOWN_TICKS` 600. Icons `STAR_EMOJI` / `BOARD_EMOJI` in `src/core/data/orders.ts`.
+- `harvest()` sends each unit to the first accepted open order of its crop (price = unglutted price × 1.25 × the
+  hand-picked ×1.25 when the player harvests; no glut), the rest to the market as before. Completing an order pays ⭐
+  by tier, `counters.orders` +1, `lifetime.ordersCompleted` / `starsEarned`, and rolls a fresh offer into the slot.
+- Save v13 (`migrateV12`): board not bought, starting slots, ⭐ 0, `counters.orders` 0, lifetime order totals 0. Real
+  v12 fixture `tests/fixtures/save-v12.json` (the v11 ladder end + 3 tiles + 930 ticks: lemon glut 25, `tiles12`
+  milestone) committed first; every fixture v1–v12 chains to v13 and keeps its raw backup (`tiles.save.backup.v12`).
+  The v1–v11 expectations are unchanged: `asV12()` strips the v13 additions and a separate test checks them.
+
+### Noticeboard UI (task 80)
+
+- `src/app/Orders.tsx` (tests `tests/Orders.test.tsx`): one row per slot, `🥕 12 / 40` over `●●○ · ⭐2 · +💰100`
+  (tier dots, ⭐ reward, the order's cash above base price / for delivery); Accept + Discard on an open offer, Discard
+  on an accepted crop order, Deliver + Discard on an accepted item order (Deliver disabled until storage holds the
+  rest); a cooling slot reads `⏳ next order in 7:12`.
+- Placement: a section at the top of the desktop 🌾 Farm tab (above the tool rows). Where there is no Farm tab (mobile,
+  tablet, collapsed desktop) it is a closed `<details>` card in the farm column after "Dig for seeds", before 👷
+  Workers, so the grid keeps its height (the Workers card rule). No 7th tab.
+- 🛒 Shop: `📋 Notice board ⛰️10 💰100` in Supplies from 50 sales until bought, with an ⓘ tip. HUD: `⭐ n` right of
+  cash once the board is bought. A ready tile of an accepted crop order shows a 📋 badge in its top-left corner.
+- **Layout, computed from `app.css` (no browser; system-ui at 14 px ≈ 7.7 px per digit, 12 px ≈ 6.6, emoji ≈ 1.2 em):**
+  - Order row = good span (two lines, the wider is the 12 px line `●●○ · ⭐4 · +💰2200` ≈ 120 px) + 4 px + at most
+    two buttons (Deliver ≈ 65, Discard ≈ 68 px incl. 8 px padding and border) + 4 px ≈ **261 px**. Room: 375 px →
+    farm column 359 px (98 spare); 1024 → Farm tab content 300 − 16 = 284 px (23 spare); 1440 → 374 − 16 = 358 px
+    (97 spare); tablet / collapsed farm column ≥ 428 px. `flex-wrap` moves the buttons down rather than overflowing.
+    Rows, the note and the cooldown line are in-flow in a flex column (4 px gap), so nothing overlaps the tool rows
+    below (Farm tab) or the 👷 card below (farm column).
+  - Shop card at 1024: column (284 − 6) / 2 = 139 px, text box 139 − 60 (padding-inline 30) − 2 = 77 px. "📋 Notice"
+    ≈ 71 px fits line 1 and sits at x 34–105, left of the ⓘ (x 110–138); "board" goes to line 2. (One word
+    "Noticeboard" ≈ 91 px would overflow under the ⓘ, see Deviations.) 375: 168 − 62 = 106 px, 1440: 176 − 62 = 114
+    px, one line each.
+  - HUD at 375 (343 px content): 💰 5 digits 67 + ⭐ 50 + energy 72 + 👷 32 + ⏱ 5 digits 67 + 4 gaps 32 = 320 px
+    fits; with a loan (+74) it would be 394 px, so `.hud` now wraps (row gap 4 px) instead of overflowing. That
+    overflow already existed with a loan and 👷 before this batch. 1024 / 1440: the HUD spans the full top row.
+  - Tile badge: 14 px at top 4 / left 6, absolute, no layout space; the worker pop is top-right, so they never meet.
+    In the smallest tile (72 px, 24 tiles) the 28 px crop emoji leaves a 22 px gutter each side, ≥ 6 + 14.

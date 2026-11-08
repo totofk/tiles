@@ -283,11 +283,13 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* wraps only when the spans do not fit one line (375 px with ⭐, a loan and a 5-digit tick ≈ 394 px > 343) */
 .hud {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
   padding: 8px;
   background: #fff;
   border-radius: 8px;
@@ -424,6 +426,16 @@ button:disabled {
   line-height: 1;
   pointer-events: none;
   animation: cell-pop 0.5s ease-out forwards;
+}
+/* task 80: a ready tile an accepted order takes; top-left, opposite the worker pop, no layout space. 14 px + 6 px
+   inset = 20 px ≤ the 22 px gutter beside a 28 px emoji in the smallest (72 px) tile, so it never covers the crop */
+.cell-order {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 14px;
+  line-height: 1;
+  pointer-events: none;
 }
 @keyframes cell-flash {
   from {
@@ -654,6 +666,39 @@ details > summary:focus-visible {
 .worker-n {
   min-width: 2ch;
   text-align: center;
+}
+/* 📋 Orders (task 80): a section at the top of the desktop 🌾 Farm tab, a closed card beside 👷 Workers elsewhere.
+   A row = the good + progress (two lines) and at most two 44 px buttons, ≈ 250 px, so it fits the 284 px Farm tab at
+   1024 and the 359 px column at 375 on one line; it wraps rather than overflows (see PLAN "Batch 14 results"). */
+.orders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+.order-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.order-row > span:first-child {
+  flex: 1 0 auto;
+  white-space: nowrap;
+}
+.order-row button {
+  min-width: 44px;
+  padding: 0 8px;
+}
+.order-row small,
+.order-note {
+  display: block;
+  font-size: 12px;
+  color: #555;
+}
+.order-wait {
+  min-height: 44px;
+  color: #555;
 }
 .unpaid {
   padding: 0 6px;
