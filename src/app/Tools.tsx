@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react
 import type { ActionError } from '../core/actions'
 import { toolNMax } from '../core/balance'
 import type { CropId } from '../core/data/crops'
-import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
+import { TOOL_JOBS, tierName, type ToolJob } from '../core/data/tools'
 import type { GameState } from '../core/state'
 import { pressTool, setToolN, toolCount, type ToolPress } from '../core/tools'
 import { HAND_PICKED } from './marketText'
@@ -38,6 +38,9 @@ export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extr
   const why = stoppedBy ? ` — ${STOP_TEXT[stoppedBy] ?? ERROR_TEXT[stoppedBy]}` : ''
   return `${VERB[job].past} ${done}/${wanted}${extra}${cash}${why}`
 }
+
+/** button class per material tier (index 0 = tier 1) */
+const TIER_CLASS = ['copper', 'iron'] as const
 
 /** stacked rows (desktop): the farm loop order */
 const STACK_ORDER: readonly ToolJob[] = ['plant', 'water', 'harvest']
@@ -109,8 +112,8 @@ export function Tools({ state, act, cropId, stacked = false }: { state: GameStat
     const level = run.tools[job]
     return `${VERB[job].now} ${level === 1 ? 1 : level === 2 ? toolCount(run, job) : 'all'}`
   }
-  // copper tier: a copper stripe inside the frame (no width change), named in the tooltip
-  const tier = (job: ToolJob) => (run.toolTier[job] > 0 ? { className: 'copper', title: TOOLS[job].copper } : {})
+  // material tier: a copper / iron stripe inside the frame (no width change), named in the tooltip
+  const tier = (job: ToolJob) => (run.toolTier[job] > 0 ? { className: TIER_CLASS[run.toolTier[job] - 1], title: tierName(job, run.toolTier[job]) } : {})
 
   if (stacked) {
     const step = (job: ToolJob, dir: -1 | 1) =>

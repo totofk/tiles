@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import { cropRotGraceTicks } from '../core/balance'
+import { cropRotGraceTicks, waterMoisture } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { isOffer } from '../core/orders'
@@ -63,7 +63,7 @@ function Cell({ tile, state, onTap, ring, flash, ordered }: CellProps) {
       <span className="cell-emoji">{emoji}</span>
       <span className="cell-label">{label}</span>
       {growing && <Bar value={growthProgress(tile, state)} kind="grow" />}
-      {tile.status !== 'untilled' && <Bar value={tile.moisture} kind="water" />}
+      {tile.status !== 'untilled' && <Bar value={tile.moisture / waterMoisture(state.run.toolTier.water)} kind="water" />}
       {mature && (
         <>
           <Bar value={rotIn! / (grace + 1)} kind="rot" />

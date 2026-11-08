@@ -2524,7 +2524,7 @@ materials; their cash part = 0.5–1.5 h of income at unlock, measured by the si
     the tier like the player (watering worker fills to 4 → the "watering worker wage halves again" effect). The
     toolTier comments in balance.ts/state.ts say "0 basic, 1 copper, 2 iron". Moisture 4 must not break the tile's
     moisture bar (bar shows fraction of the tier's max; check FarmGrid).
-- [ ] 84. **UI.** The tool bar tier button shows the iron step (`🔷 Iron watering can — moisture 4`, price with 🔷 bars),
+- [x] 84. **UI.** The tool bar tier button shows the iron step (`🔷 Iron watering can — moisture 4`, price with 🔷 bars),
     disabled with the reason line when iron bars or the copper tier are missing; ⓘ tips list all three tiers' effects;
     Stats tool rows show the tier name. Iron emoji from the shared constants. Compute layout from CSS at 375 / 1024 /
     1440 px.

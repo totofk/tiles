@@ -92,16 +92,27 @@ describe('Farm tools in the Shop', () => {
     expect(tool('Scythe').disabled).toBe(false)
   })
 
-  it('the copper row unlocks with the job tool Lv1, shows 4 bars 💰100 and becomes an owned card', () => {
-    const t = setup({ cash: 100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
-    expect(tool(`${BAR} Copper Can`).textContent).toContain(`${BAR}4 💰100`)
-    expect(tool(`${BAR} Copper Sickle`).disabled).toBe(true)
+  it('the tier row sells copper at tool Lv1, then iron; the owned card appears at the max tier', () => {
+    const IRON = ITEMS.ironBar.emoji
+    const t = setup({ cash: 5100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
+    expect(tool(`${BAR} Copper Can`).textContent).toContain(`moisture 2 · ${BAR}4 💰100`)
+    expect(tool(`${BAR} Copper Sickle`).disabled).toBe(true) // no Sickle Lv1
     fireEvent.click(tool(`${BAR} Copper Can`))
     t.rerender()
     expect(t.get().run.toolTier.water).toBe(1)
-    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([0, 0])
-    expect(tool(`${BAR} Copper Can`).textContent).toContain('✓ Owned')
-    expect(tool(`${BAR} Copper Can`).classList.contains('owned')).toBe(true)
+    const iron = tool(`${IRON} Iron Can`)
+    expect(iron.textContent).toContain(`moisture 4 · ${IRON}4 💰5000`)
+    expect(iron.textContent).toContain(`needs ${IRON}4 more`) // cash in hand, bars not
+    expect(iron.disabled).toBe(true)
+
+    cleanup()
+    const t2 = setup({ cash: 5000, inventory: { ironBar: 4 }, tools: { water: 1 }, toolTier: { water: 1, harvest: 0, plant: 0 } })
+    fireEvent.click(tool(`${IRON} Iron Can`))
+    t2.rerender()
+    expect(t2.get().run.toolTier.water).toBe(2)
+    expect([t2.get().run.cash, t2.get().run.inventory.ironBar]).toEqual([0, 0])
+    expect(tool(`${IRON} Iron Can`).textContent).toContain('✓ moisture 4')
+    expect(tool(`${IRON} Iron Can`).classList.contains('owned')).toBe(true)
   })
 })
 

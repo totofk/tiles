@@ -97,6 +97,9 @@ describe('farm tool buttons', () => {
     setup({ tools: { water: 1, harvest: 2, plant: 0 }, toolTier: { water: 1, harvest: 0, plant: 0 } })
     expect(screen.getByRole('button', { name: 'Water 1' }).className).toBe('copper')
     expect(screen.getByRole('button', { name: 'Harvest 1' }).className).toBe('')
+    cleanup()
+    setup({ tools: { water: 1, harvest: 0, plant: 0 }, toolTier: { water: 2, harvest: 0, plant: 0 } })
+    expect(screen.getByRole('button', { name: 'Water 1' }).className).toBe('iron')
     const ok = { ok: true as const, state: createInitialState(), done: 6, wanted: 6, stoppedBy: null }
     expect(pressText('harvest', { ...ok, bonus: 1 })).toBe('Harvested 6/6 (+1 bonus)')
     expect(pressText('harvest', { ...ok, bonus: 1 }, 540)).toBe('Harvested 6/6 (+1 bonus) +💰540 ✋ ×1.25')
@@ -105,12 +108,12 @@ describe('farm tool buttons', () => {
     expect(pressText('plant', { ...ok, bonus: 0, done: 2, stoppedBy: 'NO_ENERGY' })).toBe('Planted 2/6 — out of energy')
   })
 
-  it('the moisture bar shows a darker band for moisture above 1', () => {
-    render(<Bar value={1.5} kind="water" />)
-    const spans = document.querySelectorAll<HTMLElement>('.bar-water > span')
-    expect([...spans].map((s) => [s.className, s.style.width])).toEqual([['', '100%'], ['bar-over', '50%']])
-    cleanup()
+  it('the moisture bar is a fraction of the can tier max: 0 … 100 %, clamped, no overflow band', () => {
     render(<Bar value={0.4} kind="water" />)
+    expect(document.querySelector('.bar-water > span')!.style.width).toBe('40%')
+    cleanup()
+    render(<Bar value={1.5} kind="water" />)
+    expect(document.querySelector('.bar-water > span')!.style.width).toBe('100%')
     expect(document.querySelector('.bar-over')).toBeNull()
   })
 
