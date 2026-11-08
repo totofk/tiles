@@ -30,8 +30,8 @@ describe('market text', () => {
 
   it('marketTip: names the recovery only while glutted', () => {
     expect(marketTip(createInitialState(), 'lemon')).not.toMatch(/Recovers/)
-    // factor 0.9 → 0.99 is a tenfold glut drop: log2(10) half-lives of 30 min ≈ 100 min
-    expect(marketTip(at('lemon', 0.9), 'lemon')).toMatch(/Recovers in ~100 min/)
+    // factor 0.9 → 0.99 is a tenfold glut drop: log2(10) half-lives of 15 min ≈ 50 min (re-pinned batch 21)
+    expect(marketTip(at('lemon', 0.9), 'lemon')).toMatch(/Recovers in ~50 min/)
   })
 
   it('marketMoves / away banner: crops that moved more than 5 points, lower-case, before → after', () => {

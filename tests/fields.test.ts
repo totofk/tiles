@@ -166,10 +166,10 @@ describe('fieldsHarvest (the harvester worker)', () => {
     const ready = withFields(12, { cash: 0, tick: 1000 }, { cohorts: [{ crop: 'lemon', count: 15, readyTick: 800 }, { crop: 'lemon', count: 10, readyTick: 900 }] })
     const r = fieldsHarvest(ready)
     if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
-    // 10 of the oldest cohort; the market prices each unit at its own glut (4 × 110 then 109s)
+    // 10 of the oldest cohort; the market prices each unit at its own glut (8 × 110 then 109s, re-pinned batch 21: depth 240)
     expect(r.state.run.fields.cohorts).toEqual([{ crop: 'lemon', count: 5, readyTick: 800 }, { crop: 'lemon', count: 10, readyTick: 900 }])
-    expect(r.state.run.cash).toBe(4 * 110 + 6 * 109)
-    expect(r.state.run.lifetime.cashEarned).toBe(4 * 110 + 6 * 109)
+    expect(r.state.run.cash).toBe(8 * 110 + 2 * 109)
+    expect(r.state.run.lifetime.cashEarned).toBe(8 * 110 + 2 * 109)
     expect([r.state.run.counters.harvests, r.state.run.counters.sales, r.state.run.lifetime.harvests.lemon ?? 0]).toEqual([0, 0, 0])
     expect(fieldsHarvest(withFields(12, { tick: 1000 }, { cohorts: [{ crop: 'lemon', count: 4, readyTick: 1200 }] }))).toBeNull()
   })
@@ -277,7 +277,7 @@ describe('workers on the fields', () => {
   it('a harvester with nothing ready at home reaps ready Fields cohorts', () => {
     const after = step(fieldsRun({}, { plant: 0, harvest: 1 }, { cohorts: [{ crop: 'lemon', count: 7, readyTick: 4 }] }), 1)
     expect(fieldsStanding(after.run.fields)).toBe(0)
-    expect(after.run.cash).toBe(1000 + 4 * 110 + 3 * 109 - 1) // per-unit glut, then the wage
+    expect(after.run.cash).toBe(1000 + 7 * 110 - 1) // per-unit glut (7 × 110 at depth 240, re-pinned batch 21), then the wage
   })
 
   it('a planter with no crop picked ("stop") or no free tiles idles unpaid', () => {

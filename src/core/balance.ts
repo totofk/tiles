@@ -389,11 +389,11 @@ const LOAN_REPAY_STEP = 10
 // Crop market (batch 12, DECISIONS "Crop market"): glut per crop halves every MARKET_HALF_LIFE_TICKS and each unit
 // sold while glut g stands lowers the price by 0.5 × g / depth; the depth scales with the crop's base grow ticks,
 // so fertilizer speeds harvests and deepens the glut (intended). Items are not in the market.
-export const MARKET_HALF_LIFE_TICKS = 1800
+export const MARKET_HALF_LIFE_TICKS = 900
 export const MARKET_DECAY = 0.5 ** (1 / MARKET_HALF_LIFE_TICKS)
 export const MARKET_FLOOR = 0.5
-/** tiles of one crop that glut a market to the floor at a continuous harvest (batch 16: 120 → 60) */
-export const MARKET_DEPTH_TILES = 60
+/** tiles of one crop that glut a market to the floor at a continuous harvest (batch 16: 120 → 60; batch 21: 60 → 240) */
+export const MARKET_DEPTH_TILES = 240
 // Hand-picked (batch 13, DECISIONS "Early-game pacing"): a crop the player harvests (energy spent) sells at this ×
 // the market price, per unit after the market factor; workers sell at ×1
 const HAND_PICKED_BONUS = 1.25
