@@ -2624,7 +2624,7 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
     reason line names the storage level, as batch 13 did. Orders pool gains gold ore/bar through the tables (no
     generator change). Milestones gain vein4, firstGoldBar, goldPickaxe. If new item ids change the save shape, bump
     to v14 per CLAUDE.md (FIRST commit `tests/fixtures/save-v13.json`); otherwise no bump.
-- [ ] 88. **Gold farm tools + UI.** Tier 3 for harvest and plant only: `DOUBLE_HARVEST[3] = 0.3`, `SEED_KEEP[3] = 0.5`,
+- [x] 88. **Gold farm tools + UI.** Tier 3 for harvest and plant only: `DOUBLE_HARVEST[3] = 0.3`, `SEED_KEEP[3] = 0.5`,
     price `{ goldBar: 4, cash: GOLD_TOOL_CASH }` (set in 89), needs the iron tier of that job. Water stays capped at
     iron (the tier button says "Iron is the last watering can"). UI: vein Lv4 row, gold rock look, gold emoji from shared
     constants, furnace gold option, gold tool tier buttons, Stats rows. Layout computed from CSS at 375 / 1024 / 1440.
@@ -2658,3 +2658,23 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
   the market-on iron ladder at depth 60 is pinned stalled — cash-broke at 0 after storage Lv2 (tick 951), the mine
   certificate never bought.
 
+
+### Gold core + tools (tasks 87–88)
+
+- Vein Lv4 price `45 stone + 8 iron bars + 💰5000` (`GOLD_VEIN_CASH` placeholder, pinned in task 89); gate
+  `NO_IRON_PICKAXE` (iron or gold in hand); drop table 50/20/12/10/8 (stone/coal/copper/iron/gold); gold rock
+  5 hits, weaker pickaxes mine it as stone. Save **v14** (v13 fixture migrated in `tests/save.test.ts`).
+- Gold tool tier: sickle 30 % double, dibber 50 % seed kept, `4 gold bars + 💰15000` (`GOLD_TOOL_CASH`
+  placeholder, pinned in task 89); `toolTierMax(job)` — water stops at iron, its Shop card says
+  "Iron is the last watering can".
+- Layout, computed from `src/app/app.css` (no browser; widths are CSS math, not measurements):
+  - **375 px** (single column, page scrolls): the vein Lv4 row is a wrapping span in the `.mine-vein` column
+    flex — longest text "Lv4: … Gold ore 8 % — ⛰️45 🥇8 💰5000" wraps like the Lv3 row before it; the furnace
+    ore picker (`repeat(auto-fit, minmax(96px, 1fr))` over ~343 px content) shows 3 per row, the gold button
+    wraps to a 2nd row; the gold tool card sits in the same Shop grid cell as copper/iron (text wraps); the
+    fixed bottom tool bar is unchanged — `.tools .gold` paints the border/underline only, no width change.
+  - **1024 px** (3-column grid): Mine column `clamp(220px, 22vw, 320px)` = 225 px → vein rows wrap,
+    furnace action rows 2 per row over ≈ 200 px content (96 px floor); side panel 300 px
+    (`clamp(300px, 26vw, 380px)`, 26vw = 266 < floor); farm ≈ 419 px.
+  - **1440 px**: Mine 317 px (22vw), panel 374 px (26vw), farm = 1440 − 2×20 padding − 2×20 gaps − 317 − 374
+    ≈ 669 px; furnace action rows 3 per row; nothing fixed-width is new, so no breakpoint changes.

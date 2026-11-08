@@ -32,11 +32,11 @@ export const TOOL_TIPS: Record<ToolJob, [string, string, string]> = {
   ],
 }
 
-/** the job's material tiers (copper, then iron): change every action of the job, taps, tool presses and workers alike */
+/** the job's material tiers (copper, iron, then gold for the sickle and dibber): change every action of the job, taps, tool presses and workers alike */
 export const TIER_TIPS: Record<ToolJob, string> = {
-  water: 'Each watering holds more moisture, so a tile stays moist longer between waterings and a waterer works less. Copper needs the Watering Can, iron needs copper; each is made once from bars.',
-  harvest: 'Now and then a harvest yields a second crop that sells too. Copper needs the Sickle, iron needs copper; each is made once from bars.',
-  plant: 'Now and then a planting keeps its seed, so the pouch lasts longer. Copper needs the Dibber, iron needs copper; each is made once from bars.',
+  water: 'Each watering holds more moisture, so a tile stays moist longer between waterings and a waterer works less. Copper needs the Watering Can, iron needs copper; each is made once from bars. Iron is the last watering can.',
+  harvest: 'Now and then a harvest yields a second crop that sells too. Copper needs the Sickle, iron needs copper, gold (3 in 10) needs iron; each is made once from bars.',
+  plant: 'Now and then a planting keeps its seed, so the pouch lasts longer. Copper needs the Dibber, iron needs copper, gold (every other seed) needs iron; each is made once from bars.',
 }
 
 export const UPGRADE_TIPS: Record<UpgradeId, string> = {

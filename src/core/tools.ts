@@ -97,7 +97,7 @@ export function buyTool(state: GameState, job: ToolJob): ActionResult {
 export function buyToolTier(state: GameState, job: ToolJob): ActionResult {
   const { run } = state
   const tier = run.toolTier[job]
-  if (tier >= toolTierMax()) return fail('ALREADY_OWNED')
+  if (tier >= toolTierMax(job)) return fail('ALREADY_OWNED')
   if (run.tools[job] < 1) return fail('LOCKED')
   return pay(state, toolTierCost(tier + 1, state.meta), { toolTier: { ...run.toolTier, [job]: tier + 1 } })
 }

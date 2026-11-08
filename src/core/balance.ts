@@ -142,18 +142,21 @@ const TOOL_LEVELS: Record<ToolJob, { counter: CounterId; levels: ReadonlyArray<{
   plant: { counter: 'plants', levels: [{ at: 15, cost: 40 }, { at: 50, cost: 120 }, { at: 120, cost: 300 }] },
 }
 const TOOL_N_RATIO = 1 / 3
-// Material tier per farm job (batch 7.1 copper, batch 15 iron; index = tier, 0 basic, 1 copper, 2 iron). Watering fills
-// moisture to WATER_MOISTURE; harvest yields 2 crops with DOUBLE_HARVEST chance; planting keeps the seed with SEED_KEEP
-// chance. TOOL_TIER_COST[t − 1] = price of tier t, the same for every job; tier t needs tier t − 1 of the job. Gold
-// later only for sickle 30 % and dibber 50 % (no gold can).
+// Material tier per farm job (batch 7.1 copper, batch 15 iron, batch 16 gold for the sickle and dibber only; index =
+// tier, 0 basic, 1 copper, 2 iron, 3 gold). Watering fills moisture to WATER_MOISTURE; harvest yields 2 crops with
+// DOUBLE_HARVEST chance; planting keeps the seed with SEED_KEEP chance. TOOL_TIER_COST[t − 1] = price of tier t, the
+// same for every job; tier t needs tier t − 1 of the job. No gold can: iron is the last watering can.
 const WATER_MOISTURE = [1, 2, 4]
-const DOUBLE_HARVEST = [0, 0.1, 0.2]
-const SEED_KEEP = [0, 0.2, 0.35]
+const DOUBLE_HARVEST = [0, 0.1, 0.2, 0.3]
+const SEED_KEEP = [0, 0.2, 0.35, 0.5]
 // cash part = 0.5–1.5 h of the batch-15 ladder bot's income when the mine certificate lands (PLAN.md "Batch 15 results")
 const IRON_TOOL_CASH = 10000
+// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the gold vein lands (pinned in task 89)
+const GOLD_TOOL_CASH = 15000
 const TOOL_TIER_COST: ReadonlyArray<Price> = [
   { copperBar: 4, cash: 100 },
   { ironBar: 4, cash: IRON_TOOL_CASH },
+  { goldBar: 4, cash: GOLD_TOOL_CASH },
 ]
 
 // Workers v1 (batch 8, DECISIONS "Workers v1"): hire k (pool k − 1 → k) costs HIRE_BASE × HIRE_GROWTH^(k − 1), pool
@@ -643,8 +646,9 @@ export function seedKeepChance(tier: number): number {
   return SEED_KEEP[tier]
 }
 
-export function toolTierMax(): number {
-  return TOOL_TIER_COST.length
+/** top material tier for a job: gold only for the sickle and the dibber — iron is the last watering can */
+export function toolTierMax(job: ToolJob): number {
+  return job === 'water' ? 2 : TOOL_TIER_COST.length
 }
 
 /** price of material tier ≥ 1 for any job */

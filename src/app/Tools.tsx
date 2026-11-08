@@ -40,7 +40,7 @@ export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extr
 }
 
 /** button class per material tier (index 0 = tier 1) */
-const TIER_CLASS = ['copper', 'iron'] as const
+const TIER_CLASS = ['copper', 'iron', 'gold'] as const
 
 /** stacked rows (desktop): the farm loop order */
 const STACK_ORDER: readonly ToolJob[] = ['plant', 'water', 'harvest']

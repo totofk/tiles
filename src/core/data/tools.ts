@@ -2,11 +2,11 @@
 export const TOOL_JOBS = ['water', 'harvest', 'plant'] as const
 export type ToolJob = (typeof TOOL_JOBS)[number]
 
-/** tool name per level (index 0 = level 1) and per material tier (index 0 = tier 1: copper, iron) */
-export const TOOLS: Record<ToolJob, { names: readonly [string, string, string]; tiers: readonly [string, string] }> = {
+/** tool name per level (index 0 = level 1) and per material tier (index 0 = tier 1: copper; gold is sickle/dibber only) */
+export const TOOLS: Record<ToolJob, { names: readonly [string, string, string]; tiers: readonly string[] }> = {
   water: { names: ['Watering Can', 'Garden Hose', 'Water Cart'], tiers: ['Copper Can', 'Iron Can'] },
-  harvest: { names: ['Sickle', 'Scythe', 'Reaper'], tiers: ['Copper Sickle', 'Iron Sickle'] },
-  plant: { names: ['Dibber', 'Seed Drill', 'Seed Spreader'], tiers: ['Copper Dibber', 'Iron Dibber'] },
+  harvest: { names: ['Sickle', 'Scythe', 'Reaper'], tiers: ['Copper Sickle', 'Iron Sickle', 'Gold Sickle'] },
+  plant: { names: ['Dibber', 'Seed Drill', 'Seed Spreader'], tiers: ['Copper Dibber', 'Iron Dibber', 'Gold Dibber'] },
 }
 
 /** the name of a job's material tier (0 = basic) */

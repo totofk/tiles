@@ -28,6 +28,8 @@ describe('stats(state)', () => {
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Iron bars smelted', value: '0' },
       { label: 'Iron bars collected', value: '0' },
+      { label: 'Gold bars smelted', value: '0' },
+      { label: 'Gold bars collected', value: '0' },
       { label: 'Fire wasted', value: '0 units' },
       { label: 'Wages paid', value: '💰0' },
       { label: 'Plants by workers', value: '0' },
@@ -59,6 +61,14 @@ describe('stats(state)', () => {
     expect(row(multipliers, 'Water tier')).toEqual({ label: 'Water tier', value: 'waters to 2 (×2 moist time)', source: 'Copper Can' })
     expect(row(multipliers, 'Harvest tier')).toEqual({ label: 'Harvest tier', value: '10 % double harvest', source: 'Copper Sickle' })
     expect(row(multipliers, 'Plant tier')).toEqual({ label: 'Plant tier', value: '20 % seed kept', source: 'Copper Dibber' })
+  })
+
+  it('the gold tier (batch 16): 30 % double harvest, every other seed kept — never a gold can', () => {
+    const s = createInitialState()
+    const { multipliers } = stats({ ...s, run: { ...s.run, toolTier: { water: 2, harvest: 3, plant: 3 } } })
+    expect(row(multipliers, 'Water tier')).toEqual({ label: 'Water tier', value: 'waters to 4 (×4 moist time)', source: 'Iron Can' })
+    expect(row(multipliers, 'Harvest tier')).toEqual({ label: 'Harvest tier', value: '30 % double harvest', source: 'Gold Sickle' })
+    expect(row(multipliers, 'Plant tier')).toEqual({ label: 'Plant tier', value: '50 % seed kept', source: 'Gold Dibber' })
   })
 
   it('per-crop harvests say "since v6" when a migrated save has harvests no crop was credited with', () => {

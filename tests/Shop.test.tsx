@@ -114,6 +114,19 @@ describe('Farm tools in the Shop', () => {
     expect(tool(`${IRON} Iron Can`).textContent).toContain('✓ moisture 4')
     expect(tool(`${IRON} Iron Can`).classList.contains('owned')).toBe(true)
   })
+
+  it('the gold tier row (batch 16): 🥇 Gold Sickle after iron; water says iron is the last can', () => {
+    const IRON = ITEMS.ironBar.emoji
+    const GOLD = ITEMS.goldBar.emoji
+    const t = setup({ cash: 15000, inventory: { goldBar: 4 }, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 2, harvest: 2, plant: 2 } })
+    expect(tool(`${IRON} Iron Can`).textContent).toContain('Iron is the last watering can')
+    const gold = tool(`${GOLD} Gold Sickle`)
+    expect(gold.textContent).toContain(`30 % double · ${GOLD}4 💰15000`)
+    fireEvent.click(gold)
+    t.rerender()
+    expect(t.get().run.toolTier.harvest).toBe(3)
+    expect(tool(`${GOLD} Gold Sickle`).textContent).toContain('✓ 30 % double')
+  })
 })
 
 describe('Shop seed pouch', () => {

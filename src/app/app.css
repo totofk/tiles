@@ -761,6 +761,10 @@ details > summary:focus-visible {
   border-color: #607d8b;
   box-shadow: inset 0 -4px 0 #607d8b;
 }
+.tools .gold {
+  border-color: #c9a227;
+  box-shadow: inset 0 -4px 0 #c9a227;
+}
 /* desktop stacked rows (🌾 Farm tab, collapsed-panel fallback): [−] [press] [+]; a level-1 / 3 row keeps the − / +
    slots as empty 44 px spans, so every press button has the same width */
 .tool-row {

@@ -62,7 +62,7 @@ export type RunState = {
   tools: Record<ToolJob, number>
   /** tiles per press for a level-2 tool; read through toolCount, which clamps it to the tile count */
   toolN: Record<ToolJob, number>
-  /** material tier per job, 0 basic, 1 copper, 2 iron (toolTierMax); changes what every action of the job does */
+  /** material tier per job, 0 basic, 1 copper, 2 iron, 3 gold for the sickle and dibber (toolTierMax(job)); changes what every action of the job does */
   toolTier: Record<ToolJob, number>
   workers: Workers
   /** unsold glut per crop (units); every crop unit sold adds 1, each tick decays it, and it lowers the sale price */

@@ -48,15 +48,16 @@ const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
   plant: (t) => `${Math.round(seedKeepChance(t) * 100)} % seed kept`,
 }
 /** the bar each tier is made from (index 0 = tier 1) */
-const TIER_BAR = ['copperBar', 'ironBar'] as const
+const TIER_BAR = ['copperBar', 'ironBar', 'goldBar'] as const
 
 /**
- * the job's next material tier (copper, then iron) under its three tool levels; locked until the job's tool Lv1 (copper)
- * or copper (iron). A second line names the bars or cash still missing.
+ * the job's next material tier (copper, then iron, then gold for the sickle and dibber) under its three tool levels;
+ * locked until the job's tool Lv1 (copper) or the tier below. Water stops at iron — the button says so. A second line
+ * names the bars or cash still missing.
  */
 function TierTool({ state, act, job }: { state: GameState; act: Act; job: ToolJob }) {
   const { run, meta } = state
-  const max = toolTierMax()
+  const max = toolTierMax(job)
   const owned = run.toolTier[job] >= max
   const tier = Math.min(run.toolTier[job] + 1, max)
   const cost = toolTierCost(tier, meta)
@@ -64,7 +65,11 @@ function TierTool({ state, act, job }: { state: GameState; act: Act; job: ToolJo
     ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}${cost[id]! - (run.inventory[id] ?? 0)}`),
     ...(cost.cash > run.cash ? [`💰${cost.cash - run.cash}`] : []),
   ]
-  const status = owned ? `✓ ${TIER_EFFECT[job](tier)}` : run.tools[job] < 1 ? `needs ${TOOLS[job].names[0]}` : `${TIER_EFFECT[job](tier)} · ${priceText(cost)}`
+  const status = owned
+    ? `✓ ${TIER_EFFECT[job](tier)}${job === 'water' ? ' · Iron is the last watering can' : ''}`
+    : run.tools[job] < 1
+      ? `needs ${TOOLS[job].names[0]}`
+      : `${TIER_EFFECT[job](tier)} · ${priceText(cost)}`
   const ladder = Array.from({ length: max + 1 }, (_, t) => `${t ? TOOLS[job].tiers[t - 1] : 'Basic'}: ${TIER_EFFECT[job](t)}`).join(' · ')
   return (
     <Item tip={`${TIER_TIPS[job]} ${ladder}.`}>
