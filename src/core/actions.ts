@@ -5,6 +5,7 @@ import {
   cropSeedCost,
   digSeedDrop,
   doubleHarvestChance,
+  handPickedBonus,
   licenseCost,
   seedKeepChance,
   tileCost,
@@ -197,8 +198,9 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       const { harvests, sales } = run.counters
       const { hit, rngState } = tierRoll(run, run.toolTier.harvest, doubleHarvestChance(run.toolTier.harvest))
       const crops = hit ? 2 : 1
-      // the market prices each unit at the glut before that unit's sale, in sequence
-      const sale = cropSale(state, t.cropId!, crops)
+      // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
+      // is hand-picked, a worker's (energy 0) is not
+      const sale = cropSale(state, t.cropId!, crops, energy > 0 ? handPickedBonus() : 1)
       return {
         tile: clearedTile(t),
         cashDelta: sale.cash,

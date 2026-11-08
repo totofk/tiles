@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
-import { STARTING_CASH, cropGrowTicks, cropSellPrice, energyMax, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
+import { STARTING_CASH, cropGrowTicks, cropSellPrice, energyMax, handPickedBonus, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
@@ -99,7 +99,7 @@ describe('stats(state)', () => {
     state = r.state
     const { totals, multipliers } = stats(state)
     expect(row(totals, 'Time played')).toEqual({ label: 'Time played', value: '1h 02m 05s' })
-    expect(row(totals, 'Cash earned')!).toMatchObject({ value: `💰${1234 + cropSellPrice('pumpkin', s.meta, 5)}` })
+    expect(row(totals, 'Cash earned')!).toMatchObject({ value: `💰${1234 + Math.round(cropSellPrice('pumpkin', s.meta, 5) * handPickedBonus())}` })
     expect(row(totals, 'Pumpkin harvests')).toMatchObject({ value: '1' })
     expect(row(totals, 'Carrot harvests')).toMatchObject({ value: '40' })
     expect(row(totals, 'Copper bars smelted')).toMatchObject({ value: '6' })
@@ -126,16 +126,16 @@ describe('stats(state)', () => {
   })
 })
 
-describe('feedbackSummary(state, hideIron)', () => {
+describe('feedbackSummary(state)', () => {
   it('a fresh run in one line', () => {
-    expect(feedbackSummary(createInitialState(), false)).toBe(
+    expect(feedbackSummary(createInitialState())).toBe(
       `cash ${STARTING_CASH} · licenses radish · tools` +
         ' water Lv0 tier 0, harvest Lv0 tier 0, plant Lv0 tier 0 · pickaxe none · ' +
         'workers 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0) · vein Lv0 · furnace none · played 0m 00s',
     )
   })
 
-  it('a later run: pickaxe, workers, smart furnace; hideIron drops the mine worker and never says iron', () => {
+  it('a later run: pickaxe, workers, smart furnace', () => {
     const s = createInitialState()
     const state: GameState = {
       ...s,
@@ -148,13 +148,10 @@ describe('feedbackSummary(state, hideIron)', () => {
         furnace: { ...s.run.furnace, built: true, smart: true, levels: { fireCap: 1, batch: 2 } },
       },
     }
-    const shown = feedbackSummary(state, false)
-    expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0)')
+    const shown = feedbackSummary(state)
+    expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0) · vein Lv2')
     expect(shown).toContain('pickaxe copper 120 · ')
     expect(shown).toContain('furnace smart fire Lv1 batch Lv2 · played 1h 02m 05s')
-    const hidden = feedbackSummary(state, true)
-    expect(hidden).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0) · vein Lv2')
-    expect(hidden).not.toMatch(/iron|mine/i)
   })
 })
 
@@ -184,27 +181,26 @@ describe('timelineLines / reportLines', () => {
     expect(timelineLines(s.run)).toEqual(['… 4 earlier milestones before tracking (tracking since 2h 0m)', 'Lemon license — 2h 30m'])
   })
 
-  it('reportLines: header, run summary, market factors, then the timeline; iron hidden drops the mine worker', () => {
+  it('reportLines: header, run summary, market factors, then the timeline', () => {
     const s = with_({ cash: 12.7, milestones: { firstHarvest: 100 }, counters: { ...createInitialState().run.counters, harvests: 1 } })
-    expect(reportLines(s, ['Build: abc', 'Save: v12'], true)).toEqual([
+    expect(reportLines(s, ['Build: abc', 'Save: v12'])).toEqual([
       'Build: abc',
       'Save: v12',
       'Played: 0m 00s',
       'Cash: 💰12',
       'Lifetime cash: 💰0',
       `Tiles: ${s.run.tiles.length}`,
-      'Workers: 0 (plant 0, water 0, harvest 0, ore 0, fuel 0)',
+      'Workers: 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0)',
       'Vein: Lv0',
       'Market: carrot 100 %, chilli 100 %, pumpkin 100 %, lemon 100 %',
       'Timeline:',
       'First harvest — 1m',
     ])
-    expect(reportLines(s, [], false)[4]).toContain('mine 0')
   })
 
   it('reportLines never passes 30 lines: a long timeline ends with "… N more"', () => {
     const milestones = Object.fromEntries(MILESTONES.map((m, i) => [m.id, i * 60]))
-    const lines = reportLines(with_({ milestones }), ['Build: abc', 'Save: v12'], false)
+    const lines = reportLines(with_({ milestones }), ['Build: abc', 'Save: v12'])
     expect(lines).toHaveLength(REPORT_MAX_LINES)
     expect(lines.at(-1)).toBe(`… ${10 + MILESTONES.length - (REPORT_MAX_LINES - 1)} more`)
   })

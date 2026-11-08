@@ -1,4 +1,4 @@
-import { marketFactor, marketRecoveryTicks } from '../core/balance'
+import { handPickedBonus, marketFactor, marketRecoveryTicks } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { marketCropPrice } from '../core/market'
 import type { GameState } from '../core/state'
@@ -25,11 +25,16 @@ export function depthBand(factor: number): 'green' | 'yellow' | 'red' {
   return factor >= DEPTH_GREEN ? 'green' : factor >= DEPTH_YELLOW ? 'yellow' : 'red'
 }
 
+/** done by the player's own hand: dig for seeds, hand-picked crops; Unicode 6.0 (the old 🪏 is Unicode 13) */
+export const HAND_EMOJI = '✋'
+/** "✋ ×1.25": what a crop the player harvests sells at, on top of the market price (batch 13) */
+export const HAND_PICKED = `${HAND_EMOJI} ×${handPickedBonus()}`
+
 /** the ⓘ tip's market sentence; the recovery time only while the market is still glutted */
 export function marketTip(state: GameState, crop: CropId): string {
   const ticks = marketRecoveryTicks(crop, state.run.market[crop])
   const recover = ticks > 0 ? ` Recovers in ~${Math.max(1, Math.round(ticks / 60))} min if you stop selling.` : ''
-  return `Sells for ${priceTag(state, crop)} now; selling a lot at once lowers the price.${recover}`
+  return `Sells for ${priceTag(state, crop)} now; selling a lot at once lowers the price.${recover} You harvest it: ${HAND_PICKED}; workers sell at ×1.`
 }
 
 /** "market: lemon 72 % → 95 %" for every crop whose factor moved more than BANNER_MOVE; null when none did */

@@ -151,13 +151,11 @@ export function timelineLines(run: RunState): string[] {
 /** the "Copy report" limit; a longer timeline is cut and ends with "… N more" */
 export const REPORT_MAX_LINES = 30
 
-const jobsShown = (hideIron: boolean) => WORKER_JOBS.filter((job) => !(hideIron && job === 'mine'))
-
 /**
  * The "Copy report" text, one item per line, never the save: `header` (build and save version, which only the app
  * knows), play time, cash, lifetime cash, tiles, workers per job, vein, market factors, then the timeline.
  */
-export function reportLines(state: GameState, header: string[], hideIron: boolean): string[] {
+export function reportLines(state: GameState, header: string[]): string[] {
   const { run } = state
   const lines = [
     ...header,
@@ -165,7 +163,7 @@ export function reportLines(state: GameState, header: string[], hideIron: boolea
     `Cash: 💰${Math.floor(run.cash)}`,
     `Lifetime cash: 💰${Math.round(run.lifetime.cashEarned)}`,
     `Tiles: ${run.tiles.length}`,
-    `Workers: ${run.workers.pool} (${jobsShown(hideIron).map((job) => `${job} ${run.workers.assigned[job]}`).join(', ')})`,
+    `Workers: ${run.workers.pool} (${WORKER_JOBS.map((job) => `${job} ${run.workers.assigned[job]}`).join(', ')})`,
     `Vein: Lv${run.vein.level}`,
     `Market: ${CROP_IDS.map((id) => `${CROPS[id].name.toLowerCase()} ${Math.round(marketFactor(id, run.market[id]) * 100)} %`).join(', ')}`,
     'Timeline:',
@@ -176,20 +174,16 @@ export function reportLines(state: GameState, header: string[], hideIron: boolea
   return [...kept, `… ${lines.length - kept.length} more`]
 }
 
-/**
- * One plain-text line about the run for a feedback report (never the save). hideIron drops the mine worker, the
- * only iron-only field, so the line says nothing about iron while the UI gates it off.
- */
-export function feedbackSummary(state: GameState, hideIron: boolean): string {
+/** One plain-text line about the run for a feedback report (never the save). */
+export function feedbackSummary(state: GameState): string {
   const { run } = state
   const { furnace, workers, pickaxe } = run
-  const jobs = jobsShown(hideIron)
   return [
     `cash ${Math.floor(run.cash)}`,
     `licenses ${run.licenses.join(', ')}`,
     `tools ${TOOL_JOBS.map((job) => `${job} Lv${run.tools[job]} tier ${run.toolTier[job]}`).join(', ')}`,
     `pickaxe ${pickaxe ? `${pickaxe.tier} ${pickaxe.durability}` : 'none'}`,
-    `workers ${workers.pool} (${jobs.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
+    `workers ${workers.pool} (${WORKER_JOBS.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
     `vein Lv${run.vein.level}`,
     `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch}` : 'none'}`,
     `played ${duration(run.tick)}`,

@@ -5,6 +5,7 @@ import {
   cropSeedCost,
   cropSellPrice,
   doubleHarvestChance,
+  handPickedBonus,
   seedKeepChance,
   toolCost,
   toolNMax,
@@ -149,7 +150,8 @@ describe('pressTool', () => {
 
 describe('copper tier (batch 7.1)', () => {
   const copper = { water: 1, harvest: 1, plant: 1 }
-  const sell = cropSellPrice('radish', meta, 0)
+  // a player's harvest sells hand-picked (batch 13)
+  const sell = Math.round(cropSellPrice('radish', meta, 0) * handPickedBonus())
   const seed = cropSeedCost('radish', meta)
 
   it('numbers come from balance by tier: moisture 1 → 2, double harvest 0 → 10 %, seed keep 0 → 20 %, 🟧4 💰100', () => {

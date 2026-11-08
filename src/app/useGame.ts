@@ -50,7 +50,6 @@ export const FIRE_EMOJI = '🔥'
 export const PLANT_EMOJI = '🌱'
 /** the mine worker's icon (Workers row, Mine button pop, away banner; Unicode 5.2) */
 export const MINE_EMOJI = '⛏️'
-
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the
  * planters planted, miners' presses, fire burnt, copper and iron bars smelted, workers' wages; each only when non-zero)

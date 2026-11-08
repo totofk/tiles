@@ -5,6 +5,7 @@ import type { CropId } from '../core/data/crops'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
 import type { GameState } from '../core/state'
 import { pressTool, setToolN, toolCount, type ToolPress } from '../core/tools'
+import { HAND_PICKED } from './marketText'
 import { ERROR_TEXT, type Act } from './useGame'
 
 /** touch hold that opens the tiles-per-press popover instead of pressing */
@@ -28,12 +29,12 @@ const BONUS_TEXT: Partial<Record<ToolJob, (n: number) => string>> = {
 }
 
 /**
- * "Watered 5/9 — out of energy", "Harvested 6/6 (+1 bonus) +💰540"; no reason when every wanted tile was done.
- * earned: the cash a harvest press really received (market prices included), shown for harvests only
+ * "Watered 5/9 — out of energy", "Harvested 6/6 (+1 bonus) +💰540 ✋ ×1.25"; no reason when every wanted tile was done.
+ * earned: the cash a harvest press really received (market prices and the hand-picked bonus included), harvests only
  */
 export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extract<ToolPress, { ok: true }>, earned = 0): string {
   const extra = bonus > 0 ? (BONUS_TEXT[job]?.(bonus) ?? '') : ''
-  const cash = job === 'harvest' && earned > 0 ? ` +💰${earned}` : ''
+  const cash = job === 'harvest' && earned > 0 ? ` +💰${earned} ${HAND_PICKED}` : ''
   const why = stoppedBy ? ` — ${STOP_TEXT[stoppedBy] ?? ERROR_TEXT[stoppedBy]}` : ''
   return `${VERB[job].past} ${done}/${wanted}${extra}${cash}${why}`
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, nextRandom } from '../src/core/actions'
-import { MARKET_DECAY, MARKET_FLOOR, MARKET_HALF_LIFE_TICKS, cropSellPrice, marketDepthGlut, marketFactor, marketRecoveryTicks } from '../src/core/balance'
+import { MARKET_DECAY, MARKET_FLOOR, MARKET_HALF_LIFE_TICKS, cropSellPrice, handPickedBonus, marketDepthGlut, marketFactor, marketRecoveryTicks } from '../src/core/balance'
 import { CROP_IDS } from '../src/core/data/crops'
 import { cropSale, decayMarket, marketCropPrice, marketSteadyFactor, marketSteadyGlut } from '../src/core/market'
 import { sellItem } from '../src/core/mining'
@@ -42,8 +42,9 @@ describe('sale pricing', () => {
     const s = ripe(700)
     const one = harvest(s, 0)
     if (!one.ok) throw new Error(one.error)
-    expect(one.state.run.cash - s.run.cash).toBe(marketCropPrice(s, 'radish', 700))
-    expect(one.state.run.cash - s.run.cash).toBeLessThan(cropSellPrice('radish', meta, 0))
+    // a player's harvest: the market price × the hand-picked bonus (batch 13)
+    expect(one.state.run.cash - s.run.cash).toBe(Math.round(marketCropPrice(s, 'radish', 700) * handPickedBonus()))
+    expect(marketCropPrice(s, 'radish', 700)).toBeLessThan(cropSellPrice('radish', meta, 0))
     expect(one.state.run.market.radish).toBe(701)
 
     const copper = { ...ripe(700).run, toolTier: { water: 0, harvest: 1, plant: 0 }, rngState: luckySeed() }

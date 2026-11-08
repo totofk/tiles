@@ -9,11 +9,14 @@ export function marketCropPrice(state: GameState, cropId: CropId, glut: number):
   return Math.round(cropSellPrice(cropId, state.meta, state.run.upgrades.sellPrice) * marketFactor(cropId, glut))
 }
 
-/** sells `units` of `cropId`, each priced at the glut before its own sale, in sequence; glut += units */
-export function cropSale(state: GameState, cropId: CropId, units: number): { cash: number; market: RunState['market'] } {
+/**
+ * sells `units` of `cropId`, each priced at the glut before its own sale, in sequence; glut += units. `bonus` (the
+ * hand-picked multiplier) applies per unit after the market price and adds no glut.
+ */
+export function cropSale(state: GameState, cropId: CropId, units: number, bonus = 1): { cash: number; market: RunState['market'] } {
   const glut = state.run.market[cropId]
   let cash = 0
-  for (let i = 0; i < units; i++) cash += marketCropPrice(state, cropId, glut + i)
+  for (let i = 0; i < units; i++) cash += Math.round(marketCropPrice(state, cropId, glut + i) * bonus)
   return { cash, market: { ...state.run.market, [cropId]: glut + units } }
 }
 

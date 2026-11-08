@@ -199,6 +199,14 @@ export const MARKET_DECAY = 0.5 ** (1 / MARKET_HALF_LIFE_TICKS)
 export const MARKET_FLOOR = 0.5
 /** tiles of one crop that glut a market to the floor at a continuous harvest */
 export const MARKET_DEPTH_TILES = 120
+// Hand-picked (batch 13, DECISIONS "Early-game pacing"): a crop the player harvests (energy spent) sells at this ×
+// the market price, per unit after the market factor; workers sell at ×1
+const HAND_PICKED_BONUS = 1.25
+
+/** sale multiplier of a crop the player harvested by hand (tap or tool press) */
+export function handPickedBonus(): number {
+  return HAND_PICKED_BONUS
+}
 
 // Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); prestige spends them
 // in batch 13. The Stats deed meter is read through deedsFor.

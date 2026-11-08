@@ -2,10 +2,10 @@ import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } fro
 import { ITEMS } from '../core/data/items'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
-import { ironHidden } from './devFlags'
 import type { GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers,hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
 import { Info } from './Info'
+import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
 import { MINE_EMOJI, PLANT_EMOJI, type Act } from './useGame'
@@ -28,6 +28,9 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   mine: `${WORKER_JOB_EMOJI.mine} Mine`,
 }
 
+/** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
+const jobTip = (job: WorkerJob) => (job === 'harvest' ? `${WORKER_TIPS.harvest} Workers sell at ×1; what you harvest yourself sells at ${HAND_PICKED}.` : WORKER_TIPS[job])
+
 /** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */
 function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {
   const { run, meta } = state
@@ -49,7 +52,7 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
         <button disabled={!buyCertificate(state, job).ok} onClick={() => act((s) => buyCertificate(s, job))}>
           Certificate <small>{priceText(certificateCost(job, meta))}</small>
         </button>
-        <Info text={WORKER_TIPS[job]} />
+        <Info text={jobTip(job)} />
       </div>
     )
   }
@@ -65,7 +68,7 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
         +
       </button>
       {workerUnpaid(state, job) && <span className="unpaid">unpaid</span>}
-      <Info text={WORKER_TIPS[job]} />
+      <Info text={jobTip(job)} />
     </div>
   )
 }
@@ -80,7 +83,7 @@ export function Workers({ state, act }: { state: GameState; act: Act }) {
         👷 Workers · free {freeWorkers(run)} / {pool}
         {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
       </summary>
-      {WORKER_JOBS.filter((job) => !(job === 'mine' && ironHidden(run.vein.level) && !run.workers.certificates.includes(job))).map((job) => (
+      {WORKER_JOBS.map((job) => (
         <JobRow key={job} state={state} act={act} job={job} />
       ))}
       {hireUnlocked(run) && (

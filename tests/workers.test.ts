@@ -8,6 +8,7 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  handPickedBonus,
   moistureDrainPerTick,
   waterMoisture,
   workerActionTicks,
@@ -360,9 +361,12 @@ describe('workers vs manual, 9 pumpkin tiles, 1200 ticks', () => {
   const twoWaterers = pumpkinRate(2)
   console.log('batch 8 workers vs manual', JSON.stringify({ manual, worked, ratio: worked.perMin / manual.perMin, copper, twoWaterers }))
 
-  it('water + harvest workers with the player only planting net ≥ 80 % of the manual rate', () => {
-    expect(worked.perMin).toBeGreaterThanOrEqual(0.8 * manual.perMin)
-    expect(copper.worked.perMin).toBeGreaterThanOrEqual(0.8 * copper.manual.perMin)
+  // batch 13: the manual farmer sells hand-picked (×1.25), the workers at ×1, so the batch-8 "≥ 80 %" holds against the
+  // manual rate at the workers' price, and the hand-picked farmer now out-earns them
+  it('water + harvest workers with the player only planting net ≥ 80 % of the manual rate at ×1; hand-picked beats them', () => {
+    expect(worked.perMin).toBeGreaterThanOrEqual((0.8 * manual.perMin) / handPickedBonus())
+    expect(copper.worked.perMin).toBeGreaterThanOrEqual((0.8 * copper.manual.perMin) / handPickedBonus())
+    expect(manual.perMin).toBeGreaterThan(worked.perMin)
   })
 
   it('a copper can halves the waterer actions and wages; a second waterer only idles (costs nothing more)', () => {

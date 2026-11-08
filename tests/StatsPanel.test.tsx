@@ -1,14 +1,10 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Deeds, Stats, Timeline } from '../src/app/Stats'
 import { createInitialState, type GameState } from '../src/core/state'
 import { reportLines, stats } from '../src/core/stats'
 import { SAVE_VERSION } from '../src/save/serialize'
-import { setDevFlags } from '../src/app/devFlags'
-
-// these tests describe iron as players will see it; the live gate (devFlags) is tested in devFlags.test.ts and below
-beforeEach(() => setDevFlags(['iron']))
 
 afterEach(cleanup)
 
@@ -48,7 +44,7 @@ describe('Stats panel', () => {
     render(<Timeline state={state} />)
     expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['First harvest — 1m'])
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Copy report' })))
-    expect(writeText).toHaveBeenCalledWith(reportLines(state, [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`], false).join('\n'))
+    expect(writeText).toHaveBeenCalledWith(reportLines(state, [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]).join('\n'))
     expect(screen.getByRole('status').textContent).toMatch(/Report copied/)
     vi.unstubAllGlobals()
   })

@@ -5,7 +5,7 @@ import { CROPS, CROP_IDS } from '../core/data/crops'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import { Info } from './Info'
-import { priceTag } from './marketText'
+import { HAND_EMOJI, priceTag } from './marketText'
 import type { PanelProps } from './panelTabs'
 import { TIPS } from './tips'
 import { Tools } from './Tools'
@@ -42,8 +42,6 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   )
 }
 
-/** digging by hand; Unicode 6.0 (the old 🪏 is Unicode 13 and shows as a box on older fonts) */
-const DIG_EMOJI = '✋'
 
 export function DigSeeds({ act }: { act: Act }) {
   const [lastDig, setLastDig] = useState<string | null>(null)
@@ -59,7 +57,7 @@ export function DigSeeds({ act }: { act: Act }) {
           })
         }
       >
-        {DIG_EMOJI} Dig for seeds <small>⚡1</small>
+        {HAND_EMOJI} Dig for seeds <small>⚡1</small>
       </button>
       {lastDig && <span role="status">{lastDig}</span>}
     </p>

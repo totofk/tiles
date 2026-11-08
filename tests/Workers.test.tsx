@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { FarmGrid } from '../src/app/FarmGrid'
 import { Hud } from '../src/app/Hud'
@@ -11,10 +11,6 @@ import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type Counters, type GameState } from '../src/core/state'
 import { serialize } from '../src/save/serialize'
 import { SAVE_KEY } from '../src/save/storage'
-import { setDevFlags } from '../src/app/devFlags'
-
-// these tests describe iron as players will see it; the live gate (devFlags) is tested in devFlags.test.ts and below
-beforeEach(() => setDevFlags(['iron']))
 
 afterEach(cleanup)
 
@@ -111,16 +107,6 @@ describe('👷 Workers card', () => {
     const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
     expect(plant.textContent).toContain('plants 12/60')
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
-  })
-
-  it('iron gated off (no ?dev=iron): no mine row below vein Lv3; it shows from Lv3 or once certified', () => {
-    setDevFlags([])
-    const mine = () => screen.queryByText('⛏️ Mine')
-    setup({ vein: { level: 2, progress: 0, rock: 'stone' } }, { mines: 682 })
-    expect(mine()).toBeNull()
-    cleanup()
-    setup({ vein: { level: 3, progress: 0, rock: 'stone' } }, { mines: 10 })
-    expect(mine()).not.toBeNull()
   })
 
   it('the mine row shows only the gates still missing, one line each: mines n/200, vein Lv3; its certificate is in iron bars', () => {

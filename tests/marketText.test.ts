@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { depthBand, marketMoves, marketTip, priceTag } from '../src/app/marketText'
+import { HAND_PICKED, depthBand, marketMoves, marketTip, priceTag } from '../src/app/marketText'
 import { bannerText } from '../src/app/useGame'
 import { cropSellPrice, marketDepthGlut } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
@@ -21,6 +21,11 @@ describe('market text', () => {
 
   it('depthBand: green ≥ 85 %, yellow ≥ 65 %, red below', () => {
     expect([1, 0.85, 0.84, 0.65, 0.64, 0.5].map(depthBand)).toEqual(['green', 'green', 'yellow', 'yellow', 'red', 'red'])
+  })
+
+  it('batch 13: the ⓘ tip names the hand-picked bonus and that workers sell at ×1', () => {
+    expect(HAND_PICKED).toBe('✋ ×1.25')
+    expect(marketTip(createInitialState(), 'lemon')).toMatch(/You harvest it: ✋ ×1\.25; workers sell at ×1\.$/)
   })
 
   it('marketTip: names the recovery only while glutted', () => {

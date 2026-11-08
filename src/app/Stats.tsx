@@ -4,13 +4,9 @@ import type { GameState } from '../core/state'
 import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
 import { DangerZone } from './DangerZone'
-import { ironHidden } from './devFlags'
 import { FeedbackCard } from './FeedbackCard'
 import type { PanelProps } from './panelTabs'
 import { SaveTransfer, copyText } from './SaveTransfer'
-
-/** iron rows that are still zero while iron is gated off (devFlags) */
-const IRON_ROW = /\biron\b|by workers.*mine|mines by workers/i
 
 function Rows({ rows }: { rows: StatRow[] }) {
   return (
@@ -31,14 +27,12 @@ function Rows({ rows }: { rows: StatRow[] }) {
 /** renders the core `stats()` selector; computes nothing itself */
 export function Stats({ state }: { state: GameState }) {
   const { totals, multipliers } = stats(state)
-  const hide = ironHidden(state.run.vein.level)
-  const shown = (rows: StatRow[]) => (hide ? rows.filter((r) => !(IRON_ROW.test(r.label) && r.value === '0')) : rows)
   return (
     <section className="shop">
       <h2>Lifetime</h2>
-      <Rows rows={shown(totals)} />
+      <Rows rows={totals} />
       <h2>Now</h2>
-      <Rows rows={shown(multipliers)} />
+      <Rows rows={multipliers} />
     </section>
   )
 }
@@ -60,7 +54,7 @@ export function Timeline({ state }: { state: GameState }) {
   const lines = timelineLines(state.run)
   const copy = async () => {
     const header = [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]
-    setCopied(await copyText(reportLines(state, header, ironHidden(state.run.vein.level)).join('\n')))
+    setCopied(await copyText(reportLines(state, header).join('\n')))
   }
   return (
     <section className="shop">

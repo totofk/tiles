@@ -9,10 +9,15 @@ import {
   cropSeedCost,
   cropSellPrice,
   digSeedDrop,
+  handPickedBonus,
 } from '../src/core/balance'
+
+/** what one unit the player harvests sells for at glut 0: the price × the hand-picked bonus */
+const picked = (price: number) => Math.round(price * handPickedBonus())
 import * as bank from '../src/core/bank'
 import { ITEM_IDS, type ItemId } from '../src/core/data/items'
 import * as mining from '../src/core/mining'
+import { marketCropPrice } from '../src/core/market'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 
 function withTile(tile: Partial<Tile>, run: Partial<GameState['run']> = {}): GameState {
@@ -162,7 +167,7 @@ describe('harvest', () => {
   it('sells a mature crop instantly and leaves the tile tilled', () => {
     const s = withTile(mature)
     const next = okState(harvest(s, 0))
-    expect(next.run.cash).toBe(s.run.cash + cropSellPrice('radish', meta, 0))
+    expect(next.run.cash).toBe(s.run.cash + picked(cropSellPrice('radish', meta, 0)))
     expect(next.run.tiles[0]).toMatchObject({ status: 'tilled', growth: 0, ticksSinceMature: 0 })
     expect(next.run.tiles[0].cropId).toBeUndefined()
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
@@ -170,7 +175,18 @@ describe('harvest', () => {
   })
   it('applies the sellPrice upgrade (+10 % per level)', () => {
     const s = withTile(mature, { upgrades: { ...createInitialState().run.upgrades, sellPrice: 2 } })
-    expect(okState(harvest(s, 0)).run.cash).toBe(s.run.cash + Math.round(cropSellPrice('radish', meta, 0) * 1.2))
+    expect(okState(harvest(s, 0)).run.cash).toBe(s.run.cash + picked(Math.round(cropSellPrice('radish', meta, 0) * 1.2)))
+  })
+  it('batch 13: the player sells hand-picked at ×1.25 (after the market factor); the same harvest with no energy (a worker) at ×1, same glut', () => {
+    expect(handPickedBonus()).toBe(1.25)
+    const glutted = withTile(mature, { market: { ...createInitialState().run.market, radish: 400 } })
+    const byHand = okState(harvest(glutted, 0))
+    const byWorker = okState(harvest(glutted, 0, 0))
+    const market = marketCropPrice(glutted, 'radish', 400)
+    expect(market).toBeLessThan(cropSellPrice('radish', meta, 0))
+    expect([byHand.run.cash - glutted.run.cash, byWorker.run.cash - glutted.run.cash]).toEqual([picked(market), market])
+    expect([byHand.run.market.radish, byWorker.run.market.radish]).toEqual([401, 401])
+    expect(byHand.run.lifetime.cashEarned).toBe(picked(market))
   })
   it('fertilizer shortens grow time (−10 % per level) but not the rot window', () => {
     const fertilized = { ...createInitialState().run.upgrades, fertilizer: 3 }
@@ -205,7 +221,7 @@ describe('lifetime totals', () => {
     s = okState(mining.dig(s))
     s = okState(mining.sellItem(s, 'stone', 3))
     s = okState(bank.takeLoan(s))
-    const income = cropSellPrice('radish', meta, 0) + 3 * 2
+    const income = picked(cropSellPrice('radish', meta, 0)) + 3 * 2
     expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 })
   })
 })

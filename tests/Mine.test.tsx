@@ -1,15 +1,11 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
 import { itemSellPrice, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createFurnace, createInitialState, type GameState } from '../src/core/state'
-import { setDevFlags } from '../src/app/devFlags'
-
-// these tests describe iron as players will see it; the live gate (devFlags) is tested in devFlags.test.ts and below
-beforeEach(() => setDevFlags(['iron']))
 
 afterEach(cleanup)
 const built = { ...createFurnace(), built: true }
@@ -208,15 +204,10 @@ describe('Mine panel', () => {
     expect(t.get().run.vein.level).toBe(3)
   })
 
-  it('iron gated off (no ?dev=iron): no vein Lv3 row or iron hint below Lv3, the old iron teaser instead; Lv3 players keep it all', () => {
-    setDevFlags([])
+  it('batch 13: iron is open to everyone: on vein Lv2 the Lv3 upgrade and the iron hint show, the gold teaser, no iron teaser', () => {
     setup({ cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: wooden() })
-    expect(screen.queryByText(/^Lv3: /)).toBeNull()
-    expect(screen.queryByRole('button', { name: /^Upgrade vein/ })).toBeNull()
-    expect(screen.queryByText(/needs a copper pickaxe/)).toBeNull()
-    expect(screen.getByText('🔒 Lv3: iron ore — coming')).toBeTruthy()
-    cleanup()
-    setup({ cash: 400, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' }, pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ })).toBeTruthy()
+    expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
     expect(screen.queryByText('🔒 Lv3: iron ore — coming')).toBeNull()
     expect(screen.getByText(/gold ore — coming/)).toBeTruthy()
   })

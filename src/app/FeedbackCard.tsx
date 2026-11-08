@@ -2,7 +2,6 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import type { GameState } from '../core/state'
 import { feedbackSummary, timelineLines } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
-import { ironHidden } from './devFlags'
 import {
   DETAILS_MAX,
   EMPTY_FEEDBACK,
@@ -26,7 +25,7 @@ function context(state: GameState): FeedbackContext {
     screen: `${window.innerWidth}×${window.innerHeight} @${window.devicePixelRatio}`,
     ua: navigator.userAgent,
     time: new Date().toISOString(),
-    summary: feedbackSummary(state, ironHidden(state.run.vein.level)),
+    summary: feedbackSummary(state),
     timeline: timelineLines(state.run),
   }
 }

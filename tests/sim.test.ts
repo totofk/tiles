@@ -72,6 +72,7 @@ vi.mock('../src/core/balance', async (importOriginal) => {
     },
     workerHireCost: (pool: number, meta: MetaState) =>
       rules.batch13 ? real.workerHireCost(pool, meta) : Math.round(80 * 1.7 ** pool * real.multiplier(meta, 'cost')),
+    handPickedBonus: () => (rules.batch13 ? real.handPickedBonus() : 1),
   }
 })
 function withoutMarket<T>(run: () => T): T {

@@ -2,14 +2,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setDevFlags } from '../src/app/devFlags'
 import { FeedbackCard } from '../src/app/FeedbackCard'
 import { COOLDOWN_MS, EMPTY_FEEDBACK } from '../src/app/feedback'
 import { createInitialState } from '../src/core/state'
 
 const post = vi.fn<typeof fetch>()
 beforeEach(() => {
-  setDevFlags([])
   post.mockReset().mockResolvedValue(new Response())
   vi.stubGlobal('fetch', post)
 })
@@ -49,7 +47,7 @@ describe('💬 Feedback card', () => {
     expect(screen.getByText('2/80')).toBeTruthy()
   })
 
-  it('sends the picked kind and a context block, then clears and thanks; iron stays out while gated', async () => {
+  it('sends the picked kind and a context block, then clears and thanks; the mine worker is in it (iron is open)', async () => {
     render(<Host />)
     fireEvent.click(screen.getByRole('button', { name: 'Idea' }))
     fill()
@@ -58,7 +56,7 @@ describe('💬 Feedback card', () => {
     const body = new URLSearchParams(String(post.mock.calls[0][1]!.body))
     expect(body.get('entry.247767374')).toBe('Idea')
     expect(sentDetails()).toMatch(/^More please\n\n---\nBuild: \S+\nSave: v\d+\nScreen: .+\nUA: .+\nTime: \d{4}-.+Z\nGame: cash /)
-    expect(sentDetails()).not.toMatch(/iron|mine/i)
+    expect(sentDetails()).toContain('fuel 0, mine 0)')
     expect(screen.getByRole('status').textContent).toBe('Sent — thank you')
     expect(field(/Title/).value).toBe('')
   })

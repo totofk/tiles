@@ -699,6 +699,24 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   v12 save written in-test from the v11 one, then checks the workers still act and get paid over 600 ticks.
 - **Batch 13 (task 76): hire 3 costs 💰433, not 434**: `150 × 1.7²` is 433.4999… in floating point; the existing
   `Math.round` is kept. Hires: 150, 255, 433, 737, 1253, 2130.
+- **Batch 13 (task 77): the bonus rounds per unit**, `Math.round(marketCropPrice × 1.25)` inside `cropSale` (so cash
+  stays whole and a double harvest prices each unit at its own glut); a carrot at 💰10 sells for 💰13 by hand. "Spent
+  energy" = the `energy` argument of `harvest` > 0, which is every tap and tool press; the worker calls it with 0.
+- **Batch 13 (task 77): where "✋ ×1.25" shows.** Tile-tap toast `+💰13 Carrot ✋ ×1.25`, Harvest press toast `Harvested
+  6/6 (+1 bonus) +💰540 ✋ ×1.25`, and every crop's ⓘ tip ends "You harvest it: ✋ ×1.25; workers sell at ×1." The
+  price tags (`🍋 💰99 (90 %)`) stay the market price, the one both sellers start from. The Harvest worker row's ⓘ adds
+  "Workers sell at ×1; what you harvest yourself sells at ✋ ×1.25." in `Workers.tsx` rather than in `tips.ts`: tips
+  are module-level strings, and `tips → marketText → FarmGrid → Workers → tips` is an import cycle that would read
+  `HAND_PICKED` before it exists. `HAND_EMOJI` (✋, the old `DIG_EMOJI` of Dig for seeds) and `HAND_PICKED` live in
+  `marketText.ts`.
+- **Batch 13 (task 77): the batch-8 spec "water + harvest workers net ≥ 80 % of the manual rate"** (`workers.test.ts`)
+  now compares against the manual rate at ×1 (manual ÷ 1.25) and also checks that the hand-picked farmer out-earns
+  the workers, which is the point of the bonus.
+- **Batch 13 (task 77): the iron gate is deleted whole.** Nothing else read `tiles.dev`, so `src/app/devFlags.ts` and
+  `tests/devFlags.test.ts` are gone. `ironVein` (also used outside the gate, by the ore picker and the pickaxe offer)
+  moved into `Mine.tsx`. `reportLines` / `feedbackSummary` lost their `hideIron` parameter, and the Stats zero-iron row
+  filter and the Mine iron teaser are gone. The gate tests became "iron is open" tests. A player's browser may keep a
+  stale `tiles.dev` key; nothing reads it.
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2182,7 +2200,7 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
       (`{ copperBar: 10, cash: 300 }` + tool Lv3). `WORKER_HIRE_BASE = 150` (growth 1.7 unchanged).
     - Owned certificates and hired workers are never taken back (no migration; a test loads save-v11 and v12
       fixtures with certificates bought before their tool and checks they still work).
-- [ ] 77. **Hand-picked ×1.25 + iron gate lifted.**
+- [x] 77. **Hand-picked ×1.25 + iron gate lifted.**
     - A crop unit harvested by the player (tap or tool press — anything that spent energy) sells at
       `HAND_PICKED_BONUS = 1.25` × the market price; worker harvests ×1. Applied after the market factor; the glut
       added is the same 1 per unit. Toast/ⓘ tip show "✋ ×1.25" on player harvests; Harvest worker row tip says

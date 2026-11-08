@@ -99,7 +99,7 @@ describe('farm tool buttons', () => {
     expect(screen.getByRole('button', { name: 'Harvest 1' }).className).toBe('')
     const ok = { ok: true as const, state: createInitialState(), done: 6, wanted: 6, stoppedBy: null }
     expect(pressText('harvest', { ...ok, bonus: 1 })).toBe('Harvested 6/6 (+1 bonus)')
-    expect(pressText('harvest', { ...ok, bonus: 1 }, 540)).toBe('Harvested 6/6 (+1 bonus) +💰540')
+    expect(pressText('harvest', { ...ok, bonus: 1 }, 540)).toBe('Harvested 6/6 (+1 bonus) +💰540 ✋ ×1.25')
     expect(pressText('plant', { ...ok, bonus: 0 }, -20)).toBe('Planted 6/6')
     expect(pressText('plant', { ...ok, bonus: 2 })).toBe('Planted 6/6 (2 seeds kept)')
     expect(pressText('plant', { ...ok, bonus: 0, done: 2, stoppedBy: 'NO_ENERGY' })).toBe('Planted 2/6 — out of energy')
