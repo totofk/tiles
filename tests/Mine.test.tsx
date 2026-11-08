@@ -68,10 +68,10 @@ describe('Mine panel', () => {
 
   it('vein Lv4 needs the iron pickaxe: the row shows the gold table and price, the button says so over copper', () => {
     const GOLD_ORE = ITEMS.goldOre.emoji
-    const lv3 = { cash: 5000, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
+    const lv3 = { cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
     setup({ ...lv3, pickaxe: { tier: 'copper', durability: 100 } })
     expect(screen.getByText(/^Lv4: /).textContent).toBe(
-      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}45 ${IRON_BAR}8 💰5000`,
+      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}45 ${IRON_BAR}8 💰7500`,
     )
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }).textContent).toBe('Upgrade vein to Lv4 — Needs the iron pickaxe')
     cleanup()

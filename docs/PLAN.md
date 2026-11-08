@@ -821,6 +821,19 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   earns 11612/h vs mono lemon 12031/h = 96.5 % (was 94.5 % at depth 120). Crossing over needs a depth below 60, which
   the task did not offer; the hierarchy pin holds (iron Lv10 vein Lv3 2.09 < 0.9 × 24-tile pumpkin 7.52), so depth
   stays 60 per the task's own escalation rule.
+- **Batch 16 (task 89): `GOLD_VEIN_CASH` retuned 💰5000 → 💰7500** — 0.53 h of the bot's measured 14118/h income
+  in the vein-Lv4 phase; the plan's 💰5,000 start measured 0.35 h, below the 0.5 h floor. Only the cash part moved;
+  the item parts and every older ladder are untouched (the batch 12–15 pins replay unchanged).
+- **Batch 16 (task 89): `GOLD_TOOL_CASH` retuned 💰15000 → 💰10000** — 0.75 h of the measured 13415/h gold-phase
+  income; the plan's 💰15,000 start measured 1.16 h and stretched the pickaxe→sickle and sickle→dibber gaps to
+  66 / 76 min, past the ≤ 60-min pin. Pins in `tests/tools.test.ts`, `tests/Shop.test.tsx`, `tests/mining.test.ts`
+  and `tests/Mine.test.tsx` follow the constant.
+- **Batch 16 (task 89): the gold bot hand-smelts and mines while a gold goal gathers** (bot-side methodology, no
+  game rule changed). With the ore/fuel loaders and a mine worker staffed, every ore the workers mine becomes a
+  surplus unsellable bar that jams the bag (34 iron bars at iron-plant, bag 47/50), so a `gold` run staffs only
+  the planter and one harvester and smelts by hand (`smeltCoalJobs` capped by the goal's keep). The staffed
+  lemon farm eats every energy point, so gold runs buy ladder goals at tick level and mine instead of farming
+  while the next batch-16 goal's keep is short.
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -2628,7 +2641,7 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
     price `{ goldBar: 4, cash: GOLD_TOOL_CASH }` (set in 89), needs the iron tier of that job. Water stays capped at
     iron (the tier button says "Iron is the last watering can"). UI: vein Lv4 row, gold rock look, gold emoji from shared
     constants, furnace gold option, gold tool tier buttons, Stats rows. Layout computed from CSS at 375 / 1024 / 1440.
-- [ ] 89. **Sim (`tests/sim.test.ts` "batch 16").** Extend the ladder bot past batch 15: vein Lv4 → first gold bar →
+- [x] 89. **Sim (`tests/sim.test.ts` "batch 16").** Extend the ladder bot past batch 15: vein Lv4 → first gold bar →
     gold pickaxe → gold sickle → gold dibber. Report the minute of each; gold bars/hour; set `GOLD_VEIN_CASH` and
     `GOLD_TOOL_CASH` to 0.5–1.5 h of the bot's measured income at that moment (round to 💰500) and pin them. Pins: no
     unlock step > 60 game-minutes; every price ≤ storage held; mining cash/energy (gold pickaxe, vein Lv4) < 0.9 ×
@@ -2661,15 +2674,15 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
 
 ### Gold core + tools (tasks 87–88)
 
-- Vein Lv4 price `45 stone + 8 iron bars + 💰5000` (`GOLD_VEIN_CASH` placeholder, pinned in task 89); gate
+- Vein Lv4 price `45 stone + 8 iron bars + 💰7500` (`GOLD_VEIN_CASH`, pinned in task 89); gate
   `NO_IRON_PICKAXE` (iron or gold in hand); drop table 50/20/12/10/8 (stone/coal/copper/iron/gold); gold rock
   5 hits, weaker pickaxes mine it as stone. Save **v14** (v13 fixture migrated in `tests/save.test.ts`).
-- Gold tool tier: sickle 30 % double, dibber 50 % seed kept, `4 gold bars + 💰15000` (`GOLD_TOOL_CASH`
-  placeholder, pinned in task 89); `toolTierMax(job)` — water stops at iron, its Shop card says
+- Gold tool tier: sickle 30 % double, dibber 50 % seed kept, `4 gold bars + 💰10000` (`GOLD_TOOL_CASH`,
+  pinned in task 89); `toolTierMax(job)` — water stops at iron, its Shop card says
   "Iron is the last watering can".
 - Layout, computed from `src/app/app.css` (no browser; widths are CSS math, not measurements):
   - **375 px** (single column, page scrolls): the vein Lv4 row is a wrapping span in the `.mine-vein` column
-    flex — longest text "Lv4: … Gold ore 8 % — ⛰️45 🥇8 💰5000" wraps like the Lv3 row before it; the furnace
+    flex — longest text "Lv4: … Gold ore 8 % — ⛰️45 🥇8 💰7500" wraps like the Lv3 row before it; the furnace
     ore picker (`repeat(auto-fit, minmax(96px, 1fr))` over ~343 px content) shows 3 per row, the gold button
     wraps to a 2nd row; the gold tool card sits in the same Shop grid cell as copper/iron (text wraps); the
     fixed bottom tool bar is unchanged — `.tools .gold` paints the border/underline only, no width change.
@@ -2678,3 +2691,22 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
     (`clamp(300px, 26vw, 380px)`, 26vw = 266 < floor); farm ≈ 419 px.
   - **1440 px**: Mine 317 px (22vw), panel 374 px (26vw), farm = 1440 − 2×20 padding − 2×20 gaps − 317 − 374
     ≈ 669 px; furnace action rows 3 per row; nothing fixed-width is new, so no breakpoint changes.
+
+### Sim (task 89, `tests/sim.test.ts` "batch 16", measured, `rules.batch13` on)
+
+- The batch-15 ladder bot, extended (`gold: true` → `GOLD_LADDER`): after iron plant (242.4 min) it buys
+  storage Lv4 (**245.2**) → vein Lv4 (**278.4**) → first gold bar (**282.5**) → gold pickaxe (**294.5**) →
+  gold sickle (**333.9**) → gold dibber (**381.9**). Gaps between purchases: **2.8 / 33.2 / 16 / 39.5 / 48 min
+  — all ≤ 60**.
+- **`GOLD_VEIN_CASH = 7500`**: income in the vein-Lv4 phase (third iron tool → vein bought) is **14118/h** over
+  36 min, so the cash part is 0.53 h of income — inside the 0.5–1.5 h rule, rounded to 💰500. (The plan's 💰5,000
+  start measured 0.35 h, below the band; see Deviations.)
+- **`GOLD_TOOL_CASH = 10000`**: the gold phase (vein → dibber) earns **13415/h** over 103.5 min and smelts
+  **13 bars vs 13 needed** (5 pickaxe + 2 × 4 tools) ≈ **8 gold bars/h** — bars are never the wall. The cash
+  part is 0.75 h of income. (The 💰15,000 start measured 1.16 h and stretched two gaps to 66/76 min, past the
+  60-min pin; see Deviations.)
+- Pins held: every price ≤ storage held (vein Lv4's 53 items and the `🥇4` tool price added to the price-cap
+  table at storage Lv4's 60 slots); mining gold Lv10 vein Lv4 = **1.98** cash/energy < 0.9 × 24-tile pumpkin
+  with gold tools = **22.10** (pumpkin itself 24.55 cash/energy); `step(s, 600) = 600 × step(s, 1)` from the
+  ladder end with the gold tiers, workers, the market and hand-picked sales on. Nothing goes negative, no loan,
+  water never leaves iron, `finalCash 71422` at 12 h.

@@ -118,10 +118,10 @@ describe('Farm tools in the Shop', () => {
   it('the gold tier row (batch 16): 🥇 Gold Sickle after iron; water says iron is the last can', () => {
     const IRON = ITEMS.ironBar.emoji
     const GOLD = ITEMS.goldBar.emoji
-    const t = setup({ cash: 15000, inventory: { goldBar: 4 }, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 2, harvest: 2, plant: 2 } })
+    const t = setup({ cash: 10000, inventory: { goldBar: 4 }, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 2, harvest: 2, plant: 2 } })
     expect(tool(`${IRON} Iron Can`).textContent).toContain('Iron is the last watering can')
     const gold = tool(`${GOLD} Gold Sickle`)
-    expect(gold.textContent).toContain(`30 % double · ${GOLD}4 💰15000`)
+    expect(gold.textContent).toContain(`30 % double · ${GOLD}4 💰10000`)
     fireEvent.click(gold)
     t.rerender()
     expect(t.get().run.toolTier.harvest).toBe(3)

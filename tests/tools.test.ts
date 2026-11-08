@@ -155,14 +155,14 @@ describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
   const sell = Math.round(cropSellPrice('radish', meta, 0) * handPickedBonus())
   const seed = cropSeedCost('radish', meta)
 
-  it('numbers come from balance by tier: moisture 1 → 2 → 4 (water stops at iron), double harvest 0 → 10 % → 20 % → 30 %, seed keep 0 → 20 % → 35 % → 50 %, 🟧4 💰100, 🥈4 💰10000, 🥇4 💰15000', () => {
+  it('numbers come from balance by tier: moisture 1 → 2 → 4 (water stops at iron), double harvest 0 → 10 % → 20 % → 30 %, seed keep 0 → 20 % → 35 % → 50 %, 🟧4 💰100, 🥈4 💰10000, 🥇4 💰10000', () => {
     expect([0, 1, 2].map(waterMoisture)).toEqual([1, 2, 4])
     expect([0, 1, 2, 3].map(doubleHarvestChance)).toEqual([0, 0.1, 0.2, 0.3])
     expect([0, 1, 2, 3].map(seedKeepChance)).toEqual([0, 0.2, 0.35, 0.5])
     expect([toolTierMax('water'), toolTierMax('harvest'), toolTierMax('plant')]).toEqual([2, 3, 3])
     expect(toolTierCost(1, meta)).toEqual({ copperBar: 4, cash: 100 })
     expect(toolTierCost(2, meta)).toEqual({ ironBar: 4, cash: 10000 })
-    expect(toolTierCost(3, meta)).toEqual({ goldBar: 4, cash: 15000 })
+    expect(toolTierCost(3, meta)).toEqual({ goldBar: 4, cash: 10000 })
   })
 
   it('iron watering fills to 4, and the water tool tops up tiles below 4', () => {
@@ -284,8 +284,8 @@ describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
     expect([after.cash, after.inventory.ironBar]).toEqual([100, 0])
   })
 
-  it('the gold tier (batch 16): sickle and dibber pay 🥇4 💰15000 after iron; water never leaves iron', () => {
-    const rich = { cash: 15000, inventory: { goldBar: 4 }, tools: tools('harvest', 1), toolTier: iron }
+  it('the gold tier (batch 16): sickle and dibber pay 🥇4 💰10000 after iron; water never leaves iron', () => {
+    const rich = { cash: 10000, inventory: { goldBar: 4 }, tools: tools('harvest', 1), toolTier: iron }
     expect(buyToolTier(withRun([], rich), 'water')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
     const after = okState(buyToolTier(withRun([], rich), 'harvest')).run
     expect([after.toolTier.harvest, after.cash, after.inventory.goldBar]).toEqual([3, 0, 0])

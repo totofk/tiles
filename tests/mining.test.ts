@@ -242,15 +242,15 @@ describe('upgradeVein', () => {
     const next = okState(upgradeVein(s))
     expect([next.run.vein, next.run.cash, next.run.inventory]).toEqual([{ level: 3, progress: 1, rock: 'copperOre' }, 0, { stone: 0, copperBar: 0 }])
   })
-  it('vein Lv4 costs 45 stone + 8 iron bars + 💰5000, needs the iron pickaxe, and drops 50/20/12/10/8 gold; max', () => {
+  it('vein Lv4 costs 45 stone + 8 iron bars + 💰7500, needs the iron pickaxe, and drops 50/20/12/10/8 gold; max', () => {
     expect([veinUpgradeCost(3, meta), veinDrops(4), veinNeedsPickaxe(4)]).toEqual([
-      { stone: 45, ironBar: 8, cash: 5000 },
+      { stone: 45, ironBar: 8, cash: 7500 },
       { stone: 0.5, coal: 0.2, copperOre: 0.12, ironOre: 0.1, goldOre: 0.08 },
       true,
     ])
     const furnace = { ...createInitialState().run.furnace, built: true }
     const rich = (tier: 'copper' | 'iron' | 'gold') =>
-      miner({ cash: 5000, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace, pickaxe: { tier, durability: 1000 }, vein: { level: 3, progress: 0, rock: 'stone' } })
+      miner({ cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace, pickaxe: { tier, durability: 1000 }, vein: { level: 3, progress: 0, rock: 'stone' } })
     // a copper pickaxe cannot open the gold vein: its gold rocks would only ever be stone
     expect(upgradeVein(rich('copper'))).toEqual({ ok: false, error: 'NO_IRON_PICKAXE' })
     const next = okState(upgradeVein(rich('iron')))

@@ -117,8 +117,9 @@ const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
   { stone: 0.55, coal: 0.2, copperOre: 0.15, ironOre: 0.1 },
   { stone: 0.5, coal: 0.2, copperOre: 0.12, ironOre: 0.1, goldOre: 0.08 },
 ]
-// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the iron tools are done (PLAN.md "Batch 16 results")
-const GOLD_VEIN_CASH = 5000
+// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the iron tools are done (PLAN.md "Batch 16 results"):
+// 0.53 h of its measured 14 118 💰/h in the vein-Lv4 phase, rounded to 💰500
+const GOLD_VEIN_CASH = 7500
 /** price of vein level index + 1, paid in items from storage and cash; Lv3 (45 items) comes after storage Lv3 (50) */
 const VEIN_UPGRADES: ReadonlyArray<Price> = [
   { stone: 25, cash: 100 },
@@ -151,8 +152,9 @@ const DOUBLE_HARVEST = [0, 0.1, 0.2, 0.3]
 const SEED_KEEP = [0, 0.2, 0.35, 0.5]
 // cash part = 0.5–1.5 h of the batch-15 ladder bot's income when the mine certificate lands (PLAN.md "Batch 15 results")
 const IRON_TOOL_CASH = 10000
-// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the gold vein lands (pinned in task 89)
-const GOLD_TOOL_CASH = 15000
+// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the gold vein lands (PLAN.md "Batch 16 results"):
+// 0.75 h of its measured 13 415 💰/h in the gold-tool phase, rounded to 💰500
+const GOLD_TOOL_CASH = 10000
 const TOOL_TIER_COST: ReadonlyArray<Price> = [
   { copperBar: 4, cash: 100 },
   { ironBar: 4, cash: IRON_TOOL_CASH },
