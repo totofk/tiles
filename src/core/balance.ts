@@ -5,7 +5,7 @@ import type { UpgradeId } from './data/upgrades'
 import { PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
-import type { CounterId, MetaState, MultiplierKey } from './state'
+import type { CounterId, MetaState, MetaUpgradeId, MultiplierKey } from './state'
 
 export const START_TILES = 9
 export const TILE_CAP = 24
@@ -190,8 +190,46 @@ const LOAN_DEBT_CAP = 2.0
 /** the Bank tab's partial-repay button */
 const LOAN_REPAY_STEP = 10
 
+// Crop market (batch 12, DECISIONS "Crop market"): glut per crop halves every MARKET_HALF_LIFE_TICKS and each unit
+// sold while glut g stands lowers the price by 0.5 × g / depth; the depth scales with the crop's base grow ticks,
+// so fertilizer speeds harvests and deepens the glut (intended). Items are not in the market.
+export const MARKET_HALF_LIFE_TICKS = 1800
+export const MARKET_DECAY = 0.5 ** (1 / MARKET_HALF_LIFE_TICKS)
+export const MARKET_FLOOR = 0.5
+/** tiles of one crop that glut a market to the floor at a continuous harvest */
+export const MARKET_DEPTH_TILES = 120
+
+// Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); prestige spends them
+// in batch 13. The Stats deed meter is read through deedsFor.
+export const DEED_DIVISOR = 10000
+
+/** effect of one meta upgrade level on its multiplier (level 0 = ×1); priced when prestige lands (batch 13) */
+const META_UPGRADE_STEP: Record<MetaUpgradeId, number> = { growTime: 0.95, sellPrice: 1.1, cost: 0.95, energy: 1.1, moistureDrain: 0.95 }
+
 export function multiplier(meta: MetaState, key: MultiplierKey): number {
-  return meta.multipliers[key]
+  return META_UPGRADE_STEP[key] ** meta.upgrades[key] * (meta.legacyMultipliers?.[key] ?? 1)
+}
+
+/** glut (units) at which this crop's price factor bottoms out; deeper for slower crops */
+export function marketDepthGlut(cropId: CropId): number {
+  return MARKET_DEPTH_TILES / (CROP_BASE[cropId].growTicks * (1 - MARKET_DECAY))
+}
+
+/** sale price factor at this glut: 1 with no glut, sinking to MARKET_FLOOR at the depth glut */
+export function marketFactor(cropId: CropId, glut: number): number {
+  return Math.max(MARKET_FLOOR, 1 - (0.5 * glut) / marketDepthGlut(cropId))
+}
+
+/** ticks until the factor is back at 0.99 with no more sales; 0 when it is at or past it */
+export function marketRecoveryTicks(cropId: CropId, glut: number): number {
+  const target = 0.02 * marketDepthGlut(cropId)
+  if (glut <= target) return 0
+  return Math.ceil(Math.log(target / glut) / Math.log(MARKET_DECAY))
+}
+
+/** deeds held for this much lifetime cash ("Sell the farm" spends them, batch 13) */
+export function deedsFor(lifetimeCash: number): number {
+  return Math.floor(Math.sqrt(lifetimeCash / DEED_DIVISOR))
 }
 
 /** whole ticks; fertilizer shortens growth of crops already in the ground too */

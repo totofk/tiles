@@ -1978,7 +1978,7 @@ where pacing is slow, and a deed meter that turns a big pile into a score. Save 
 docs/research/fields-market.md, pacing-liveops.md, prestige.md (copied in this batch's docs commit).
 Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renumber only if PLAN.md says otherwise.
 
-- [ ] 72. **Market core + milestones + save v12.** FIRST commit `tests/fixtures/save-v11.json`, a realistic save
+- [x] 72. **Market core + milestones + save v12.** FIRST commit `tests/fixtures/save-v11.json`, a realistic save
     made by the current code (licenses, workers staffed, iron unlocked through the core even though the UI hides
     it, furnace mid-cycle).
     - `run.market: Record<CropId, number>` = glut per crop (units, float ≥ 0). Every crop unit sold by any path

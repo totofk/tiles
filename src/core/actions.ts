@@ -3,7 +3,6 @@ import {
   TILE_CAP,
   cropGrowTicks,
   cropSeedCost,
-  cropSellPrice,
   digSeedDrop,
   doubleHarvestChance,
   licenseCost,
@@ -15,7 +14,9 @@ import {
   waterMoisture,
 } from './balance'
 import type { CropId } from './data/crops'
+import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
+import { cropSale } from './market'
 import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
 
@@ -58,7 +59,8 @@ export type ActionResult = { ok: true; state: GameState } | { ok: false; error: 
 export const fail = (error: ActionError): ActionResult => ({ ok: false, error })
 
 export function withRun(state: GameState, run: Partial<RunState>): ActionResult {
-  return { ok: true, state: { meta: state.meta, run: { ...state.run, ...run } } }
+  const merged = { ...state.run, ...run }
+  return { ok: true, state: { meta: state.meta, run: recordMilestones(state.run, merged) } }
 }
 
 export const isAmount = (n: number) => Number.isInteger(n) && n >= 1
@@ -91,6 +93,7 @@ function farmAction(
   apply: (tile: Tile) => {
     tile: Tile
     cashDelta?: number
+    market?: RunState['market']
     counters?: Partial<RunState['counters']>
     seeds?: RunState['seeds']
     harvested?: CropId
@@ -103,11 +106,12 @@ function farmAction(
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < energy) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0, counters, seeds = run.seeds, harvested, rngState = run.rngState } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, market, counters, seeds = run.seeds, harvested, rngState = run.rngState } = apply(run.tiles[i])
   return withRun(state, {
     energy: run.energy - energy,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
+    ...(market && { market }),
     counters: { ...run.counters, ...counters },
     seeds,
     rngState,
@@ -193,9 +197,12 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       const { harvests, sales } = run.counters
       const { hit, rngState } = tierRoll(run, run.toolTier.harvest, doubleHarvestChance(run.toolTier.harvest))
       const crops = hit ? 2 : 1
+      // the market prices each unit at the glut before that unit's sale, in sequence
+      const sale = cropSale(state, t.cropId!, crops)
       return {
         tile: clearedTile(t),
-        cashDelta: crops * cropSellPrice(t.cropId!, state.meta, run.upgrades.sellPrice),
+        cashDelta: sale.cash,
+        market: sale.market,
         counters: { harvests: harvests + 1, sales: sales + crops },
         harvested: t.cropId,
         rngState,

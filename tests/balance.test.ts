@@ -13,6 +13,7 @@ import {
   masteryMaxLevel,
   masteryThresholds,
   moistureDrainPerTick,
+  multiplier,
   pickaxeDurability,
   preserveChance,
   tileCost,
@@ -20,7 +21,7 @@ import {
 } from '../src/core/balance'
 import { CROP_IDS } from '../src/core/data/crops'
 import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
-import { createInitialMeta, createInitialState } from '../src/core/state'
+import { createInitialMeta, createInitialState, type MetaState } from '../src/core/state'
 
 const meta = createInitialMeta()
 
@@ -85,9 +86,10 @@ describe('balance', () => {
   })
 
   it('meta multipliers flow through balance functions', () => {
-    const boosted = createInitialMeta()
-    boosted.multipliers.growTime = 0.5
+    const boosted: MetaState = { ...createInitialMeta(), legacyMultipliers: { growTime: 0.5, sellPrice: 1, cost: 1, energy: 1, moistureDrain: 1 } }
     expect(cropGrowTicks('radish', boosted, 0)).toBe(cropGrowTicks('radish', meta, 0) / 2)
+    const leveled: MetaState = { ...createInitialMeta(), upgrades: { growTime: 0, sellPrice: 1, cost: 0, energy: 0, moistureDrain: 0 } }
+    expect(multiplier(leveled, 'sellPrice')).toBe(1.1)
   })
 })
 

@@ -4,10 +4,10 @@ import type { CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
-import { createInitialState, createTile, type GameState, type Loan, type Tile } from '../core/state'
+import { createInitialMeta, createInitialState, createTile, type GameState, type Loan, type MultiplierKey, type Tile } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 11
+export const SAVE_VERSION = 12
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -72,18 +72,22 @@ type RunV3 = Omit<RunV4, 'counters' | 'seeds' | 'autoBuySeeds' | 'tools' | 'tool
   counters: { harvests: number; sales: number; digs: number }
 }
 type RunV2 = Omit<RunV3, 'loan'>
-type SaveV1 = { version: 1; savedAtMs: number; state: { meta: GameState['meta']; run: RunV1 } }
-type SaveV2 = { version: 2; savedAtMs: number; state: { meta: GameState['meta']; run: RunV2 } }
-type SaveV3 = { version: 3; savedAtMs: number; state: { meta: GameState['meta']; run: RunV3 } }
-type SaveV4 = { version: 4; savedAtMs: number; state: { meta: GameState['meta']; run: RunV4 } }
-type SaveV5 = { version: 5; savedAtMs: number; state: { meta: GameState['meta']; run: RunV5 } }
-type SaveV6 = { version: 6; savedAtMs: number; state: { meta: GameState['meta']; run: RunV6 } }
-type SaveV7 = { version: 7; savedAtMs: number; state: { meta: GameState['meta']; run: RunV7 } }
-type SaveV8 = { version: 8; savedAtMs: number; state: { meta: GameState['meta']; run: RunV8 } }
-type SaveV9 = { version: 9; savedAtMs: number; state: { meta: GameState['meta']; run: RunV9 } }
-type SaveV10 = { version: 10; savedAtMs: number; state: { meta: GameState['meta']; run: RunV10 } }
-type SaveV11 = { version: 11; savedAtMs: number; state: GameState }
-export type Save = SaveV11
+/** meta up to v11: stored multipliers (all 1 in every released build) */
+type MetaV11 = { prestigeCount: number; multipliers: Record<MultiplierKey, number> }
+type SaveV1 = { version: 1; savedAtMs: number; state: { meta: MetaV11; run: RunV1 } }
+type SaveV2 = { version: 2; savedAtMs: number; state: { meta: MetaV11; run: RunV2 } }
+type SaveV3 = { version: 3; savedAtMs: number; state: { meta: MetaV11; run: RunV3 } }
+type SaveV4 = { version: 4; savedAtMs: number; state: { meta: MetaV11; run: RunV4 } }
+type SaveV5 = { version: 5; savedAtMs: number; state: { meta: MetaV11; run: RunV5 } }
+type SaveV6 = { version: 6; savedAtMs: number; state: { meta: MetaV11; run: RunV6 } }
+type SaveV7 = { version: 7; savedAtMs: number; state: { meta: MetaV11; run: RunV7 } }
+type SaveV8 = { version: 8; savedAtMs: number; state: { meta: MetaV11; run: RunV8 } }
+type SaveV9 = { version: 9; savedAtMs: number; state: { meta: MetaV11; run: RunV9 } }
+type SaveV10 = { version: 10; savedAtMs: number; state: { meta: MetaV11; run: RunV10 } }
+type RunV11 = Omit<GameState['run'], 'market' | 'milestones'>
+type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: RunV11 } }
+type SaveV12 = { version: 12; savedAtMs: number; state: GameState }
+export type Save = SaveV12
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -107,7 +111,8 @@ function migrateV1(save: SaveV1): SaveV2 {
       run: {
         ...fresh,
         ...run,
-        energy: Math.min(run.energy, energyMax(upgrades.energyMax, meta)),
+        // a v1 meta's multipliers are all 1 (prestige never shipped), so the fresh meta computes the same cap
+        energy: Math.min(run.energy, energyMax(upgrades.energyMax, createInitialMeta())),
         pickaxe: null,
         tiles,
         upgrades,
@@ -278,33 +283,53 @@ function migrateV10(save: SaveV10): SaveV11 {
   }
 }
 
+// v11 → v12: the crop market and the milestone timeline. Sales start with no glut. Milestone tracking starts at the
+// save's current tick: a milestone already reached stays absent (the timeline shows "before tracking", never
+// back-dated) and trackingStarted pins when tracking began. meta stores upgrade levels now: the all-1 multiplier
+// table is dropped, and any multiplier ≠ 1 is kept as legacyMultipliers and still applies (no earned value lost).
+function migrateV11(save: SaveV11): SaveV12 {
+  const { meta, run } = save.state
+  const fresh = createInitialState()
+  const legacy = Object.values(meta.multipliers).some((m) => m !== 1) ? { legacyMultipliers: meta.multipliers } : {}
+  return {
+    version: 12,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta: { prestigeCount: meta.prestigeCount, upgrades: fresh.meta.upgrades, ...legacy },
+      run: { ...run, market: fresh.run.market, milestones: { trackingStarted: run.tick } },
+    },
+  }
+}
+
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
   switch (data.version) {
     case 1:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1))))))))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))))))))
     case 2:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2)))))))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(data as SaveV2))))))))))
     case 3:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3))))))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(data as SaveV3)))))))))
     case 4:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4)))))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(data as SaveV4))))))))
     case 5:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(data as SaveV5))))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(data as SaveV5)))))))
     case 6:
-      return migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(data as SaveV6)))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(data as SaveV6))))))
     case 7:
-      return migrateV10(migrateV9(migrateV8(migrateV7(data as SaveV7))))
+      return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(data as SaveV7)))))
     case 8:
-      return migrateV10(migrateV9(migrateV8(data as SaveV8)))
+      return migrateV11(migrateV10(migrateV9(migrateV8(data as SaveV8))))
     case 9:
-      return migrateV10(migrateV9(data as SaveV9))
+      return migrateV11(migrateV10(migrateV9(data as SaveV9)))
     case 10:
-      return migrateV10(data as SaveV10)
+      return migrateV11(migrateV10(data as SaveV10))
     case 11:
-      return data as SaveV11
+      return migrateV11(data as SaveV11)
+    case 12:
+      return data as SaveV12
     default:
       return null
   }

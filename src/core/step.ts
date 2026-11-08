@@ -8,7 +8,9 @@ import {
   loanDebtPerTick,
   moistureDrainPerTick,
 } from './balance'
+import { recordMilestones } from './data/milestones'
 import { tickFurnace } from './furnace'
+import { decayMarket } from './market'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { workersAct } from './workers'
 
@@ -45,6 +47,7 @@ function stepLoan(loan: Loan | null): Loan | null {
 }
 
 function stepOnce(state: GameState): GameState {
+  const before = state.run
   const { run, meta } = workersAct(state)
   const max = energyMax(run.upgrades.energyMax, meta)
   let energy = Math.min(max, run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta))
@@ -56,8 +59,10 @@ function stepOnce(state: GameState): GameState {
     tiles: run.tiles.map((t) => stepTile(t, meta, run.upgrades.fertilizer)),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),
+    market: decayMarket(run.market),
   }
-  return { meta, run: tickFurnace(nextRun) }
+  // milestones record per tick (worker actions already recorded through withRun), so step(s, n) = n × step(s, 1)
+  return { meta, run: recordMilestones(before, tickFurnace(nextRun)) }
 }
 
 /** advance `ticks` whole seconds; pure, never mutates `state` */

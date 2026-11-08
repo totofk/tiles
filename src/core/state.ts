@@ -1,6 +1,7 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
-import { STARTING_CROP, type CropId } from './data/crops'
+import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, OreId, PickaxeTier } from './data/items'
+import type { MilestoneId } from './data/milestones'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
 import type { WorkerJob } from './data/workers'
@@ -64,6 +65,10 @@ export type RunState = {
   /** material tier per job, 0 basic … toolTierMax (1 copper); changes what every action of the job does */
   toolTier: Record<ToolJob, number>
   workers: Workers
+  /** unsold glut per crop (units); every crop unit sold adds 1, each tick decays it, and it lowers the sale price */
+  market: Record<CropId, number>
+  /** tick each milestone was first reached; a milestone already true when tracking started stays absent (before tracking) */
+  milestones: Partial<Record<MilestoneId, number>>
 }
 
 /** pool = hired; assigned per job ≤ pool in total; a job takes workers only once its certificate is bought */
@@ -120,12 +125,16 @@ export type Lifetime = {
   ironBarsSmelted: number
 }
 
-export type MultiplierKey = 'growTime' | 'sellPrice' | 'cost' | 'energy' | 'moistureDrain'
+export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
+export type MultiplierKey = (typeof MULTIPLIER_KEYS)[number]
+/** one meta upgrade per multiplier (prestige buys levels, batch 13) */
+export type MetaUpgradeId = MultiplierKey
 
-/** survives prestige; multipliers are all 1 until prestige exists */
+/** survives prestige; upgrades start at level 0 (multiplier 1); legacyMultipliers carries pre-v12 multipliers forward */
 export type MetaState = {
   prestigeCount: number
-  multipliers: Record<MultiplierKey, number>
+  upgrades: Record<MetaUpgradeId, number>
+  legacyMultipliers?: Record<MultiplierKey, number>
 }
 
 export type GameState = { run: RunState; meta: MetaState }
@@ -137,7 +146,7 @@ export function createTile(): Tile {
 export function createInitialMeta(): MetaState {
   return {
     prestigeCount: 0,
-    multipliers: { growTime: 1, sellPrice: 1, cost: 1, energy: 1, moistureDrain: 1 },
+    upgrades: Object.fromEntries(MULTIPLIER_KEYS.map((key) => [key, 0])) as Record<MetaUpgradeId, number>,
   }
 }
 
@@ -172,6 +181,8 @@ export function createInitialState(): GameState {
       toolN: { water: 1, harvest: 1, plant: 1 },
       toolTier: { water: 0, harvest: 0, plant: 0 },
       workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] },
+      market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
+      milestones: {},
     },
   }
 }

@@ -17,6 +17,8 @@ function okState(r: ActionResult): GameState {
 }
 
 const meta = createInitialState().meta
+/** the pre-v12 multiplier table every value of legacyMultipliers replaces */
+const allOne = { growTime: 1, sellPrice: 1, cost: 1, energy: 1, moistureDrain: 1 }
 
 describe('placeholder numbers (PLAN.md batch 4.5)', () => {
   it('borrow 30, owe 33, grows 0.06 per tick to at most 60', () => {
@@ -28,7 +30,7 @@ describe('placeholder numbers (PLAN.md batch 4.5)', () => {
   })
 
   it('principal and repay step follow the cost multiplier', () => {
-    const cheap = { ...meta, multipliers: { ...meta.multipliers, cost: 0.5 } }
+    const cheap = { ...meta, legacyMultipliers: { ...allOne, cost: 0.5 } }
     expect(loanPrincipal(cheap)).toBe(15)
     expect(loanRepayStep(cheap)).toBe(5)
   })
@@ -85,7 +87,7 @@ describe('debt growth in step', () => {
 describe('exploit check: borrow → repay always loses cash', () => {
   it.each([0.5, 1, 2])('cost multiplier %s: the fee makes repaying at any tick cost more than was borrowed', (cost) => {
     const start = withRun({ cash: 100 })
-    const s0 = { ...start, meta: { ...start.meta, multipliers: { ...start.meta.multipliers, cost } } }
+    const s0 = { ...start, meta: { ...start.meta, legacyMultipliers: { ...allOne, cost } } }
     const principal = loanPrincipal(s0.meta)
     expect(loanStartDebt(principal)).toBeGreaterThan(principal)
     let s = okState(takeLoan(s0))

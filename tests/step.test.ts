@@ -80,4 +80,35 @@ describe('step', () => {
     expect(s).toEqual(snapshot)
     expect(whole).toEqual(step(step(s, 90), 160))
   })
+
+  // batch 12: with market decay, milestone recording and workers on, one step(s, n) is still exactly n single steps
+  it('step(s, n) = n × step(s, 1) with the market, milestones and workers active', () => {
+    const s = createInitialState()
+    const tilled = s.run.tiles.map((t, i): Tile => ({ ...t, status: i < 6 ? 'planted' : 'tilled', cropId: i < 6 ? 'lemon' : undefined, growth: i < 6 ? 300 : 0, moisture: 1 }))
+    const market = { radish: 900, chilli: 100, pumpkin: 10, lemon: 500 }
+    const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0 }
+    const withAll: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        tick: 15, // a worker action tick
+        cash: 500,
+        tiles: tilled,
+        licenses: [...s.run.licenses, 'chilli', 'pumpkin', 'lemon'],
+        plantCrop: 'lemon',
+        market,
+        furnace: { ...s.run.furnace, built: true, fire: 120, ore: 6, progress: 30 },
+        workers: { pool: 3, assigned, certificates: ['plant', 'water', 'harvest'] },
+      },
+    }
+    let single = withAll
+    for (let n = 1; n <= 40; n++) {
+      single = step(single, 1)
+      expect(single).toEqual(step(withAll, n))
+    }
+    // the run really exercised all three: glut decayed, milestones recorded, workers acted
+    expect(single.run.market.lemon).toBeLessThan(500)
+    expect(Object.keys(single.run.milestones).length).toBeGreaterThan(0)
+    expect(single.run.lifetime.wagesPaid).toBeGreaterThan(0)
+  })
 })
