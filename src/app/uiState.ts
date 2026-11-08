@@ -1,4 +1,4 @@
-import { CROP_IDS } from '../core/data/crops'
+import { CROP_IDS, type CropId } from '../core/data/crops'
 import { BADGE_TABS, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 

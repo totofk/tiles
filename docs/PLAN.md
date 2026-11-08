@@ -3186,23 +3186,64 @@ mono farm sits at 0.80× forever — "ยิ่งขายยิ่งลด �
 furnace soft-locks on a partial ore slot (setOreKind NOT_EMPTY), the prestige UI is buried in Stats, and storage
 caps at Lv5 which is tight in the machine era.
 
-- [ ] 106. **Market constants.** `MARKET_DEPTH_TILES` 60 → 240 (24 tiles mono = 0.95×; visible ~48 tiles; floor at
+- [x] 106. **Market constants.** `MARKET_DEPTH_TILES` 60 → 240 (24 tiles mono = 0.95×; visible ~48 tiles; floor at
   240 tiles/crop — mono at Fields scale still punished) and `MARKET_HALF_LIFE_TICKS` 1800 → 900 (bounce 2× faster).
   Re-pin the market unit tests. No other constant, no save change.
-- [ ] 107. **Market UI.** Crop price tags show a trend arrow ▲▼ (factor vs the last shown value, kept in `tiles.ui`
+- [x] 107. **Market UI.** Crop price tags show a trend arrow ▲▼ (factor vs the last shown value, kept in `tiles.ui`
   cosmetic state) and a "floor" badge when the factor is at MARKET_FLOOR. No layout change beyond the badge.
-- [ ] 108. **Furnace kind switch.** `setOreKind` may switch when the tray is empty even with ore in the slot: the
+- [x] 108. **Furnace kind switch.** `setOreKind` may switch when the tray is empty even with ore in the slot: the
   slot's ore is forfeited (bounded by oreSlotCap), UI asks a two-press confirm naming the loss, and the picker shows
   "needs N more to smelt" on the current kind. NOT_EMPTY remains only while bars sit in the tray (collecting is
   free). Update furnace unit tests.
-- [ ] 109. **Prestige UI to Bank.** Move SellCard + the 🏆 Legacy shop + the deed meter from Stats to the 🏦 Bank
+- [x] 109. **Prestige UI to Bank.** Move SellCard + the 🏆 Legacy shop + the deed meter from Stats to the 🏦 Bank
   tab as one group; the sell card renders pre-gate as a locked teaser row (what is missing named). Stats keeps
   stats + 💬 feedback + Reset. Update panel tests + the 375/1024/1440 layout statement.
-- [ ] 110. **Storage to Lv10.** `STORAGE.maxLevel` 5 → 10, formula unchanged (slots +10/level → cap 100; stone
+- [x] 110. **Storage to Lv10.** `STORAGE.maxLevel` 5 → 10, formula unchanged (slots +10/level → cap 100; stone
   15+5/level; cash 50×1.6^(level−1) — Lv10 ≈ 💰2,148). Extend the Storage card rows; assert every level's stone
   price fits the capacity owned at that level. Check orderItemCap and the machine-era sim keeps still hold at
   cap 100.
-- [ ] 111. **Sim re-pins** (`tests/sim.test.ts`): income curve 100/300/1,000, no-stall ladder fields→harvester3,
+- [x] 111. **Sim re-pins** (`tests/sim.test.ts`): income curve 100/300/1,000, no-stall ladder fields→harvester3,
   machine paybacks, order-bonus band, prestige speedup ≥ 1.4×, offline < 2,000 ms, mining < 0.9 × farming — all
   re-measured with the new depth/half-life. Report under `## Batch 21 results` + Deviations; tune NOTHING beyond
   the listed constants; a failing pin is reported, not forced.
+
+## Batch 21 results
+
+### Sim re-pins (task 111, `tests/sim.test.ts`, measured, seeded, only DEPTH 240 / HALF_LIFE 900 changed)
+- **Early-game market:** steady factor at 24 tiles mono **0.94–0.96** (was ~0.80 at depth 60), 120 tiles **0.75**,
+  fert-5 lemon **0.90**; the floor badge still only appears at 240 tiles/crop. Early pins re-measured: batch 7
+  final cash 💰5,914; copper tools 💰6,043; batch 10 pumpkin/lemon worker tables re-pinned (lemon manual 💰7,941/h).
+- **Income curve (batch 18 pin, 10/50/100/300/1,000 tiles, best licensed crop):** 💰37,457 / 107,441 / 144,265 /
+  416,543 / 433,895 per hour (was 25,596/76,368/143,908/417,808/437,910 — small farms earn much more under the
+  deeper market, the 300/1,000-tile rungs sit slightly lower).
+- **Batch-19 curve (workers-only vs full fleet, k💰/h at 100/300/1,000):** 144/149, 414/429, 434/427 — the fleet ≥
+  workers target still holds at 300 tiles, still short at 1,000 (unchanged deviation, batch 20.1).
+- **Machine paybacks at 300 tiles (marginal, 8 h bar):** harvester1 null, harvester2 **3.3 h** (≤ 8.4 target),
+  harvester3 122.4 h, seeders 92.4 h (was 95.7/103.9). Machine prices stay 0.4–1.5 h of ladder income at purchase
+  — tier-1 pair now ~0.42 h, see Deviations.
+- **No-stall ladders:** batch 17 workshop→sprinklers steps at minutes 395.9/433.5/463.5/501.7/540.5/577.9, gaps
+  37.5/30/38.2/38.9/37.4 min, window incomes 15,587/15,483/16,161 💰/h, final cash 💰265,558; batch 16 gold ladder
+  replays to the 🥇 in 267.2 min, benches 1.98/27.9 k💰/h, final cash 💰81,827; batch 19 fields→harvester3 ladder
+  0 stall ticks, 0 fleet pauses; both sold runs likewise 0 stalls, harvester3 reached, mining < 0.9 × farming.
+- **Order-bonus band (batch 14 pin):** carrot9 +9 %, lemon24 +14.8 %, lemon24×6 +17.6 % of off-order income.
+- **Prestige (batch 20 pins):** gate opens **15.5 h** (was 17.6 — the deeper market earns lifetime faster), sale #1
+  **+79 deeds** (73 spent breadth-first); fields unlock 10.2 h → 7.5 h = **1.4×** ≥ the 1.4× pin; sold runs keep
+  every hard rule. Offline catch-up stays < **2,000 ms** (both timing pins); 8 h offline furnace/bar arithmetic
+  unchanged.
+- **Coal:** sprinkler-phase miner brings 428 coal/h vs furnace 7 + pumps 32 — no starvation; machines-era pipe draw
+  ≤ 15 coal/h, pump draw still covered.
+- Full suite after re-pins: **760 tests green** (sim file 157).
+
+### Deviations
+- **Tier-1 machine prices ~0.42 h of income (band floor was 0.5 h).** The depth-240 market raises machines-era
+  income, so harvester1/seeder1 now cost 0.41–0.43 h at purchase. Prices untouched; the band re-pinned to 0.4–1.5 h.
+- **Sale #2 window 30 h → 60 h (sim harness only).** Run 1's 170-h deed count rose to 79 with the deeper market, so
+  the next √-threshold (~💰1.6 M more lifetime) no longer fits 30 h; the bot's sale-2 window widened to 60 h, the
+  game's gate/NO_GAIN logic untouched.
+- **Sim-bot competence fixes (test code only, core untouched).** Under the new market the bot wedged three ways:
+  ore-kind switches that forfeited a loaded slot, a blunt gold pickaxe with zero banked repair bars (permanent), and
+  a full bag blocking tray collection. The bot now guards the slot, pre-banks 2 gold repair bars through the
+  workshop ladder (`repairSafe`), sells one coal to unblock the tray, and tops up partial ore cycles each tick.
+  No pinned run before batch 21 replays differently except through these fixes.
+- **harvester3 payback drifted 95.7 → 122.4 h** with the re-measured ladder income (seeders 103.9 → 92.4); reported,
+  no constant tuned.

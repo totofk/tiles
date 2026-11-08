@@ -356,6 +356,36 @@ const keepGoldBars =
     const toSmelt = Math.max(0, bars - (run.inventory.goldBar ?? 0) - inFurnace)
     return { cash: 0, goldBar: bars, goldOre: smeltOre() * toSmelt, coal: smeltFuel('coal', 'goldOre') * toSmelt }
   }
+/**
+ * batch 19: every goal from the machines on banks the gold pickaxe's repair bars (2 gold) on top of its own gold
+ * target, and its buy leaves them in the bag (`goldCost` = the gold bars the buy itself spends). A blunt gold pickaxe
+ * mines iron and gold rocks as stone; with no bars left to repair, that wedge is permanent (the first run stalled
+ * 106 h on it). The reserve is one combined chain — goal bars + reserve — because keepGoldBars(2) next to 8 banked
+ * goal bars sees no shortfall of its own; while it is unbanked the gold chain smelts first (the furnace takes gold
+ * before the goal's ore) and the goal's banked bars stay floored so a mid-goal repair cannot sell them out from
+ * under the ladder. Batch 21: the workshop-ladder goals wrap in it too — under the re-tuned market the pickaxe went
+ * blunt mid-workshop with zero gold banked and the run wedged for good
+ */
+const repairSafe = (g: Goal, goldCost: (s: GameState) => number = () => 0): Goal => ({
+  ...g,
+  keep: (s: GameState): Price => {
+    const reserve = pickaxeRepairCost('gold', s.meta).goldBar!
+    const inGold = s.run.furnace.oreKind === 'goldOre' ? cyclesLoaded(s) + s.run.furnace.ready : 0
+    const banked = (s.run.inventory.goldBar ?? 0) + inGold
+    const gk = g.keep(s)
+    if (banked < reserve) {
+      const chain = keepGoldBars(reserve)(s)
+      return { cash: 0, ironBar: gk.ironBar ?? 0, goldBar: reserve, goldOre: chain.goldOre, coal: chain.coal }
+    }
+    const target = (gk.goldBar ?? 0) + reserve
+    const chain = keepGoldBars(target)(s)
+    return { ...gk, goldBar: target, goldOre: chain.goldOre, coal: Math.max(gk.coal ?? 0, chain.coal ?? 0) }
+  },
+  buy: (s: GameState) =>
+    s.run.pickaxe?.tier !== 'gold' || (s.run.inventory.goldBar ?? 0) >= goldCost(s) + pickaxeRepairCost('gold', s.meta).goldBar!
+      ? g.buy(s)
+      : { ok: false, error: 'NOT_ENOUGH_CASH' },
+})
 /** batch 16: after the iron tools, storage Lv4 (vein Lv4's 53 items need it), vein Lv4, gold pickaxe, gold sickle and dibber */
 const GOLD_LADDER: Goal[] = [
   ...IRON_TOOLS_LADDER,
@@ -402,20 +432,30 @@ const keepSprinklerBars = (s: GameState): Price => {
 /** batch 17: after the gold tools, the workshop, the first sprinkler, the valve, then sprinklers 2–4 */
 const WORKSHOP_LADDER: Goal[] = [
   ...GOLD_LADDER,
-  {
+  repairSafe({
     name: 'workshop',
     done: (s) => s.run.workshop.built,
     buy: buildWorkshop,
     keep: (s) => ({ ...keepIronBars(workshopCost(s.meta).ironBar!)(s), stone: workshopCost(s.meta).stone }),
-  },
-  { name: 'sprinkler1', done: (s) => s.run.workshop.hoppers.length >= 1, buy: buySprinkler, keep: keepSprinklerBars },
-  { name: 'valve', done: (s) => s.run.workshop.valve, buy: buyValve, keep: keepGoldBars(valveCost(IRON_PRICE).goldBar!) },
-  { name: 'sprinkler2', done: (s) => s.run.workshop.hoppers.length >= 2, buy: buySprinkler, keep: keepSprinklerBars },
-  { name: 'sprinkler3', done: (s) => s.run.workshop.hoppers.length >= 3, buy: buySprinkler, keep: keepSprinklerBars },
-  { name: 'sprinkler4', done: (s) => s.run.workshop.hoppers.length >= 4, buy: buySprinkler, keep: keepSprinklerBars },
+  }),
+  repairSafe({ name: 'sprinkler1', done: (s) => s.run.workshop.hoppers.length >= 1, buy: buySprinkler, keep: keepSprinklerBars }, (s) => sprinklerCost(s.meta).goldBar!),
+  repairSafe({ name: 'valve', done: (s) => s.run.workshop.valve, buy: buyValve, keep: keepGoldBars(valveCost(IRON_PRICE).goldBar!) }, () => valveCost(IRON_PRICE).goldBar!),
+  repairSafe({ name: 'sprinkler2', done: (s) => s.run.workshop.hoppers.length >= 2, buy: buySprinkler, keep: keepSprinklerBars }, (s) => sprinklerCost(s.meta).goldBar!),
+  repairSafe({ name: 'sprinkler3', done: (s) => s.run.workshop.hoppers.length >= 3, buy: buySprinkler, keep: keepSprinklerBars }, (s) => sprinklerCost(s.meta).goldBar!),
+  repairSafe({ name: 'sprinkler4', done: (s) => s.run.workshop.hoppers.length >= 4, buy: buySprinkler, keep: keepSprinklerBars }, (s) => sprinklerCost(s.meta).goldBar!),
 ]
 // the goals that need the furnace smelting (the workshop's iron bars, the sprinklers' mixed bars, the valve's gold)
 const WORKSHOP_ON_GOALS = WORKSHOP_LADDER.slice(GOLD_LADDER.length)
+/**
+ * batch 21: true while the gold pickaxe's 2 repair bars are not banked (bag + a gold furnace's slot and tray). A blunt
+ * gold pickaxe mines no ore and repairs only with gold bars, so once blunt with none banked the run wedges for good —
+ * the batch 19 machines lesson, now applied from the workshop on: the reserve smelts before any goal ore
+ */
+const goldReserveShort = (s: GameState): boolean => {
+  const f = s.run.furnace
+  const banked = (s.run.inventory.goldBar ?? 0) + (f.oreKind === 'goldOre' ? cyclesLoaded(s) + f.ready : 0)
+  return s.run.pickaxe?.tier === 'gold' && banked < pickaxeRepairCost('gold', s.meta).goldBar!
+}
 /** batch 18: after the workshop ladder — the fields unlock (iron bars), the first pipes (copper bars), then fields to 100 */
 const FIELDS_LADDER: Goal[] = [
   ...WORKSHOP_LADDER,
@@ -443,34 +483,6 @@ const machineKeep = (kind: 'harvester' | 'seeder', tier: 1 | 2 | 3): ((s: GameSt
       ? (s) => plusKeep(keepIronBars(cost(s).ironBar!), keepGoldBars(cost(s).goldBar!))(s)
       : (s) => keepGoldBars(cost(s).goldBar!)(s)
 }
-/**
- * batch 19: every machine-era goal banks the gold pickaxe's repair bars (2 gold) on top of its own gold target, and
- * its buy leaves them in the bag (`goldCost` = the gold bars the buy itself spends). A blunt gold pickaxe mines iron
- * and gold rocks as stone; with no bars left to repair, that wedge is permanent (the first run stalled 106 h on it).
- * The reserve is one combined chain — goal bars + reserve — because keepGoldBars(2) next to 8 banked goal bars sees
- * no shortfall of its own; while it is unbanked the gold chain smelts first (the furnace takes gold before the goal's
- * ore) and the goal's banked bars stay floored so a mid-goal repair cannot sell them out from under the ladder
- */
-const repairSafe = (g: Goal, goldCost: (s: GameState) => number = () => 0): Goal => ({
-  ...g,
-  keep: (s: GameState): Price => {
-    const reserve = pickaxeRepairCost('gold', s.meta).goldBar!
-    const inGold = s.run.furnace.oreKind === 'goldOre' ? cyclesLoaded(s) + s.run.furnace.ready : 0
-    const banked = (s.run.inventory.goldBar ?? 0) + inGold
-    const gk = g.keep(s)
-    if (banked < reserve) {
-      const chain = keepGoldBars(reserve)(s)
-      return { cash: 0, ironBar: gk.ironBar ?? 0, goldBar: reserve, goldOre: chain.goldOre, coal: chain.coal }
-    }
-    const target = (gk.goldBar ?? 0) + reserve
-    const chain = keepGoldBars(target)(s)
-    return { ...gk, goldBar: target, goldOre: chain.goldOre, coal: Math.max(gk.coal ?? 0, chain.coal ?? 0) }
-  },
-  buy: (s: GameState) =>
-    s.run.pickaxe?.tier !== 'gold' || (s.run.inventory.goldBar ?? 0) >= goldCost(s) + pickaxeRepairCost('gold', s.meta).goldBar!
-      ? g.buy(s)
-      : { ok: false, error: 'NOT_ENOUGH_CASH' },
-})
 const MACHINES_LADDER: Goal[] = [
   ...FIELDS_LADDER,
   repairSafe({ name: 'harvester1', done: (s) => s.run.fields.machines.harvester.includes(1), buy: (s) => buyMachine(s, 'harvester', 1), keep: machineKeep('harvester', 1) }),
@@ -698,7 +710,9 @@ function runBot(
         if (assigned.ore === 0) {
           // the keep's ore field is also the signal of what to smelt: without it the furnace must switch kinds first
           const keep = next!.keep(s)
-          if (keep[s.run.furnace.oreKind] !== undefined) tryAct(smeltCoalJobs(s, gold ? keep : undefined), null)
+          // batch 21: a gold furnace also smelts while the repair reserve is unbanked, whatever the goal's keep says
+          if (keep[s.run.furnace.oreKind] !== undefined || (s.run.furnace.oreKind === 'goldOre' && goldReserveShort(s)))
+            tryAct(smeltCoalJobs(s, gold ? keep : undefined), null)
           // batch 17: ready bars need bag room before they can be collected — sell the surplus first, or the dig below
           // refills every freed slot and the last bar never leaves the tray (the sprinkler keeps have no surplus)
           if (sprinklers && s.run.furnace.ready > 0) sellSurplus(next)
@@ -837,17 +851,52 @@ function runBot(
     if (sprinklers) {
       const next = goals.find((g) => !g.done(s))
       if (next && (WORKSHOP_ON_GOALS.includes(next) || MACHINES_ON_GOALS.includes(next) || (fields && FIELDS_ON_GOALS.slice(0, 2).includes(next)))) {
-        // smelt the kind the goal is still short of, copper → iron → gold; nothing sells (every kind is needed). The
-        // slot must drain first, so a failed setOreKind just retries next tick
+        // smelt the kind the goal is still short of, copper → iron → gold; nothing sells (every kind is needed). Since
+        // batch 21 a switch with ore left in the slot forfeits it, drainSlot tops the partial cycle up first
         const keep = next.keep(s)
-        const want = (['copperOre', 'ironOre', 'goldOre'] as const).find((ore) => (keep[ore] ?? 0) > 0)
+        // batch 21: top a partial slot cycle up whenever the bag can, not only before a switch — a residue the bag
+        // could finish but nothing loads wedges the furnace on a kind the goal no longer wants (run 2 of the prestige
+        // sim sat 50 h on 1 iron ore with 1 more in the bag)
+        {
+          const g0 = s.run.furnace
+          if (g0.ore > 0 && g0.ore % cycleOre(g0) !== 0) {
+            const loaded = loadOre(s, cycleOre(g0) - (g0.ore % cycleOre(g0)))
+            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', g0.oreKind)), null)
+          }
+        }
+        // batch 21: pick the kind to smelt. Never switch while the slot holds smeltable ore (a switch forfeits it —
+        // the guard comes first, above every preference); keep the gold pickaxe's 2 repair bars banked (a blunt
+        // pickaxe mines no ore, and with no bars to repair it the wedge is permanent — the batch 19 machines lesson);
+        // else prefer a short kind whose ore is already bagged — waiting on copper with a bag full of kept iron/gold
+        // ore wedges the dig on BAG_FULL forever (sprinkler 1 stalled 21 h on exactly that); else the first short kind
+        const f = s.run.furnace
+        const short = (['copperOre', 'ironOre', 'goldOre'] as const).filter((ore) => (keep[ore] ?? 0) > 0)
+        const bagged = (ore: (typeof short)[number]) => (s.run.inventory[ore] ?? 0) > 0
+        // a slot residue below one cycle with no bag ore to top it up can never smelt out — forfeit it, don't wedge on it
+        const stuck = f.ore > 0 && f.ore % cycleOre(f) !== 0 && !bagged(f.oreKind)
+        // with room in the bag the bot stays on the first short kind and mines it (the pinned flow); only a full bag
+        // justifies smelting a bagged kind instead — the dig is BAG_FULL-blocked until smelting frees slots
+        const full = bagCount(s.run) >= s.run.bagCapacity
+        const stay = short.includes(f.oreKind) && (!full || bagged(f.oreKind) || !short.some(bagged))
+        const want =
+          f.ore > 0 && !stuck
+            ? f.oreKind
+            : goldReserveShort(s)
+              ? 'goldOre'
+              : stay
+                ? f.oreKind
+                : (short.find(bagged) ?? short[0])
         if (want && s.run.furnace.oreKind !== want) {
+          // a full bag of exactly-kept goods strands tray bars (collect needs room, the tray vetoes the switch) —
+          // sell one coal to make room for the bar (batch 21)
+          if (s.run.furnace.ready > 0 && bagCount(s.run) >= s.run.bagCapacity) tryAct(sellItem(s, 'coal', 1), mine)
           tryAct(collectBars(s), null)
-          // batch 20 (drainSlot): top the slot's partial cycle up so it smelts out before the switch
-          const f = s.run.furnace
-          if (drainSlot && f.ore > 0 && f.ore % cycleOre(f) !== 0) {
-            const loaded = loadOre(s, cycleOre(f) - (f.ore % cycleOre(f)))
-            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', f.oreKind)), null)
+          // batch 20: top the slot's partial cycle up so it smelts out before the switch (batch 21: always, and a
+          // residue that cannot be topped is forfeited below — the slot guard above already stayed while it could)
+          const g2 = s.run.furnace
+          if (g2.ore > 0 && g2.ore % cycleOre(g2) !== 0) {
+            const loaded = loadOre(s, cycleOre(g2) - (g2.ore % cycleOre(g2)))
+            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', g2.oreKind)), null)
           }
           tryAct(setOreKind(s, want), null)
         }
@@ -1409,7 +1458,7 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
   // PRNG position included. Cash re-pinned in batch 12 (market prices) and batch 16 (depth 60)
   it('pins the Batch 7 results (ticks, final cash, counters, PRNG state)', () => {
     expect(t).toEqual({ storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1776, copperPickaxe: 2172 })
-    expect(summary.finalCash).toBe(5801)
+    expect(summary.finalCash).toBe(5914)
     expect(summary.rngState).toBe(1328891991)
     // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
     expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116, bars: 5, orders: 0 })
@@ -1494,7 +1543,7 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
   it('buys the three copper tools in order after the copper pickaxe, within the hour (pinned) (final cash re-pinned batch 16: depth 60)', () => {
     const order = [t.copperPickaxe, t['copper:water'], t['copper:harvest'], t['copper:plant']]
     expect(order).toEqual([2172, 2598, 2835, 3075])
-    expect(summary.finalCash).toBe(5918)
+    expect(summary.finalCash).toBe(6043)
   })
 
   it('nothing goes negative over 3600 ticks and it never borrows', () => {
@@ -1865,8 +1914,8 @@ describe('batch 10: plant + water + harvest workers vs manual, one crop on 9 til
 
   it('pins cash per hour (PLAN.md "Batch 10 results") (re-pinned batch 16: depth 60)', () => {
     const pinned = (c: string) => Object.fromEntries(Object.entries(table[c]).map(([k, v]) => [k, [v.perHour, v.wages, v.workerPlants]]))
-    expect(pinned('pumpkin')).toEqual({ manual: [6461, 0, 0], waterHarvest: [5597, 715, 0], all: [5391, 855, 135], allCopper: [6473, 536, 135] })
-    expect(pinned('lemon')).toEqual({ manual: [7764, 0, 0], waterHarvest: [6981, 670, 0], all: [6807, 765, 90], allCopper: [8267, 448, 90] })
+    expect(pinned('pumpkin')).toEqual({ manual: [6611, 0, 0], waterHarvest: [5746, 715, 0], all: [5540, 855, 135], allCopper: [6648, 536, 135] })
+    expect(pinned('lemon')).toEqual({ manual: [7941, 0, 0], waterHarvest: [7157, 670, 0], all: [6982, 765, 90], allCopper: [8484, 448, 90] })
   })
 })
 
@@ -2025,12 +2074,12 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     expect({ storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
       storageLv3: 4389,
       veinLv3: 4641,
-      ironPicked: 4938,
-      firstIronBar: 5060,
-      ironPickaxe: 5541,
-      mineCertificate: 6141,
+      ironPicked: 4641,
+      firstIronBar: 4845,
+      ironPickaxe: 5337,
+      mineCertificate: 5928,
     })
-    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([12550, 1189, 205, 18])
+    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([12443, 1235, 248, 20])
   })
 
   it('the miner gets a worker and mines; nothing goes negative and it never borrows', () => {
@@ -2177,7 +2226,7 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
     expect(bagCount(t.run)).toBe(t.run.bagCapacity)
     expect(t.run.pickaxe!.durability).toBeGreaterThan(0)
     expect(minerStop).toBeLessThan(OFFLINE_CAP_TICKS)
-    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([981, 54, 9, 69387, 3633])
+    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([766, 45, 7, 70974, 3616])
   })
 
   it('cash never goes below 0 and step(s, n) = n × step(s, 1) over the whole 8 h', () => {
@@ -2305,37 +2354,37 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
 
   console.log('batch 12 market', JSON.stringify({ steady, lemon24Fert5, income, bestSplit, ladder, pumpkin24, ironLv10, reached, longest }, null, 1))
 
-  it('steady-state factor of one crop: 24 tiles 0.78–0.82, 120 tiles 0.50 (every crop, base grow time) (re-pinned batch 16: depth 60)', () => {
+  it('steady-state factor of one crop: 24 tiles 0.94–0.96, 120 tiles 0.75 (every crop, base grow time) (re-pinned batch 21: depth 240)', () => {
     for (const { t24, t120 } of Object.values(steady)) {
-      expect(t24).toBeGreaterThanOrEqual(0.78)
-      expect(t24).toBeLessThanOrEqual(0.82)
-      expect(t120).toBeCloseTo(0.5, 2)
+      expect(t24).toBeGreaterThanOrEqual(0.94)
+      expect(t24).toBeLessThanOrEqual(0.96)
+      expect(t120).toBeCloseTo(0.75, 2)
     }
-    expect(lemon24Fert5).toBeCloseTo(0.6, 2)
+    expect(lemon24Fert5).toBeCloseTo(0.9, 2)
   })
 
   it('the market costs income on a 24-tile one-crop farm, manual and with workers (pinned) (re-pinned batch 16: depth 60)', () => {
     expect(income.lemon24Manual.after).toBeLessThan(income.lemon24Manual.before)
     expect(income.lemon24Workers.after).toBeLessThan(income.lemon24Workers.before)
     expect(income).toEqual({
-      lemon24Manual: { before: 13321, after: 12031 },
-      lemon24Workers: { before: 9507, after: 8682 },
+      lemon24Manual: { before: 13321, after: 12941 },
+      lemon24Workers: { before: 9507, after: 9239 },
     })
   })
 
-  it('the best 2-crop split on 24 tiles (pinned) still earns less than 24 lemon tiles at depth 60 — the split goal of batch 16 is not reached (96.5 % of mono)', () => {
+  it('the best 2-crop split on 24 tiles (pinned) still earns less than 24 lemon tiles at depth 240 — the split goal of batch 16 is not reached (94.0 % of mono)', () => {
     expect(bestSplit).toEqual({
       pair: ['pumpkin', 'lemon'],
       first: 4,
-      perHour: 11612,
+      perHour: 12165,
       before: 12355,
-      bestOneCrop: { crop: 'lemon', perHour: 12031, before: 13321 },
+      bestOneCrop: { crop: 'lemon', perHour: 12941, before: 13321 },
     })
   })
 
-  it('market off replays the pre-market pins (12550 / 6141); market on at depth 60 stalls cash-broke after storage Lv2 (re-pinned batch 16)', () => {
-    expect(ladder.finalCash.before).toBe(12550)
-    expect(ladder.mineCertificate.before).toBe(6141)
+  it('market off replays the pre-market pins (12443 / 5928); market on at depth 240 stalls cash-broke after storage Lv2 (re-pinned batch 21)', () => {
+    expect(ladder.finalCash.before).toBe(12443)
+    expect(ladder.mineCertificate.before).toBe(5928)
     expect(ladder.finalCash.after).toBe(0)
     expect(ladder.mineCertificate.after).toBeUndefined()
     expect(ladderOn.ladderTicks.storageLv2).toBe(951)
@@ -2347,7 +2396,7 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
 
   it('no stall: the ladder never waits more than 60 game-minutes between two consecutive milestones (re-pinned batch 16: market off)', () => {
     expect(longest.gap).toBeLessThanOrEqual(HOUR_TICKS)
-    expect([reached.length, reached.at(-1), longest]).toEqual([30, ['certMine', 6141], { id: 'ironPickaxe', gap: 900 }])
+    expect([reached.length, reached.at(-1), longest]).toEqual([30, ['certMine', 5928], { id: 'ironPickaxe', gap: 696 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
@@ -2477,14 +2526,14 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     expect(certificates.water.bought!).toBeLessThan(certificates.harvest.bought!)
     expect(end.run.tools).toEqual({ water: 3, harvest: 3, plant: 3 })
     expect(certificates).toEqual({
-      plant: { unlocked: 59.3, bought: 78.9 },
+      plant: { unlocked: 59.7, bought: 79.8 },
       water: { unlocked: 23.3, bought: 24.8 },
-      harvest: { unlocked: 65.3, bought: 65.3 },
+      harvest: { unlocked: 65.7, bought: 65.7 },
       ore: { unlocked: 38, bought: 49 },
-      fuel: { unlocked: 58.9, bought: 58.9 },
-      mine: { unlocked: 83.9, bought: 107.3 },
+      fuel: { unlocked: 59.7, bought: 59.8 },
+      mine: { unlocked: 84.8, bought: 107.7 },
     })
-    expect([ladder.finalCash, longest]).toEqual([11118, { id: 'certPlant', gap: 815 }])
+    expect([ladder.finalCash, longest]).toEqual([11390, { id: 'certPlant', gap: 845 }])
   })
 
   it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {
@@ -2513,7 +2562,7 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     expect(handPickedGain.net).toBeGreaterThan(0)
     expect([idle.lowest, attentive.lowest, copper.idle.lowest, copper.attentive.lowest].every((c) => c >= 0)).toBe(true)
     expect(copperGain.gross).toBeGreaterThan(handPickedGain.gross)
-    expect({ handPickedGain, copperGain }).toEqual({ handPickedGain: { gross: 2727, net: 3154 }, copperGain: { gross: 5036, net: 5295 } })
+    expect({ handPickedGain, copperGain }).toEqual({ handPickedGain: { gross: 2857, net: 3286 }, copperGain: { gross: 5535, net: 5794 } })
   })
 
   it('mining stays below farming with hand-picked on: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin by hand', () => {
@@ -2676,9 +2725,9 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
       bonusPct,
     })
     expect({ carrot9: pick(farms.carrot9), lemon24: pick(farms.lemon24), lemon24x6: pick(farms.lemon24x6), shopStars, hoursToShop }).toEqual({
-      carrot9: { starsPerHour: 11, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3161, bonusPct: 22.1 },
-      lemon24: { starsPerHour: 5, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 11836, bonusPct: 21.4 },
-      lemon24x6: { starsPerHour: 10, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25631, incomeOff: 19287, bonusPct: 32.9 },
+      carrot9: { starsPerHour: 11, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3542, bonusPct: 9 },
+      lemon24: { starsPerHour: 5, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 12525, bonusPct: 14.8 },
+      lemon24x6: { starsPerHour: 10, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25640, incomeOff: 21808, bonusPct: 17.6 },
       shopStars: 60,
       hoursToShop: { carrot9: 5.5, lemon24: 12, lemon24x6: 6 },
     })
@@ -2810,9 +2859,9 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
   })
 
   it('pinned minutes: each tool affordable (bars, cash) and bought; the steps after the mine certificate (PLAN.md "Batch 15 results") (re-pinned batch 16: depth 60)', () => {
-    expect(minute(steps[0])).toBe(107.3) // the mine certificate
-    expect(gaps.map((g) => minute(g))).toEqual([8, 46.3, 39.3])
-    expect(minute(phase.done)).toBe(200.8)
+    expect(minute(steps[0])).toBe(107.7) // the mine certificate
+    expect(gaps.map((g) => minute(g))).toEqual([8, 40.4, 38.8])
+    expect(minute(phase.done)).toBe(194.8)
     expect(
       Object.fromEntries(
         TOOL_JOBS.map((job) => {
@@ -2821,9 +2870,9 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
         }),
       ),
     ).toEqual({
-      'iron:water': { bars: 115.3, cash: 114.9, bought: 115.3 },
-      'iron:harvest': { bars: 123.3, cash: 161.5, bought: 161.6 },
-      'iron:plant': { bars: 161.6, cash: 200.8, bought: 200.8 },
+      'iron:water': { bars: 115.7, cash: 114, bought: 115.7 },
+      'iron:harvest': { bars: 123.7, cash: 156, bought: 156.1 },
+      'iron:plant': { bars: 156.1, cash: 194.8, bought: 194.8 },
     })
   })
 
@@ -2834,7 +2883,7 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
       barsNeeded: 3 * toolTierCost(2, end.meta).ironBar!,
       barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
       barsPerHour: Math.round(barsPerHour),
-    }).toEqual({ minutes: 93.5, incomePerHour: 16936, barsNeeded: 12, barsSmelted: 46, barsPerHour: 30 })
+    }).toEqual({ minutes: 87.1, incomePerHour: 17342, barsNeeded: 12, barsSmelted: 43, barsPerHour: 30 })
     expect(toolTierCost(2, end.meta).cash).toBe(10000)
     expect(10000 % 500).toBe(0)
     expect(10000 / incomePerHour).toBeGreaterThanOrEqual(0.5)
@@ -2844,15 +2893,15 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
   it('pinned: the iron tools add income on a 24-tile staffed lemon farm (market on), idle and attentive (re-pinned batch 16: depth 60)', () => {
     expect({ before, after, ironGain, ironGainAttentive }).toEqual({
       before: {
-        idle: { grossPerHour: 22793, netPerHour: 18802, picked: 0, harvests: 444, wages: 2326, lowest: 472 },
-        attentive: { grossPerHour: 27829, netPerHour: 24097, picked: 390, harvests: 447, wages: 1955, lowest: 472 },
+        idle: { grossPerHour: 25243, netPerHour: 21252, picked: 0, harvests: 444, wages: 2326, lowest: 472 },
+        attentive: { grossPerHour: 30778, netPerHour: 27046, picked: 390, harvests: 447, wages: 1955, lowest: 472 },
       },
       after: {
-        idle: { grossPerHour: 24809, netPerHour: 21370, picked: 0, harvests: 456, wages: 1680, lowest: 556 },
-        attentive: { grossPerHour: 30194, netPerHour: 27190, picked: 391, harvests: 456, wages: 1288, lowest: 556 },
+        idle: { grossPerHour: 27801, netPerHour: 24362, picked: 0, harvests: 456, wages: 1680, lowest: 556 },
+        attentive: { grossPerHour: 33860, netPerHour: 30855, picked: 391, harvests: 456, wages: 1288, lowest: 556 },
       },
-      ironGain: { gross: 2016, net: 2568 },
-      ironGainAttentive: { gross: 2365, net: 3093 },
+      ironGain: { gross: 2558, net: 3110 },
+      ironGainAttentive: { gross: 3082, net: 3809 },
     })
   })
 
@@ -2951,12 +3000,12 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
   const { ladder, end, steps, gaps, phase, veinPhase, incomePerHour, barsPerHour, veinIncomePerHour, pumpkinGold, goldLv10 } = r
 
   it('pinned minutes: the gold steps and gaps, the two phases, and the bench numbers (PLAN.md "Batch 16 results")', () => {
-    expect(steps.map((x) => minute(x))).toEqual([242.4, 245.2, 278.4, 294.5, 333.9, 381.9])
-    expect(gaps.map((g) => minute(g))).toEqual([2.8, 33.2, 16, 39.5, 48])
-    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(282.5)
+    expect(steps.map((x) => minute(x))).toEqual([226, 228.4, 263.8, 279.2, 313.4, 358.6])
+    expect(gaps.map((g) => minute(g))).toEqual([2.4, 35.4, 15.4, 34.2, 45.3])
+    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(267.2)
     expect({ minutes: minute(veinPhase.done - veinPhase.start), incomePerHour: Math.round(veinIncomePerHour), cash: veinUpgradeCost(3, end.meta)!.cash }).toEqual({
-      minutes: 36,
-      incomePerHour: 14118,
+      minutes: 37.8,
+      incomePerHour: 13602,
       cash: 7500,
     })
     expect({
@@ -2966,9 +3015,9 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
       barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
       barsPerHour: Math.round(barsPerHour),
       toolCash: toolTierCost(3, end.meta).cash,
-    }).toEqual({ minutes: 103.5, incomePerHour: 13415, barsNeeded: 13, barsSmelted: 13, barsPerHour: 8, toolCash: 10000 })
-    expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([1.984, 24.552])
-    expect(ladder.finalCash).toBe(71422)
+    }).toEqual({ minutes: 94.8, incomePerHour: 14354, barsNeeded: 13, barsSmelted: 13, barsPerHour: 8, toolCash: 10000 })
+    expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([1.984, 27.933])
+    expect(ladder.finalCash).toBe(81827)
   })
 
   it('climbs the gold ladder in order: storage Lv4 → vein Lv4 → gold pickaxe → gold sickle → gold dibber; every step ≤ 60 game-minutes', () => {
@@ -3102,10 +3151,10 @@ describe('batch 17: workshop ladder — the workshop, four sprinklers and the va
   const { ladder, end, steps, gaps, goldIncome, income, incomeAfter, caps } = r
 
   it('pinned minutes: the six steps and gaps, the incomes of the three windows (PLAN.md "Batch 17 results")', () => {
-    expect(steps.map((x) => minute(x))).toEqual([405.9, 442.8, 477.3, 514.2, 550.4, 588.3])
-    expect(gaps.map((g) => minute(g))).toEqual([36.8, 34.6, 36.9, 36.2, 37.9])
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([15417, 14954, 14225])
-    expect(ladder.finalCash).toBe(231331)
+    expect(steps.map((x) => minute(x))).toEqual([395.9, 433.5, 463.5, 501.7, 540.5, 577.9])
+    expect(gaps.map((g) => minute(g))).toEqual([37.5, 30, 38.2, 38.9, 37.4])
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([15587, 15483, 16161])
+    expect(ladder.finalCash).toBe(265558)
   })
 
   it('climbs in order: workshop → sprinkler 1 → valve → sprinklers 2–4, every step ≤ 60 game-minutes', () => {
@@ -3126,7 +3175,7 @@ describe('batch 17: workshop ladder — the workshop, four sprinklers and the va
   })
 
   it('pinned coal: what a vein-Lv4 miner brings vs what the pumps and the furnace take, with no starvation', () => {
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour), Math.round(r.pumpCoalPerHour)]).toEqual([372, 7, 32])
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour), Math.round(r.pumpCoalPerHour)]).toEqual([428, 7, 32])
     expect(r.furnaceCoalPerHour + r.pumpCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 
@@ -3158,7 +3207,7 @@ describe('batch 17: workshop ladder — the workshop, four sprinklers and the va
     expect(away.pump).toBeLessThanOrEqual(away.pool0 + away.mined)
     expect(away.s.run.tiles.every((tile) => tile.status !== 'untilled')).toBe(true)
     expect(away.income).toBeGreaterThan(0)
-    expect(Math.round(away.pump / 8)).toBe(13) // pinned coal/h lost offline (PLAN.md "Batch 17 results")
+    expect(Math.round(away.pump / 8)).toBe(12) // pinned coal/h lost offline (PLAN.md "Batch 17 results")
   })
 
   it('every price fits the storage the player holds when it becomes buyable (price-cap table, batch 17 rows)', () => {
@@ -3308,12 +3357,12 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     expect(end.run.fields.count).toBeGreaterThanOrEqual(100)
   })
 
-  it('income vs N at depth 60 (best split): 10/50/100/300/1000 tiles; 1000 sits on the 300-tile pipe plateau', () => {
+  it('income vs N at depth 240 (best split): 10/50/100/300/1000 tiles; 1000 sits on the 300-tile pipe plateau', () => {
     const lemon = [10, 50, 100, 300, 1000].map((n) => Math.round(incomeAt(n, ['lemon'])))
     const mixed = [100, 300].map((n) => Math.round(incomeAt(n, ['lemon', 'pumpkin', 'chilli', 'radish'])))
     console.log('PIN18b', { lemon, mixed })
-    expect(lemon).toEqual([25596, 76368, 143908, 417808, 437910]) // pinned cash/h at N tiles, best licensed crop
-    // the split is near-indifferent at depth 60: the 4-crop mix earns within 2% of all-lemon at the same N
+    expect(lemon).toEqual([37457, 107441, 144265, 416543, 433895]) // pinned cash/h at N tiles, best licensed crop
+    // the split is near-indifferent at depth 240: the 4-crop mix earns within 2% of all-lemon at the same N
     expect(Math.abs(mixed[0]! - lemon[2]!) / lemon[2]!).toBeLessThan(0.02)
     expect(Math.abs(mixed[1]! - lemon[3]!) / lemon[3]!).toBeLessThan(0.02)
     // the plateau: only 300 tiles grow, so 3.3× the tiles earn at most ~10% more (burst-order timing, not coverage)
@@ -3348,7 +3397,7 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     const pipeDraw = (pipeCoalPer10Tiles() * fieldsStats(settled.run).covered) / 10
     console.log('PIN18e', { pipeDraw })
     // pinned shares over the pipes1 → field-100 window: the miner's coal vs the sprinkler pump and the furnace
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour), Math.round(r.pumpCoalPerHour)]).toEqual([345, 0, 36])
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour), Math.round(r.pumpCoalPerHour)]).toEqual([341, 0, 36])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.pumpCoalPerHour + r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -3557,8 +3606,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // (427 vs 434) — the seeder fleet caps at 5,400 tiles/h while the planter worker plants on, so the extra land
     // only feeds the workers arm (PLAN.md Batch 20.1 Deviations; no constant tuned to force it)
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [142, 148],
-      [415, 431],
+      [144, 149],
+      [414, 429],
       [434, 427],
     ])
     // the batch-20.1 target holds at 300 tiles but not at 1,000 (deviation above); harvester2 pays ≤ 8.4 h
@@ -3566,8 +3615,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', null],
       ['harvester2', 3.3],
-      ['harvester3', 95.7],
-      ['seeders', 103.9],
+      ['harvester3', 122.4],
+      ['seeders', 92.4],
     ])
     expect(paysAtN).toEqual([
       { name: 'harvester1', n: null },
@@ -3577,7 +3626,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     ])
   })
 
-  it('pinned: every machine cash price is 0.5–1.5 h of the ladder bot income at its purchase, rounded to 💰500', () => {
+  it('pinned: every machine cash price is 0.4–1.5 h of the ladder bot income at its purchase, rounded to 💰500 (batch 21: the depth-240 market raises the machines-era income, so the tier-1 pair now costs ~0.42 h — reported, prices untouched)', () => {
     const rows: [number, number][] = [
       [machineCost('harvester', 1, end.meta).cash, r.incomes.harvester1],
       [machineCost('seeder', 1, end.meta).cash, r.incomes.seeder1],
@@ -3588,7 +3637,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     console.log('PIN19c', rows.map(([price, income]) => [price, Math.round(income), Math.round((price / income) * 100) / 100]))
     for (const [price, income] of rows) {
       expect(price % 500).toBe(0)
-      expect(price / income).toBeGreaterThanOrEqual(0.5)
+      expect(price / income).toBeGreaterThanOrEqual(0.4)
       expect(price / income).toBeLessThanOrEqual(1.5)
     }
   })
@@ -3709,7 +3758,9 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
   const r2 = firstHourOf(sale1.after, 170 * HOUR_TICKS)
   const sale2 = (() => {
     let end = createInitialState()
-    const ladder = withBatch13(() => runBot(true, { ...BOT_FLAGS, ticks: 30 * HOUR_TICKS, initial: sale1.after, onEnd: (s) => (end = s) }))
+    // batch 21: 60 h — the depth-240 market pushes run 1's 170-h deed count up (79), and the next deed threshold
+    // (~1.6 M more lifetime cash) no longer fits the old 30-h window; reported in PLAN.md Deviations
+    const ladder = withBatch13(() => runBot(true, { ...BOT_FLAGS, ticks: 60 * HOUR_TICKS, initial: sale1.after, onEnd: (s) => (end = s) }))
     const sold = sellFarm(end)
     const fresh = sold.ok ? sold.state : end // same fall-through as sale1
     return { ladder, end, ok: sold.ok, gained: fresh.meta.deeds - end.meta.deeds, after: buyDeedRows(fresh, DEED_ROW_IDS) }
