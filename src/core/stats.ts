@@ -4,6 +4,7 @@ import {
   energyRegenPerTick,
   fireUnitTicks,
   growTimeFactor,
+  marketFactor,
   masteredPreserveBonus,
   masteryLevel,
   multiplier,
@@ -13,10 +14,11 @@ import {
 } from './balance'
 import { CROPS, CROP_IDS } from './data/crops'
 import { PICKAXE_NAMES } from './data/items'
+import { MILESTONES, earlierMilestones } from './data/milestones'
 import { TOOLS, TOOL_JOBS, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
-import type { CounterId, GameState } from './state'
+import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
 import { WORKER_JOBS } from './data/workers'
 import { freeWorkers } from './workers'
@@ -121,6 +123,59 @@ export function stats(state: GameState): Stats {
   return { totals, multipliers }
 }
 
+/** "1h 12m" / "4m": play time on a timeline line */
+function playTime(ticks: number): string {
+  const h = Math.floor(ticks / 3600)
+  const m = Math.floor((ticks % 3600) / 60)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+/**
+ * The 📊 Stats timeline: "Lemon license — 1h 12m" per recorded milestone, by tick (play time from tick 0), led by
+ * one "… N earlier milestones before tracking" line when a migrated save (the only kind with trackingStarted) had
+ * reached some before v12. A new run has none: what it starts with (the carrot license) is not a milestone reached.
+ */
+export function timelineLines(run: RunState): string[] {
+  const since = run.milestones.trackingStarted
+  const earlier = since === undefined ? 0 : earlierMilestones(run)
+  const head = earlier
+    ? [`… ${earlier} earlier milestone${earlier === 1 ? '' : 's'} before tracking (tracking since ${playTime(since!)})`]
+    : []
+  const reached = MILESTONES.flatMap((m) => {
+    const tick = run.milestones[m.id]
+    return tick === undefined ? [] : [{ tick, line: `${m.label} — ${playTime(tick)}` }]
+  })
+  return [...head, ...reached.sort((a, b) => a.tick - b.tick).map((r) => r.line)]
+}
+
+/** the "Copy report" limit; a longer timeline is cut and ends with "… N more" */
+export const REPORT_MAX_LINES = 30
+
+const jobsShown = (hideIron: boolean) => WORKER_JOBS.filter((job) => !(hideIron && job === 'mine'))
+
+/**
+ * The "Copy report" text, one item per line, never the save: `header` (build and save version, which only the app
+ * knows), play time, cash, lifetime cash, tiles, workers per job, vein, market factors, then the timeline.
+ */
+export function reportLines(state: GameState, header: string[], hideIron: boolean): string[] {
+  const { run } = state
+  const lines = [
+    ...header,
+    `Played: ${duration(run.tick)}`,
+    `Cash: 💰${Math.floor(run.cash)}`,
+    `Lifetime cash: 💰${Math.round(run.lifetime.cashEarned)}`,
+    `Tiles: ${run.tiles.length}`,
+    `Workers: ${run.workers.pool} (${jobsShown(hideIron).map((job) => `${job} ${run.workers.assigned[job]}`).join(', ')})`,
+    `Vein: Lv${run.vein.level}`,
+    `Market: ${CROP_IDS.map((id) => `${CROPS[id].name.toLowerCase()} ${Math.round(marketFactor(id, run.market[id]) * 100)} %`).join(', ')}`,
+    'Timeline:',
+    ...timelineLines(run),
+  ]
+  if (lines.length <= REPORT_MAX_LINES) return lines
+  const kept = lines.slice(0, REPORT_MAX_LINES - 1)
+  return [...kept, `… ${lines.length - kept.length} more`]
+}
+
 /**
  * One plain-text line about the run for a feedback report (never the save). hideIron drops the mine worker, the
  * only iron-only field, so the line says nothing about iron while the UI gates it off.
@@ -128,7 +183,7 @@ export function stats(state: GameState): Stats {
 export function feedbackSummary(state: GameState, hideIron: boolean): string {
   const { run } = state
   const { furnace, workers, pickaxe } = run
-  const jobs = WORKER_JOBS.filter((job) => !(hideIron && job === 'mine'))
+  const jobs = jobsShown(hideIron)
   return [
     `cash ${Math.floor(run.cash)}`,
     `licenses ${run.licenses.join(', ')}`,

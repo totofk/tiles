@@ -18,7 +18,7 @@ import { Workers } from './Workers'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, toast, banner, dismissBanner, acted, minerActed } = useGame()
+  const { state, act, reset, exportCode, importCode, toast, banner, dismissBanner, acted, minerActed } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -74,7 +74,7 @@ export default function App() {
     )
   }
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback, reset }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, feedback, setFeedback, reset, exportCode, importCode }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },

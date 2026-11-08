@@ -40,6 +40,42 @@ export function loadGame(storage: KeyValueStore, now: Clock = wallClock): Loaded
   return { state: catchUp(save.state, awayMs), awayMs, ticks: offlineTicks(awayMs), before: save.state }
 }
 
+/** the run as it was just before a 📊 Stats "Import save" (overwritten by the next import) */
+export const IMPORT_BACKUP_KEY = `${SAVE_KEY}.backup.import`
+
+/** the stored save as base64 of its UTF-8 JSON, for 📊 Stats "Export save"; null when nothing is saved */
+export function exportSave(storage: KeyValueStore): string | null {
+  const raw = storage.getItem(SAVE_KEY)
+  return raw === null ? null : btoa(Array.from(new TextEncoder().encode(raw), (b) => String.fromCharCode(b)).join(''))
+}
+
+export type ImportResult = { ok: true } | { ok: false; error: 'BAD_SAVE' | 'STORAGE' }
+
+/**
+ * Writes a pasted export as the save, after copying the current one to IMPORT_BACKUP_KEY. The caller loads it
+ * through loadGame (backup of an older version, migration, offline catch-up). Anything deserialize rejects (not
+ * base64, not UTF-8, not a save, a future version) is BAD_SAVE and nothing is written.
+ */
+export function importSave(storage: KeyValueStore, text: string): ImportResult {
+  let raw: string
+  try {
+    const bytes = Uint8Array.from(atob(text.replace(/\s/g, '')), (c) => c.charCodeAt(0))
+    raw = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return { ok: false, error: 'BAD_SAVE' }
+  }
+  if (!deserialize(raw)) return { ok: false, error: 'BAD_SAVE' }
+  try {
+    const current = storage.getItem(SAVE_KEY)
+    if (current !== null) storage.setItem(IMPORT_BACKUP_KEY, current)
+    storage.setItem(SAVE_KEY, raw)
+  } catch {
+    // quota full or storage blocked: the save itself is untouched (it is written last)
+    return { ok: false, error: 'STORAGE' }
+  }
+  return { ok: true }
+}
+
 export function saveGame(storage: KeyValueStore, state: GameState, now: Clock = wallClock): void {
   try {
     storage.setItem(SAVE_KEY, serialize(state, now()))

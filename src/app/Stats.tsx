@@ -1,9 +1,13 @@
+import { useState } from 'react'
+import { deedsFor } from '../core/balance'
 import type { GameState } from '../core/state'
-import { stats, type StatRow } from '../core/stats'
+import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
+import { SAVE_VERSION } from '../save/serialize'
 import { DangerZone } from './DangerZone'
 import { ironHidden } from './devFlags'
 import { FeedbackCard } from './FeedbackCard'
 import type { PanelProps } from './panelTabs'
+import { SaveTransfer, copyText } from './SaveTransfer'
 
 /** iron rows that are still zero while iron is gated off (devFlags) */
 const IRON_ROW = /\biron\b|by workers.*mine|mines by workers/i
@@ -39,12 +43,55 @@ export function Stats({ state }: { state: GameState }) {
   )
 }
 
-/** the 📊 Stats tab: the stats, 💬 Feedback, then the Danger zone with Reset */
-export function StatsTab({ state, feedback, setFeedback, reset }: PanelProps) {
+/** the deed meter: what the lifetime total will be worth when prestige opens (a meter only, batch 12) */
+export function Deeds({ state }: { state: GameState }) {
+  const cash = Math.floor(state.run.lifetime.cashEarned)
+  const deeds = deedsFor(cash)
+  return (
+    <p className="deeds">
+      Lifetime cash 💰{cash.toLocaleString('en-US')} → {deeds} deed{deeds === 1 ? '' : 's'} when "Sell the farm" opens
+    </p>
+  )
+}
+
+/** the milestone timeline and "Copy report" (core `reportLines`, never the save) */
+export function Timeline({ state }: { state: GameState }) {
+  const [copied, setCopied] = useState<boolean | null>(null)
+  const lines = timelineLines(state.run)
+  const copy = async () => {
+    const header = [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]
+    setCopied(await copyText(reportLines(state, header, ironHidden(state.run.vein.level)).join('\n')))
+  }
+  return (
+    <section className="shop">
+      <h2>Timeline</h2>
+      {lines.length ? (
+        <ol className="timeline">
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ol>
+      ) : (
+        <p className="timeline-empty">No milestones yet — your first harvest starts the list.</p>
+      )}
+      <button className="report" onClick={copy}>
+        Copy report
+      </button>
+      {copied === true && <p role="status">Report copied — paste it in 💬 Feedback or a message</p>}
+      {copied === false && <p role="alert">Could not copy — this browser blocks the clipboard</p>}
+    </section>
+  )
+}
+
+/** the 📊 Stats tab: the stats, deeds, timeline, 💬 Feedback, Save export/import, then the Danger zone with Reset */
+export function StatsTab({ state, feedback, setFeedback, reset, exportCode, importCode }: PanelProps) {
   return (
     <>
       <Stats state={state} />
+      <Deeds state={state} />
+      <Timeline state={state} />
       <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
+      <SaveTransfer exportCode={exportCode} importCode={importCode} />
       <DangerZone reset={reset} />
     </>
   )

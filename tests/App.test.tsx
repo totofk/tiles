@@ -5,7 +5,7 @@ import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { createInitialState } from '../src/core/state'
 import { deserialize, serialize } from '../src/save/serialize'
-import { RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
+import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY, exportSave } from '../src/save/storage'
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -294,5 +294,19 @@ describe('layout content', () => {
     expect(deserialize(localStorage.getItem(RESET_BACKUP_KEY)!)!.state.run.cash).toBe(777)
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.cash).toBe(s.run.cash)
     expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('Import save (two presses) backs the live run up to tiles.save.backup.import and loads the pasted one', () => {
+    const s = createInitialState()
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 4321 } }, Date.now()))
+    const code = exportSave(localStorage)!
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 777 } }, Date.now()))
+    render(<App />)
+    fireEvent.click(panelTab(/Stats/))
+    fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: code } })
+    fireEvent.click(screen.getByRole('button', { name: 'Import save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Press again to replace this save' }))
+    expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(777)
+    expect(screen.getByText('💰 4321')).toBeTruthy()
   })
 })

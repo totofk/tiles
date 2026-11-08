@@ -19,7 +19,16 @@ export const EMPTY_DRAFT: FeedbackDraft = { kind: 'Feedback', title: '', details
 export type FeedbackState = { draft: FeedbackDraft; sentAt: number | null }
 export const EMPTY_FEEDBACK: FeedbackState = { draft: EMPTY_DRAFT, sentAt: null }
 
-export type FeedbackContext = { build: string; saveVersion: number; screen: string; ua: string; time: string; summary: string }
+/** timeline: core `timelineLines`, the same lines "Copy report" ends with */
+export type FeedbackContext = {
+  build: string
+  saveVersion: number
+  screen: string
+  ua: string
+  time: string
+  summary: string
+  timeline: string[]
+}
 
 export const canSend = (d: FeedbackDraft) => d.title.trim() !== '' && d.details.trim() !== ''
 
@@ -35,6 +44,7 @@ export function buildFeedbackBody(d: FeedbackDraft, c: FeedbackContext): URLSear
     `UA: ${c.ua}`,
     `Time: ${c.time}`,
     `Game: ${c.summary}`,
+    ...(c.timeline.length ? ['Timeline:', ...c.timeline] : []),
   ].join('\n')
   return new URLSearchParams({
     [ENTRY.kind]: d.kind,

@@ -18,7 +18,17 @@ import { dig } from '../src/core/mining'
 import { createFurnace, createInitialMeta, createInitialState, createTile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { SAVE_VERSION, awayText, catchUp, deserialize, offlineTicks, serialize } from '../src/save/serialize'
-import { BAD_SAVE_KEY, SAVE_KEY, backupKey, loadGame, saveGame, type KeyValueStore } from '../src/save/storage'
+import {
+  BAD_SAVE_KEY,
+  IMPORT_BACKUP_KEY,
+  SAVE_KEY,
+  backupKey,
+  exportSave,
+  importSave,
+  loadGame,
+  saveGame,
+  type KeyValueStore,
+} from '../src/save/storage'
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   const data = new Map<string, string>()
@@ -638,5 +648,52 @@ describe('loadGame / saveGame with an injected clock', () => {
       },
     }
     expect(() => saveGame(store, createInitialState(), () => 0)).not.toThrow()
+  })
+})
+
+describe('exportSave / importSave', () => {
+  it('round-trips the stored save as base64; the old save goes to tiles.save.backup.import', () => {
+    const from = memoryStore()
+    const s = createInitialState()
+    saveGame(from, { ...s, run: { ...s.run, cash: 4321 } }, () => 0)
+    const code = exportSave(from)!
+    expect(code).toMatch(/^[A-Za-z0-9+/=]+$/)
+    const to = memoryStore()
+    saveGame(to, { ...s, run: { ...s.run, cash: 5 } }, () => 0)
+    // a paste may carry line breaks and spaces
+    expect(importSave(to, `  ${code.slice(0, 20)}\n${code.slice(20)} `)).toEqual({ ok: true })
+    expect(deserialize(to.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(5)
+    expect(loadGame(to, () => 0).state.run.cash).toBe(4321)
+  })
+
+  it('an older export goes through the normal load: raw backup by version, migration to the latest', () => {
+    const store = memoryStore()
+    expect(importSave(store, btoa(String.fromCharCode(...new TextEncoder().encode(v11))))).toEqual({ ok: true })
+    expect(store.getItem(IMPORT_BACKUP_KEY)).toBeNull()
+    const saved = JSON.parse(v11) as { savedAtMs: number; state: { run: { tick: number } } }
+    const loaded = loadGame(store, () => saved.savedAtMs)
+    expect(store.getItem(backupKey(11))).toBe(v11)
+    expect(loaded.state.run.milestones.trackingStarted).toBe(saved.state.run.tick)
+  })
+
+  it('anything that is not a save is BAD_SAVE and changes nothing', () => {
+    const store = memoryStore()
+    saveGame(store, createInitialState(), () => 0)
+    const before = [...store.data.entries()]
+    const future = btoa(JSON.stringify({ version: SAVE_VERSION + 1, savedAtMs: 0, state: {} }))
+    for (const text of ['', 'not base64 !!', btoa('{"hello":1}'), btoa('\xff\xfe'), future])
+      expect(importSave(store, text)).toEqual({ ok: false, error: 'BAD_SAVE' })
+    expect([...store.data.entries()]).toEqual(before)
+  })
+
+  it('a storage that refuses the write is STORAGE, not a throw', () => {
+    const store: KeyValueStore = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('QuotaExceededError')
+      },
+    }
+    expect(importSave(store, btoa(serialize(createInitialState(), 0)))).toEqual({ ok: false, error: 'STORAGE' })
+    expect(exportSave(store)).toBeNull()
   })
 })

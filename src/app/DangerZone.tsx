@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react'
 /** how long the armed "Press again" state waits for the second press */
 export const ARM_MS = 5000
 
-/** 📊 Stats "Danger zone": the first press arms, the second within ARM_MS resets; Esc or the timeout disarms */
-export function DangerZone({ reset }: { reset: () => void }) {
+/** two-press confirm (Reset, Import save): the first press arms, the second within ARM_MS confirms; Esc or the timeout disarms */
+export function useTwoPress(confirm: () => void): [armed: boolean, press: () => void] {
   const [armed, setArmed] = useState(false)
   useEffect(() => {
     if (!armed) return
@@ -21,8 +21,14 @@ export function DangerZone({ reset }: { reset: () => void }) {
   const press = () => {
     if (!armed) return setArmed(true)
     setArmed(false)
-    reset()
+    confirm()
   }
+  return [armed, press]
+}
+
+/** 📊 Stats "Danger zone": Reset save behind the two-press confirm */
+export function DangerZone({ reset }: { reset: () => void }) {
+  const [armed, press] = useTwoPress(reset)
   return (
     <section className="shop danger">
       <h2>Danger zone</h2>

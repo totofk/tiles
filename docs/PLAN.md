@@ -2013,7 +2013,7 @@ Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renu
     thin 3-colour depth bar per crop (green ≥ 85 %, yellow ≥ 65 %, red below) on the Shop crop rows. The harvest toast
     shows the real cash received. The away banner shows "market: lemon 72 % → 95 %" for crops that moved > 5 points.
     Compact at 375 px; compute layout from CSS and check overlap with neighbours at 375 / 1024 / 1440 px.
-- [ ] 74. **📊 Stats: timeline, report, export/import, deed meter.**
+- [x] 74. **📊 Stats: timeline, report, export/import, deed meter.**
     - "Timeline" list: one line per reached milestone, `Lemon license — 1h 12m` (play time from tick 0), ordered by
       tick; milestones reached before tracking show once as "… N earlier milestones before tracking".
     - "Copy report" button: copies ≤ 30 lines of plain text (build hash and save version as 11.1's feedback context
@@ -2067,3 +2067,31 @@ See commit a4a8799 (market, milestones, `meta.upgrades`, save v12) and bc63cb9 (
   depth bar is the button's last flex child (`align-self: stretch`), so it spans the text box below the tag. Crop to
   plant buttons (desktop panel only) have 6 px padding: 125 px at 1024, 160 px at 1440, one line. Banner and toast
   already wrap (`.banner` flex row with the ✕, toast `max-width: calc(100% − 32px)`).
+
+### 📊 Stats: timeline, report, export/import, deed meter (task 74)
+
+- Core (`stats.ts`): `timelineLines(run)` = `Lemon license — 1h 12m` per recorded milestone by tick (play time from
+  tick 0, ties in table order), led by `… N earlier milestones before tracking (tracking since 2h 0m)` only on a
+  migrated save (the only kind with `trackingStarted`); a new run's carrot license is not a milestone reached.
+  `reportLines(state, header, hideIron)` = header (`Build`, `Save: v12`, passed in by the app: core knows neither) +
+  played, cash, lifetime cash, tiles, workers per job (mine dropped while iron is gated), vein, market factor per crop,
+  `Timeline:` + the timeline; capped at `REPORT_MAX_LINES` 30, the 30th line then reads `… N more`.
+- The 💬 Feedback context block ends with `Timeline:` + the same `timelineLines` (nothing when empty).
+- `storage.ts`: `exportSave(storage)` = base64 of the stored save's UTF-8 JSON; `importSave(storage, text)` →
+  `{ ok } | { ok: false, error: 'BAD_SAVE' | 'STORAGE' }`: whitespace stripped, base64 + strict UTF-8 decode,
+  `deserialize` (so a future version or a non-save is `BAD_SAVE`), then the current save is copied to
+  `tiles.save.backup.import` (`IMPORT_BACKUP_KEY`, overwritten) and the pasted one written; nothing is written on an
+  error. `useGame.importCode` first saves the live run (the stored one lags by ≤ 1 s), then runs the normal
+  `loadGame` path (version backup, migration, offline catch-up from the export's time, welcome-back banner).
+- UI (📊 Stats, in order): Lifetime / Now rows → **deed meter** `Lifetime cash 💰1,040,000 → 10 deeds when "Sell the
+  farm" opens` (`deedsFor`, meter only) → **Timeline** (`<ol>`, or "No milestones yet …") + **Copy report** (status
+  line; "Could not copy" when the clipboard refuses) → 💬 Feedback → **Save** (Export save: copies, says "Copied" or
+  "Copy it from the box below", shows the code in a read-only textarea that selects on focus; Import save: paste box,
+  button disabled while blank, the same two-press confirm as Reset — `useTwoPress`, now shared by `DangerZone` —
+  red while armed; "That is not a tiles save — nothing changed" on a bad paste, the paste is kept) → Danger zone.
+- **Layout (computed from `app.css`, no browser):** every new block is a normal-flow child of the panel's column at
+  the content width (343 / 284 / 358 px at 375 / 1024 / 1440). The deed line (~60 chars at 14 px ≈ 420 px) wraps
+  to two lines at all three widths; the timeline is an `<ol>` (13 px, line-height 1.4 ≈ 18 px a line, 20 px
+  indent); the Save card reuses the Feedback card's column (gap 8, textareas `width: 100%`, 16 px text, `resize:
+  vertical`), its buttons stretch to the content width. Nothing is positioned, so nothing overlaps; at 375 the
+  `.app` bottom padding still keeps the last card (Danger zone) above the fixed tab bar. No new tab.

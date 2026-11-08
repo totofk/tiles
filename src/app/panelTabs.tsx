@@ -5,6 +5,7 @@ import { Bank } from './Bank'
 import { Farm } from './Farm'
 import { Shop } from './Shop'
 import type { FeedbackProps } from './FeedbackCard'
+import type { SaveTransferProps } from './SaveTransfer'
 import { StatsTab } from './Stats'
 import { Upgrades } from './Upgrades'
 import type { Act } from './useGame'
@@ -17,7 +18,8 @@ export type PanelProps = {
   onSelectCrop: (id: CropId) => void
   farmTab: boolean
   reset: () => void
-} & Omit<FeedbackProps, 'state'>
+} & Omit<FeedbackProps, 'state'> &
+  SaveTransferProps
 
 /**
  * Side panel tabs, also the panel entries of the mobile tab bar. Adding a tab is one entry here;

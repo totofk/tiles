@@ -17,6 +17,7 @@ const ctx: FeedbackContext = {
   ua: 'TestUA/1.0',
   time: '2026-11-08T00:00:00.000Z',
   summary: 'cash 20 · vein Lv0',
+  timeline: [],
 }
 const draft = { ...EMPTY_DRAFT, kind: 'Bug report' as const, title: ' Furnace stuck ', details: 'It stopped.\n', contact: 'me@x.y' }
 
@@ -31,6 +32,11 @@ describe('buildFeedbackBody', () => {
       'It stopped.\n\n---\nBuild: abc1234\nSave: v11\nScreen: 375×812 @3\nUA: TestUA/1.0\nTime: 2026-11-08T00:00:00.000Z\n' +
         'Game: cash 20 · vein Lv0',
     )
+  })
+
+  it('a timeline follows the game line under "Timeline:"', () => {
+    const body = buildFeedbackBody(draft, { ...ctx, timeline: ['First harvest — 1m', 'Pumpkin license — 4m'] })
+    expect(body.get('entry.1552861218')).toMatch(/Game: cash 20 · vein Lv0\nTimeline:\nFirst harvest — 1m\nPumpkin license — 4m$/)
   })
 
   it('an empty contact is sent empty; the honeypot is never sent', () => {

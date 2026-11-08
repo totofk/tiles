@@ -7,7 +7,7 @@ import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
 import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
-import { RESET_BACKUP_KEY, loadGame, saveGame, wallClock } from '../save/storage'
+import { RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { marketMoves } from './marketText'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
@@ -143,6 +143,27 @@ export function useGame() {
     setBanner(null)
   }, [commit])
 
+  // the stored save lags the live run by up to a second, so both first write the live run
+  const exportCode = useCallback(() => {
+    saveGame(localStorage, stateRef.current)
+    return exportSave(localStorage)
+  }, [])
+
+  const importCode = useCallback(
+    (text: string): ImportResult => {
+      saveGame(localStorage, stateRef.current)
+      const r = importSave(localStorage, text)
+      if (!r.ok) return r
+      const loaded = loadGame(localStorage)
+      setActed([])
+      setMinerActed(false)
+      commit(loaded.state)
+      setBanner(loaded.ticks > 0 ? bannerText(loaded.awayMs, loaded.before, loaded.state) : null)
+      return r
+    },
+    [commit],
+  )
+
   // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden.
   useEffect(() => {
     loop.current = { last: performance.now(), acc: 0 }
@@ -211,5 +232,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, toast, banner, dismissBanner: () => setBanner(null), acted, minerActed }
+  return { state, act, reset, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, minerActed }
 }

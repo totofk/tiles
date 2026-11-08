@@ -1,6 +1,6 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import type { GameState } from '../core/state'
-import { feedbackSummary } from '../core/stats'
+import { feedbackSummary, timelineLines } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
 import { ironHidden } from './devFlags'
 import {
@@ -27,6 +27,7 @@ function context(state: GameState): FeedbackContext {
     ua: navigator.userAgent,
     time: new Date().toISOString(),
     summary: feedbackSummary(state, ironHidden(state.run.vein.level)),
+    timeline: timelineLines(state.run),
   }
 }
 
