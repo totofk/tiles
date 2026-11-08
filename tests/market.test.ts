@@ -98,9 +98,9 @@ describe('factor and depth', () => {
     }
   })
 
-  it('depth uses the base grow ticks (fertilizer deepens the glut only through faster harvests)', () => {
-    expect(marketDepthGlut('radish')).toBeCloseTo(120 / (100 * (1 - MARKET_DECAY)), 9)
-    expect(marketDepthGlut('lemon')).toBeCloseTo(120 / (360 * (1 - MARKET_DECAY)), 9)
+  it('depth uses the base grow ticks (fertilizer deepens the glut only through faster harvests) (re-pinned batch 16: depth 60)', () => {
+    expect(marketDepthGlut('radish')).toBeCloseTo(60 / (100 * (1 - MARKET_DECAY)), 9)
+    expect(marketDepthGlut('lemon')).toBeCloseTo(60 / (360 * (1 - MARKET_DECAY)), 9)
   })
 
   it('recovery: 0 when the factor is already ≥ 0.99, else the exact tick it gets there', () => {
@@ -114,16 +114,16 @@ describe('factor and depth', () => {
 })
 
 describe('steady state (pure closed form)', () => {
-  it('24 tiles of one crop settle at 0.88–0.92; 120 tiles bottom out at the floor', () => {
+  it('24 tiles of one crop settle at 0.78–0.82; 120 tiles bottom out at the floor (re-pinned batch 16: depth 60)', () => {
     for (const crop of CROP_IDS) {
-      expect(marketSteadyFactor(crop, 24, meta, 0)).toBeGreaterThanOrEqual(0.88)
-      expect(marketSteadyFactor(crop, 24, meta, 0)).toBeLessThanOrEqual(0.92)
+      expect(marketSteadyFactor(crop, 24, meta, 0)).toBeGreaterThanOrEqual(0.78)
+      expect(marketSteadyFactor(crop, 24, meta, 0)).toBeLessThanOrEqual(0.82)
       expect(marketSteadyFactor(crop, 120, meta, 0)).toBeCloseTo(0.5, 2)
     }
   })
 
-  it('fertilizer speeds harvests and deepens the glut: 24 lemons at Lv5 sit near 0.80', () => {
+  it('fertilizer speeds harvests and deepens the glut: 24 lemons at Lv5 sit near 0.60 (re-pinned batch 16: depth 60)', () => {
     expect(marketSteadyGlut(24, 180)).toBeCloseTo(2 * marketSteadyGlut(24, 360), 9)
-    expect(marketSteadyFactor('lemon', 24, meta, 5)).toBeCloseTo(0.8, 2)
+    expect(marketSteadyFactor('lemon', 24, meta, 5)).toBeCloseTo(0.6, 2)
   })
 })

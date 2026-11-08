@@ -205,8 +205,8 @@ const LOAN_REPAY_STEP = 10
 export const MARKET_HALF_LIFE_TICKS = 1800
 export const MARKET_DECAY = 0.5 ** (1 / MARKET_HALF_LIFE_TICKS)
 export const MARKET_FLOOR = 0.5
-/** tiles of one crop that glut a market to the floor at a continuous harvest */
-export const MARKET_DEPTH_TILES = 120
+/** tiles of one crop that glut a market to the floor at a continuous harvest (batch 16: 120 → 60) */
+export const MARKET_DEPTH_TILES = 60
 // Hand-picked (batch 13, DECISIONS "Early-game pacing"): a crop the player harvests (energy spent) sells at this ×
 // the market price, per unit after the market factor; workers sell at ×1
 const HAND_PICKED_BONUS = 1.25
@@ -225,7 +225,8 @@ const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; bonus: number;
   cost: { stone: 10, cash: 100 },
   counter: 'sales',
   at: 50,
-  bonus: 0.25,
+  // batch 16: 0.25 → 0.10 (batch 14 measured +27–41 % income; the goal was +12–18 %)
+  bonus: 0.1,
   slots: 2,
 }
 const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: number }> = [

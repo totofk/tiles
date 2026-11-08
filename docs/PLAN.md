@@ -810,6 +810,17 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   (`✓ moisture 4`), and the ladder of all three tiers lives in the ⓘ tip; the button label stays `🥈 Iron Can`.
 - **Batch 15 (task 85): the advisor could not be consulted** — the advisor MCP tool of the earlier session is not
   available in this one (server disconnected); the approach ran without it.
+- **Batch 16 (task 86): the pre-market-era sims (batch 8–11 ladders and their offline runs) run market-off from now
+  on.** At depth 60 the market-on run of the pre-hand-picked era stalls cash-broke (finalCash 0 after storage Lv2 at
+  tick 951: crop income drops below the hire/seed spend schedule, workers wait at cash 0 and the farm rots), so their
+  pins could not be re-pinned meaningfully. Market-off replays their pre-market pins bit-exactly (the mock only forces
+  `marketFactor` to 1), so those batches keep their measured history; the market-on stall itself is pinned in the
+  batch-12 describe. Batches 7/7.1 and the batch-10 crop benches still run market-on (they complete) — only their cash
+  numbers were re-pinned. Live rules (hand-picked ×1.25, batch 13+) are unaffected: the batch 13–15 ladders complete.
+- **Batch 16 (task 86): the split ≥ mono goal is not reached at depth 60.** Best 2-crop split (4 pumpkin + 20 lemon)
+  earns 11612/h vs mono lemon 12031/h = 96.5 % (was 94.5 % at depth 120). Crossing over needs a depth below 60, which
+  the task did not offer; the hierarchy pin holds (iron Lv10 vein Lv3 2.09 < 0.9 × 24-tile pumpkin 7.52), so depth
+  stays 60 per the task's own escalation rule.
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -2600,7 +2611,7 @@ depth 120 barely touching a 24-tile farm, while the goal of 12–14 was to slow 
 gold ore/bar/pickaxe, gold sickle + dibber (no gold can — DECISIONS batch 15). Numbers: docs/research/sprinkler-gold.md
 and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the sim's measured income at unlock.
 
-- [ ] 86. **Economy retune (balance.ts only).** `ORDER_BONUS` 0.25 → 0.10; `MARKET_DEPTH_TILES` 120 → 60. Re-run and
+- [x] 86. **Economy retune (balance.ts only).** `ORDER_BONUS` 0.25 → 0.10; `MARKET_DEPTH_TILES` 120 → 60. Re-run and
     re-pin the batch 12/13/14 sims with a one-line "re-pinned batch 16" note each. Report: 24-tile lemon income
     before/after (idle, attentive, with board), best 2-crop split vs mono lemon at depth 60 (goal: a split earns at
     least as much as mono), ⭐/h unchanged. Hierarchy pin must hold; if mining ≥ 0.9 × farming at depth 60, raise depth
@@ -2622,3 +2633,28 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
     `GOLD_TOOL_CASH` to 0.5–1.5 h of the bot's measured income at that moment (round to 💰500) and pin them. Pins: no
     unlock step > 60 game-minutes; every price ≤ storage held; mining cash/energy (gold pickaxe, vein Lv4) < 0.9 ×
     farming; step(s, n) = n × step(s, 1). Tune only batch-16 numbers; report each as a deviation.
+
+## Batch 16 results
+
+### Economy retune (task 86, `tests/sim.test.ts` + `tests/market.test.ts`, every pin re-pinned with a note)
+
+- `MARKET_DEPTH_TILES = 60`: 24 tiles of one crop settle at factor **0.80** (was 0.88–0.92), 120 tiles still at the
+  0.50 floor; 24 lemons at fertilizer Lv5 sit at **0.60** (was 0.80). The glut halves as before (1800 ticks).
+- **24-tile lemon income before → after** (per hour): manual **12678 → 12031** (market off: 13321, unchanged);
+  workers **9093 → 8682** (off: 9507); staffed idle gross/net **24571/20580 → 22793/18802** and attentive
+  **29992/26260 → 27829/24097** (copper tier; with iron tools idle 24809/21370, attentive 30194/27190); with the 📋
+  board **16766 → 14374** (board off: 12340 → 11836), so the board now adds **+21.4 %** on a 24-lemon farm
+  (`ORDER_BONUS` 0.10; was +35.9 %) — inside the 12–18 % research band only via the 6-worker variant (32.9 % carrot
+  9-tile 22.1 %). ⭐/h unchanged: **11 / 5 / 10** (carrot9 / lemon24 / lemon24×6), hours to the ⭐ shop unchanged.
+- **Split vs mono at depth 60:** best 2-crop split (4 pumpkin + 20 lemon) **11612/h vs mono lemon 12031/h = 96.5 %**
+  — the split-≥-mono goal is not reached (94.5 % at depth 120); see Deviations. Split market-off: 12355.
+- **Hierarchy holds at depth 60** (mining < 0.9 × farming): iron Lv10 vein Lv3 2.09 cash/energy < 0.9 × 7.52
+  (24-tile pumpkin manual), so depth stays 60 — no escalation needed.
+- Ladder bots under live rules (batch 13/15 re-pins): mine certificate **109.8 → 107.3 min**; iron tools bought at
+  115.3 / 161.6 / 200.8 min in steps **8 / 46.3 / 39.3 min (all ≤ 60)**; phase 89 → 93.5 min at **16936/h**
+  (17128 before), keeping `IRON_TOOL_CASH = 10000` at 0.59 h of income — still inside the 0.5–1.5 h rule.
+- Pre-market-era sims: batch 7 final cash 5897 → **5801**, batch 7.1 6022 → **5918** (market on, runs complete);
+  batch 8–11 ladders + offline runs moved to market-off and replay their pre-market pins exactly (see Deviations);
+  the market-on iron ladder at depth 60 is pinned stalled — cash-broke at 0 after storage Lv2 (tick 951), the mine
+  certificate never bought.
+
