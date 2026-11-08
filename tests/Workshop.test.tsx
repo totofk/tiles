@@ -91,13 +91,13 @@ describe('🔧 Workshop card', () => {
     const build = btn(/Build/)
     expect(build.disabled).toBe(true)
     const line = row(/^💧 Sprinkler$/).textContent!
-    expect(line).toContain(`needs ${ITEMS.ironBar.emoji}3 ${ITEMS.goldBar.emoji}2 💰4500 more`)
+    expect(line).toContain(`needs ${ITEMS.ironBar.emoji}3 ${ITEMS.goldBar.emoji}2 💰5000 more`)
     expect(line).toContain(`${ITEMS.copperBar.emoji}8`)
     expect(line).toContain(`waters ${sprinklerTiles()} tiles`)
   })
 
   it('the sprinkler recipe row builds a machine when affordable, and the max is a solid owned card', () => {
-    const t = setup({ workshop: { built: true, hoppers: [], valve: false }, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 7500 })
+    const t = setup({ workshop: { built: true, hoppers: [], valve: false }, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 })
     expect(btn(/Build/).disabled).toBe(false)
     fireEvent.click(btn(/Build/))
     t.rerender()

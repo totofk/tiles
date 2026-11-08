@@ -64,9 +64,10 @@ describe('buildWorkshop', () => {
   it('pays stone, iron bars and cash; the workshop milestone records', () => {
     const s = { ...init, run: { ...init.run, vein: { ...init.run.vein, level: 4 }, inventory: { stone: 30, ironBar: 6 }, cash: 99999 } }
     const r = buildWorkshop(s)
-    expect(r.ok && r.state.run.workshop).toEqual({ built: true, hoppers: [], valve: false })
-    expect(r.ok && [r.state.run.inventory.stone, r.state.run.inventory.ironBar]).toEqual([0, 0])
-    expect(r.ok && r.state.run.milestones.workshop).toBe(r.state.run.tick)
+    if (!r.ok) throw new Error(r.error)
+    expect(r.state.run.workshop).toEqual({ built: true, hoppers: [], valve: false })
+    expect([r.state.run.inventory.stone, r.state.run.inventory.ironBar]).toEqual([0, 0])
+    expect(r.state.run.milestones.workshop).toBe(r.state.run.tick)
     // items first, then cash (the pay order)
     const noItems = { ...s, run: { ...s.run, inventory: {} } }
     expect(buildWorkshop(noItems)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })

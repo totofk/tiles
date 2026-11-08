@@ -216,9 +216,9 @@ const SPRINKLER_COAL_TICKS = 300
 /** coal one machine's hopper holds (≈ 2 h of pumping) */
 const SPRINKLER_HOPPER = 24
 // cash parts = 0.5–1.5 h of the batch-17 ladder bot's income at each purchase (pinned in PLAN.md "Batch 17 results")
-const WORKSHOP_CASH = 7500
-const SPRINKLER_CASH = 7500
-const VALVE_CASH = 5000
+const WORKSHOP_CASH = 8500
+const SPRINKLER_CASH = 8000
+const VALVE_CASH = 8000
 const WORKSHOP_COST: Price = { stone: 30, ironBar: 6, cash: WORKSHOP_CASH }
 const SPRINKLER_COST: Price = { goldBar: 4, ironBar: 8, copperBar: 8, cash: SPRINKLER_CASH }
 const VALVE_COST: Price = { goldBar: 2, cash: VALVE_CASH }

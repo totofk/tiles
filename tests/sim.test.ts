@@ -33,12 +33,18 @@ import {
   pickaxeRepairCost,
   smeltFuel,
   smeltOre,
+  fuelTicks,
+  sprinklerCoalTicks,
+  sprinklerCost,
+  sprinklerTiles,
   storageCost,
   storageSlotsPerLevel,
   toolMaxLevel,
   toolTierCost,
   veinDrops,
+  valveCost,
   veinUpgradeCost,
+  workshopCost,
   type Price,
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
@@ -51,6 +57,7 @@ import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWorker } from '../src/core/workers'
+import { buildWorkshop, buySprinkler, buyValve } from '../src/core/workshop'
 import { acceptOrder, buyOrderBoard, discardOrder, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
 import type { OrderGood } from '../src/core/state'
 import type { ItemId } from '../src/core/data/items'
@@ -171,6 +178,9 @@ type LadderStep =
   | 'veinLv4'
   | 'goldPickaxe'
   | `gold:${ToolJob}`
+  | 'workshop'
+  | `sprinkler${1 | 2 | 3 | 4}`
+  | 'valve'
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
@@ -343,6 +353,43 @@ const GOLD_LADDER: Goal[] = [
 ]
 // the goals that need the furnace on gold (the gold pickaxe and the two gold farm tools)
 const GOLD_ON_GOALS = GOLD_LADDER.slice(GOLD_LADDER.length - 3)
+/** batch 17: keep every bar kind one sprinkler still needs, with the ore and coal to smelt the shortfall */
+const keepSprinklerBars = (s: GameState): Price => {
+  const cost = sprinklerCost(s.meta)
+  const parts = [
+    ['copperBar', 'copperOre'],
+    ['ironBar', 'ironOre'],
+    ['goldBar', 'goldOre'],
+  ] as const
+  const keep: Price = { cash: 0 }
+  let coal = 0
+  for (const [bar, ore] of parts) {
+    const bars = cost[bar]!
+    keep[bar] = bars
+    const inFurnace = s.run.furnace.oreKind === ore ? cyclesLoaded(s) + s.run.furnace.ready : 0
+    const toSmelt = Math.max(0, bars - (s.run.inventory[bar] ?? 0) - inFurnace)
+    keep[ore] = smeltOre() * toSmelt
+    coal += smeltFuel('coal', ore) * toSmelt
+  }
+  return { ...keep, coal }
+}
+/** batch 17: after the gold tools, the workshop, the first sprinkler, the valve, then sprinklers 2–4 */
+const WORKSHOP_LADDER: Goal[] = [
+  ...GOLD_LADDER,
+  {
+    name: 'workshop',
+    done: (s) => s.run.workshop.built,
+    buy: buildWorkshop,
+    keep: (s) => ({ ...keepIronBars(workshopCost(s.meta).ironBar!)(s), stone: workshopCost(s.meta).stone }),
+  },
+  { name: 'sprinkler1', done: (s) => s.run.workshop.hoppers.length >= 1, buy: buySprinkler, keep: keepSprinklerBars },
+  { name: 'valve', done: (s) => s.run.workshop.valve, buy: buyValve, keep: keepGoldBars(valveCost(IRON_PRICE).goldBar!) },
+  { name: 'sprinkler2', done: (s) => s.run.workshop.hoppers.length >= 2, buy: buySprinkler, keep: keepSprinklerBars },
+  { name: 'sprinkler3', done: (s) => s.run.workshop.hoppers.length >= 3, buy: buySprinkler, keep: keepSprinklerBars },
+  { name: 'sprinkler4', done: (s) => s.run.workshop.hoppers.length >= 4, buy: buySprinkler, keep: keepSprinklerBars },
+]
+// the goals that need the furnace smelting (the workshop's iron bars, the sprinklers' mixed bars, the valve's gold)
+const WORKSHOP_ON_GOALS = WORKSHOP_LADDER.slice(GOLD_LADDER.length)
 // the goals whose ore the furnace must be smelting (with loaders assigned the branch below still skips the manual
 // jobs, so the extra names only matter for a batch-16 gold run, which hand-smelts every tier)
 const smeltsFor = (g: Goal | undefined) =>
@@ -352,7 +399,8 @@ const smeltsFor = (g: Goal | undefined) =>
     PLANT_LADDER.slice(COPPER_LADDER.length).includes(g) ||
     IRON_ON_GOALS.includes(g) ||
     (g.name === 'veinLv3' || g.name === 'veinLv4') ||
-    GOLD_ON_GOALS.includes(g))
+    GOLD_ON_GOALS.includes(g) ||
+    WORKSHOP_ON_GOALS.includes(g))
 
 /**
  * batch 9: the player's share of the furnace once the ore loader loads ore and collects: coal for every cycle of ore in
@@ -382,6 +430,7 @@ function runBot(
     iron = false,
     ironTools = false,
     gold = false,
+    sprinklers = false,
     buyTools = false,
     onEnd,
     onTick,
@@ -421,6 +470,13 @@ function runBot(
      */
     gold?: boolean
     /**
+     * batch 17 (with gold): WORKSHOP_LADDER; the furnace smelts the bar kind the next goal is still short of
+     * (copper → iron → gold, switching once a kind is banked); a fuel loader and a miner join the staff (the ore
+     * loader stays off — hand-smelting keeps the keep's cap); once the machines cover every tile, the water
+     * workers move to planting; the bag keeps an hour of pump coal beyond the goal's needs
+     */
+    sprinklers?: boolean
+    /**
      * batch 13 (with workers): buys the water and harvest tool levels (and plant with `planter`) as soon as each is
      * unlocked and affordable, since a farm certificate needs its job's Lv3 tool; keeps the unbought farm
      * certificates' stone and coal when storage is full; hires only once a farm certificate is owned
@@ -432,7 +488,7 @@ function runBot(
     onTick?: (s: GameState) => void
   } = {},
 ) {
-  const goals = gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
+  const goals = sprinklers ? WORKSHOP_LADDER : gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironPicked' | 'firstIronBar' | 'goldPicked' | 'firstGoldBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   // batch 13: the first tick each certificate could be bought (its gates met) and the storage held then
@@ -484,6 +540,22 @@ function runBot(
     // the pinned runs only check storage; saveForStorage keeps its stone (and stops mining when storage is full)
     // until it buys storage level 1, then vein level 1
     if (buyStorage(s).ok) storageAffordable ??= tick
+    // when the bag is full, sell only what the goal does not need; true when it stays full (stop mining)
+    const sellSurplus = (goal: Goal | undefined): boolean => {
+      if (bagCount(s.run) < s.run.bagCapacity) return false
+      const keep: Price = { ...(goal?.keep(s) ?? { cash: 0 }) }
+      // batch 17: the machines' coal never sells — an hour of pumping stays in storage beyond the goal's smelt fuel
+      if (sprinklers) keep.coal = Math.max(keep.coal ?? 0, s.run.workshop.hoppers.length * Math.ceil(HOUR_TICKS / sprinklerCoalTicks()))
+      for (const job of buyTools ? FARM_JOBS : [])
+        if (!s.run.workers.certificates.includes(job))
+          for (const [id, n] of Object.entries(certificateCost(job, s.meta)) as [keyof Price, number][])
+            if (id !== 'cash') keep[id] = Math.max(keep[id] ?? 0, n)
+      for (const id of ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre'] as const) {
+        const extra = (s.run.inventory[id] ?? 0) - (keep[id] ?? 0)
+        if (extra > 0) tryAct(sellItem(s, id, extra), mine)
+      }
+      return bagCount(s.run) >= s.run.bagCapacity
+    }
     if (ladder) {
       // batch 7: buy the next goal as soon as it can be paid; smelt (coal fuel) and collect while the copper pickaxe
       // is the goal; when storage is full sell only what the goal does not need, else stop mining
@@ -496,22 +568,14 @@ function runBot(
           // the keep's ore field is also the signal of what to smelt: without it the furnace must switch kinds first
           const keep = next!.keep(s)
           if (keep[s.run.furnace.oreKind] !== undefined) tryAct(smeltCoalJobs(s, gold ? keep : undefined), null)
+          // batch 17: ready bars need bag room before they can be collected — sell the surplus first, or the dig below
+          // refills every freed slot and the last bar never leaves the tray (the sprinkler keeps have no surplus)
+          if (sprinklers && s.run.furnace.ready > 0) sellSurplus(next)
           tryAct(collectBars(s), null)
           if (gold) tryAct(fuelForOre(s), null)
         } else if (assigned.fuel === 0) tryAct(fuelForOre(s), null)
       }
-      if (bagCount(s.run) >= s.run.bagCapacity) {
-        const keep: Price = { ...(next?.keep(s) ?? { cash: 0 }) }
-        for (const job of buyTools ? FARM_JOBS : [])
-          if (!s.run.workers.certificates.includes(job))
-            for (const [id, n] of Object.entries(certificateCost(job, s.meta)) as [keyof Price, number][])
-              if (id !== 'cash') keep[id] = Math.max(keep[id] ?? 0, n)
-        for (const id of ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre'] as const) {
-          const extra = (s.run.inventory[id] ?? 0) - (keep[id] ?? 0)
-          if (extra > 0) tryAct(sellItem(s, id, extra), mine)
-        }
-        if (bagCount(s.run) >= s.run.bagCapacity) return false
-      }
+      if (sellSurplus(next)) return false
     } else if (saveForStorage && s.run.storageLevel === 0) {
       if (tryAct(buyStorage(s), null)) storageBought = tick
       else if (bagCount(s.run) >= s.run.bagCapacity) return false
@@ -552,12 +616,15 @@ function runBot(
     }
     // batch 16: a gold run staffs only the planter and a harvester — with loaders (and a mine worker) on, every ore
     // ever mined becomes an unsellable surplus bar, and by the third iron tool the bag is too full of them to hold the
-    // gold prices' stone; the harvester frees the player's energy for the mining the gold goals need
+    // gold prices' stone; the harvester frees the player's energy for the mining the gold goals need.
+    // batch 17: a sprinkler run adds the fuel loader (its job now also tops up hoppers) and the miner back — the ore
+    // loader stays off so the keep still caps what gets smelted
     const oneEach: WorkerJob[] = [
-      ...(furnace && !gold ? (['ore', 'fuel'] as const) : []),
+      ...(furnace && !gold && !sprinklers ? (['ore', 'fuel'] as const) : []),
+      ...(sprinklers ? (['fuel', 'mine'] as const) : []),
       ...(planter ? (['plant'] as const) : []),
-      ...((iron || ironTools) && !gold ? (['mine'] as const) : []),
-      ...(gold ? (['harvest'] as const) : []),
+      ...((iron || ironTools) && !gold && !sprinklers ? (['mine'] as const) : []),
+      ...(gold || sprinklers ? (['harvest'] as const) : []),
     ]
     for (const job of oneEach) {
       const { assigned, certificates } = s.run.workers
@@ -567,9 +634,16 @@ function runBot(
     }
     const best = crops.find((c) => s.run.licenses.includes(c))
     if (s.run.workers.assigned.plant > 0 && best && best !== s.run.plantCrop) tryAct(selectCrop(s, best), null)
+    // batch 17: once the machines cover every tile, watering is theirs — the water workers move to planting
+    const covered = sprinklers && s.run.workshop.hoppers.length * sprinklerTiles() >= s.run.tiles.length
+    while (s.run.workers.assigned.water > 0 && covered && s.run.workers.certificates.includes('plant')) {
+      tryAct(assignWorker(s, 'water', -1), null)
+      if (!tryAct(assignWorker(s, 'plant', 1), null)) break
+    }
     while (freeWorkers(s.run) > 0) {
       const { assigned, certificates } = s.run.workers
-      const job: WorkerJob = certificates.includes('water') && (assigned.water <= assigned.harvest || !certificates.includes('harvest')) ? 'water' : 'harvest'
+      const job: WorkerJob =
+        !covered && certificates.includes('water') && (assigned.water <= assigned.harvest || !certificates.includes('harvest')) ? 'water' : 'harvest'
       if (!tryAct(assignWorker(s, job, 1), null)) break
     }
   }
@@ -592,15 +666,16 @@ function runBot(
       for (const job of WORKER_JOBS) if (certificateUnlocked(s.run, job)) certUnlocked[job] ??= { tick, bagCapacity: s.run.bagCapacity }
     if (workers) staff(tick)
     // batch 16: a gold run's staffed lemon farm eats every point of energy, so the ladder buy cannot wait for idle mining
-    if (gold) {
+    if (gold || sprinklers) {
       const goal = goals.find((g) => !g.done(s))
       if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
     }
     while (s.run.energy >= ACTION_ENERGY_COST) {
       // batch 16: while a gold run's next goal still waits on mined goods, the player mines instead of supplementing
       // the staffed farm — the farm's actions would otherwise eat every point of energy and stall the ladder
-      const nextGoal = gold ? goals.find((g) => !g.done(s)) : undefined
-      const gatherGoal = nextGoal && GOLD_LADDER.slice(IRON_TOOLS_LADDER.length).includes(nextGoal) ? nextGoal : undefined
+      const nextGoal = (gold || sprinklers) ? goals.find((g) => !g.done(s)) : undefined
+      const gatherTail = sprinklers ? WORKSHOP_LADDER.slice(GOLD_LADDER.length) : GOLD_LADDER.slice(IRON_TOOLS_LADDER.length)
+      const gatherGoal = nextGoal && gatherTail.includes(nextGoal) ? nextGoal : undefined
       const gathering =
         gatherGoal !== undefined &&
         Object.entries(gatherGoal.keep(s)).some(([id, n]) => id !== 'cash' && (s.run.inventory[id as keyof typeof s.run.inventory] ?? 0) < n!)
@@ -623,6 +698,19 @@ function runBot(
       tryAct(sellItem(s, 'ironOre', s.run.inventory.ironOre ?? 0), mine)
       tryAct(collectBars(s), null)
       if (tryAct(setOreKind(s, 'goldOre'), null)) ladderTicks.goldPicked ??= tick
+    }
+    if (sprinklers) {
+      const next = goals.find((g) => !g.done(s))
+      if (next && WORKSHOP_ON_GOALS.includes(next)) {
+        // smelt the kind the goal is still short of, copper → iron → gold; nothing sells (every kind is needed). The
+        // slot must drain first, so a failed setOreKind just retries next tick
+        const keep = next.keep(s)
+        const want = (['copperOre', 'ironOre', 'goldOre'] as const).find((ore) => (keep[ore] ?? 0) > 0)
+        if (want && s.run.furnace.oreKind !== want) {
+          tryAct(collectBars(s), null)
+          tryAct(setOreKind(s, want), null)
+        }
+      }
     }
     // the only cash a tick moves is the workers' (harvest sales − wages): farming income bought without energy
     const before = s.run.cash
@@ -2779,6 +2867,178 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
       let one = start
       for (let i = 0; i < 600; i++) one = step(one, 1)
       expect(step(start, 600)).toEqual(one)
+    })
+  })
+})
+
+describe('batch 17: workshop ladder — the workshop, four sprinklers and the valve (rules.batch13 on)', () => {
+  const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
+  const hours = (ticks: number) => ticks / HOUR_TICKS
+  // the whole coal pool in coal units: storage + every hopper + the fire (fire is burn ticks, coal = fuelTicks of them)
+  const pool = (s: GameState) => (s.run.inventory.coal ?? 0) + s.run.workshop.hoppers.reduce((a, b) => a + b, 0) + s.run.furnace.fire / fuelTicks('coal')
+  const r = withBatch13(() => {
+    let end = createInitialState()
+    const coal = { prev: 0, mined: 0, hoppers: -1, pump: 0 }
+    // the window before the workshop (its income pins WORKSHOP_CASH) and the sprinkler phase (pins the other two)
+    const goldPhase = { start: 0, done: 0, cashEarned: 0, cashEarnedAtDone: 0 }
+    const phase = { start: 0, done: 0, cashEarned: 0, cashEarnedAtDone: 0, fireBurnt0: 0 }
+    const after = { start: 0, cashEarned: 0 }
+    const caps: Partial<Record<'workshop' | 'sprinkler' | 'valve', number>> = {}
+    const ladder = runBot(true, {
+      ticks: 28 * HOUR_TICKS,
+      licenses: LICENSE_ORDER,
+      crops: PLANT_ORDER,
+      ladder: true,
+      copperTools: true,
+      workers: true,
+      furnace: true,
+      planter: true,
+      iron: true,
+      ironTools: true,
+      gold: true,
+      sprinklers: true,
+      buyTools: true,
+      onEnd: (s) => (end = s),
+      onTick: (s) => {
+        const p = pool(s)
+        if (p > coal.prev) coal.mined += p - coal.prev
+        coal.prev = p
+        // the pump is the only thing that empties a hopper (the fuel loader only fills); a new machine starts at 0
+        const h = s.run.workshop.hoppers.reduce((a, b) => a + b, 0)
+        if (coal.hoppers >= 0 && h < coal.hoppers) coal.pump += coal.hoppers - h
+        coal.hoppers = h
+        const goldDone = s.run.toolTier.water >= 2 && s.run.toolTier.harvest >= 3 && s.run.toolTier.plant >= 3
+        if (!goldPhase.start && goldDone) {
+          goldPhase.start = s.run.tick
+          goldPhase.cashEarned = s.run.lifetime.cashEarned
+        }
+        if (goldPhase.start && !goldPhase.done && s.run.workshop.built) {
+          goldPhase.done = s.run.tick
+          goldPhase.cashEarnedAtDone = s.run.lifetime.cashEarned
+        }
+        if (goldPhase.done && !phase.start) {
+          phase.start = s.run.tick
+          phase.cashEarned = s.run.lifetime.cashEarned
+          phase.fireBurnt0 = s.run.lifetime.fireBurnt
+        }
+        if (phase.start && !phase.done && s.run.workshop.hoppers.length >= 4) {
+          phase.done = s.run.tick
+          phase.cashEarnedAtDone = s.run.lifetime.cashEarned
+        }
+        if (phase.done && !after.start) {
+          after.start = s.run.tick
+          after.cashEarned = s.run.lifetime.cashEarned
+        }
+        // the storage held the first moment each price became buyable
+        if (caps.workshop === undefined && buildWorkshop(s).ok) caps.workshop = s.run.bagCapacity
+        if (caps.sprinkler === undefined && buySprinkler(s).ok) caps.sprinkler = s.run.bagCapacity
+        if (caps.valve === undefined && buyValve(s).ok) caps.valve = s.run.bagCapacity
+      },
+    })
+    const t = ladder.ladderTicks
+    const steps = [t.workshop, t.sprinkler1, t.valve, t.sprinkler2, t.sprinkler3, t.sprinkler4].map((x) => x!)
+    const gaps = steps.slice(1).map((x, i) => x - steps[i])
+    const goldIncome = (goldPhase.cashEarnedAtDone - goldPhase.cashEarned) / hours(goldPhase.done - goldPhase.start)
+    const income = (phase.cashEarnedAtDone - phase.cashEarned) / hours(phase.done - phase.start)
+    const incomeAfter = (end.run.lifetime.cashEarned - after.cashEarned) / hours(end.run.tick - after.start)
+    // coal over the sprinkler phase: what the miner brings vs what the furnace and the pumps take; the surplus sells
+    const furnaceCoal = (end.run.lifetime.fireBurnt - phase.fireBurnt0) / fuelTicks('coal')
+    const phaseHours = hours(end.run.tick - phase.start)
+    return {
+      ladder,
+      end,
+      steps,
+      gaps,
+      goldIncome,
+      income,
+      incomeAfter,
+      caps,
+      coalMinedPerHour: coal.mined / phaseHours,
+      furnaceCoalPerHour: furnaceCoal / phaseHours,
+      pumpCoalPerHour: coal.pump / phaseHours,
+    }
+  })
+  const { ladder, end, steps, gaps, goldIncome, income, incomeAfter, caps } = r
+
+  it('pinned minutes: the six steps and gaps, the incomes of the three windows (PLAN.md "Batch 17 results")', () => {
+    expect(steps.map((x) => minute(x))).toEqual([405.9, 442.8, 477.3, 514.2, 550.4, 588.3])
+    expect(gaps.map((g) => minute(g))).toEqual([36.8, 34.6, 36.9, 36.2, 37.9])
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([15417, 14954, 14225])
+    expect(ladder.finalCash).toBe(231331)
+  })
+
+  it('climbs in order: workshop → sprinkler 1 → valve → sprinklers 2–4, every step ≤ 60 game-minutes', () => {
+    expect(steps.every((x) => x > 0)).toBe(true)
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps)
+    for (const gap of gaps) expect(gap).toBeLessThanOrEqual(HOUR_TICKS)
+  })
+
+  it('pinned: each cash part is 0.5–1.5 h of the measured income at its unlock, rounded to 💰500', () => {
+    const prices = { workshop: workshopCost(end.meta).cash, sprinkler: sprinklerCost(end.meta).cash, valve: valveCost(end.meta).cash }
+    for (const cash of Object.values(prices)) expect(cash % 500).toBe(0)
+    expect(prices.workshop / goldIncome).toBeGreaterThanOrEqual(0.5)
+    expect(prices.workshop / goldIncome).toBeLessThanOrEqual(1.5)
+    expect(prices.sprinkler / income).toBeGreaterThanOrEqual(0.5)
+    expect(prices.sprinkler / income).toBeLessThanOrEqual(1.5)
+    expect(prices.valve / income).toBeGreaterThanOrEqual(0.5)
+    expect(prices.valve / income).toBeLessThanOrEqual(1.5)
+  })
+
+  it('pinned coal: what a vein-Lv4 miner brings vs what the pumps and the furnace take, with no starvation', () => {
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour), Math.round(r.pumpCoalPerHour)]).toEqual([372, 7, 32])
+    expect(r.furnaceCoalPerHour + r.pumpCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
+  })
+
+  it('pinned: income/h after the four sprinklers, with the freed water worker replanting (report the delta)', () => {
+    expect([end.run.workshop.built, end.run.workshop.hoppers.length, end.run.workshop.valve]).toEqual([true, 4, true])
+    expect([end.run.workers.assigned.water, end.run.workers.assigned.plant]).toEqual([0, 3])
+  })
+
+  it('8 h offline from the ladder end: the pumps burn what the hoppers and storage bound, nothing rots away', () => {
+    const away = withBatch13(() => {
+      let s = end
+      let mined = 0
+      let burnt = 0
+      let prev = pool(s)
+      const fireBurnt0 = s.run.lifetime.fireBurnt
+      const cash0 = s.run.lifetime.cashEarned
+      for (let h = 0; h < 8; h++) {
+        s = catchUp(s, HOUR_TICKS * 1000)
+        const p = pool(s)
+        if (p > prev) mined += p - prev
+        else burnt += prev - p
+        prev = p
+      }
+      const furnace = (s.run.lifetime.fireBurnt - fireBurnt0) / fuelTicks('coal')
+      return { s, mined, pump: burnt - furnace, income: s.run.lifetime.cashEarned - cash0, pool0: pool(end) }
+    })
+    // the bound: 4 machines × 12 coal/h × 8 h, and never more coal than the pool + the mine worker dug up
+    expect(away.pump).toBeLessThanOrEqual(4 * Math.ceil(HOUR_TICKS / sprinklerCoalTicks()) * 8)
+    expect(away.pump).toBeLessThanOrEqual(away.pool0 + away.mined)
+    expect(away.s.run.tiles.every((tile) => tile.status !== 'untilled')).toBe(true)
+    expect(away.income).toBeGreaterThan(0)
+    expect(Math.round(away.pump / 8)).toBe(13) // pinned coal/h lost offline (PLAN.md "Batch 17 results")
+  })
+
+  it('every price fits the storage the player holds when it becomes buyable (price-cap table, batch 17 rows)', () => {
+    expect(caps).toEqual({ workshop: 60, sprinkler: 60, valve: 60 })
+    const w = workshopCost(end.meta)
+    const sp = sprinklerCost(end.meta)
+    expect(w.stone! + w.ironBar!).toBeLessThanOrEqual(caps.workshop!)
+    expect(sp.goldBar! + sp.ironBar! + sp.copperBar!).toBeLessThanOrEqual(caps.sprinkler!)
+    expect(valveCost(end.meta).goldBar!).toBeLessThanOrEqual(caps.valve!)
+  })
+
+  it('mining stays below the farm cap: the run mining cash/energy < 0.9 × farming', () => {
+    expect(ladder.miningCashPerEnergy).toBeLessThan(0.9 * ladder.farmingCashPerEnergy)
+  })
+
+  it('step(s, n) = n × step(s, 1) with the machines pumping, the valve, catch-up and all workers on', () => {
+    withBatch13(() => {
+      let one = end
+      for (let i = 0; i < 600; i++) one = step(one, 1)
+      expect(step(end, 600)).toEqual(one)
+      expect(catchUp(end, 2 * HOUR_TICKS * 1000)).toEqual(step(end, 2 * HOUR_TICKS))
     })
   })
 })

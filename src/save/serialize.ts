@@ -96,7 +96,7 @@ type SaveV8 = { version: 8; savedAtMs: number; state: { meta: MetaV11; run: RunV
 type SaveV9 = { version: 9; savedAtMs: number; state: { meta: MetaV11; run: RunV9 } }
 type SaveV10 = { version: 10; savedAtMs: number; state: { meta: MetaV11; run: RunV10 } }
 type JobV11 = JobV10 | 'mine'
-type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers'> & {
+type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers' | 'workshop'> & {
   counters: Omit<Counters, 'orders'>
   lifetime: Omit<Lifetime, 'ordersCompleted' | 'starsEarned' | 'goldBars' | 'goldBarsSmelted'>
   workers: { pool: number; assigned: Record<JobV11, number>; certificates: JobV11[] }
@@ -104,7 +104,7 @@ type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime
 type RunV11 = Omit<RunV12, 'market' | 'milestones'>
 type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: RunV11 } }
 type SaveV12 = { version: 12; savedAtMs: number; state: { meta: GameState['meta']; run: RunV12 } }
-type RunV13 = Omit<GameState['run'], 'lifetime'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
+type RunV13 = Omit<GameState['run'], 'lifetime' | 'workshop'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
 type SaveV13 = { version: 13; savedAtMs: number; state: { meta: GameState['meta']; run: RunV13 } }
 type RunV14 = Omit<GameState['run'], 'workshop'>
 type SaveV14 = { version: 14; savedAtMs: number; state: { meta: GameState['meta']; run: RunV14 } }
