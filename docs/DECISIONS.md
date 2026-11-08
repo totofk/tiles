@@ -424,3 +424,10 @@ inherited the dibber's seed-keep via the planter's seed rules; no price, mainten
 - The prestige group (SellCard, 🏆 Legacy shop, deed meter) lives in the 🏦 Bank tab, shown pre-gate as a locked
   teaser. Bank = all money, in-run (loan) and cross-run (sell/Legacy). Stats keeps stats + feedback + reset.
 - Storage max level 5 → 10, same formula (Toon: mine-era bags are too tight at cap 50; Lv10 = cap 100).
+
+## Four new crops (batch 22, 2026-11-09, Toon go)
+
+🍅 tomato, 🌽 corn, 🍇 grape, 🍓 strawberry (Toon approved the set; all Unicode 6 — no font risk). The ladder
+keeps the curve's compression: sell ×~1.8 and seed ×~1.9 per step, floor margin ≥ 2.2×, per-tick income rising
+per tier (lemon 0.31 → strawberry 1.20 cash/tile/tick). License cash = sim-set in the 0.5–1.5 h band at the
+unlock stage. Save v19 adds the four market keys + licenses; earned value never taken away.

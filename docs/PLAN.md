@@ -3247,3 +3247,23 @@ caps at Lv5 which is tight in the machine era.
   No pinned run before batch 21 replays differently except through these fixes.
 - **harvester3 payback drifted 95.7 → 122.4 h** with the re-measured ladder income (seeders 103.9 → 92.4); reported,
   no constant tuned.
+
+## Batch 22 — Four new crops (tasks 112–115, save v19)
+
+Why (Toon, 2026-11-09): 4 crops is too few, and with depth 240/crop more crops = more diversification headroom
+(8 × 240 = 1,920 tiles). Set approved: 🍅 tomato, 🌽 corn, 🍇 grape, 🍓 strawberry (all Unicode 6, no tofu).
+
+- [ ] 112. **Core + save v19.** `CROP_IDS` += tomato/corn/grape/strawberry; `CROP_BASE` grows the ladder with the
+  curve's existing compression (sell ×~1.8/step, seed ×~1.9/step, floor margin ≥ 2.2×, income/tick rising):
+  tomato {grow 480, seed 40, sell 200}, corn {620, 75, 360}, grape {780, 140, 640}, strawberry {960, 260, 1150}.
+  License CASH is sim-set inside the band 0.5–1.5 h of income at the unlock stage (candidates 800 / 1,600 /
+  3,200 / 6,400). SAVE_VERSION → 19; `migrateV19` adds the four market keys (0) and licenses (false);
+  `tests/fixtures/save-v18.json` (a real save captured from live) migrates in a test.
+- [ ] 113. **Shop/UI.** Seed + license rows render from the crop table (verify, no special cases); emoji come from
+  the shared ITEMS constants; seed-pouch/auto-buy/market tags/trend arrows work for the new crops unchanged.
+- [ ] 114. **Orders + milestones.** Verify the orders generator and counters pick up new crops state-driven (no
+  generator change); add one first-harvest milestone per new crop only if the existing table is data-driven.
+- [ ] 115. **Sim.** Ladder bot buys the four licenses in order — no stall from tick 0 to strawberry, license
+  band report, mixed-8-crop income at 400/1,000 tiles vs mono-lemon (diversification pays), prestige pins replay
+  ≥ 1.4×, offline + step identity. Report under `## Batch 22 results` + Deviations; nothing tuned that is not
+  listed here.
