@@ -327,3 +327,11 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   no machine tier.
 - **⭐ shop v1 = slots, reroll token, clerk.** Themes/name plate wait for art. Board placed at the top of the 🌾 Farm
   side tab (no 7th tab: 375 px is full).
+
+## Iron farm tools (batch 15, 2026-11-08, Toon go)
+
+- Iron is the last watering can (no gold can: worker + iron can beats a sprinkler on 24 tiles, research
+  docs/research/sprinkler-gold.md); gold later only for sickle 30 % and dibber 50 %.
+- Numbers: moisture 4, double harvest 20 %, seed keep 35 %; price 4 iron bars + a cash part the sim sets to 0.5–1.5 h
+  of measured income at unlock (rounded to 💰500). Workers use the tier like the player.
+- No save change: `run.toolTier` is a number per job.

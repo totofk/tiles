@@ -2511,3 +2511,27 @@ refills the slot); it never rerolls and never spends ⭐. Income = cash change +
   unchanged (the older bots never buy the board).
 - step(s, n) = n × step(s, 1) is tested with workers, the market, accepted crop orders and a cooling slot
   (`tests/orders.test.ts`, task 79) and with the clerk, a harvester, crop + item orders and the market (task 81).
+
+## Batch 15 — iron farm tools (tasks 83–85, no save bump: `run.toolTier` is already a number)
+
+Why: the round-4 numbers (DECISIONS "Iron farm tools are a later batch") — moisture 4, 20 % double harvest, 35 % seed
+keep — finish the metal ladder for farm tools before gold. Price rule (batch 12+ direction): late items are gated by
+materials; their cash part = 0.5–1.5 h of income at unlock, measured by the sim, never guessed.
+
+- [ ] 83. **Iron tier for all three farm jobs.** `WATER_MOISTURE = [1, 2, 4]`, `DOUBLE_HARVEST = [0, 0.1, 0.2]`,
+    `SEED_KEEP = [0, 0.2, 0.35]`, `TOOL_TIER_COST[1] = { ironBar: 4, cash: IRON_TOOL_CASH }` with
+    `IRON_TOOL_CASH` set in task 85 (start 💰5,000). Buying tier 2 needs tier 1 of the same job. Workers on that job use
+    the tier like the player (watering worker fills to 4 → the "watering worker wage halves again" effect). The
+    toolTier comments in balance.ts/state.ts say "0 basic, 1 copper, 2 iron". Moisture 4 must not break the tile's
+    moisture bar (bar shows fraction of the tier's max; check FarmGrid).
+- [ ] 84. **UI.** The tool bar tier button shows the iron step (`🔷 Iron watering can — moisture 4`, price with 🔷 bars),
+    disabled with the reason line when iron bars or the copper tier are missing; ⓘ tips list all three tiers' effects;
+    Stats tool rows show the tier name. Iron emoji from the shared constants. Compute layout from CSS at 375 / 1024 /
+    1440 px.
+- [ ] 85. **Sim (`tests/sim.test.ts` "batch 15").** Extend the batch-13 ladder bot: after the mine certificate it
+    buys the three iron tools (water → harvest → plant). Report the minute each becomes affordable and is bought, iron
+    bars needed vs mined/smelted per hour, and income/h before vs after (24 tiles staffed, market on, idle and
+    attentive). Set `IRON_TOOL_CASH` so the cash part is 0.5–1.5 h of the bot's measured income at that moment, rounded
+    to 💰500, and pin it. Pins: no unlock step > 60 game-minutes (from the mine certificate to the third iron tool,
+    iron-bar supply included); every price ≤ storage held; mining cash/energy < 0.9 × pumpkin farming with iron tools;
+    step(s, n) = n × step(s, 1) with iron tiers and workers on. Tune only batch-15 numbers; report each as a deviation.
