@@ -13,7 +13,7 @@ export type Tile = {
   cropId?: CropId
   /** ticks grown so far; only advances while moisture > 0 */
   growth: number
-  /** 0 … waterMoisture of the water tool's tier (1 basic, 2 copper); drains 1 per MOISTURE_FULL_TICKS */
+  /** 0 … waterMoisture of the water tool's tier (1 basic, 2 copper, 4 iron); drains 1 per MOISTURE_FULL_TICKS */
   moisture: number
   /** ticks since growth reached cropGrowTicks; rots past cropRotGraceTicks */
   ticksSinceMature: number
@@ -62,7 +62,7 @@ export type RunState = {
   tools: Record<ToolJob, number>
   /** tiles per press for a level-2 tool; read through toolCount, which clamps it to the tile count */
   toolN: Record<ToolJob, number>
-  /** material tier per job, 0 basic … toolTierMax (1 copper); changes what every action of the job does */
+  /** material tier per job, 0 basic, 1 copper, 2 iron (toolTierMax); changes what every action of the job does */
   toolTier: Record<ToolJob, number>
   workers: Workers
   /** unsold glut per crop (units); every crop unit sold adds 1, each tick decays it, and it lowers the sale price */

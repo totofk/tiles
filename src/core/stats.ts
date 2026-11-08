@@ -16,7 +16,7 @@ import { CROPS, CROP_IDS } from './data/crops'
 import { PICKAXE_NAMES } from './data/items'
 import { MILESTONES, earlierMilestones } from './data/milestones'
 import { STAR_EMOJI } from './data/orders'
-import { TOOLS, TOOL_JOBS, type ToolJob } from './data/tools'
+import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
 import type { CounterId, GameState, RunState } from './state'
@@ -114,7 +114,7 @@ export function stats(state: GameState): Stats {
     ...TOOL_JOBS.map((job) => {
       const tier = run.toolTier[job]
       const label = `${job[0].toUpperCase()}${job.slice(1)} tier`
-      return { label, value: TIER_EFFECT[job](tier), source: tier ? TOOLS[job].copper : 'basic' }
+      return { label, value: TIER_EFFECT[job](tier), source: tierName(job, tier) }
     }),
     { label: 'Drop table', value: dropText(run.vein.level), source: `Vein Lv${run.vein.level}` },
     {

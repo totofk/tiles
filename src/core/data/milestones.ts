@@ -14,6 +14,7 @@ export type MilestoneId =
   | `license${Capitalize<CropId>}`
   | `tool${Capitalize<ToolJob>}${1 | 2 | 3}`
   | `copper${Capitalize<ToolJob>}`
+  | `iron${Capitalize<ToolJob>}`
   | `cert${Capitalize<WorkerJob>}`
   | 'hire2'
   | 'hire4'
@@ -51,7 +52,8 @@ export const MILESTONES: readonly Milestone[] = [
   ...TOOL_JOBS.flatMap((job) =>
     TOOLS[job].names.map((name, i): Milestone => ({ id: `tool${capitalize(job)}${(i + 1) as 1 | 2 | 3}`, label: name, when: (r) => r.tools[job] >= i + 1 })),
   ),
-  ...TOOL_JOBS.map((job): Milestone => ({ id: `copper${capitalize(job)}`, label: TOOLS[job].copper, when: (r) => r.toolTier[job] >= 1 })),
+  ...TOOL_JOBS.map((job): Milestone => ({ id: `copper${capitalize(job)}`, label: TOOLS[job].tiers[0], when: (r) => r.toolTier[job] >= 1 })),
+  ...TOOL_JOBS.map((job): Milestone => ({ id: `iron${capitalize(job)}`, label: TOOLS[job].tiers[1], when: (r) => r.toolTier[job] >= 2 })),
   ...WORKER_JOBS.map((job): Milestone => ({ id: `cert${capitalize(job)}`, label: `${capitalize(job)} certificate`, when: (r) => r.workers.certificates.includes(job) })),
   { id: 'hire2', label: '2 workers', when: (r) => r.workers.pool >= 2 },
   { id: 'hire4', label: '4 workers', when: (r) => r.workers.pool >= 4 },

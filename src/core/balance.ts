@@ -132,13 +132,19 @@ const TOOL_LEVELS: Record<ToolJob, { counter: CounterId; levels: ReadonlyArray<{
   plant: { counter: 'plants', levels: [{ at: 15, cost: 40 }, { at: 50, cost: 120 }, { at: 120, cost: 300 }] },
 }
 const TOOL_N_RATIO = 1 / 3
-// Material tier per farm job (batch 7.1; index = tier, 0 basic, 1 copper). Watering fills moisture to WATER_MOISTURE;
-// harvest yields 2 crops with DOUBLE_HARVEST chance; planting keeps the seed with SEED_KEEP chance. TOOL_TIER_COST[t − 1]
-// = price of tier t, the same for every job. Iron/gold later: moisture 4/8, 20/30 %, 35/50 %.
-const WATER_MOISTURE = [1, 2]
-const DOUBLE_HARVEST = [0, 0.1]
-const SEED_KEEP = [0, 0.2]
-const TOOL_TIER_COST: ReadonlyArray<Price> = [{ copperBar: 4, cash: 100 }]
+// Material tier per farm job (batch 7.1 copper, batch 15 iron; index = tier, 0 basic, 1 copper, 2 iron). Watering fills
+// moisture to WATER_MOISTURE; harvest yields 2 crops with DOUBLE_HARVEST chance; planting keeps the seed with SEED_KEEP
+// chance. TOOL_TIER_COST[t − 1] = price of tier t, the same for every job; tier t needs tier t − 1 of the job. Gold
+// later only for sickle 30 % and dibber 50 % (no gold can).
+const WATER_MOISTURE = [1, 2, 4]
+const DOUBLE_HARVEST = [0, 0.1, 0.2]
+const SEED_KEEP = [0, 0.2, 0.35]
+// cash part = 0.5–1.5 h of the batch-15 ladder bot's income when the mine certificate lands (PLAN.md "Batch 15 results")
+const IRON_TOOL_CASH = 5000
+const TOOL_TIER_COST: ReadonlyArray<Price> = [
+  { copperBar: 4, cash: 100 },
+  { ironBar: 4, cash: IRON_TOOL_CASH },
+]
 
 // Workers v1 (batch 8, DECISIONS "Workers v1"): hire k (pool k − 1 → k) costs HIRE_BASE × HIRE_GROWTH^(k − 1), pool
 // capped; the hire button needs HIRE_UNLOCK. A job takes workers once its certificate is bought (needs its unlock

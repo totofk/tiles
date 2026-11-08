@@ -16,7 +16,7 @@ import {
 } from '../src/core/balance'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { createInitialState, createTile, type GameState, type Tile } from '../src/core/state'
-import { buyCopperTool, buyTool, pressTool, setToolN, toolCount, toolTargets, type ToolPress } from '../src/core/tools'
+import { buyTool, buyToolTier, pressTool, setToolN, toolCount, toolTargets, type ToolPress } from '../src/core/tools'
 
 /** rngState after n draws */
 const advance = (rng: number, n: number) => Array.from({ length: n }).reduce<number>((r) => nextRandom(r)[1], rng)
@@ -148,18 +148,26 @@ describe('pressTool', () => {
   })
 })
 
-describe('copper tier (batch 7.1)', () => {
+describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
   const copper = { water: 1, harvest: 1, plant: 1 }
+  const iron = { water: 2, harvest: 2, plant: 2 }
   // a player's harvest sells hand-picked (batch 13)
   const sell = Math.round(cropSellPrice('radish', meta, 0) * handPickedBonus())
   const seed = cropSeedCost('radish', meta)
 
-  it('numbers come from balance by tier: moisture 1 → 2, double harvest 0 → 10 %, seed keep 0 → 20 %, 🟧4 💰100', () => {
-    expect([0, 1].map(waterMoisture)).toEqual([1, 2])
-    expect([0, 1].map(doubleHarvestChance)).toEqual([0, 0.1])
-    expect([0, 1].map(seedKeepChance)).toEqual([0, 0.2])
-    expect(toolTierMax()).toBe(1)
+  it('numbers come from balance by tier: moisture 1 → 2 → 4, double harvest 0 → 10 % → 20 %, seed keep 0 → 20 % → 35 %, 🟧4 💰100, 🥈4 💰5000', () => {
+    expect([0, 1, 2].map(waterMoisture)).toEqual([1, 2, 4])
+    expect([0, 1, 2].map(doubleHarvestChance)).toEqual([0, 0.1, 0.2])
+    expect([0, 1, 2].map(seedKeepChance)).toEqual([0, 0.2, 0.35])
+    expect(toolTierMax()).toBe(2)
     expect(toolTierCost(1, meta)).toEqual({ copperBar: 4, cash: 100 })
+    expect(toolTierCost(2, meta)).toEqual({ ironBar: 4, cash: 5000 })
+  })
+
+  it('iron watering fills to 4, and the water tool tops up tiles below 4', () => {
+    const s = withRun([growing(0), growing(3), growing(4)], { toolTier: iron })
+    expect(okState(water(s, 0)).run.tiles[0].moisture).toBe(4)
+    expect(toolTargets(s, 'water')).toEqual([0, 1])
   })
 
   it('copper watering fills to 2, and the water tool tops up tiles between 1 and 2', () => {
@@ -232,33 +240,47 @@ describe('copper tier (batch 7.1)', () => {
     expect(plant(broke, 0, 'radish')).toEqual({ ok: false, error: 'NO_CASH' })
   })
 
-  it('over 2000 copper harvests and plantings the rates land near 10 % and 20 %', () => {
-    let s = withRun([ripe(0)], { toolTier: copper, seeds: { radish: 1e6 } })
-    let doubles = 0
-    let keeps = 0
-    for (let k = 0; k < 2000; k++) {
-      const h = okState(harvest({ ...s, run: { ...s.run, tiles: [ripe(0)], energy: 10 } }, 0))
-      doubles += h.run.counters.sales - s.run.counters.sales - 1
-      const p = okState(plant({ ...h, run: { ...h.run, energy: 10 } }, 0, 'radish'))
-      keeps += p.run.seeds.radish === h.run.seeds.radish ? 1 : 0
-      s = p
+  it('over 2000 harvests and plantings the rates land near the tier chance (copper 10 / 20 %, iron 20 / 35 %)', () => {
+    for (const [tier, doubleRate, keepRate] of [
+      [copper, 0.1, 0.2],
+      [iron, 0.2, 0.35],
+    ] as const) {
+      let s = withRun([ripe(0)], { toolTier: tier, seeds: { radish: 1e6 } })
+      let doubles = 0
+      let keeps = 0
+      for (let k = 0; k < 2000; k++) {
+        const h = okState(harvest({ ...s, run: { ...s.run, tiles: [ripe(0)], energy: 10 } }, 0))
+        doubles += h.run.counters.sales - s.run.counters.sales - 1
+        const p = okState(plant({ ...h, run: { ...h.run, energy: 10 } }, 0, 'radish'))
+        keeps += p.run.seeds.radish === h.run.seeds.radish ? 1 : 0
+        s = p
+      }
+      expect(doubles / 2000).toBeGreaterThan(doubleRate - 0.02)
+      expect(doubles / 2000).toBeLessThan(doubleRate + 0.02)
+      expect(keeps / 2000).toBeGreaterThan(keepRate - 0.03)
+      expect(keeps / 2000).toBeLessThan(keepRate + 0.03)
     }
-    expect(doubles / 2000).toBeGreaterThan(0.08)
-    expect(doubles / 2000).toBeLessThan(0.12)
-    expect(keeps / 2000).toBeGreaterThan(0.17)
-    expect(keeps / 2000).toBeLessThan(0.23)
   })
 
-  it('buyCopperTool: ALREADY_OWNED, LOCKED (needs tool Lv1), NOT_ENOUGH_ITEMS, NO_CASH; pays 🟧4 💰100, no energy', () => {
+  it('buyToolTier: ALREADY_OWNED, LOCKED (needs tool Lv1), NOT_ENOUGH_ITEMS, NO_CASH; pays 🟧4 💰100, no energy', () => {
     const rich = { cash: 100, inventory: { copperBar: 4 } }
-    expect(buyCopperTool(withRun([], { ...rich, tools: tools('water', 1), toolTier: copper }), 'water')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
-    expect(buyCopperTool(withRun([], rich), 'water')).toEqual({ ok: false, error: 'LOCKED' })
-    expect(buyCopperTool(withRun([], { cash: 100, inventory: { copperBar: 3 }, tools: tools('water', 1) }), 'water')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
-    expect(buyCopperTool(withRun([], { cash: 99, inventory: { copperBar: 4 }, tools: tools('water', 1) }), 'water')).toEqual({ ok: false, error: 'NO_CASH' })
+    expect(buyToolTier(withRun([], { ...rich, tools: tools('water', 1), toolTier: iron }), 'water')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(buyToolTier(withRun([], rich), 'water')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyToolTier(withRun([], { cash: 100, inventory: { copperBar: 3 }, tools: tools('water', 1) }), 'water')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyToolTier(withRun([], { cash: 99, inventory: { copperBar: 4 }, tools: tools('water', 1) }), 'water')).toEqual({ ok: false, error: 'NO_CASH' })
     const s = withRun([], { ...rich, tools: tools('harvest', 3) })
-    const after = okState(buyCopperTool(s, 'harvest')).run
+    const after = okState(buyToolTier(s, 'harvest')).run
     expect(after.toolTier).toEqual({ water: 0, harvest: 1, plant: 0 })
     expect([after.cash, after.inventory.copperBar, after.energy]).toEqual([0, 0, s.run.energy])
+  })
+
+  it('iron is offered only after copper: tier 0 pays the copper price even holding 🥈 and cash; tier 2 pays 🥈4 💰5000', () => {
+    const rich = { cash: 5100, inventory: { ironBar: 4 }, tools: tools('water', 1) }
+    // toolTier 0: the offer is copper (🟧4), so iron cannot be skipped even with 🥈4 and cash in hand
+    expect(buyToolTier(withRun([], rich), 'water')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    const after = okState(buyToolTier(withRun([], { ...rich, toolTier: copper }), 'water')).run
+    expect(after.toolTier.water).toBe(2)
+    expect([after.cash, after.inventory.ironBar]).toEqual([100, 0])
   })
 })
 

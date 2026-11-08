@@ -4,7 +4,7 @@ import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { marketSteadyFactor } from '../src/core/market'
 import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
-import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tools'
+import { buyToolTier, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
   ACTION_ENERGY_COST,
   OFFLINE_CAP_TICKS,
@@ -215,7 +215,7 @@ const COPPER_LADDER: Goal[] = [
       done: (s) => s.run.toolTier[job] >= 1,
       buy: (s) => {
         const tool = s.run.tools[job] < 1 ? buyTool(s, job) : ({ ok: true, state: s } as const)
-        return tool.ok ? buyCopperTool(tool.state, job) : tool
+        return tool.ok ? buyToolTier(tool.state, job) : tool
       },
       keep: keepBars(COPPER_TOOL_BARS),
     }),

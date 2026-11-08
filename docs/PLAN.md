@@ -2518,7 +2518,7 @@ Why: the round-4 numbers (DECISIONS "Iron farm tools are a later batch") — moi
 keep — finish the metal ladder for farm tools before gold. Price rule (batch 12+ direction): late items are gated by
 materials; their cash part = 0.5–1.5 h of income at unlock, measured by the sim, never guessed.
 
-- [ ] 83. **Iron tier for all three farm jobs.** `WATER_MOISTURE = [1, 2, 4]`, `DOUBLE_HARVEST = [0, 0.1, 0.2]`,
+- [x] 83. **Iron tier for all three farm jobs.** `WATER_MOISTURE = [1, 2, 4]`, `DOUBLE_HARVEST = [0, 0.1, 0.2]`,
     `SEED_KEEP = [0, 0.2, 0.35]`, `TOOL_TIER_COST[1] = { ironBar: 4, cash: IRON_TOOL_CASH }` with
     `IRON_TOOL_CASH` set in task 85 (start 💰5,000). Buying tier 2 needs tier 1 of the same job. Workers on that job use
     the tier like the player (watering worker fills to 4 → the "watering worker wage halves again" effect). The

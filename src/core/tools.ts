@@ -92,8 +92,9 @@ export function buyTool(state: GameState, job: ToolJob): ActionResult {
   return withRun(state, { cash: run.cash - cost, tools: { ...run.tools, [job]: level + 1 } })
 }
 
-// The copper tier of a job (Shop): needs that job's tool Lv1. Order: ALREADY_OWNED, LOCKED, NOT_ENOUGH_ITEMS, NO_CASH.
-export function buyCopperTool(state: GameState, job: ToolJob): ActionResult {
+// The job's next material tier (Shop): copper, then iron; tier t needs tier t − 1, so copper needs the job's tool Lv1.
+// Order: ALREADY_OWNED, LOCKED, NOT_ENOUGH_ITEMS, NO_CASH.
+export function buyToolTier(state: GameState, job: ToolJob): ActionResult {
   const { run } = state
   const tier = run.toolTier[job]
   if (tier >= toolTierMax()) return fail('ALREADY_OWNED')
