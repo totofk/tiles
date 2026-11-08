@@ -3552,20 +3552,22 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       return { name, n: n ?? null }
     })
     console.log('PIN19b', JSON.stringify({ curve, marginal, paysAtN }))
-    // the curve, pinned (seeded rng, so exact): the workers-only arm keeps the gold sickle's double harvest
-    // (~1.5 units/tile, a task-97 rule gives the machine none) and past 300 tiles the seeder fleet caps at
-    // 5,400 tiles/h — the fleet's income goes flat while the workers arm still grows. Machines trade the sickle's
-    // yield for wage-free throughput; only harvester2's marginal pays on the 8 h bar (3.4 h at 300 tiles)
+    // the curve, re-pinned batch 20.1 (seeded rng, so exact): the fleet inherits the gold sickle's double harvest,
+    // so it now beats the workers-only arm at 100 and 300 tiles. At 1,000 tiles the fleet is still 7k/h short
+    // (427 vs 434) — the seeder fleet caps at 5,400 tiles/h while the planter worker plants on, so the extra land
+    // only feeds the workers arm (PLAN.md Batch 20.1 Deviations; no constant tuned to force it)
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [144, 118],
-      [414, 353],
-      [436, 352],
+      [142, 148],
+      [415, 431],
+      [434, 427],
     ])
+    // the batch-20.1 target holds at 300 tiles but not at 1,000 (deviation above); harvester2 pays ≤ 8.4 h
+    expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', null],
-      ['harvester2', 3.4],
-      ['harvester3', null],
-      ['seeders', 71.3],
+      ['harvester2', 3.3],
+      ['harvester3', 95.7],
+      ['seeders', 103.9],
     ])
     expect(paysAtN).toEqual([
       { name: 'harvester1', n: null },

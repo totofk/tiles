@@ -3131,18 +3131,49 @@ auto-buy, the dibber's seed-keep)" — inheritance is already the rule there. Fi
 each ladder step inherits the previous, so the harvester machine uses the player's BEST owned sickle too.
 No price/maintenance/machine-rate change, no save change.
 
-- [ ] 103. **Core inheritance.** `reapFields` (`src/core/fields.ts`, the "a machine has no sickle" rule) rolls the
+- [x] 103. **Core inheritance.** `reapFields` (`src/core/fields.ts`, the "a machine has no sickle" rule) rolls the
   SAME per-tile `doubleHarvestChance(run.toolTier.harvest)` that `fieldsHarvest` rolls — with the established
   tier-0 guard (`run.toolTier.harvest > 0 ? nextRandom(...) : [0, rngState]`, cf. the dibber roll at fields.ts:158)
   so basic-tier runs keep their exact RNG sequence. Machines stay never-hand-picked. Update the docstring and the
   unit tests in `tests/fields.test.ts` that assert one-unit-per-tile machine reaps.
-- [ ] 104. **Copy.** Any machine-row/tooltip text in the Fields card that states or implies a fixed 1 crop/tile
+- [x] 104. **Copy.** Any machine-row/tooltip text in the Fields card that states or implies a fixed 1 crop/tile
   harvest gets one short line saying the machine uses your best sickle (text only, no layout change; seeder rows
   may name the dibber symmetrically). Update `tests/Fields.test.tsx` copy assertions.
-- [ ] 105. **Sim re-pins** (`tests/sim.test.ts`, the "batch 19" and "batch 20" sections): re-measure the income
+- [x] 105. **Sim re-pins** (`tests/sim.test.ts`, the "batch 19" and "batch 20" sections): re-measure the income
   curve full-fleet vs workers-only at 100/300/1,000 tiles (gold sickle owned) — the fleet at 300 AND 1,000 tiles
   must be ≥ the workers-only arm measured in the same run (shipped: 353k vs 414k, 352k vs 436k/h). Re-measure
   every machine tier's marginal payback over 100–1,000 tiles and report the hours (harvester2 must still pay
   ≤ 8.4 h somewhere). The batch-19 no-stall ladder pin, coal re-check, and the batch-20 prestige pins must replay
   unchanged or better (≥ 1.4×). Change NO balance constant besides the inheritance; a pin that still fails gets
   reported under Deviations, not tuned away. Report all numbers under `## Batch 20.1 results`.
+
+## Batch 20.1 results
+
+### Core + copy (tasks 103–104)
+`reapFields` now rolls the same per-tile `doubleHarvestChance(run.toolTier.harvest)` as `fieldsHarvest`, with the
+tier-0 guard (basic-tier runs keep their exact RNG sequence — unit-tested both arms); the rng threads through
+`harvestSale` exactly like the worker's. Machines stay never-hand-picked. The Harvester Mk rows read
+"… · uses your best sickle"; no layout change, no save change (v18 untouched).
+
+### Sim re-measure (task 105, `tests/sim.test.ts` "batch 19"/"batch 20", measured, seeded)
+- **Income curve, workers-only vs full fleet (gold sickle owned), net cash/h:** 100 tiles **142k vs 148k**,
+  300 tiles **415k vs 431k**, 1,000 tiles **434k vs 427k** (was 144/118, 414/353, 436/352). The fleet ≥ workers
+  target holds at 100 and 300 tiles; **fails at 1,000** (see Deviations).
+- **Marginal payback (h = price ÷ Δcash/h, 8 h bar):** at 300 tiles harvester1 null (−66k), harvester2 **3.3 h**,
+  harvester3 95.7 h, seeders 103.9 h; at 1,000 tiles harvester2 **3.8 h**, harvester3 and seeders null. harvester2
+  still pays ≤ 8.4 h (3.3 h at 300, 3.8 h at 1,000); harvester3 newly pays at 300 tiles (was null everywhere).
+- **Batch-19 ladder replay:** steps fields100 → harvester3 all in order at minutes 1128/1168/1206/1284/1450/2495/
+  2594/2660/2696, **0 stall ticks, 0 fleet pauses**, mining < 0.9 × farming; machine prices stay 0.5–1.5 h of the
+  ladder income at purchase (0.56/0.55/0.75/0.58/0.81). Coal re-check: pipe draw 13.8 coal/h at 300 tiles ≤ 15,
+  pump draw still under what the miner covers.
+- **Batch-20 prestige replay:** gate 17.6 h; sale #1 now **+78 deeds** (lifetime cash grew with the fleet), 73
+  spent breadth-first; fields unlock 10.5 / 7.7 / 7.0 h = speedup **1.4× / 1.5×** — the ≥ 1.4× and ≥ 1.3× pins
+  replay unchanged; first-hour cash 10,786 / 15,014 / 18,046 (run 2's drifted up from 14,552 with the inherited
+  sickle). Both sold runs: 0 stalls, full ladder, mining under the farm cap. Full suite **754 tests green**.
+
+### Deviations
+- **Fleet < workers at 1,000 tiles (427k vs 434k/h).** The inheritance closed the yield gap (+21 % fleet income at
+  1,000 tiles) but the seeder fleet caps at 5,400 tiles/h while the planter worker plants ~36,000 tiles/h, so past
+  ~800 tiles the extra land only feeds the workers arm. Fixing it means a seeder throughput or price change —
+  a balance change this batch is forbidden from making. Reported, not tuned; the curve is pinned at the measured
+  numbers with the 300-tile ≥ assertion kept.
