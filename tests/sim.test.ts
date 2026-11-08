@@ -2398,7 +2398,8 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
 
   it('no stall: the ladder never waits more than 60 game-minutes between two consecutive milestones (re-pinned batch 16: market off)', () => {
     expect(longest.gap).toBeLessThanOrEqual(HOUR_TICKS)
-    expect([reached.length, reached.at(-1), longest]).toEqual([30, ['certMine', 5928], { id: 'ironPickaxe', gap: 696 }])
+    // batch 22: 30 → 34 — the per-crop first-harvest rows now record alongside firstHarvest; the gaps are unchanged
+    expect([reached.length, reached.at(-1), longest]).toEqual([34, ['certMine', 5928], { id: 'ironPickaxe', gap: 696 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {

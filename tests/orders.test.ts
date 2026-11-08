@@ -78,6 +78,12 @@ describe('orderPool: only what the state can make now', () => {
     // no mine license: no items even with a deep vein
     expect(orderPool({ ...vein3, mineLicense: false })).toEqual(['radish'])
   })
+
+  it('batch 22: a licensed new crop joins the pool and its count comes from its grow ticks (no generator change)', () => {
+    const run = { ...init.run, licenses: ['radish', 'strawberry'] }
+    expect(orderPool(run)).toEqual(['radish', 'strawberry'])
+    expect(orderCount({ ...init, run }, 'strawberry', 0)).toBe(Math.round(orderTierMinutes(0) * (9 / cropGrowTicks('strawberry', meta, 0)) * 60))
+  })
 })
 
 describe('orderCount: tier minutes × what the player makes per minute', () => {

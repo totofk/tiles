@@ -11,6 +11,7 @@ import { WORKER_JOBS, type WorkerJob } from './workers'
 export type MilestoneId =
   | 'firstHarvest'
   | 'sales25'
+  | `first${Capitalize<CropId>}`
   | `license${Capitalize<CropId>}`
   | `tool${Capitalize<ToolJob>}${1 | 2 | 3}`
   | `copper${Capitalize<ToolJob>}`
@@ -61,6 +62,8 @@ const pickaxeAt = (run: RunState, tier: number) => PICKAXE_TIERS.indexOf(run.pic
 export const MILESTONES: readonly Milestone[] = [
   { id: 'firstHarvest', label: 'First harvest', when: (r) => r.counters.harvests >= 1 },
   { id: 'sales25', label: '25 sales', when: (r) => r.counters.sales >= 25 },
+  // batch 22: data-driven over CROP_IDS, so the four new crops got theirs with the table (task 114)
+  ...CROP_IDS.map((crop): Milestone => ({ id: `first${capitalize(crop)}`, label: `First ${CROPS[crop].name} harvest`, when: (r) => (r.lifetime.harvests[crop] ?? 0) >= 1 })),
   ...CROP_IDS.map((crop): Milestone => ({ id: `license${capitalize(crop)}`, label: `${CROPS[crop].name} license`, when: (r) => r.licenses.includes(crop) })),
   ...TOOL_JOBS.flatMap((job) =>
     TOOLS[job].names.map((name, i): Milestone => ({ id: `tool${capitalize(job)}${(i + 1) as 1 | 2 | 3}`, label: name, when: (r) => r.tools[job] >= i + 1 })),

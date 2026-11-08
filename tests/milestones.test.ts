@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buyLicense, buyTile, harvest } from '../src/core/actions'
+import { cropGrowTicks } from '../src/core/balance'
+import { CROP_IDS, CROPS } from '../src/core/data/crops'
 import { MILESTONES, earlierMilestones, recordMilestones } from '../src/core/data/milestones'
 import { createFurnace, createInitialState, createMachines, type GameState, type RunState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -25,6 +27,14 @@ describe('the milestone table', () => {
     expect(new Set(MILESTONES.map((m) => m.id)).size).toBe(MILESTONES.length)
     expect(MILESTONES.find((m) => m.id === 'trackingStarted')).toBeUndefined()
   })
+
+  it('batch 22: the first-harvest rows are data-driven over CROP_IDS (task 114, no hand-wired crop)', () => {
+    const cap = (id: string) => id[0]!.toUpperCase() + id.slice(1)
+    for (const c of CROP_IDS) {
+      const row = MILESTONES.find((m) => String(m.id) === `first${cap(c)}`)
+      expect(row?.label).toBe(`First ${CROPS[c].name} harvest`)
+    }
+  })
 })
 
 describe('recordMilestones', () => {
@@ -34,6 +44,16 @@ describe('recordMilestones', () => {
     expect(next.run.milestones.firstHarvest).toBe(7)
     const again = ok(harvest({ ...next, run: { ...next.run, tiles: [mature('radish'), ...next.run.tiles.slice(1)] } }, 0))
     expect(again.run.milestones.firstHarvest).toBe(7)
+  })
+
+  it('batch 22: a new crop\'s first harvest records its own row at the tick (tomato)', () => {
+    const base = ripe({ tick: 5, licenses: ['radish', 'tomato'] })
+    const tiles = [...base.run.tiles]
+    tiles[0] = { ...tiles[0]!, cropId: 'tomato', growth: cropGrowTicks('tomato', base.meta, 0) }
+    const next = ok(harvest({ ...base, run: { ...base.run, tiles } }, 0))
+    expect(next.run.milestones.firstTomato).toBe(5)
+    expect(next.run.milestones.firstHarvest).toBe(5)
+    expect(next.run.lifetime.harvests.tomato).toBe(1)
   })
 
   it('records sales25 when the counter crosses 25, not before', () => {
