@@ -2117,6 +2117,13 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     for (const f of fits) expect(f.items).toBeLessThanOrEqual(f.bagCapacity!)
   })
 
+  it('a pure farmer (no storage bought) fits water and plant; harvest\'s 25 items need storage Lv1 (30), named on its row', () => {
+    const start = createInitialState().run.bagCapacity
+    const items = Object.fromEntries(fits.map((f) => [f.job, f.items]))
+    expect(items).toEqual({ water: 20, harvest: 25, plant: 10 })
+    expect([items.water <= start, items.plant <= start, items.harvest <= start, items.harvest <= start + storageSlotsPerLevel()]).toEqual([true, true, false, true])
+  })
+
   it('nothing goes negative and it never borrows', () => {
     expect(ladder.lowest).toBeGreaterThanOrEqual(0)
     expect(ladder.borrowed).toBe(false)

@@ -733,6 +733,12 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   minute and get 12, so the farm yields ~116 lemons an hour. With the three copper tools the ladder owns by the time it
   staffs, the farm yields ~222 an hour and the gain is **+💰5,421/h gross** (+💰5,680 net), close to the research figure.
   Both are reported, and neither is a pin target in the brief. Untuned.
+- **Batch 13 (task 78): the harvest certificate (20 stone + 5 coal = 25 items) does not fit the starting storage (20).**
+  Vein Lv0 already drops coal, so a player who only farms can own the Reaper and 40 harvests without ever buying storage
+  Lv1. The brief's price is kept, and storage Lv1 (30, 💰50 + 15 stone) fits it. The locked 🌾 row says `needs 📦 25
+  storage` (the vein button's "Needs 📦 N storage" rule, now on certificate rows too), so it is never a silent trap. The
+  ladder bot has storage 40 by then. Water (20) and plant (10) fit storage 20. If Toon wants every price to fit the
+  start, the option is harvest `{ stone: 15, coal: 5 }`.
 - **Batch 13 (task 78): observation for Toon, not tuned (not a batch-13 number):** the 👷 hire button still unlocks at 30
   harvests (`WORKER_HIRE_UNLOCK`, ~8 min in) while the first certificate now comes at ~25 min. A player can hire 💰150
   workers who have no job for ~15 min. Moving the hire unlock to "owns a certificate" would close that gap.
@@ -2244,8 +2250,9 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
   (the buy check, `LOCKED`) needs `run.tools[job] ≥ tool` as well as the counter (and vein) gate. Prices: water
   `{ stone: 20, cash: 500 }`, harvest `{ stone: 20, coal: 5, cash: 750 }`, plant unchanged. `WORKER_HIRE_BASE` 150:
   hires cost 150, 255, 433, 737, 1253, 2130.
-- 👷 Workers card: a locked farm row lists each missing gate on its own line, `waters 12/40` and/or `needs 💧 Water Cart
-  (tool Lv3)` (`needs 🌾 Reaper …`, `needs 🌱 Seed Spreader …`). The ⓘ tips name what the certificate is paid in and
+- 👷 Workers card: a locked farm row lists each missing gate on its own line: `waters 12/40`, `needs 💧 Water Cart (tool
+  Lv3)` (`needs 🌾 Reaper …`, `needs 🌱 Seed Spreader …`), and, from task 78, `needs 📦 25 storage` when the price holds
+  more items than storage. The ⓘ tips name what the certificate is paid in and
   which tool it needs.
 - Owned certificates are never re-checked. The v9, v10, v11 fixtures and a v12 round trip load with farm certificates
   whose tool is below Lv3, and their workers keep acting and getting paid.
@@ -2254,7 +2261,8 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
   is ≈ 200 px. The certificate button's price is a block `<small>`, so the button is two lines, ≈ 100 px wide (`⛰️20 ⚫5
   💰750` at 12 px + 16 px padding), and the ⓘ is 28 px. The row needs ≈ 200 + 4 + 100 + 4 + 28 = 336 px. At **1024**
   (284 px content) the button and ⓘ wrap to a second flex line. At **375** (343) and **1440** (358) the row is at the edge
-  and fits or wraps the same way. Everything is in normal flow, so nothing overlaps.
+  and fits or wraps the same way. A fresh 🌾 row stacks three gate lines (≈ 3 × 17 px), so the row grows taller, not
+  wider. Everything is in normal flow, so nothing overlaps.
 
 ### Hand-picked ×1.25 + iron open (task 77)
 
@@ -2271,9 +2279,11 @@ player has nothing to do with their energy. Balance-only changes plus one rule; 
 ### Sim (task 78, `tests/sim.test.ts` "batch 13", measured, `rules.batch13` on)
 
 No `balance.ts` number changed in this task.
-- **Ladder bot from tick 0** (the batch-11 iron ladder + `buyTools`, 2 h). Minutes: buyable → bought.
+- **Ladder bot from tick 0** (the batch-11 iron ladder + `buyTools`, 2 h). Minutes: gates met (counter, tool, vein) →
+  bought. Water and harvest are bought on the first tick the bot can pay, so their lag is cash. Plant, ore, fuel and
+  mine are ladder goals bought one at a time, so their lag is the ladder working on earlier goals, not the price.
 
-  | Certificate | buyable | bought |
+  | Certificate | gates met | bought |
   |---|---|---|
   | 💧 water | 23.3 | 24.8 |
   | 🥉 ore loader | 38.0 | 52.5 |
@@ -2287,8 +2297,9 @@ No `balance.ts` number changed in this task.
   Never negative, never borrows.
 - **No stall:** 36 recorded milestones from firstHarvest (tick 100) to certMine (6588). Longest wait **920 ticks
   (15.3 min), harvest certificate → plant certificate**, under the 60-minute pin.
-- **Storage:** water 20 items, harvest 25, plant 10, all ≤ 40 storage held when each became buyable. Every older
-  price-vs-storage pin passes unchanged.
+- **Storage:** water 20 items, harvest 25, plant 10, all ≤ the 40 storage the bot held when each became buyable. At the
+  starting storage (20), harvest does not fit: it needs storage Lv1 (30), and its row says so (see Deviations). Every
+  older price-vs-storage pin passes unchanged.
 - **24-tile lemon, fully staffed (1 planter, 1 waterer, 1 harvester), market on, 2 h, per hour:**
 
   | Farm | idle gross | attentive gross | gain gross | idle net | attentive net | gain net |

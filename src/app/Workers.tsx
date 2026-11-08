@@ -37,11 +37,16 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
   if (!run.workers.certificates.includes(job)) {
     const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
     const toolLevel = job in TOOLS ? run.tools[job as ToolJob] : 0
+    // items the price needs beyond what storage holds can never be gathered (the harvest certificate's 25 at the start's 20)
+    const { cash, ...items } = certificateCost(job, meta)
+    void cash
+    const itemCount = Object.values(items).reduce((n, k) => n + (k ?? 0), 0)
     // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
     const missing = [
       run.counters[counter] < at && `${counter} ${run.counters[counter]}/${at}`,
       run.vein.level < vein && `vein Lv${vein}`,
       toolLevel < tool && `needs ${WORKER_JOB_EMOJI[job]} ${TOOLS[job as ToolJob].names[tool - 1]} (tool Lv${tool})`,
+      itemCount > run.bagCapacity && `needs 📦 ${itemCount} storage`,
     ]
     return (
       <div className="worker-row">

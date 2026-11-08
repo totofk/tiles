@@ -47,6 +47,9 @@ describe('👷 Workers card', () => {
     expect(row('Harvest').textContent).toContain('harvests 0/40')
     expect(row('Water').textContent).toContain('needs 💧 Water Cart (tool Lv3)')
     expect(row('Harvest').textContent).toContain('needs 🌾 Reaper (tool Lv3)')
+    // 20 stone + 5 coal = 25 items, more than the starting storage of 20
+    expect(row('Harvest').textContent).toContain('needs 📦 25 storage')
+    expect(row('Water').textContent).not.toContain('storage')
     for (const b of screen.getAllByRole('button', { name: /Certificate/ })) expect((b as HTMLButtonElement).disabled).toBe(true)
     expect(screen.queryByRole('button', { name: /Hire/ })).toBeNull()
   })
