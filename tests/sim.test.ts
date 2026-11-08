@@ -164,6 +164,7 @@ type LadderStep =
   | 'veinLv3'
   | 'ironPickaxe'
   | 'mineCertificate'
+  | `iron:${ToolJob}`
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
@@ -278,7 +279,20 @@ const IRON_LADDER: Goal[] = [
     keep: keepIronBars(certificateCost('mine', IRON_PRICE).ironBar!),
   },
 ]
-const IRON_GOALS = IRON_LADDER.slice(IRON_LADDER.length - 2)
+/** batch 15: after the mine certificate, each job's iron tier in order (water → harvest → plant) */
+const IRON_TOOLS_LADDER: Goal[] = [
+  ...IRON_LADDER,
+  ...TOOL_JOBS.map(
+    (job): Goal => ({
+      name: `iron:${job}`,
+      done: (s) => s.run.toolTier[job] >= 2,
+      buy: (s) => buyToolTier(s, job),
+      keep: keepIronBars(toolTierCost(2, createInitialState().meta).ironBar!),
+    }),
+  ),
+]
+// the goals that need the furnace on iron (the iron pickaxe, the mine certificate and the three iron tools)
+const IRON_ON_GOALS = IRON_TOOLS_LADDER.slice(IRON_TOOLS_LADDER.length - 5)
 const smeltsFor = (g: Goal | undefined) =>
   g !== undefined && (g.name === 'copperPickaxe' || g.name.startsWith('copper:') || PLANT_LADDER.slice(COPPER_LADDER.length).includes(g))
 
@@ -308,6 +322,7 @@ function runBot(
     furnace = false,
     planter = false,
     iron = false,
+    ironTools = false,
     buyTools = false,
     onEnd,
     onTick,
@@ -337,6 +352,11 @@ function runBot(
      */
     iron?: boolean
     /**
+     * batch 15 (with iron): IRON_TOOLS_LADDER; after the mine certificate the bot buys the three iron farm tools
+     * (water → harvest → plant), keeping the iron bars for each
+     */
+    ironTools?: boolean
+    /**
      * batch 13 (with workers): buys the water and harvest tool levels (and plant with `planter`) as soon as each is
      * unlocked and affordable, since a farm certificate needs its job's Lv3 tool; keeps the unbought farm
      * certificates' stone and coal when storage is full; hires only once a farm certificate is owned
@@ -348,7 +368,7 @@ function runBot(
     onTick?: (s: GameState) => void
   } = {},
 ) {
-  const goals = iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
+  const goals = ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironPicked' | 'firstIronBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   // batch 13: the first tick each certificate could be bought (its gates met) and the storage held then
@@ -466,7 +486,7 @@ function runBot(
     const oneEach: WorkerJob[] = [
       ...(furnace ? (['ore', 'fuel'] as const) : []),
       ...(planter ? (['plant'] as const) : []),
-      ...(iron ? (['mine'] as const) : []),
+      ...(iron || ironTools ? (['mine'] as const) : []),
     ]
     for (const job of oneEach) {
       const { assigned, certificates } = s.run.workers
@@ -511,7 +531,7 @@ function runBot(
       } else if (!mineOnce(tick)) break
     }
     milestones()
-    if (iron && s.run.furnace.oreKind !== 'ironOre' && IRON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
+    if ((iron || ironTools) && s.run.furnace.oreKind !== 'ironOre' && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
       tryAct(sellItem(s, 'copperOre', s.run.inventory.copperOre ?? 0), mine)
       tryAct(collectBars(s), null)
       if (tryAct(setOreKind(s, 'ironOre'), null)) ladderTicks.ironPicked ??= tick
@@ -1104,6 +1124,8 @@ describe('batch 7: every multi-item price fits the storage the player has when i
     ['iron pickaxe', pickaxeCraftCost('iron', meta), 50],
     ['iron pickaxe repair', pickaxeRepairCost('iron', meta), 50],
     ['mine certificate', certificateCost('mine', meta), 50],
+    // batch 15: the iron farm tool (🥈4) comes after storage Lv3 too
+    ['iron farm tool', toolTierCost(2, meta), 50],
   ])('%s', (_, price, capacity) => {
     expect(items(price)).toBeLessThanOrEqual(capacity)
   })
@@ -2339,5 +2361,187 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
     }
     // the ladder reaches iron, so the pool grows from the starting crop to crops, vein items and both bars
     expect(Math.max(...poolSizes)).toBeGreaterThanOrEqual(8)
+  })
+})
+
+// ---- Batch 15: iron farm tools ----
+
+const ALL_IRON = { water: 2, harvest: 2, plant: 2 }
+
+describe('batch 15: ladder bot buys the three iron tools after the mine certificate (rules.batch13 on)', () => {
+  const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
+  const r = withBatch13(() => {
+    let end = createInitialState()
+    // per tool, in order: the first tick 4 🥈 were held (after the previous tool was bought) / the cash was, once each
+    const ready: Partial<Record<`iron:${ToolJob}`, { bars: number; cash: number }>> = {}
+    // the phase from the mine certificate to the third iron tool: cash income and iron bars smelted
+    const phase = { start: 0, cashEarned: 0, barsSmelted: 0, done: 0, cashEarnedAtDone: 0, barsSmeltedAtDone: 0 }
+    const ladder = runBot(true, {
+      ticks: 6 * HOUR_TICKS,
+      licenses: LICENSE_ORDER,
+      crops: PLANT_ORDER,
+      ladder: true,
+      copperTools: true,
+      workers: true,
+      furnace: true,
+      planter: true,
+      iron: true,
+      ironTools: true,
+      buyTools: true,
+      onEnd: (s) => (end = s),
+      onTick: (s) => {
+        if (!phase.start && s.run.workers.certificates.includes('mine')) {
+          phase.start = s.run.tick
+          phase.cashEarned = s.run.lifetime.cashEarned
+          phase.barsSmelted = s.run.lifetime.ironBarsSmelted
+        }
+        for (const [i, job] of TOOL_JOBS.entries()) {
+          // the water tool's turn starts at the mine certificate (the ladder step before it, which spends its own bars)
+          const prevBought = i === 0 ? s.run.workers.certificates.includes('mine') : s.run.toolTier[TOOL_JOBS[i - 1]] >= 2
+          if (!prevBought) continue
+          const key = `iron:${job}` as `iron:${ToolJob}`
+          const rd = (ready[key] ??= { bars: Infinity, cash: Infinity })
+          const cost = toolTierCost(2, s.meta)
+          if (rd.bars === Infinity && (s.run.inventory.ironBar ?? 0) >= cost.ironBar!) rd.bars = s.run.tick
+          if (rd.cash === Infinity && s.run.cash >= cost.cash) rd.cash = s.run.tick
+        }
+        if (!phase.done && TOOL_JOBS.every((job) => s.run.toolTier[job] >= 2)) {
+          phase.done = s.run.tick
+          phase.cashEarnedAtDone = s.run.lifetime.cashEarned
+          phase.barsSmeltedAtDone = s.run.lifetime.ironBarsSmelted
+        }
+      },
+    })
+    const hours = (phase.done - phase.start) / HOUR_TICKS
+    const incomePerHour = (phase.cashEarnedAtDone - phase.cashEarned) / hours
+    const barsPerHour = (phase.barsSmeltedAtDone - phase.barsSmelted) / hours
+    const t = ladder.ladderTicks
+    const steps = [t.mineCertificate, t['iron:water'], t['iron:harvest'], t['iron:plant']].map((x) => x!)
+    const gaps = steps.slice(1).map((x, i) => x - steps[i])
+    const pumpkinIron = runCropBot('pumpkin', MARKET_TICKS, ALL_IRON, undefined, TILE_CAP).cashPerEnergy
+    const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
+    // income/h on a 24-tile staffed lemon farm before (copper) and after (iron) the three tools, idle and attentive
+    const before = { idle: staffedLemon(false, ALL_COPPER), attentive: staffedLemon(true, ALL_COPPER) }
+    const after = { idle: staffedLemon(false, ALL_IRON), attentive: staffedLemon(true, ALL_IRON) }
+    const gain = (a: typeof before.idle, b: typeof before.idle) => ({ gross: b.grossPerHour - a.grossPerHour, net: b.netPerHour - a.netPerHour })
+    return { ladder, end, ready, phase, steps, gaps, incomePerHour, barsPerHour, pumpkinIron, ironLv10, before, after, ironGain: gain(before.idle, after.idle), ironGainAttentive: gain(before.attentive, after.attentive) }
+  })
+  const { ladder, end, ready, phase, steps, gaps, incomePerHour, barsPerHour, pumpkinIron, ironLv10, before, after, ironGain, ironGainAttentive } = r
+  console.log(
+    'batch 15',
+    JSON.stringify(
+      {
+        bought: { water: minute(steps[1]), harvest: minute(steps[2]), plant: minute(steps[3]) },
+        ready: Object.fromEntries(
+          TOOL_JOBS.map((job) => [`iron:${job}`, { bars: minute(ready[`iron:${job}`]?.bars), cash: minute(ready[`iron:${job}`]?.cash), bought: minute(ladder.ladderTicks[`iron:${job}`]) }]),
+        ),
+        gapsMinutes: gaps.map((g) => Math.round((g / 60) * 10) / 10),
+        phase: {
+          minutes: Math.round(((phase.done - phase.start) / 60) * 10) / 10,
+          incomePerHour: Math.round(incomePerHour),
+          barsNeeded: 3 * toolTierCost(2, end.meta).ironBar!,
+          barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
+          barsPerHour: Math.round(barsPerHour),
+        },
+        cashPartHours: Math.round((toolTierCost(2, end.meta).cash! / incomePerHour) * 10) / 10,
+        pumpkinIron,
+        ironLv10,
+        before,
+        after,
+        ironGain,
+        ironGainAttentive,
+        lowest: ladder.lowest,
+        borrowed: ladder.borrowed,
+        finalCash: ladder.finalCash,
+      },
+      null,
+      1,
+    ),
+  )
+
+  it('buys the three iron tools in order after the mine certificate; every step ≤ 60 game-minutes', () => {
+    expect([...steps].sort((a, b) => a - b)).toEqual(steps)
+    expect(phase.done).toBeLessThanOrEqual(6 * HOUR_TICKS)
+    for (const gap of gaps) expect(gap).toBeLessThanOrEqual(HOUR_TICKS)
+  })
+
+  it('pinned minutes: each tool affordable (bars, cash) and bought; the steps after the mine certificate (PLAN.md "Batch 15 results")', () => {
+    expect(minute(steps[0])).toBe(109.8) // the mine certificate
+    expect(gaps.map((g) => minute(g))).toEqual([8, 41, 40])
+    expect(minute(phase.done)).toBe(198.8)
+    expect(
+      Object.fromEntries(
+        TOOL_JOBS.map((job) => {
+          const rd = ready[`iron:${job}`]!
+          return [`iron:${job}`, { bars: minute(rd.bars), cash: minute(rd.cash), bought: minute(ladder.ladderTicks[`iron:${job}`]) }]
+        }),
+      ),
+    ).toEqual({
+      'iron:water': { bars: 117.8, cash: 115.3, bought: 117.8 },
+      'iron:harvest': { bars: 125.8, cash: 158.8, bought: 158.8 },
+      'iron:plant': { bars: 158.8, cash: 198.8, bought: 198.8 },
+    })
+  })
+
+  it('pinned: the phase income, and the bars needed vs smelted; the cash part is 0.5–1.5 h of that income, rounded to 💰500', () => {
+    expect({
+      minutes: minute(phase.done - phase.start),
+      incomePerHour: Math.round(incomePerHour),
+      barsNeeded: 3 * toolTierCost(2, end.meta).ironBar!,
+      barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
+      barsPerHour: Math.round(barsPerHour),
+    }).toEqual({ minutes: 89, incomePerHour: 17128, barsNeeded: 12, barsSmelted: 44, barsPerHour: 30 })
+    expect(toolTierCost(2, end.meta).cash).toBe(10000)
+    expect(10000 % 500).toBe(0)
+    expect(10000 / incomePerHour).toBeGreaterThanOrEqual(0.5)
+    expect(10000 / incomePerHour).toBeLessThanOrEqual(1.5)
+  })
+
+  it('pinned: the iron tools add income on a 24-tile staffed lemon farm (market on), idle and attentive', () => {
+    expect({ before, after, ironGain, ironGainAttentive }).toEqual({
+      before: {
+        idle: { grossPerHour: 24571, netPerHour: 20580, picked: 0, harvests: 444, wages: 2326, lowest: 472 },
+        attentive: { grossPerHour: 29992, netPerHour: 26260, picked: 390, harvests: 447, wages: 1955, lowest: 472 },
+      },
+      after: {
+        idle: { grossPerHour: 26983, netPerHour: 23545, picked: 0, harvests: 456, wages: 1680, lowest: 556 },
+        attentive: { grossPerHour: 32868, netPerHour: 29863, picked: 391, harvests: 456, wages: 1288, lowest: 556 },
+      },
+      ironGain: { gross: 2412, net: 2965 },
+      ironGainAttentive: { gross: 2876, net: 3603 },
+    })
+  })
+
+  it('each tool is bought the minute both its bars and its cash are ready (the bot never waits)', () => {
+    for (const job of TOOL_JOBS) {
+      const rd = ready[`iron:${job}`]!
+      const bought = ladder.ladderTicks[`iron:${job}`]!
+      expect([rd.bars, rd.cash].every((t) => Number.isFinite(t))).toBe(true)
+      expect(bought).toBeGreaterThanOrEqual(Math.max(rd.bars, rd.cash))
+      expect(bought - Math.max(rd.bars, rd.cash)).toBeLessThanOrEqual(2)
+    }
+  })
+
+  it('nothing goes negative and it never borrows', () => {
+    expect(ladder.lowest).toBeGreaterThanOrEqual(0)
+    expect(ladder.borrowed).toBe(false)
+    expect(end.run.toolTier).toEqual(ALL_IRON)
+  })
+
+  it('mining stays below the farm cap with the iron tools: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin', () => {
+    expect(ironLv10).toBeLessThan(0.9 * pumpkinIron)
+  })
+
+  it('step(s, n) = n × step(s, 1) with the iron tiers, workers, the market and hand-picked sales on', () => {
+    withBatch13(() => {
+      let start = end
+      for (let i = 0; i < start.run.tiles.length; i++) {
+        const h = harvest(start, i)
+        if (h.ok) start = h.state
+      }
+      let one = start
+      for (let i = 0; i < 600; i++) one = step(one, 1)
+      expect(step(start, 600)).toEqual(one)
+    })
   })
 })

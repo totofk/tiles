@@ -155,13 +155,13 @@ describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
   const sell = Math.round(cropSellPrice('radish', meta, 0) * handPickedBonus())
   const seed = cropSeedCost('radish', meta)
 
-  it('numbers come from balance by tier: moisture 1 → 2 → 4, double harvest 0 → 10 % → 20 %, seed keep 0 → 20 % → 35 %, 🟧4 💰100, 🥈4 💰5000', () => {
+  it('numbers come from balance by tier: moisture 1 → 2 → 4, double harvest 0 → 10 % → 20 %, seed keep 0 → 20 % → 35 %, 🟧4 💰100, 🥈4 💰10000', () => {
     expect([0, 1, 2].map(waterMoisture)).toEqual([1, 2, 4])
     expect([0, 1, 2].map(doubleHarvestChance)).toEqual([0, 0.1, 0.2])
     expect([0, 1, 2].map(seedKeepChance)).toEqual([0, 0.2, 0.35])
     expect(toolTierMax()).toBe(2)
     expect(toolTierCost(1, meta)).toEqual({ copperBar: 4, cash: 100 })
-    expect(toolTierCost(2, meta)).toEqual({ ironBar: 4, cash: 5000 })
+    expect(toolTierCost(2, meta)).toEqual({ ironBar: 4, cash: 10000 })
   })
 
   it('iron watering fills to 4, and the water tool tops up tiles below 4', () => {
@@ -274,8 +274,8 @@ describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
     expect([after.cash, after.inventory.copperBar, after.energy]).toEqual([0, 0, s.run.energy])
   })
 
-  it('iron is offered only after copper: tier 0 pays the copper price even holding 🥈 and cash; tier 2 pays 🥈4 💰5000', () => {
-    const rich = { cash: 5100, inventory: { ironBar: 4 }, tools: tools('water', 1) }
+  it('iron is offered only after copper: tier 0 pays the copper price even holding 🥈 and cash; tier 2 pays 🥈4 💰10000', () => {
+    const rich = { cash: 10100, inventory: { ironBar: 4 }, tools: tools('water', 1) }
     // toolTier 0: the offer is copper (🟧4), so iron cannot be skipped even with 🥈4 and cash in hand
     expect(buyToolTier(withRun([], rich), 'water')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     const after = okState(buyToolTier(withRun([], { ...rich, toolTier: copper }), 'water')).run

@@ -140,7 +140,7 @@ const WATER_MOISTURE = [1, 2, 4]
 const DOUBLE_HARVEST = [0, 0.1, 0.2]
 const SEED_KEEP = [0, 0.2, 0.35]
 // cash part = 0.5–1.5 h of the batch-15 ladder bot's income when the mine certificate lands (PLAN.md "Batch 15 results")
-const IRON_TOOL_CASH = 5000
+const IRON_TOOL_CASH = 10000
 const TOOL_TIER_COST: ReadonlyArray<Price> = [
   { copperBar: 4, cash: 100 },
   { ironBar: 4, cash: IRON_TOOL_CASH },

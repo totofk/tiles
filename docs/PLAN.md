@@ -798,7 +798,18 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   states; every older run passes no hook and replays unchanged.
 - **Batch 14 (task 80): `.hud` wraps.** The ⭐ span adds ≈ 58 px; with a loan the 375 px HUD needs ≈ 394 px of 343, so
   it now wraps to a second line rather than overflowing (the overflow with a loan existed before at ≈ 336 + 👷).
-
+- **Batch 15 (task 83): `IRON_TOOL_CASH` = 10000, not the plan's "start 💰5,000".** Task 85 measured the ladder bot's
+  income at the mine certificate at 17128/h; 5000 is 0.30 h, below the 0.5–1.5 h rule, so the cash part moved into the
+  band (0.61 h, rounded to 💰500). Only the batch-15 number changed.
+- **Batch 15 (task 83): iron names/emoji follow the shared constants, not the plan's example text.** The row reads
+  `🥈 Iron Can / Iron Sickle / Iron Dibber` (parallels the copper names) with `ITEMS.ironBar.emoji` 🥈 (Unicode 11);
+  the plan's example "🔷 Iron watering can" used 🔷 (Unicode 12, breaks the emoji rule) and the long name.
+- **Batch 15 (task 83): `toolTierMax()` pin moved 1 → 2** in `tests/tools.test.ts` (batch-15 tuning of the same pin; the
+  tier-1 cost pin 💰100 is unchanged, so every older ladder replay is intact).
+- **Batch 15 (task 84): the tier row's status line replaces the old "✓ Owned" text** with the owned tier's effect
+  (`✓ moisture 4`), and the ladder of all three tiers lives in the ⓘ tip; the button label stays `🥈 Iron Can`.
+- **Batch 15 (task 85): the advisor could not be consulted** — the advisor MCP tool of the earlier session is not
+  available in this one (server disconnected); the approach ran without it.
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
 Question: does digging while crops grow remove the "idle" feeling, without out-earning farming?
@@ -2528,10 +2539,56 @@ materials; their cash part = 0.5–1.5 h of income at unlock, measured by the si
     disabled with the reason line when iron bars or the copper tier are missing; ⓘ tips list all three tiers' effects;
     Stats tool rows show the tier name. Iron emoji from the shared constants. Compute layout from CSS at 375 / 1024 /
     1440 px.
-- [ ] 85. **Sim (`tests/sim.test.ts` "batch 15").** Extend the batch-13 ladder bot: after the mine certificate it
+- [x] 85. **Sim (`tests/sim.test.ts` "batch 15").** Extend the batch-13 ladder bot: after the mine certificate it
     buys the three iron tools (water → harvest → plant). Report the minute each becomes affordable and is bought, iron
     bars needed vs mined/smelted per hour, and income/h before vs after (24 tiles staffed, market on, idle and
     attentive). Set `IRON_TOOL_CASH` so the cash part is 0.5–1.5 h of the bot's measured income at that moment, rounded
     to 💰500, and pin it. Pins: no unlock step > 60 game-minutes (from the mine certificate to the third iron tool,
     iron-bar supply included); every price ≤ storage held; mining cash/energy < 0.9 × pumpkin farming with iron tools;
     step(s, n) = n × step(s, 1) with iron tiers and workers on. Tune only batch-15 numbers; report each as a deviation.
+
+## Batch 15 results
+
+### Iron tier core (task 83)
+
+- `WATER_MOISTURE = [1, 2, 4]`, `DOUBLE_HARVEST = [0, 0.1, 0.2]`, `SEED_KEEP = [0, 0.2, 0.35]` pinned in
+  `tests/tools.test.ts` ("tool material tiers"), including the tier-2 rates over 2000 draws (20 % / 35 % ± tolerance) and
+  `TOOL_TIER_COST = [🟧4 + 💰100, 🥈4 + 💰10000]`. Tier 2 is offered only after tier 1: `buyToolTier` always sells
+  `toolTier + 1`, so with 🥈4 and the cash in hand but no copper, the offer is still the copper price (`NOT_ENOUGH_ITEMS`).
+- Workers use the tier through the same actions (`toolTargets` reads `waterMoisture(run.toolTier.water)`); no worker code
+  changed. The moisture bar shows `tile.moisture / waterMoisture(tier)` (a fraction of the can's max), so moisture 4
+  fills the same 4 px track; the old `bar-over` band for values above 1 was dead and is deleted (`Bar.tsx`, `app.css`).
+
+### Shop + tool bar UI (task 84, layout computed from the CSS — no browser here)
+
+- The tier row now walks the ladder: `🥉 Copper Can — moisture 2 · 🥉4 💰100` → after copper `🥈 Iron Can —
+  moisture 4 · 🥈4 💰10000`, with a second line `needs 🥈N 💰N more` while short, `needs <tool Lv1 name>` before the job's
+  tool Lv1, and `✓ moisture 4` (owned card) at the max tier. The ⓘ tip lists all three tiers
+  (`Basic: moisture 1 · Copper Can: moisture 2 · Iron Can: moisture 4`), numbers read from balance at render.
+- Stats tool-tier rows read `tierName(job, tier)` (`basic` / `Copper Can` / `Iron Can`) from the core rows.
+- Layout at 375 / 1024 / 1440 px, from `app.css`: `.shop-row` is a 2-column `minmax(0, 1fr)` grid at every width (no
+  media query touches it) with auto-height rows, so the extra `<small>` needs-line wraps inside its button and grows the
+  row — no fixed heights, nothing can overlap; the ⓘ stays absolute in the top-right corner (`padding-inline: 30px`
+  keeps text clear of it). The iron press-button stripe (`.tools .iron`) is an inset box-shadow + border-colour beside
+  the copper one — no width or padding change, so the mobile bar and the desktop stacked rows keep their widths. The
+  moisture bar passes a 0…1 fraction like every other bar.
+
+### Sim (task 85, `tests/sim.test.ts` "batch 15", measured, `rules.batch13` on)
+
+- The batch-13 ladder bot, extended (`ironTools: true` → `IRON_TOOLS_LADDER`): after the mine certificate it buys
+  iron water (117.8 min) → iron harvest (158.8) → iron plant (198.8). Steps from the certificate: **8 / 41 / 40 min —
+  all ≤ 60**, bars included; the certificate lands at 109.8 min as pinned in batch 13.
+- Affordable vs bought (bars = first tick 4 🥈 held after the previous purchase, cash = first tick 💰10000 held):
+  water bars 117.8 / cash 115.3 / bought 117.8; harvest 125.8 / 158.8 / 158.8; plant 158.8 / 198.8 / 198.8. The first
+  tool is bar-bound, the later two cash-bound; the bot buys the tick both are ready (≤ 2 ticks).
+- **Bars: 12 needed (3 × 🥈4) vs 44 smelted over the 89-min phase ≈ 30/h** (the batch-11 bench pins 28/h with the same
+  chain) — the smelt chain is never the wall after the first tool.
+- **`IRON_TOOL_CASH = 10000`**: the bot's income over the phase is **17128/h**, so the cash part is 0.61 h of income —
+  inside the 0.5–1.5 h rule, rounded to 💰500. (The plan's 💰5,000 start measured 0.30 h, below the band; see Deviations.)
+- **Income/h, 24 staffed lemon tiles, market on** (gross/net): copper → iron, idle 24571/20580 → 26983/23545
+  (**+2412 gross, +2965 net** — wages drop, the waterer works a quarter as often); attentive 29992/26260 → 32868/29863
+  (**+2876 gross, +3603 net**). Cash never went below 0 in any bench.
+- Pins held: every price ≤ storage held (`iron farm tool` 🥈4 ≤ the 50 slots at storage Lv3, added to the price-cap
+  table); mining iron Lv10 vein Lv3 = 2.09 cash/energy < 0.9 × 24-tile pumpkin with iron tools = 22.08
+  (pumpkin itself rose to 24.53 cash/energy with iron); `step(s, 600) = 600 × step(s, 1)` from the ladder end with the
+  iron tiers, workers, the market and hand-picked sales on. Nothing goes negative, no loan, `finalCash 55430` at 6 h.

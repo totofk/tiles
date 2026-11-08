@@ -94,19 +94,19 @@ describe('Farm tools in the Shop', () => {
 
   it('the tier row sells copper at tool Lv1, then iron; the owned card appears at the max tier', () => {
     const IRON = ITEMS.ironBar.emoji
-    const t = setup({ cash: 5100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
+    const t = setup({ cash: 10100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
     expect(tool(`${BAR} Copper Can`).textContent).toContain(`moisture 2 · ${BAR}4 💰100`)
     expect(tool(`${BAR} Copper Sickle`).disabled).toBe(true) // no Sickle Lv1
     fireEvent.click(tool(`${BAR} Copper Can`))
     t.rerender()
     expect(t.get().run.toolTier.water).toBe(1)
     const iron = tool(`${IRON} Iron Can`)
-    expect(iron.textContent).toContain(`moisture 4 · ${IRON}4 💰5000`)
+    expect(iron.textContent).toContain(`moisture 4 · ${IRON}4 💰10000`)
     expect(iron.textContent).toContain(`needs ${IRON}4 more`) // cash in hand, bars not
     expect(iron.disabled).toBe(true)
 
     cleanup()
-    const t2 = setup({ cash: 5000, inventory: { ironBar: 4 }, tools: { water: 1 }, toolTier: { water: 1, harvest: 0, plant: 0 } })
+    const t2 = setup({ cash: 10000, inventory: { ironBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 }, toolTier: { water: 1, harvest: 0, plant: 0 } })
     fireEvent.click(tool(`${IRON} Iron Can`))
     t2.rerender()
     expect(t2.get().run.toolTier.water).toBe(2)
