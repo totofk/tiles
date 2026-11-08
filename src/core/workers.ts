@@ -12,6 +12,7 @@ import {
   workerWage,
 } from './balance'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
+import { fieldsHarvest, fieldsPlantAction } from './fields'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction } from './orders'
@@ -84,7 +85,11 @@ function workerAction(state: GameState, job: WorkerJob): { result: ActionResult;
     return result && { result }
   }
   const [tile] = jobTiles(state, job)
-  return tile === undefined ? null : { result: WORK[job](state, tile), tile }
+  if (tile !== undefined) return { result: WORK[job](state, tile), tile }
+  // batch 18: a planter whose home plot is fully planted / a harvester with nothing ready works the Fields instead
+  // (same job, same wage, no new assignment); a failed Fields action (nothing to plant or reap) is a plain idle
+  const fields = job === 'plant' ? fieldsPlantAction(state) : job === 'harvest' ? fieldsHarvest(state) : null
+  return fields && { result: fields }
 }
 
 /** a farm worker's action on a tile */

@@ -2834,7 +2834,7 @@ cash prices regain meaning (docs/research/fields-market.md; the market is the th
 cohorts, never per-tile loops, so 8 h offline over 1,000+ tiles stays cheap. The home plot keeps its grid, tools and
 mastery (research §1: games that deleted the hands-on layer lost it; we keep both).
 
-- [ ] 93. **Fields core + save v15.** FIRST commit `tests/fixtures/save-v14.json` (realistic: workshop, sprinklers,
+- [x] 93. **Fields core + save v15.** FIRST commit `tests/fixtures/save-v14.json` (realistic: workshop, sprinklers,
     gold tools). Unlock "🚜 Fields": a 🛒 Shop card `{ ironBar: 10, cash: FIELDS_CASH }` that needs every farm job
     covered by a worker or machine (planter/harvester certificates owned + watering covered by ≥1 sprinkler). A crop
     can be planted in Fields once `lifetime.harvests[crop] ≥ 50` (home-plot mastery gate).

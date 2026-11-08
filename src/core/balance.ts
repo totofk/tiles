@@ -257,6 +257,76 @@ export function valveCost(meta: MetaState): Price {
   return scalePrice(VALVE_COST, meta)
 }
 
+// Fields (batch 18, DECISIONS "Fields part 1"): the earned late game — unbounded tile COUNT as an aggregate. The
+// unlock card needs every farm job covered by worker or machine (planter + harvester certificates, ≥ 1 sprinkler);
+// a crop is fields-plantable after FIELDS_CROP_HARVESTS home-plot harvests of it. Field tiles cost
+// FIELDS_TILE_BASE × (count + 1); the pipes tier (task 94) waters PIPE_COVER tiles — tiles beyond the coverage stall
+// (growth paused, never death) and the shared coal pump draws PIPE_COAL_PER_10_TILES per 10 covered tiles per hour.
+const FIELDS_TILE_BASE = 100
+const FIELDS_CROP_HARVESTS = 50
+/** tiles one Fields plant action puts in the ground (the player's button and the planter's batch alike) */
+const PLANT_BATCH = 10
+/** tiles one harvester action reaps */
+const HARVEST_BATCH = 10
+// cash parts = 0.5–1.5 h of the batch-18 ladder bot's income at each purchase (pinned in PLAN.md "Batch 18 results")
+const FIELDS_CASH = 10000
+const FIELDS_COST: Price = { ironBar: 10, cash: FIELDS_CASH }
+/** pipe coverage per tier owned (index = pipes): tier 0 = none, so fields planted before pipes simply stall */
+const PIPE_COVER = [0, 60, 150, 300]
+const PIPE_COSTS: ReadonlyArray<Price> = [
+  { copperBar: 8, cash: 7500 },
+  { ironBar: 8, cash: 10000 },
+  { goldBar: 8, cash: 12500 },
+]
+const PIPE_COAL_PER_10_TILES = 0.5
+
+export function fieldsCost(meta: MetaState): Price {
+  return scalePrice(FIELDS_COST, meta)
+}
+
+/** the (count + 1)-th field tile's price */
+export function fieldTileCost(count: number, meta: MetaState): number {
+  return Math.round(FIELDS_TILE_BASE * (count + 1) * multiplier(meta, 'cost'))
+}
+
+/** home-plot harvests of a crop before it can be planted in the Fields */
+export function fieldsCropHarvests(): number {
+  return FIELDS_CROP_HARVESTS
+}
+
+export function plantBatch(): number {
+  return PLANT_BATCH
+}
+
+export function harvestBatch(): number {
+  return HARVEST_BATCH
+}
+
+/** tiles the owned pipe tiers water (growing tiles beyond it stall) */
+export function pipeCover(pipes: number): number {
+  return PIPE_COVER[Math.min(pipes, PIPE_COVER.length - 1)]
+}
+
+/** the next pipe tier's recipe, null at the top tier */
+export function pipeCost(pipes: number, meta: MetaState): Price | null {
+  const price = PIPE_COSTS[pipes]
+  return price ? scalePrice(price, meta) : null
+}
+
+/** the top pipe tier's index (pipes 1 … this) */
+export function pipeMaxTiers(): number {
+  return PIPE_COSTS.length
+}
+
+export function pipeCoalPer10Tiles(): number {
+  return PIPE_COAL_PER_10_TILES
+}
+
+/** coal the pump accrues per tick for `coveredTiles` covered growing tiles (0.5 / h per 10 tiles) */
+export function pipeCoalPerTick(coveredTiles: number): number {
+  return (coveredTiles * PIPE_COAL_PER_10_TILES) / 10 / 3600
+}
+
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
 const DIG_SEED_CROP: CropId = 'radish'
 const DIG_SEED_CHANCE = 0.2

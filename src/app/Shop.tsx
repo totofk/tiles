@@ -19,9 +19,11 @@ import {
   woodCost,
   workshopCost,
   workshopVeinLevel,
+  fieldsCost,
 } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
 import { buildWorkshop } from '../core/workshop'
+import { fieldsUnlockable, unlockFields } from '../core/fields'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
@@ -162,6 +164,27 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false }: Prop
             <button disabled={!buildWorkshop(state).ok} onClick={() => act(buildWorkshop, () => 'Workshop built — its card sits with 👷 Workers')}>
               🔧 Workshop
               <small>{priceText(workshopCost(meta))}</small>
+            </button>
+          </Item>
+        )}
+        {run.workshop.built && !run.fields.unlocked && (
+          <Item tip={TIPS.fields}>
+            <button
+              disabled={!unlockFields(state).ok}
+              onClick={() => act(unlockFields, () => 'Fields unlocked — its card sits below the Workshop')}
+            >
+              🚜 Fields
+              <small>
+                {fieldsUnlockable(run)
+                  ? priceText(fieldsCost(meta))
+                  : `needs ${[
+                      !run.workers.certificates.includes('plant') && 'planter certificate',
+                      !run.workers.certificates.includes('harvest') && 'harvester certificate',
+                      run.workshop.hoppers.length < 1 && '1 sprinkler',
+                    ]
+                      .filter(Boolean)
+                      .join(' + ')}`}
+              </small>
             </button>
           </Item>
         )}

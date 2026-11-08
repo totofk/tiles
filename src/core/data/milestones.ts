@@ -28,6 +28,10 @@ export type MilestoneId =
   | 'workshop'
   | 'firstSprinkler'
   | 'valve'
+  | 'fieldsUnlocked'
+  | 'firstField'
+  | 'fields100'
+  | 'fields500'
   | 'firstBar'
   | 'firstGoldBar'
   | 'copperPickaxe'
@@ -74,6 +78,11 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'workshop', label: 'Workshop', when: (r) => r.workshop.built },
   { id: 'firstSprinkler', label: 'First sprinkler', when: (r) => r.workshop.hoppers.length >= 1 },
   { id: 'valve', label: 'Smart valve', when: (r) => r.workshop.valve },
+  // batch 18: the Fields unlocked, then tile counts
+  { id: 'fieldsUnlocked', label: 'Fields unlocked', when: (r) => r.fields.unlocked },
+  { id: 'firstField', label: 'First field', when: (r) => r.fields.count >= 1 },
+  { id: 'fields100', label: '100 fields', when: (r) => r.fields.count >= 100 },
+  { id: 'fields500', label: '500 fields', when: (r) => r.fields.count >= 500 },
   { id: 'firstBar', label: 'First bar', when: (r) => r.lifetime.barsSmelted >= 1 },
   { id: 'firstGoldBar', label: 'First gold bar', when: (r) => r.lifetime.goldBarsSmelted >= 1 },
   { id: 'copperPickaxe', label: 'Copper pickaxe', when: (r) => pickaxeAt(r, 1) },

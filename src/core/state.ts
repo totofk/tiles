@@ -43,6 +43,7 @@ export type RunState = {
   vein: { level: number; progress: number; rock: ItemId }
   furnace: Furnace
   workshop: Workshop
+  fields: Fields
   /** totals for the Stats tab; never unlock anything */
   lifetime: Lifetime
   /** mastery xp per pickaxe tier (1 per mine action with that tier) */
@@ -121,9 +122,27 @@ export type Furnace = {
 /**
  * The workshop (batch 17): built once, then sprinklers are bought one at a time. hoppers = coal in each machine's
  * hopper (one entry per machine, filled by the fuel loader); valve = the one-time smart valve that holds a stalled
- * machine's tiles at their moisture until coal returns.
+ * machine's tiles at its moisture until coal returns.
  */
 export type Workshop = { built: boolean; hoppers: number[]; valve: boolean }
+
+/** one Fields planting action: `count` tiles of `crop` ripening at `readyTick` (stalled cohorts' readyTick pauses) */
+export type Cohort = { crop: CropId; count: number; readyTick: number }
+
+/**
+ * The 🚜 Fields (batch 18): unlocked once, then field tiles are bought one at a time (count). cohorts hold the
+ * planted tiles (planted per crop is derived from them); pipes = the watering tiers (coverage beyond it stalls);
+ * plantCrop = the crop the planter works here ("stop" clears it); coalCarry = the shared pump's fractional coal.
+ */
+export type Fields = {
+  unlocked: boolean
+  count: number
+  planted: Record<CropId, number>
+  cohorts: Cohort[]
+  pipes: number
+  plantCrop: CropId | null
+  coalCarry: number
+}
 
 /**
  * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
@@ -195,6 +214,7 @@ export function createInitialState(): GameState {
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: createFurnace(),
       workshop: createWorkshop(),
+      fields: createFields(),
       lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
       mastery: {},
       masteredTiers: [],
@@ -223,4 +243,17 @@ export function createFurnace(): Furnace {
 /** a workshop not yet built: no machines, no valve */
 export function createWorkshop(): Workshop {
   return { built: false, hoppers: [], valve: false }
+}
+
+/** fields not yet unlocked: no tiles, no cohorts, no pipes, no plant crop, no accrued coal */
+export function createFields(): Fields {
+  return {
+    unlocked: false,
+    count: 0,
+    planted: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
+    cohorts: [],
+    pipes: 0,
+    plantCrop: null,
+    coalCarry: 0,
+  }
 }
