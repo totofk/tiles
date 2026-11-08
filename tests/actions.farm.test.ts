@@ -107,6 +107,12 @@ describe('plant', () => {
     expect(plant(withTile(tilled, { autoBuySeeds: false }), 0, 'radish')).toEqual({ ok: false, error: 'NO_SEEDS' })
     expect(plant(withTile(tilled, { autoBuySeeds: false, seeds: { radish: 1 } }), 0, 'radish').ok).toBe(true)
   })
+  it('batch 22: auto-buy buys a new crop\'s seed at its price (tomato, licensed)', () => {
+    const next = okState(plant(withTile(tilled, { cash: 40, licenses: ['radish', 'tomato'] }), 0, 'tomato'))
+    expect(next.run.seeds).toEqual({})
+    expect(next.run.cash).toBe(0)
+    expect(next.run.tiles[0].cropId).toBe('tomato')
+  })
 })
 
 describe('water', () => {

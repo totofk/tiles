@@ -5,12 +5,13 @@ import { priceTag } from '../src/app/marketText'
 import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
 import { cropSeedCost, marketDepthGlut, toolCost } from '../src/core/balance'
+import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
 
-function setup(run: Partial<GameState['run']>, uiState?: { priceShown: { radish?: number } }) {
+function setup(run: Partial<GameState['run']>, uiState?: { priceShown: Partial<Record<CropId, number>> }) {
   const s = createInitialState()
   let state: GameState = { ...s, run: { ...s.run, ...run } }
   const act: Act = (fn) => {
@@ -67,6 +68,20 @@ describe('Shop seeds', () => {
     t.rerender()
     expect(t.get().run.licenses).toEqual(['radish', 'chilli'])
     expect(screen.getByText(/🌶️ Chilli × 0/)).toBeTruthy()
+  })
+
+  it('batch 22: the four new crops come from the same table — seed tag with trend, license buy adds a pouch row', () => {
+    const s = createInitialState()
+    const t = setup(
+      { cash: 1_600, licenses: ['radish', 'tomato'], market: { ...s.run.market, tomato: 2 * 0.4 * marketDepthGlut('tomato') } },
+      { priceShown: { tomato: 0.7 } },
+    )
+    expect(btn(/Tomato/).textContent).toBe(`🍅 Tomatoseed 💰40${priceTag(t.get(), 'tomato', 0.7)}`)
+    expect(btn(/Tomato/).textContent).toMatch(/\(60 % ▼\)$/)
+    fireEvent.click(btn(/Corn/))
+    t.rerender()
+    expect(t.get().run.licenses).toEqual(['radish', 'tomato', 'corn'])
+    expect(screen.getByText(/🌽 Corn × 0/)).toBeTruthy()
   })
 })
 
