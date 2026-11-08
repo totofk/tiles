@@ -2315,3 +2315,44 @@ No `balance.ts` number changed in this task.
   sales just made.
 - **Older pins:** every batch 3–12 run replays under the batch-12 rules (test-only switch, see Deviations) with no
   number edited.
+
+## Batch 14 — 📋 Noticeboard (orders) + ⭐ (tasks 79–82, save v12 → v13)
+
+Why: cash is trivial for veteran players; ⭐ is paced by time, not tile count, so its prices stay meaningful for
+everyone, and crop orders are the outlet for a flooded market. Design: docs/research/orders.md §1 recs 1–10
+(state shape adapted to save v13; Workshop goods join the pool later through the same tables).
+
+- [ ] 79. **Orders core + save v13.** FIRST commit `tests/fixtures/save-v12.json` (realistic, market glut > 0,
+    milestones present).
+    - 🛒 Shop card "📋 Noticeboard": `{ stone: 10, cash: 100 }`, visible after 50 sales. Bought, not automation.
+    - `run.orders = { unlocked, slots, offers: Array<Offer | { cooldownTicks: number }> }`,
+      `Offer = { good, count, done, tier, accepted }`; `run.stars`; `counters.orders`; `lifetime.ordersCompleted`,
+      `lifetime.starsEarned`. All numbers in balance.ts (`ORDER_*`).
+    - Generator on `run.rngState`, rolled only inside the action that opens a slot (buy board, complete, discard,
+      buy slot, reroll) so runs replay. Pool = what the player can make now: licensed crops; items in the current
+      vein's drop table; bars once the furnace exists. Count = tier minutes × capacity/min (crops: tiles ÷
+      growTicks × 60 per crop; items: `ORDER_ROCKS_PER_MIN = 12` × drop share; bars: furnace bars/min); tiers
+      5 / 10 / 20 min, weights 50 / 35 / 15 %; item counts clamp ≤ ⌊bag capacity ÷ 2⌋; minimum count 1.
+    - Fill: while an accepted crop order is open, every harvest of that crop (player, tool, worker) goes to it,
+      bypasses the market (no glut added) and pays base × `(1 + ORDER_BONUS)`, `ORDER_BONUS = 0.25`, at harvest
+      (hand-picked ×1.25 still applies on player harvests). Items: a "Deliver" action moves the count from storage
+      (0 energy); its cash = base value × ORDER_BONUS (bars valued at their inputs).
+    - Reward on completion: ⭐ 1 / 2 / 4 by tier. No expiry, no timers. Discard = free; the slot refills after
+      `ORDER_COOLDOWN_TICKS = 600`, counted in step(). Start with 2 slots.
+    - step(s, n) = n × step(s, 1) with accepted crop orders and worker harvests (test).
+- [ ] 80. **Noticeboard UI.** A "📋 Orders" section at the top of the 🌾 Farm side-panel tab (no 7th tab): one row
+    per slot — good emoji + `12 / 40`, tier dots, ⭐ reward, cash bonus, Accept / Deliver / Discard; cooldown rows
+    show `next order in 7:12`. Accepted crop orders mark ready tiles of that crop with a small 📋 corner badge.
+    ⭐ total in the HUD next to cash only once the board is bought. Compact at 375 px; compute layout from CSS and
+    check overlap at 375 / 1024 / 1440 px.
+- [ ] 81. **⭐ shop + order clerk.** Rows in the Noticeboard section (⭐ only, cash cannot buy ⭐, nothing sells
+    for cash): 3rd slot 10 ⭐; 4th slot 30 ⭐; reroll token 2 ⭐ (refill every open slot now, ignores cooldown).
+    Order clerk = new worker job: certificate `{ stars: 20, copperBar: 6, cash: 200 }`, needs `counters.orders ≥ 20`;
+    action every WORKER_ACTION_TICKS, 💰1 wage, same pool cap 6: deliver an item order storage can fill, else accept
+    any offer whose good the farm grows or the vein drops; never discards. Milestones table gains: board bought,
+    first order, 10 ⭐, clerk certificate.
+- [ ] 82. **Sim (`tests/sim.test.ts` "batch 14").** Report ⭐/hour and order cash bonus as % of income for a 9-tile
+    carrot farm and the 24-tile lemon farm (expect ⭐ rate about equal, 4–12 ⭐/h); hours to buy the whole ⭐ shop;
+    hierarchy pin (mining cash/energy incl. item-order bonus < 0.9 × pumpkin farming); every item order count ≤ bag
+    capacity at its moment; generator only offers goods the state can produce (property test over the ladder bot's
+    states). Tune only batch-14 numbers; report each change as a deviation.

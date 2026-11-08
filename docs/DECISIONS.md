@@ -313,3 +313,17 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - **Hand-picked ×1.25:** what the player harvests (energy spent) sells at 1.25 × the market price; workers ×1. Active
   play pays, offline loses nothing (8 h offline loss = 0). Applied after the market factor so it never bypasses it.
 - **Iron opens to everyone** in this batch (the `?dev=iron` gate from batch 11 is removed).
+
+## 📋 Noticeboard + ⭐ (batch 14, 2026-11-08, Toon go)
+
+- **⭐ is paced by time, not tile count:** an order's count = minutes × the player's current capacity, so ⭐ per hour is
+  about the same for a 9-tile carrot farm and a 24-tile lemon farm; ⭐ prices stay meaningful for rich players.
+  Cash cannot buy ⭐ and nothing bought with ⭐ sells for cash (docs/research/orders.md).
+- **Orders are the market's outlet:** ordered crops bypass the glut and pay base × 1.25 (hand-picked ×1.25 still
+  applies on player harvests). Item orders are delivered from storage with one press.
+- **No timers, no expiry** (Hay Day boat-timer complaints): 8 h offline loss = 0. Discard is free; the slot refills
+  after 10 min counted in step().
+- **Order clerk = a worker** (⭐ + bar certificate, after 20 orders) that accepts and delivers but never discards;
+  no machine tier.
+- **⭐ shop v1 = slots, reroll token, clerk.** Themes/name plate wait for art. Board placed at the top of the 🌾 Farm
+  side tab (no 7th tab: 375 px is full).
