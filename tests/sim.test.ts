@@ -1,12 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buyLicense, digForSeeds, harvest, plant, selectCrop, till, water, type ActionResult } from '../src/core/actions'
-import type { CropId } from '../src/core/data/crops'
+import { CROP_IDS, type CropId } from '../src/core/data/crops'
+import { marketSteadyFactor } from '../src/core/market'
 import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyCopperTool, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
   ACTION_ENERGY_COST,
   OFFLINE_CAP_TICKS,
+  TILE_CAP,
   barTicks,
   certificateCost,
   cropGrowTicks,
@@ -39,11 +41,26 @@ import { ITEM_IDS } from '../src/core/data/items'
 import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre, setOreKind } from '../src/core/furnace'
 import { catchUp } from '../src/save/serialize'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
-import { createFurnace, createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, createTile, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../src/core/workers'
+
+// Batch 12: the crop market is on in every run; `withoutMarket` switches it off (factor 1) only for the "before" runs.
+const market = vi.hoisted(() => ({ on: true }))
+vi.mock('../src/core/balance', async (importOriginal) => {
+  const real = await importOriginal<typeof import('../src/core/balance')>()
+  return { ...real, marketFactor: (crop: CropId, glut: number) => (market.on ? real.marketFactor(crop, glut) : 1) }
+})
+function withoutMarket<T>(run: () => T): T {
+  market.on = false
+  try {
+    return run()
+  } finally {
+    market.on = true
+  }
+}
 
 const TICKS = 600
 /** the batch-8 worker jobs the ladder bot staffs */
@@ -787,11 +804,14 @@ function runCropBot(
   ticks = SESSION,
   toolTier = createInitialState().run.toolTier,
   assigned: { water: number; harvest: number; plant?: number } = { water: 0, harvest: 0 },
+  /** batch 12: farm size; bought tiles start untilled like the batch-1 rule */
+  tileCount = createInitialState().run.tiles.length,
 ) {
   const init = createInitialState()
   const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0 }
   const workers = { pool: jobs.plant + jobs.water + jobs.harvest, assigned: jobs, certificates: [...WORKER_JOBS] }
-  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, toolTier, workers } }
+  const tiles = [...init.run.tiles, ...Array.from({ length: tileCount - init.run.tiles.length }, createTile)]
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, toolTier, workers, tiles } }
   const farm = { cash: 0, energy: 0 }
   let lowest = s.run.cash
   for (let t = 0; t < ticks; t++) {
@@ -1771,5 +1791,151 @@ describe('batch 11: mining stays below the farm cap with the iron tier', () => {
 
   it('a miner nets less cash per hour than the three pumpkin farm workers', () => {
     expect(miner.cash).toBeLessThan(farmWorkers)
+  })
+})
+
+/** batch 12 farm runs: 2 h, so the glut (30 min half-life) is near its steady state for most of the run */
+const MARKET_TICKS = 2 * HOUR_TICKS
+const FARM_PAIRS: [CropId, CropId][] = CROP_IDS.flatMap((a, i) => CROP_IDS.slice(i + 1).map((b): [CropId, CropId] => [a, b]))
+
+/**
+ * 24 tiles, the first `first` planted with pair[0] and the rest with pair[1], farmed by hand with bestFarmAction's
+ * priority (harvest → water a dry growing tile → plant the tile's own crop → till), cash 💰10 000 so seeds never block
+ * it. Net cash per hour, standing crops at sell price × growth (runCropBot's accounting).
+ */
+function splitFarm(pair: [CropId, CropId], first: number, ticks = MARKET_TICKS): number {
+  const init = createInitialState()
+  const tiles = [...init.run.tiles, ...Array.from({ length: TILE_CAP - init.run.tiles.length }, createTile)]
+  const cash = 10_000
+  let s: GameState = { ...init, run: { ...init.run, cash, licenses: [...new Set<CropId>(['radish', ...pair])], tiles } }
+  const cropAt = (i: number) => (i < first ? pair[0] : pair[1])
+  const growing = (i: number) => {
+    const { cropId, growth } = s.run.tiles[i]
+    return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta, 0)
+  }
+  const tries: ((i: number) => ActionResult | null)[] = [
+    (i) => harvest(s, i),
+    (i) => (s.run.tiles[i].moisture === 0 && growing(i) ? water(s, i) : null),
+    (i) => plant(s, i, cropAt(i)),
+    (i) => till(s, i),
+  ]
+  const next = () => {
+    for (const act of tries)
+      for (let i = 0; i < s.run.tiles.length; i++) {
+        const r = act(i)
+        if (r?.ok) return r.state
+      }
+    return null
+  }
+  for (let t = 0; t < ticks; t++) {
+    while (s.run.energy >= ACTION_ENERGY_COST) {
+      const n = next()
+      if (!n) break
+      s = n
+    }
+    s = step(s, 1)
+  }
+  const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
+  return Math.round((s.run.cash - cash + field) / (ticks / HOUR_TICKS))
+}
+
+describe('batch 12: crop market — steady state, income before/after, hierarchy, no stall', () => {
+  const meta = createInitialState().meta
+  const steady = Object.fromEntries(
+    CROP_IDS.map((c) => [c, { t24: marketSteadyFactor(c, 24, meta, 0), t120: marketSteadyFactor(c, 120, meta, 0) }]),
+  )
+  const lemon24Fert5 = marketSteadyFactor('lemon', 24, meta, 5)
+
+  const hour = (perMin: number) => Math.round(perMin * 60)
+  const ALL_THREE = { plant: 1, water: 1, harvest: 1 }
+  const lemonManual = (on: boolean) => {
+    const run = () => runCropBot('lemon', MARKET_TICKS, undefined, undefined, TILE_CAP)
+    return hour((on ? run() : withoutMarket(run)).perMin)
+  }
+  const lemonWorkers = (on: boolean) => {
+    const run = () => runCropBot('lemon', MARKET_TICKS, undefined, ALL_THREE, TILE_CAP)
+    return hour((on ? run() : withoutMarket(run)).perMin)
+  }
+  const income = {
+    lemon24Manual: { before: lemonManual(false), after: lemonManual(true) },
+    lemon24Workers: { before: lemonWorkers(false), after: lemonWorkers(true) },
+  }
+  // the best 2-crop split (steps of 4 tiles) with the market on, then the same split and the best one-crop farm off
+  const splits = FARM_PAIRS.flatMap((pair) => [4, 8, 12, 16, 20].map((first) => ({ pair, first, perHour: splitFarm(pair, first) })))
+  const best = splits.reduce((a, b) => (b.perHour > a.perHour ? b : a))
+  const single = CROP_IDS.map((c) => ({ crop: c, perHour: splitFarm([c, c], TILE_CAP) })).reduce((a, b) => (b.perHour > a.perHour ? b : a))
+  const bestSplit = {
+    ...best,
+    before: withoutMarket(() => splitFarm(best.pair, best.first)),
+    bestOneCrop: { ...single, before: withoutMarket(() => splitFarm([single.crop, single.crop], TILE_CAP)) },
+  }
+
+  // ladder bots re-run with the market off: the batch-11 iron ladder (2 h), final cash and steps
+  const ladderOff = withoutMarket(() =>
+    runBot(true, { ticks: IRON_TICKS, licenses: LICENSE_ORDER, crops: PLANT_ORDER, ladder: true, copperTools: true, workers: true, furnace: true, planter: true, iron: true }),
+  )
+  const ladder = {
+    finalCash: { before: ladderOff.finalCash, after: ironLadder.summary.finalCash },
+    mineCertificate: { before: ladderOff.ladderTicks.mineCertificate, after: ironLadder.summary.ladderTicks.mineCertificate },
+  }
+
+  // hierarchy at the size the market bites: 24 pumpkin tiles by hand, market on, vs the batch-11 mining benches
+  const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+  const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
+
+  // no stall: the milestones the core recorded on the iron ladder run, from tick 0 to the last one
+  const reached = Object.entries(ironLadder.end.run.milestones).sort((a, b) => a[1]! - b[1]!)
+  const gaps = reached.map(([id, tick], i) => ({ id, gap: tick! - (i ? reached[i - 1][1]! : 0) }))
+  const longest = gaps.reduce((a, b) => (b.gap > a.gap ? b : a))
+
+  console.log('batch 12 market', JSON.stringify({ steady, lemon24Fert5, income, bestSplit, ladder, pumpkin24, ironLv10, reached, longest }, null, 1))
+
+  it('steady-state factor of one crop: 24 tiles 0.88–0.92, 120 tiles 0.50 (every crop, base grow time)', () => {
+    for (const { t24, t120 } of Object.values(steady)) {
+      expect(t24).toBeGreaterThanOrEqual(0.88)
+      expect(t24).toBeLessThanOrEqual(0.92)
+      expect(t120).toBeCloseTo(0.5, 2)
+    }
+    expect(lemon24Fert5).toBeCloseTo(0.8, 2)
+  })
+
+  it('the market costs income on a 24-tile one-crop farm, manual and with workers (pinned)', () => {
+    expect(income.lemon24Manual.after).toBeLessThan(income.lemon24Manual.before)
+    expect(income.lemon24Workers.after).toBeLessThan(income.lemon24Workers.before)
+    expect(income).toEqual({
+      lemon24Manual: { before: 13321, after: 12678 },
+      lemon24Workers: { before: 9507, after: 9093 },
+    })
+  })
+
+  it('the best 2-crop split on 24 tiles (pinned) still earns less than 24 lemon tiles: at depth 120 the glut does not outweigh lemon\'s lead', () => {
+    expect(bestSplit).toEqual({
+      pair: ['pumpkin', 'lemon'],
+      first: 4,
+      perHour: 11980,
+      before: 12355,
+      bestOneCrop: { crop: 'lemon', perHour: 12678, before: 13321 },
+    })
+  })
+
+  it('the batch-11 ladder re-run with the market off ends with more cash; off, it replays the batch-11 pins (6141)', () => {
+    expect(ladder).toEqual({ finalCash: { before: 12550, after: 11508 }, mineCertificate: { before: 6141, after: 6117 } })
+  })
+
+  it('mining stays below farming with the market on: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin by hand', () => {
+    expect(ironLv10).toBeLessThan(0.9 * pumpkin24)
+  })
+
+  it('no stall: the ladder never waits more than 60 game-minutes between two consecutive milestones', () => {
+    expect(longest.gap).toBeLessThanOrEqual(HOUR_TICKS)
+    expect([reached.length, reached.at(-1), longest]).toEqual([30, ['certMine', 6117], { id: 'ironPickaxe', gap: 840 }])
+  })
+
+  it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
+    const start = ironLadder.end
+    expect(Object.values(start.run.market).some((g) => g > 0)).toBe(true)
+    let one = start
+    for (let i = 0; i < 600; i++) one = step(one, 1)
+    expect(step(start, 600)).toEqual(one)
   })
 })

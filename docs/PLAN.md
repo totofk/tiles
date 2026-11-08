@@ -659,6 +659,30 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   draft is not cleared by a reset (it is not part of the save).
 - **Batch 11.1 (task 71): the unarmed Reset is a 14 px red link** (12 px before; it now sits alone in its own card); armed it
   becomes a full-width red button.
+- **Batch 12 (task 73): the ▼ sits inside the brackets, `🍋 💰99 (90 % ▼)`**, and locked (unlicensed) Shop crop rows get
+  no price tag or depth bar (they showed no sell price before; their ⓘ tip carries the market sentence). Reason: the
+  shortest tag that still wraps cleanly in the 77 px text box of a Shop button at 1024 px.
+- **Batch 12 (task 73): only the Harvest tool press toast changed** (`+💰N` added); a tile tap already toasted the real
+  cash received (cash after − before), so it is unchanged.
+- **Batch 12 (task 74): the 💬 Feedback context appends `timelineLines`, the timeline part of `reportLines`**, not the
+  whole report: the context already carries build, save version and the game summary, so the full report would
+  repeat them. Both read the same core function.
+- **Batch 12 (task 74): `reportLines(state, header, hideIron)` takes the build/save header lines as a parameter**: core
+  knows neither `__BUILD__` nor `SAVE_VERSION` (save depends on core, not the reverse). `hideIron` drops the mine
+  worker like `feedbackSummary`.
+- **Batch 12 (task 74): "… N earlier milestones before tracking" shows only on saves with `trackingStarted`** (migrated
+  from v11 or older). A new run starts with the carrot license, which `earlierMilestones` would otherwise count.
+- **Batch 12 (task 74): `importSave` returns `STORAGE` as well as `BAD_SAVE`** (a full or blocked storage; errors are
+  values, never throws). The live run is saved first, so the import backup is never up to 1 s stale.
+- **Batch 12 (task 75): the "before" (market off) runs use a test-only switch**: `tests/sim.test.ts` mocks
+  `marketFactor` to 1 inside `withoutMarket(…)`; every other run (and every older pin) has the market on. No flag
+  was added to `balance.ts`.
+- **Batch 12 (task 75): the 2-crop split search is manual only, 6 crop pairs × first-crop tiles 4/8/12/16/20 on 24
+  tiles** (`splitFarm`); a plant worker plants one crop, so a split cannot be staffed. The best split earns less than
+  24 lemon tiles, so DECISIONS' "spreading crops keeps prices up" holds for the price, not (yet) for income at depth
+  120. Not tuned: the plan allows `MARKET_DEPTH_TILES` only to rise (which weakens the market further) and only for
+  the hierarchy pin, which passes at 120.
+- **Batch 12 (task 75): no `balance.ts` number changed** (`MARKET_DEPTH_TILES` 120, half-life 1800, floor 0.5).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2028,7 +2052,7 @@ Task numbers assume 11.1 = 70–71 and the iron gate (11.2) took no number; renu
       `deedsFor(lifetimeCash) = floor(sqrt(lifetimeCash / DEED_DIVISOR))`, `DEED_DIVISOR = 10000` in balance.ts.
       Prestige itself is NOT in this batch; the row is a meter only.
     - Compact at 375 px; no 7th tab.
-- [ ] 75. **Sim + balance (`tests/sim.test.ts` "batch 12").**
+- [x] 75. **Sim + balance (`tests/sim.test.ts` "batch 12").**
     - Market pins: pure-function check of the steady-state factor for t tiles of one crop: 24 → 0.88–0.92,
       120 → 0.50; the 24-tile lemon farm with fertilizer Lv5 reported (expect ~0.80).
     - Income: the existing ladder bots re-run with the market on; report cash/hour before vs after for the 24-tile
@@ -2095,3 +2119,35 @@ See commit a4a8799 (market, milestones, `meta.upgrades`, save v12) and bc63cb9 (
   indent); the Save card reuses the Feedback card's column (gap 8, textareas `width: 100%`, 16 px text, `resize:
   vertical`), its buttons stretch to the content width. Nothing is positioned, so nothing overlaps; at 375 the
   `.app` bottom padding still keeps the last card (Danger zone) above the fixed tab bar. No new tab.
+
+### Sim (task 75, `tests/sim.test.ts` "batch 12", measured)
+
+No `balance.ts` number changed: `MARKET_DEPTH_TILES` stays **120**. "Before" = the same run with the market off
+(test-only switch, see Deviations).
+- **Steady state (pure, `marketSteadyFactor`, base grow time):** one crop on 24 tiles **0.900**, on 120 tiles **0.500**,
+  every crop (the depth scales with grow time, so the factor depends on tile count only). 24 lemon tiles with
+  fertilizer Lv5 (grow × 0.5): **0.800**.
+- **Income, 24 tiles, 2 h, net cash per hour (runCropBot accounting):**
+
+  | Farm | before | after | change |
+  |---|---|---|---|
+  | 24 lemon, by hand | 13 321 | 12 678 | −4.8 % |
+  | 24 lemon, plant + water + harvest worker (1 each) | 9 507 | 9 093 | −4.4 % |
+  | best 2-crop split: 4 pumpkin + 20 lemon, by hand | 12 355 | 11 980 | −3.0 % |
+  | best one-crop farm (lemon), same bot | 13 321 | 12 678 | −4.8 % |
+
+  The real loss is half the steady-state 10 %: a tile sells once per *real* cycle (grow + waits for water and the
+  player), longer than the base grow time the depth assumes. The split search (6 pairs × 4/8/…/20 tiles) finds no
+  split above lemon alone: lemon's lead per tile is bigger than the glut it adds.
+- **Ladder (batch-11 iron ladder, 7200 ticks):** final cash **💰12 550 → 💰11 508** (−8.3 %, ≈ 💰6 275 → 💰5 754 per
+  hour); mine certificate 6141 → 6117. Off, the run replays the batch-11 pins exactly (6141), so the market is the only
+  change. Every older pin (batch 3–11, re-pinned once in task 72) passes unchanged, including every "price ≤ storage
+  the player holds" check.
+- **Hierarchy with the market on:** iron pickaxe Lv10 on vein Lv3 **2.09** cash/energy < 0.9 × 24-tile pumpkin by hand
+  (**7.87** → cap 7.08). The batch-6/7/11 benches (9 tiles, market on) still pass. Depth 120 kept.
+- **No stall:** the iron ladder bot records 30 milestones (core `recordMilestones`) from firstHarvest (tick 100) to the
+  mine certificate (6117); the longest wait is **840 ticks (14 min), vein Lv3 → iron pickaxe**, well under 60 min.
+- **step(s, n) = n × step(s, 1)** from the ladder end (glut > 0, workers on, milestones recording) over 600 ticks.
+- **Reading:** the market takes ~5 % off a full one-crop farm and ~8 % off the ladder's 2 h cash: at depth 120 the
+  glut bites only when many tiles of one crop sell close to the base grow time. If batch 13 wants splitting to pay, the lever is depth (lower `MARKET_DEPTH_TILES`) — the
+  hierarchy pin has a ×3.4 margin to spend.
