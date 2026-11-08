@@ -301,7 +301,7 @@ describe('fields milestones and marginal income', () => {
     const s = withFields(10, {
       licenses: [...init.run.licenses, 'lemon', 'pumpkin'],
       lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
-      market: { radish: 0, chilli: 0, pumpkin: 0, lemon: 31.5 },
+      market: { ...init.run.market, pumpkin: 0, lemon: 31.5 },
     })
     const income = fieldsMarginalIncomePerHour(s)
     expect(income).toBeGreaterThan(0)
@@ -501,7 +501,7 @@ describe('machinesAct: the harvester', () => {
 })
 
 describe('machinesAct: the seeder', () => {
-  const market = { radish: 0, chilli: 0, pumpkin: 99, lemon: 0 }
+  const market = { ...init.run.market, pumpkin: 99 }
   const seedRun = (extra: Partial<GameState['run']> = {}, f: Partial<GameState['run']['fields']> = {}): GameState =>
     withFields(60, {
       cash: 1000,
@@ -517,7 +517,7 @@ describe('machinesAct: the seeder', () => {
     expect(seederCrop(chase)).toBe('pumpkin') // order 40 short of 0 planted → under-planted beats lemon's clean price
     const overPlanted = seedRun({ ...orders([{ good: 'pumpkin', count: 40, done: 35, tier: 0, accepted: true }]) }, {
       cohorts: [{ crop: 'pumpkin', count: 10, readyTick: 99999 }],
-      planted: { radish: 0, chilli: 0, pumpkin: 10, lemon: 0 },
+      planted: { ...init.run.fields.planted, pumpkin: 10 },
     })
     expect(seederCrop(overPlanted)).toBe('lemon') // the order is covered (5 left, 10 planted): fall to the best factor
     expect(seederCrop(seedRun({}, {}))).toBe('lemon') // no orders: the least glutted plantable crop (pumpkin sits at 99)

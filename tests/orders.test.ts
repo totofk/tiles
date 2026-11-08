@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, type ActionResult } from '../src/core/actions'
+import type { CropId } from '../src/core/data/crops'
 import {
   certificateCost,
   cropGrowTicks,
@@ -80,7 +81,7 @@ describe('orderPool: only what the state can make now', () => {
   })
 
   it('batch 22: a licensed new crop joins the pool and its count comes from its grow ticks (no generator change)', () => {
-    const run = { ...init.run, licenses: ['radish', 'strawberry'] }
+    const run = { ...init.run, licenses: ['radish', 'strawberry'] as CropId[] }
     expect(orderPool(run)).toEqual(['radish', 'strawberry'])
     expect(orderCount({ ...init, run }, 'strawberry', 0)).toBe(Math.round(orderTierMinutes(0) * (9 / cropGrowTicks('strawberry', meta, 0)) * 60))
   })
@@ -246,7 +247,7 @@ describe('crop orders fill from harvests', () => {
         cash: 500,
         tiles: mixed,
         licenses: ['radish', 'lemon'],
-        market: { radish: 40, chilli: 0, pumpkin: 0, lemon: 5 },
+        market: { ...s.run.market, radish: 40, lemon: 5 },
         workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'water', 'harvest'] },
         orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }] },
       },
@@ -342,7 +343,7 @@ describe('order clerk (worker job)', () => {
       tick: 15,
       tiles,
       inventory: { stone: 5 },
-      market: { radish: 30, chilli: 0, pumpkin: 0, lemon: 0 },
+      market: { ...init.run.market, radish: 30 },
       workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1 }, certificates: ['harvest', 'clerk'] },
     })
     let single = start

@@ -34,31 +34,33 @@ describe('Shop seeds', () => {
       '🔒 Chillilicense 💰50',
       `🎃 Pumpkinseed 💰10${priceTag(get(), 'pumpkin')}`,
       '🔒 Lemonlicense 💰400',
-      '🔒 Tomatolicense 💰800',
-      '🔒 Cornlicense 💰1600',
-      '🔒 Grapelicense 💰3200',
-      '🔒 Strawberrylicense 💰6400',
+      '🔒 Tomatolicense 💰7000',
+      '🔒 Cornlicense 💰10000',
+      '🔒 Grapelicense 💰15000',
+      '🔒 Strawberrylicense 💰22000',
     ])
     expect(btn(/Chilli/).disabled).toBe(false)
     expect(btn(/Lemon/).disabled).toBe(true)
   })
 
   it('an owned crop row shows its market price and a depth bar filled to the factor', () => {
-    setup({ licenses: ['radish'], market: { radish: 2 * 0.4 * marketDepthGlut('radish'), chilli: 0, pumpkin: 0, lemon: 0 } })
+    const s = createInitialState()
+    setup({ licenses: ['radish'], market: { ...s.run.market, radish: 2 * 0.4 * marketDepthGlut('radish') } })
     expect(btn(/Carrot/).textContent).toMatch(/\(60 %\)$/)
     const bar = btn(/Carrot/).querySelector('.depth > span') as HTMLElement
     expect([bar.className, bar.style.width]).toEqual(['depth-red', '60%'])
   })
 
   it('the price tag trends ▲▼ against the last shown factor and badges the floor (batch 21)', () => {
+    const s = createInitialState()
     const glut = 2 * 0.4 * marketDepthGlut('radish')
-    setup({ licenses: ['radish'], market: { radish: glut, chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.7 } })
+    setup({ licenses: ['radish'], market: { ...s.run.market, radish: glut } }, { priceShown: { radish: 0.7 } })
     expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▼\)$/)
     cleanup()
-    setup({ licenses: ['radish'], market: { radish: glut, chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.5 } })
+    setup({ licenses: ['radish'], market: { ...s.run.market, radish: glut } }, { priceShown: { radish: 0.5 } })
     expect(btn(/Carrot/).textContent).toMatch(/\(60 % ▲\)$/)
     cleanup()
-    setup({ licenses: ['radish'], market: { radish: marketDepthGlut('radish'), chilli: 0, pumpkin: 0, lemon: 0 } }, { priceShown: { radish: 0.6 } })
+    setup({ licenses: ['radish'], market: { ...s.run.market, radish: marketDepthGlut('radish') } }, { priceShown: { radish: 0.6 } })
     expect(btn(/Carrot/).textContent).toMatch(/\(50 % ▼ floor\)$/)
   })
 
@@ -73,7 +75,7 @@ describe('Shop seeds', () => {
   it('batch 22: the four new crops come from the same table — seed tag with trend, license buy adds a pouch row', () => {
     const s = createInitialState()
     const t = setup(
-      { cash: 1_600, licenses: ['radish', 'tomato'], market: { ...s.run.market, tomato: 2 * 0.4 * marketDepthGlut('tomato') } },
+      { cash: 12_000, licenses: ['radish', 'tomato'], market: { ...s.run.market, tomato: 2 * 0.4 * marketDepthGlut('tomato') } },
       { priceShown: { tomato: 0.7 } },
     )
     expect(btn(/Tomato/).textContent).toBe(`🍅 Tomatoseed 💰40${priceTag(t.get(), 'tomato', 0.7)}`)

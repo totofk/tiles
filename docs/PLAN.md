@@ -3253,17 +3253,54 @@ caps at Lv5 which is tight in the machine era.
 Why (Toon, 2026-11-09): 4 crops is too few, and with depth 240/crop more crops = more diversification headroom
 (8 × 240 = 1,920 tiles). Set approved: 🍅 tomato, 🌽 corn, 🍇 grape, 🍓 strawberry (all Unicode 6, no tofu).
 
-- [ ] 112. **Core + save v19.** `CROP_IDS` += tomato/corn/grape/strawberry; `CROP_BASE` grows the ladder with the
+- [x] 112. **Core + save v19.** `CROP_IDS` += tomato/corn/grape/strawberry; `CROP_BASE` grows the ladder with the
   curve's existing compression (sell ×~1.8/step, seed ×~1.9/step, floor margin ≥ 2.2×, income/tick rising):
   tomato {grow 480, seed 40, sell 200}, corn {620, 75, 360}, grape {780, 140, 640}, strawberry {960, 260, 1150}.
   License CASH is sim-set inside the band 0.5–1.5 h of income at the unlock stage (candidates 800 / 1,600 /
   3,200 / 6,400). SAVE_VERSION → 19; `migrateV19` adds the four market keys (0) and licenses (false);
   `tests/fixtures/save-v18.json` (a real save captured from live) migrates in a test.
-- [ ] 113. **Shop/UI.** Seed + license rows render from the crop table (verify, no special cases); emoji come from
+- [x] 113. **Shop/UI.** Seed + license rows render from the crop table (verify, no special cases); emoji come from
   the shared ITEMS constants; seed-pouch/auto-buy/market tags/trend arrows work for the new crops unchanged.
-- [ ] 114. **Orders + milestones.** Verify the orders generator and counters pick up new crops state-driven (no
+- [x] 114. **Orders + milestones.** Verify the orders generator and counters pick up new crops state-driven (no
   generator change); add one first-harvest milestone per new crop only if the existing table is data-driven.
-- [ ] 115. **Sim.** Ladder bot buys the four licenses in order — no stall from tick 0 to strawberry, license
+- [x] 115. **Sim.** Ladder bot buys the four licenses in order — no stall from tick 0 to strawberry, license
   band report, mixed-8-crop income at 400/1,000 tiles vs mono-lemon (diversification pays), prestige pins replay
   ≥ 1.4×, offline + step identity. Report under `## Batch 22 results` + Deviations; nothing tuned that is not
   listed here.
+
+## Batch 22 results
+
+Sim rules: the batch-19 bot (all flags) with the four licenses on top of the old ladder, 170 h run, market on,
+rules.batch13 on. Pins in `tests/sim.test.ts` `batch 22: four new crops`.
+
+- **License band (task 115).** Final prices 💰7,000 / 10,000 / 15,000 / 22,000 (the 800/1,600/3,200/6,400 candidates
+  were 0.10–0.28 h — far under the band; the ×~1.5 ladder from 7,000 lands every purchase in 0.51–0.62 h). Purchases
+  at 1.8 / 2.6 / 6.8 / 7.7 h, all before the Fields unlock (9.0 h); incomes at unlock 12,571 / 16,094 / 29,267 /
+  35,788 per hour. No stall tick 0 → strawberry, order preserved, no loan.
+- **Ladder shape.** fields unlock 9.0 h, harvester Mk3 22.4 h, final cash after 170 h 💰131.5 M.
+- **Diversification (task 115).** The hand-forced split comparison is not measurable in the machine era: the seeder
+  ignores `plantCrop` and plants the least-glutted fields-plantable crop itself, so a forged mono-lemon field becomes
+  mono-strawberry within the hour. The honest experiment is the license set: with all 8 crops licensed the seeder's
+  glut-driven mix earns **1,117,668/h at 400 tiles and 1,133,968/h at 1,000** vs the 4-crop world's **213,713/h and
+  221,364/h — a 5.2× / 5.1× gain** (both arms: full fleet, pipes 3, same base, only the license pool differs; the
+  4-crop world's prices glut to 0.78–0.83 while the 8-crop mix keeps 6 of 8 crops ≥ 0.75).
+- **Prestige replay (task 115).** Fields unlock 9.0 h (run 1) vs 6.3 h (run 3, after two sales with the vault) =
+  **1.4×** — the ≥ 1.4× pin holds; with the first candidate prices the run-1 unlock collapsed to 6.7 h and the same
+  chain measured 1.07×, which is why the license band is the real pin here.
+- **Offline.** 8 h catch-up with 1,920 tiles (240 of each crop), full fleet, pipes 3: **549 ms** (< 2,000), and
+  `step(state, 600)` ≡ 600 × `step(state, 1)`.
+
+### Deviations
+
+- **The mixed-vs-mono comparison was reinterpreted (not the literal mono-lemon arm).** The seeder machine is
+  state-driven (`seederCrop`: least-glutted plantable crop, or the biggest order shortfall) and overwrites any
+  hand-forged split within an hour, so "mixed-8 vs mono-lemon with the full fleet" has no steady state — both arms
+  converge to the same self-chosen mix. The 4-crop vs 8-crop license-pool comparison above is what the plan's
+  "diversification headroom" claim actually cashes out to, and it passes with a wide margin.
+- **The 4-crop arm needed a harvests normalization.** The ladder bot's home plot grows strawberry almost exclusively
+  (its plant priority), so the old crops sit at 15–30 home harvests, under the 50-harvest fields gate — the forged
+  4-crop world had nothing plantable and earned 0. The forge normalises `lifetime.harvests` to the gate for the
+  licensed crops in both arms; a real player of either world is past that gate.
+- **License candidates 800/1,600/3,200/6,400 rejected.** Measured at 0.10–0.28 h of income at unlock; the shipped
+  prices (7,000/10,000/15,000/22,000) are the ones inside the band. The band's lower edge is close (grape 0.51 h,
+  tomato 0.56 h) — a future speed-up of the early game can push them under 0.5 h and need a re-pin.

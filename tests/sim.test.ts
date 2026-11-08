@@ -44,6 +44,8 @@ import {
   pipeCoalPer10Tiles,
   pipeCost,
   pipeCover,
+  marketFactor,
+  fieldsCropHarvests,
   sprinklerCoalTicks,
   sprinklerCost,
   sprinklerTiles,
@@ -3814,5 +3816,186 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     let one = after
     for (let i = 0; i < 600; i++) one = step(one, 1)
     expect(step(after, 600)).toEqual(one)
+  })
+})
+
+describe('batch 22: four new crops — license ladder, price band, 8-crop mixes, prestige replay, offline (rules.batch13 on)', () => {
+  const hours = (t: number) => Math.round((t / HOUR_TICKS) * 10) / 10
+  const NEW_CROPS = ['tomato', 'corn', 'grape', 'strawberry'] as const
+  // the batch-19 bot with the four licenses on top of the old ladder; the home plot follows the best licensed crop
+  const BOT22 = {
+    licenses: [...LICENSE_ORDER, ...NEW_CROPS],
+    crops: [...[...NEW_CROPS].reverse(), ...PLANT_ORDER],
+    ladder: true,
+    copperTools: true,
+    workers: true,
+    furnace: true,
+    planter: true,
+    iron: true,
+    ironTools: true,
+    gold: true,
+    sprinklers: true,
+    fields: true,
+    machines: true,
+    buyTools: true,
+    drainSlot: true,
+  }
+  // run 1: the full machines ladder; the hour of income before each license purchase prices it (window-normalised)
+  const r1 = withBatch13(() => {
+    let end = createInitialState()
+    const cashAtTick: number[] = [] // index t-1 → lifetime cash at tick t
+    let stallTicks = 0
+    const ladder = runBot(true, {
+      ...BOT22,
+      ticks: 170 * HOUR_TICKS,
+      onEnd: (s) => (end = s),
+      onTick: (s) => {
+        cashAtTick[s.run.tick - 1] = s.run.lifetime.cashEarned
+        if (s.run.fields.unlocked && !s.run.fields.machines.harvester.includes(3)) {
+          const st = fieldsStats(s.run)
+          if (st.growing + st.ready > 0 && st.covered + st.ready === 0) stallTicks++
+        }
+      },
+    })
+    const incomeAtTick = (t: number) => {
+      const iTo = t - 1
+      const from = cashAtTick[Math.max(0, iTo - HOUR_TICKS)]!
+      const to = cashAtTick[iTo] ?? cashAtTick[cashAtTick.length - 1]!
+      return ((to - from) * HOUR_TICKS) / Math.max(1, iTo - Math.max(0, iTo - HOUR_TICKS))
+    }
+    return { ladder, end, stallTicks, incomeAtTick }
+  })
+  const band = NEW_CROPS.map((c) => {
+    const t = r1.ladder.licenseBought[c] ?? 0
+    const income = t > 0 ? r1.incomeAtTick(t) : NaN
+    const price = licenseCost(c, r1.end.meta)
+    return { crop: c, tick: t, income: Math.round(income), price, h: Math.round((price / income) * 100) / 100 }
+  })
+
+  it('the ladder bot buys the four licenses in order — no stall from tick 0 to strawberry — and each price is 0.5–1.5 h of the income at its unlock', () => {
+    console.log('PIN22', JSON.stringify({ band, fieldsH: hours(r1.ladder.ladderTicks.fields!), harvester3H: hours(r1.ladder.ladderTicks.harvester3!), finalCash: Math.round(r1.ladder.finalCash) }))
+    const ticks = NEW_CROPS.map((c) => r1.ladder.licenseBought[c])
+    expect(ticks.every((t) => t !== undefined)).toBe(true)
+    expect([...ticks].sort((a, b) => a! - b!)).toEqual(ticks)
+    expect(r1.end.run.licenses).toEqual(['radish', ...LICENSE_ORDER, ...NEW_CROPS])
+    expect(r1.ladder.ladderTicks.harvester3).toBeDefined()
+    expect(r1.stallTicks).toBe(0)
+    expect(r1.ladder.lowest).toBeGreaterThanOrEqual(0)
+    expect(r1.ladder.borrowed).toBe(false)
+    for (const b of band) {
+      expect(b.h).toBeGreaterThanOrEqual(0.5)
+      expect(b.h).toBeLessThanOrEqual(1.5)
+    }
+  })
+
+  /** spends deeds breadth-first: one level of every row per pass — the keeps land in the first pass */
+  const buyDeedRows = (state: GameState, rows: readonly DeedRowId[]): GameState => {
+    let s = state
+    for (let again = true; again; ) {
+      again = false
+      for (const id of rows) {
+        const r = buyMetaUpgrade(s, id)
+        if (r.ok) {
+          s = r.state
+          again = true
+        }
+      }
+    }
+    return s
+  }
+  // the batch-20 prestige chain replayed with the new crops in the license and plant orders
+  const sale1 = (() => {
+    const sold = sellFarm(r1.end)
+    return { ok: sold.ok, after: buyDeedRows(sold.ok ? sold.state : r1.end, DEED_ROW_IDS) }
+  })()
+  const sale2 = (() => {
+    let end = createInitialState()
+    withBatch13(() => runBot(true, { ...BOT22, ticks: 60 * HOUR_TICKS, initial: sale1.after, onEnd: (s) => (end = s) }))
+    const sold = sellFarm(end)
+    return { ok: sold.ok, after: buyDeedRows(sold.ok ? sold.state : end, DEED_ROW_IDS) }
+  })()
+  const r3 = withBatch13(() => runBot(true, { ...BOT22, ticks: 170 * HOUR_TICKS, initial: sale2.after }))
+
+  it('prestige pins replay with the new crops: the vault run reaches the fields unlock ≥ 1.4× faster and still climbs the whole ladder', () => {
+    const run1Fields = r1.ladder.ladderTicks.fields!
+    const run3Fields = r3.ladderTicks.fields!
+    console.log('PIN22b', JSON.stringify({ fieldsUnlockH: [hours(run1Fields), hours(run3Fields)], speedup: Math.round((run1Fields / run3Fields) * 10) / 10, rows: Object.fromEntries(DEED_ROW_IDS.map((id) => [id, sale2.after.meta.upgrades[id]])) }))
+    expect(sale1.ok && sale2.ok).toBe(true)
+    expect(run1Fields / run3Fields).toBeGreaterThanOrEqual(1.4)
+    expect(r3.ladderTicks.harvester3).toBeDefined()
+  })
+
+  /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for
+   * those crops (the seeder's own glut-driven choice then works inside that pool — a hand-forced split would be
+   * overwritten by it within the hour, so the license set is the experiment), full fleet, pipes for `n` */
+  const forge = (n: number, crops: readonly CropId[]): GameState => {
+    const base = r1.end
+    const batches = Math.floor(n / plantBatch())
+    const cohorts: Cohort[] = Array.from({ length: batches }, (_, i) => {
+      const crop = crops[i % crops.length]!
+      return { crop, count: plantBatch(), readyTick: base.run.tick + cropGrowTicks(crop, base.meta, base.run.upgrades.fertilizer) }
+    })
+    const planted = Object.fromEntries(CROP_IDS.map((crop) => [crop, cohorts.reduce((a, c) => (c.crop === crop ? a + c.count : a), 0)])) as Fields['planted']
+    const pipes = [1, 2, 3].find((p) => pipeCover(p) >= n) ?? 3
+    // the bot's home plot grew strawberry almost exclusively (its plant priority), so the old crops sit under the
+    // 50-harvest fields gate; a real player of either world has every licensed crop past it — normalise, so the
+    // license set is the only difference between the arms
+    const harvests = { ...base.run.lifetime.harvests, ...Object.fromEntries(crops.map((c) => [c, Math.max(base.run.lifetime.harvests[c] ?? 0, fieldsCropHarvests())])) }
+    return {
+      ...base,
+      run: {
+        ...base.run,
+        cash: Math.max(base.run.cash, 1_000_000),
+        licenses: [...crops],
+        lifetime: { ...base.run.lifetime, harvests },
+        inventory: { ...base.run.inventory, coal: 500 },
+        fields: {
+          ...base.run.fields,
+          count: n,
+          pipes,
+          cohorts,
+          planted,
+          plantCrop: 'lemon',
+          machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0 } },
+        },
+      },
+    }
+  }
+  /** steady-state net cash/h at `n` tiles with the fleet — 1 h of warm-up (the seeder re-chooses as glut builds),
+   * then 2 h measured */
+  const incomeAt = (n: number, crops: readonly CropId[]) => {
+    const warmed = step(forge(n, crops), HOUR_TICKS)
+    const a = step(warmed, 2 * HOUR_TICKS)
+    return (a.run.lifetime.cashEarned - warmed.run.lifetime.cashEarned) / 2
+  }
+  const OLD_CROPS = ['radish', 'chilli', 'pumpkin', 'lemon'] as const
+  const four = { 400: incomeAt(400, OLD_CROPS), 1000: incomeAt(1000, OLD_CROPS) }
+  const eight = { 400: incomeAt(400, CROP_IDS), 1000: incomeAt(1000, CROP_IDS) }
+  const factorsAt = (n: number, crops: readonly CropId[]) => {
+    const s = step(forge(n, crops), 3 * HOUR_TICKS)
+    return Object.fromEntries(crops.map((c) => [c, Math.round(marketFactor(c, s.run.market[c]) * 100) / 100]))
+  }
+
+  it('diversification pays: licensed for 8 crops the seeder\'s glut-driven mix out-earns the 4-crop world at 400 and 1,000 tiles (depth 240 per crop)', () => {
+    console.log('PIN22c', JSON.stringify({
+      four: { 400: Math.round(four[400]), 1000: Math.round(four[1000]) },
+      eight: { 400: Math.round(eight[400]), 1000: Math.round(eight[1000]) },
+      gain: { 400: Math.round(((eight[400] / four[400]) - 1) * 1000) / 10, 1000: Math.round(((eight[1000] / four[1000]) - 1) * 1000) / 10 },
+      factors: { four1000: factorsAt(1000, OLD_CROPS), eight1000: factorsAt(1000, CROP_IDS) },
+    }))
+    expect(eight[400]).toBeGreaterThan(four[400])
+    expect(eight[1000]).toBeGreaterThan(four[1000])
+  })
+
+  it('8 h offline with 1,920 tiles across all 8 crops (240 of each), the full fleet and pipes: < 2,000 ms, step identity', () => {
+    const big = forge(1_920, CROP_IDS)
+    const t0 = Date.now()
+    catchUp(big, 8 * HOUR_TICKS * 1000)
+    const ms = Date.now() - t0
+    console.log('PIN22d', JSON.stringify({ ms }))
+    expect(ms).toBeLessThan(2000)
+    let one = big
+    for (let i = 0; i < 600; i++) one = step(one, 1)
+    expect(step(big, 600)).toEqual(one)
   })
 })

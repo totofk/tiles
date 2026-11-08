@@ -14,7 +14,7 @@ describe('availableKeys', () => {
 
   it('affordable licenses, tiles and upgrade levels carry their level, so the next level is news again', () => {
     const s = createInitialState()
-    const rich = withRun({ cash: 1e4, mineLicense: true, inventory: { stone: 30 }, upgrades: { ...s.run.upgrades, energyMax: 3 } })
+    const rich = withRun({ cash: 3e4, mineLicense: true, inventory: { stone: 30 }, upgrades: { ...s.run.upgrades, energyMax: 3 } })
     const keys = availableKeys(rich)
     expect(keys.shop).toEqual(['license:chilli', 'license:pumpkin', 'license:lemon', 'license:tomato', 'license:corn', 'license:grape', 'license:strawberry', 'tile:9'])
     expect(keys.upgrades).toEqual(['energyMax', 'energyMax@3', 'energyRegen', 'energyRegen@0', 'mine', 'storage@0', 'vein@0'])

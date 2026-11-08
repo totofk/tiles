@@ -62,7 +62,7 @@ describe('balance', () => {
   it('crops in CROP_IDS order cost more to license (carrot < chilli < pumpkin < lemon)', () => {
     expect(CROP_IDS).toEqual(['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'])
     const costs = CROP_IDS.map((id) => licenseCost(id, meta))
-    expect(costs).toEqual([0, 50, 100, 400, 800, 1_600, 3_200, 6_400])
+    expect(costs).toEqual([0, 50, 100, 400, 7_000, 10_000, 15_000, 22_000])
     expect(CROP_IDS.map((id) => [cropSeedCost(id, meta), cropSellPrice(id, meta, 0), cropGrowTicks(id, meta, 0)])).toEqual([
       [2, 10, 100],
       [5, 25, 160],
