@@ -3033,3 +3033,28 @@ already carries `fields.machines`.
   left to repair the wedge is permanent (the first run stalled 106 h on exactly that). Combined keeps also take
   `max` on coal, not the sum: the furnace smelts one kind at a time, and the summed 48 + 16 coal budgets
   topped bag capacity 60 and wedged the miner on a full coal bag.
+
+## Batch 20 — Prestige: "Sell the farm" (tasks 100–102)
+
+Why: after Fields the run plateaus again; prestige converts the pile into progress. Design: docs/research/prestige.md.
+The state split (run/meta) and `meta.upgrades` as LEVELS already exist since v12 — this batch only fills them.
+
+- [ ] 100. **Core.** Gate: every farm job covered by worker or machine AND `deedsFor(lifetime.cashEarned) ≥ 8`
+    (research: ≥ 8 deeds makes the first hour of run 2 ≈ ×2.2 faster; deeds = ⌊√(lifetime cashEarned ÷ 10,000)⌋,
+    unchanged from the v12 meter). Action "Sell the farm" (two-press confirm like reset): run resets to a fresh
+    start (tiles, cash, market, milestones-with-trackingStarted, fields, machines, ⭐ SPENT converts to deeds at
+    25 ⭐ = 1 deed first, floor 0), meta keeps upgrades/cosmetics/order slots? NO — research: ⭐ shop rows and
+    cosmetics sit in meta and survive; ⭐ BALANCE converts. `meta.prestigeCount += 1`. Nothing else carries: licenses,
+    tools, workers, mine, furnace reset (the whole point). Save: same shape, values reset — no migration needed;
+    a run-history array `meta.runs: Array<{ endedAtTick, deeds }>` (cap 20).
+- [ ] 101. **Meta shop (deeds).** Rows in a new "🏆 Legacy" Stats section, priced in deeds, as upgrade LEVELS on the
+    existing multiplier table (all balance.ts numbers, meta stores levels only): growTime −4 %/level (max 5),
+    sellPrice +5 %/level (max 5), cost −4 %/level (max 5), energyMax +2/level (max 5), startTiles +2/level (max 3,
+    start with 9+2L tiles), keepCarrotLicense (one-time, 2 deeds), keepFirstCertificates (one-time, 3 deeds: the
+    three farm certificates stay owned), workerSpeed −0.5 s/action (max 2). Prices 2/4/8/16/32 by level (research
+    curve); one-time items fixed. Nothing multiplies ⭐ or deeds.
+- [ ] 102. **UI + sim.** The confirm screen previews exactly what resets and what carries (two lists, the research's
+    anti-pattern finding) and the deeds to be gained. Sim: bot runs to the gate, prestiges, and run 2 must reach the
+    first fields unlock ≥ 2× faster than run 1 (pin ≥ 1.8× to allow tuning slack); deeds/first-hour arithmetic
+    reported; a full v15 save (post-Fields) sells and every hard rule holds (mining < 0.9 × farming WITH meta
+    upgrades; no-stall on run 2's ladder; step identity unchanged). Deviations as usual.

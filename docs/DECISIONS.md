@@ -385,3 +385,18 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
 - Machines are flat-maintenance (cash/h while working), never a % of holdings; watering stays pipes-only.
 - The batch-18 sim found the pipe cap (300 tiles) is the real income plateau — this batch's machines (and any
   later pipe tier) push past it; the sim re-derives the curve.
+
+## Prestige: "Sell the farm" (batch 20, 2026-11-08, Toon go: items 4–5 not rejected)
+
+- Deeds = ⌊√(lifetime cashEarned ÷ 10,000)⌋ (the v12 meter's formula, unchanged). Gate: every farm job covered by
+  a worker or machine AND ≥ 8 deeds (research: run 2's first hour ≈ ×2.2). Reset is design, not a migration — no
+  save version bump unless the shape changes.
+- Resets: tiles, cash, market, licenses, tools + tiers + mastery, mine/vein/pickaxes, furnace, workers +
+  certificates, storage, orders, ⭐ BALANCE (converted first at 25 ⭐ = 1 deed, floor 0), fields, machines,
+  milestones (with trackingStarted). Carries: meta upgrades (deed shop, as LEVELS), ⭐ shop rows + cosmetics,
+  lifetime stats, run history. Nothing is silently lost — the confirm screen lists both sides (research anti-pattern).
+- Deed shop: 7 rows priced 2/4/8/16/32 by level (growTime −4 %, sellPrice +5 %, cost −4 %, energyMax +2, startTiles
+  +2, workerSpeed −0.5 s, plus one-time keepCarrotLicense 2 / keepFirstCertificates 3). No row multiplies ⭐, deeds
+  or mining.
+- Sim pin: run 2 reaches the first fields unlock ≥ 1.8× faster than run 1 (research says ×2.2 at 8 deeds; slack for
+  tuning).
