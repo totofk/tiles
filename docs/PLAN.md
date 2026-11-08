@@ -2854,7 +2854,7 @@ mastery (research §1: games that deleted the hands-on layer lost it; we keep bo
     pipe coverage stall (growth paused), never die. Pipes are task 94.
     - Milestones: fields unlocked, firstField, fields100, fields500. step(s, n) = n × step(s, 1) over cohorts (test:
     3 cohorts, 2 workers, market on, 600 ticks).
-- [ ] 94. **Field pipes (watering without workers).** 🛒 Workshop recipe tiers 1–3: coverage `PIPE_COVER = [60, 150,
+- [x] 94. **Field pipes (watering without workers).** 🛒 Workshop recipe tiers 1–3: coverage `PIPE_COVER = [60, 150,
     300]` tiles, prices `{ copperBar: 8, cash }`, `{ ironBar: 8, cash }`, `{ goldBar: 8, cash }` (sim sets the cash).
     Pipes share the batch-17 coal pump: total pump draw = sprinklers + `PIPE_COAL_PER_10_TILES(=0.5)/h × covered
     tiles ÷ 10` (sim tunes). Fuel loader refills from the same hopper rule. Uncovered growing tiles stall; the 3-bar
