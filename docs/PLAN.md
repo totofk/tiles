@@ -2151,3 +2151,34 @@ No `balance.ts` number changed: `MARKET_DEPTH_TILES` stays **120**. "Before" = t
 - **Reading:** the market takes ~5 % off a full one-crop farm and ~8 % off the ladder's 2 h cash: at depth 120 the
   glut bites only when many tiles of one crop sell close to the base grow time. If batch 13 wants splitting to pay, the lever is depth (lower `MARKET_DEPTH_TILES`) — the
   hierarchy pin has a ×3.4 margin to spend.
+
+## Batch 13 — early-game pacing, hand-picked bonus, iron opens (tasks 76–78, no save bump)
+
+Why (Toon 2026-11-08 field report + docs/research/pacing-liveops.md A1, A2, A4): workers arrive before the job's tool
+ladder is finished, so manual → tool → worker is broken in the numbers, and once water + harvest are staffed the
+player has nothing to do with their energy. Balance-only changes plus one rule; save shape unchanged (v12).
+
+- [ ] 76. **Certificates need the job's top farm tool; repriced.**
+    - `CERTIFICATES` gains `tool?: number` = the job's TOOL_LEVELS level that must be owned (water/harvest/plant:
+      3, i.e. the last level). `certificateUnlock` returns it; the buy check and every UI reason line read it
+      ("needs 🚿 Water Cart (tool Lv3)"). The old counter gate stays alongside (both must hold).
+    - Prices: water `{ stone: 20, cash: 500 }`, harvest `{ stone: 20, coal: 5, cash: 750 }`, plant unchanged
+      (`{ copperBar: 10, cash: 300 }` + tool Lv3). `WORKER_HIRE_BASE = 150` (growth 1.7 unchanged).
+    - Owned certificates and hired workers are never taken back (no migration; a test loads save-v11 and v12
+      fixtures with certificates bought before their tool and checks they still work).
+- [ ] 77. **Hand-picked ×1.25 + iron gate lifted.**
+    - A crop unit harvested by the player (tap or tool press — anything that spent energy) sells at
+      `HAND_PICKED_BONUS = 1.25` × the market price; worker harvests ×1. Applied after the market factor; the glut
+      added is the same 1 per unit. Toast/ⓘ tip show "✋ ×1.25" on player harvests; Harvest worker row tip says
+      "workers sell at ×1".
+    - Remove the `?dev=iron` UI gate from batch 11 (vein Lv3 row and every iron element visible to everyone). Keep
+      the `tiles.dev` reader if anything else uses it; otherwise delete it with its test.
+- [ ] 78. **Sim + balance (`tests/sim.test.ts` "batch 13").**
+    - Ladder bot from tick 0: report the minute each certificate becomes buyable and the minute it is bought
+      (expect water ~16 min, harvest ~40 min; research model, 100 % uptime). Pin: no unlock step > 60 game-minutes.
+    - Income with the market on: 24-tile lemon fully staffed — idle (workers harvest) vs attentive (player picks
+      every ready tile with tools, 4 energy/min); report both and the hand-picked gain (expect ≈ +💰6,600/h on the
+      gross).
+    - Hierarchy pin with hand-picked on: max mining cash/energy < 0.9 × pumpkin farming cash/energy.
+    - Every price ≤ storage held at that moment (existing pins pass unchanged).
+    - Tune only batch-13 numbers; report each change as a deviation.

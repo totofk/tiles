@@ -302,3 +302,14 @@ Accepted by Toon after the research; batches 5–6 implement these (PLAN.md).
   and hire, hand-picked ×1.25) and lifting the iron gate; 14 orders board + ⭐; 15 iron farm tools; 16 gold;
   17 Workshop + sprinklers (coal pump); 18–19 Fields; 20 prestige. No playtest pauses: players' feedback is read
   back from their reports. Sim pin: no unlock step longer than 60 game-minutes.
+
+## Early-game pacing, hand-picked bonus, iron opens (batch 13, 2026-11-08, Toon go)
+
+- **A worker replaces a press, so the press must exist at its top level first:** a farm job's certificate needs
+  that job's level-3 tool (research docs/research/pacing-liveops.md A1). Water worker lands ~16 min, harvest ~40 min
+  instead of 5–19 min. Owned certificates/workers are never taken back.
+- **First automation costs 5–10 min of income at unlock** (AdCap-style): water 💰500 + 20 stone, harvest 💰750 +
+  20 stone + 5 coal, hire base 💰150. Cash-only, no migration; rich players unaffected.
+- **Hand-picked ×1.25:** what the player harvests (energy spent) sells at 1.25 × the market price; workers ×1. Active
+  play pays, offline loses nothing (8 h offline loss = 0). Applied after the market factor so it never bypasses it.
+- **Iron opens to everyone** in this batch (the `?dev=iron` gate from batch 11 is removed).
