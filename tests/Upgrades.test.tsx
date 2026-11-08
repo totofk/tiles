@@ -70,7 +70,7 @@ describe('Mine upgrades in the Upgrades tab', () => {
     const STONE = ITEMS.stone.emoji
     expect(storage.textContent).toBe(`📦 Storage Lv 0/5Storage 20 → 30 slots · ${STONE}15 💰50`)
     expect(storage.disabled).toBe(false)
-    expect(vein.textContent).toBe(`⛏️ Vein Lv 0/3${STONE} Stone 100 % → ${STONE} Stone 80 % · ⚫ Coal 20 % · ${STONE}25 💰100`)
+    expect(vein.textContent).toBe(`⛏️ Vein Lv 0/4${STONE} Stone 100 % → ${STONE} Stone 80 % · ⚫ Coal 20 % · ${STONE}25 💰100`)
     expect(vein.disabled).toBe(true)
     fireEvent.click(storage)
     const fn = act.mock.calls[0][0] as (s: GameState) => ReturnType<typeof buyStorage>
@@ -78,11 +78,11 @@ describe('Mine upgrades in the Upgrades tab', () => {
   })
 
   it('maxed storage and vein say "max"', () => {
-    const state = withRun({ mineLicense: true, storageLevel: 5, bagCapacity: 70, vein: { level: 3, progress: 0, rock: 'stone' } })
+    const state = withRun({ mineLicense: true, storageLevel: 5, bagCapacity: 70, vein: { level: 4, progress: 0, rock: 'stone' } })
     render(<Upgrades state={state} act={noop} />)
     const [storage, vein] = row('⛏ Mine')
     expect(storage.textContent).toContain('Storage 70 slots · max')
-    const { stone, copperOre, ironOre } = ITEMS
-    expect(vein.textContent).toContain(`${stone.emoji} Stone 55 % · ⚫ Coal 20 % · ${copperOre.emoji} Copper ore 15 % · ${ironOre.emoji} Iron ore 10 % · max`)
+    const { stone, copperOre, ironOre, goldOre } = ITEMS
+    expect(vein.textContent).toContain(`${stone.emoji} Stone 50 % · ⚫ Coal 20 % · ${copperOre.emoji} Copper ore 12 % · ${ironOre.emoji} Iron ore 10 % · ${goldOre.emoji} Gold ore 8 % · max`)
   })
 })

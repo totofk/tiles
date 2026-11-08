@@ -62,6 +62,15 @@ describe('recordMilestones', () => {
     expect(recorded.milestones.ironPickaxe).toBe(21)
   })
 
+  it('gold rows: vein4 with the level, goldPickaxe with the tier, firstGoldBar with the first smelted bar (batch 16)', () => {
+    const prev = withRun({ tick: 30, vein: { level: 3, progress: 0, rock: 'stone' }, pickaxe: { tier: 'iron', durability: 10 } })
+    const next = withRun({ ...prev.run, tick: 31, vein: { level: 4, progress: 0, rock: 'stone' }, pickaxe: { tier: 'gold', durability: 6500 } })
+    const recorded = recordMilestones(prev.run, next.run)
+    expect([recorded.milestones.vein4, recorded.milestones.goldPickaxe]).toEqual([31, 31])
+    const smelted = recordMilestones(withRun({ tick: 31 }).run, withRun({ tick: 32, lifetime: { ...withRun({}).run.lifetime, goldBarsSmelted: 1 } }).run)
+    expect(smelted.milestones.firstGoldBar).toBe(32)
+  })
+
   it('tool levels, copper tiers and certificates each record their own step', () => {
     let s = withRun({ tick: 3, tools: { water: 3, harvest: 1, plant: 1 }, toolTier: { water: 1, harvest: 0, plant: 0 }, cash: 9999, inventory: { stone: 20 } })
     s = ok(buyLicense(s, 'lemon'))

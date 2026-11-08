@@ -301,6 +301,37 @@ describe('iron smelting (batch 11)', () => {
   })
 })
 
+describe('gold smelting (batch 16)', () => {
+  const gold = (f: Partial<Furnace> = {}, run: Partial<GameState['run']> = {}) => smelter({ furnace: { ...built, oreKind: 'goldOre', ...f }, ...run })
+
+  it('a gold cycle = 2 gold ore + 6 fire units (180 ticks: 3 coal or 6 wood) → 1 gold bar × batch', () => {
+    expect([barTicks('goldOre'), oreBar('goldOre'), smeltFuel('coal', 'goldOre'), smeltFuel('wood', 'goldOre')]).toEqual([180, 'goldBar', 3, 6])
+    const s = gold({ fire: 180, ore: 3 })
+    expect(step(s, 179).run.furnace).toEqual({ ...built, oreKind: 'goldOre', fire: 1, ore: 3, progress: 179 })
+    const done = step(s, 180)
+    expect(done.run.furnace).toEqual({ ...built, oreKind: 'goldOre', ore: 1, ready: 1 })
+    expect(done.run.lifetime).toMatchObject({ fireBurnt: 180, barsSmelted: 0, ironBarsSmelted: 0, goldBarsSmelted: 1 })
+  })
+
+  it('collects gold bars into their own lifetime row, not the copper or iron counters', () => {
+    const collected = okState(collectBars(gold({ ready: 2 })))
+    expect([collected.run.inventory, collected.run.counters.bars, collected.run.lifetime.bars, collected.run.lifetime.ironBars, collected.run.lifetime.goldBars]).toEqual([
+      { goldBar: 2 },
+      0,
+      0,
+      0,
+      2,
+    ])
+  })
+
+  it('step(s, n) equals n × step(s, 1) on gold, plain and smart', () => {
+    for (const f of [{ fire: 400, ore: 5 }, { fire: 400, ore: 5, smart: true }]) {
+      const s = gold(f)
+      for (const n of [179, 180, 181, 700]) expect(step(s, n)).toEqual(oneByOne(s, n))
+    }
+  })
+})
+
 describe('copper items', () => {
   it('ore sells for 1 and takes a storage slot; bars take a slot and have no sell path', () => {
     const s = withRun({ cash: 0, inventory: { copperOre: 2, copperBar: 3 } })

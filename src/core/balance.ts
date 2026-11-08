@@ -55,7 +55,7 @@ const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
 // wood sells below its buy price, so buying and reselling wood never makes money. Ore sells ≤ 1 (its value is
 // smelting); copper bars have no price at all, so there is no smelt-to-sell loop.
-const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1, ironOre: 1 } satisfies Partial<Record<ItemId, number>>
+const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1, ironOre: 1, goldOre: 1 } satisfies Partial<Record<ItemId, number>>
 export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 /** a price in cash plus items from storage, and ⭐ (never scaled by the cost multiplier) */
 export type Price = { cash: number; stars?: number } & Partial<Record<ItemId, number>>
@@ -71,6 +71,8 @@ const SMELT = { ore: 2, trayCap: 5, oreSlot: 12 }
 const SMELT_ORES: Record<OreId, { bar: ItemId; barTicks: number }> = {
   copperOre: { bar: 'copperBar', barTicks: 60 },
   ironOre: { bar: 'ironBar', barTicks: 120 },
+  // gold burns thrice copper: 6 fire units = 3 coal per cycle (batch 16 "Gold core")
+  goldOre: { bar: 'goldBar', barTicks: 180 },
 }
 const FIRE_UNIT_TICKS = 30
 const FUEL_UNITS = { coal: 2, wood: 1 }
@@ -87,12 +89,14 @@ const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: n
   copper: { craft: { copperBar: 5, cash: 50 }, repair: { copperBar: 2, cash: 0 }, durability: 200, hits: 3 },
   // 1200 beats copper's Lv10 lifetime 200 × (1 + 0.4 × 10) = 1000 (the old 500 guess did not)
   iron: { craft: { ironBar: 5, cash: 200 }, repair: { ironBar: 2, cash: 0 }, durability: 1200, hits: 4 },
+  // 6500 beats iron's Lv10 lifetime 1200 × (1 + 0.4 × 10) = 6000
+  gold: { craft: { goldBar: 5, cash: 500 }, repair: { goldBar: 2, cash: 0 }, durability: 6500, hits: 5 },
 }
 /** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2
-const ROCK_HITS: Partial<Record<ItemId, number>> = { copperOre: 3, ironOre: 4 }
+const ROCK_HITS: Partial<Record<ItemId, number>> = { copperOre: 3, ironOre: 4, goldOre: 5 }
 /** rocks that need at least this pickaxe tier; with less (or by hand) the rock is a stone rock (hits and drop) */
-const ROCK_PICKAXE: Partial<Record<ItemId, PickaxeTier>> = { ironOre: 'copper' }
+const ROCK_PICKAXE: Partial<Record<ItemId, PickaxeTier>> = { ironOre: 'copper', goldOre: 'iron' }
 const HAND_HITS = 1
 // Pickaxe mastery: cumulative xp for Lv1 … Lv10 of the first tier; each later tier multiplies them by the factor.
 const MASTERY_THRESHOLDS = [10, 25, 45, 70, 100, 140, 190, 250, 320, 400]
@@ -111,15 +115,21 @@ const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
   { stone: 0.8, coal: 0.2 },
   { stone: 0.65, coal: 0.2, copperOre: 0.15 },
   { stone: 0.55, coal: 0.2, copperOre: 0.15, ironOre: 0.1 },
+  { stone: 0.5, coal: 0.2, copperOre: 0.12, ironOre: 0.1, goldOre: 0.08 },
 ]
+// cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the iron tools are done (PLAN.md "Batch 16 results")
+const GOLD_VEIN_CASH = 5000
 /** price of vein level index + 1, paid in items from storage and cash; Lv3 (45 items) comes after storage Lv3 (50) */
 const VEIN_UPGRADES: ReadonlyArray<Price> = [
   { stone: 25, cash: 100 },
   { stone: 30, coal: 10, cash: 200 },
   { stone: 40, copperBar: 5, cash: 400 },
+  { stone: 45, ironBar: 8, cash: GOLD_VEIN_CASH },
 ]
 /** vein levels from this one up need the furnace */
 const VEIN_FURNACE_LEVEL = 2
+/** vein levels from this one up need the iron pickaxe owned (Lv4 drops gold rocks) */
+const VEIN_PICKAXE_LEVEL = 4
 // Storage upgrade (the stone sink): +slots capacity per level; level 1 costs the base, stone +stoneStep per level
 // (so each price fits the capacity before it), cash ×growth per level.
 const STORAGE = { slots: 10, stone: 15, stoneStep: 5, cash: 50, growth: 1.6, maxLevel: 5 }
@@ -575,6 +585,11 @@ export function veinUpgradeCost(level: number, meta: MetaState): Price | null {
 
 export function veinNeedsFurnace(level: number): boolean {
   return level >= VEIN_FURNACE_LEVEL
+}
+
+/** vein levels from this one up need the iron pickaxe owned (their gold rocks break weaker ones) */
+export function veinNeedsPickaxe(level: number): boolean {
+  return level >= VEIN_PICKAXE_LEVEL
 }
 
 export function storageMaxLevel(): number {

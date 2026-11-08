@@ -2616,7 +2616,7 @@ and DECISIONS. Cash parts of new items follow the price rule: 0.5–1.5 h of the
     before/after (idle, attentive, with board), best 2-crop split vs mono lemon at depth 60 (goal: a split earns at
     least as much as mono), ⭐/h unchanged. Hierarchy pin must hold; if mining ≥ 0.9 × farming at depth 60, raise depth
     in steps of 10 until it holds and report the value. No save change.
-- [ ] 87. **Gold core.** Vein Lv4: price `{ stone: 45, ironBar: 8, cash: GOLD_VEIN_CASH }` (start 💰5,000, set in 89),
+- [x] 87. **Gold core.** Vein Lv4: price `{ stone: 45, ironBar: 8, cash: GOLD_VEIN_CASH }` (start 💰5,000, set in 89),
     needs the iron pickaxe owned; drop table at Lv4 stone 50 / coal 20 / copper ore 12 / iron ore 10 / gold ore 8 %;
     gold rock takes 5 hits (weaker pickaxes: same rule as the batch-11 iron rock). Gold bar = 2 gold ore + 6 fire
     units in the furnace (ore-kind picker gains gold). Gold pickaxe = `{ goldBar: 5, cash: 500 }`, durability 6,500,

@@ -28,7 +28,6 @@ import {
   rockHits,
   rockPickaxe,
   veinDrops,
-  veinMaxLevel,
   veinUpgradeCost,
   woodCost,
   type FurnaceUpgradeId,
@@ -57,10 +56,9 @@ import { Info, Item } from './Info'
 import { FURNACE_TIPS } from './tips'
 import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 
-/** the next ore after the last vein level; a teaser with no numbers until the iron batch */
-const LOCKED_VEIN_TEXT = `🔒 Lv${veinMaxLevel() + 1}: gold ore — coming`
-/** the vein at this level drops iron ore */
-const ironVein = (level: number) => (veinDrops(level).ironOre ?? 0) > 0
+/** pickaxe tiers above wooden map 1:1 to an ore; the vein at this level drops it */
+type OreTier = 'copper' | 'iron' | 'gold'
+const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore`] ?? 0) > 0
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs */
 const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
 
@@ -123,7 +121,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
   const ticks = barTicks(f.oreKind)
   const stock = { ore: f.oreKind, coal: 'coal', wood: 'wood' } as const
   // the kind picker appears with the first vein that drops iron (or once iron is picked), so copper players see no change
-  const picker = ironVein(run.vein.level) || f.oreKind !== 'copperOre'
+  const picker = tierVein('iron', run.vein.level) || f.oreKind !== 'copperOre'
   return (
     <details className="mine-furnace">
       <summary>
@@ -252,9 +250,9 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
     0,
   )
   const tier = run.pickaxe?.tier
-  // the tier above the one in hand (none or wooden → copper): copper once the furnace is built, iron once the vein drops iron
-  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(tier ?? 'wooden') + 1]
-  const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || ironVein(run.vein.level)) ? nextTier : null
+  // the tier above the one in hand (none or wooden → copper): copper once the furnace is built, iron and gold once the vein drops their ore
+  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(tier ?? 'wooden') + 1] as OreTier | undefined
+  const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || tierVein(nextTier, run.vein.level)) ? nextTier : null
   const nextCraft = offerTier && craftPickaxe(state, offerTier)
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
@@ -311,7 +309,6 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
             {ITEMS.stone.emoji} stone
           </span>
         ))}
-        <span className="mine-vein-next">{LOCKED_VEIN_TEXT}</span>
       </div>
       {run.furnace.built ? (
         <Furnace state={state} act={act} />

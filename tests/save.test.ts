@@ -11,6 +11,7 @@ import v9 from './fixtures/save-v9.json?raw'
 import v10 from './fixtures/save-v10.json?raw'
 import v11 from './fixtures/save-v11.json?raw'
 import v12 from './fixtures/save-v12.json?raw'
+import v13 from './fixtures/save-v13.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, energyMax, loanDebtPerTick, multiplier } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
@@ -57,27 +58,28 @@ const v11Lifetime = { workerMines: 0, ironBars: 0, ironBarsSmelted: 0 }
  *  — a milestone already true at migration is never back-dated, it stays absent */
 const v12Meta = (meta: { prestigeCount: number }) => ({ prestigeCount: meta.prestigeCount, upgrades: createInitialMeta().upgrades })
 const v12Run = (run: { tick: number }) => ({ market: createInitialState().run.market, milestones: { trackingStarted: run.tick } })
-/** v12 → v13: the 📋 Noticeboard not bought, no ⭐, no orders completed */
+/** v12 → v13: the 📋 Noticeboard not bought, no ⭐, no orders completed; v13 → v14: no gold yet */
 const v13Lifetime = { ordersCompleted: 0, starsEarned: 0 }
+const v14Lifetime = { ...v13Lifetime, goldBars: 0, goldBarsSmelted: 0 }
 const v13Run = (run: { counters: object; lifetime: object; workers: { assigned: object } }) => ({
   workers: { ...run.workers, assigned: { ...run.workers.assigned, clerk: 0 } },
   orders: createInitialState().run.orders,
   stars: 0,
   counters: { ...run.counters, orders: 0 },
-  lifetime: { ...run.lifetime, ...v13Lifetime },
+  lifetime: { ...run.lifetime, ...v14Lifetime },
 })
 /** a v13 save seen as v12 (the v13 additions stripped), so the v1 … v12 migration expectations stay as written */
 function asV12(save: Save) {
   const { orders, stars, counters, lifetime, workers, ...run } = save.state.run
   const { orders: completed, ...v12Counters } = counters
-  const { ordersCompleted, starsEarned, ...v12Lifetime } = lifetime
+  const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
   const { clerk, ...v12Assigned } = workers.assigned
-  void [orders, stars, completed, ordersCompleted, starsEarned, clerk]
+  void [orders, stars, completed, ordersCompleted, starsEarned, goldBars, goldBarsSmelted, clerk]
   const v12Workers = { ...workers, assigned: v12Assigned }
   return { version: 12, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...run, counters: v12Counters, lifetime: v12Lifetime, workers: v12Workers } } }
 }
 /** v9 lifetime totals a migrated save starts with: no fire burnt, bars smelted 0 (no furnace before v6); v10 plants by workers 0 */
-const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ...v11Lifetime, ...v13Lifetime }
+const noFire = { fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, ...v11Lifetime, ...v14Lifetime }
 type OldFurnace = { built: boolean; queue: number; progress: number; ready: number }
 /** v8 → v9: every paid queued job is a ready bar; no fire, empty ore slot, plain furnace at base levels */
 const v9Furnace = (f: OldFurnace) => ({ ...createFurnace(), built: f.built, ready: f.ready + f.queue })
@@ -90,7 +92,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 13, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 14, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -255,8 +257,8 @@ describe('serialize / deserialize', () => {
         ...s.run,
         vein: { level: 2, progress: 2, rock: 'copperOre' as const },
         furnace: { built: true, oreKind: 'ironOre' as const, fire: 137, ore: 7, progress: 17, ready: 2, smart: true, levels: { fireCap: 1, batch: 2 } },
-        inventory: { copperOre: 4, copperBar: 1, ironOre: 3, ironBar: 2 },
-        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3, ordersCompleted: 0, starsEarned: 0 },
+        inventory: { copperOre: 4, copperBar: 1, ironOre: 3, ironBar: 2, goldOre: 2, goldBar: 1 },
+        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3, ordersCompleted: 0, starsEarned: 0, goldBars: 1, goldBarsSmelted: 2 },
       },
     }
     expect(deserialize(serialize(state, 0))?.state).toEqual(state)
@@ -353,11 +355,11 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v13 and rejects unknown, missing or future versions', () => {
-    const v13 = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(v13))?.version).toBe(13)
-    expect(deserialize(JSON.stringify({ ...v13, version: 14 }))).toBeNull()
-    expect(deserialize(JSON.stringify({ ...v13, version: undefined }))).toBeNull()
+  it('migration switch accepts v13 and v14 and rejects unknown, missing or future versions', () => {
+    const fresh = JSON.parse(serialize(createInitialState(), 0))
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(14)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 15 }))).toBeNull()
+    expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
   it('round-trips copper tool tiers and a tile watered above 1', () => {
@@ -445,7 +447,7 @@ describe('serialize / deserialize', () => {
   it('migrates a real v1 save (6 tiles, energy above the new max) to v12', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(13)
+    expect(save.version).toBe(14)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(v12Meta(old.meta))
@@ -526,20 +528,20 @@ describe('serialize / deserialize', () => {
 })
 
 describe('save v13: the 📋 Noticeboard', () => {
-  it('migrates the real v12 save (built by the batch-13 code) to v13: everything kept, glut and milestones too, no board', () => {
+  it('migrates the real v12 save (built by the batch-13 code) to v14: everything kept, glut and milestones too, no board, no gold', () => {
     const old = JSON.parse(v12)
     expect(old.version).toBe(12)
     expect(old.state.run.market.lemon).toBeGreaterThan(0)
     expect(old.state.run.milestones).toMatchObject({ trackingStarted: 7210, tiles12: 7210 })
     const save = deserialize(v12)!
-    expect(save).toEqual({ version: 13, savedAtMs: old.savedAtMs, state: { meta: old.state.meta, run: { ...old.state.run, ...v13Run(old.state.run) } } })
+    expect(save).toEqual({ version: 14, savedAtMs: old.savedAtMs, state: { meta: old.state.meta, run: { ...old.state.run, ...v13Run(old.state.run) } } })
     // the run plays on: workers harvest, the glut decays, and the board can be bought (sales ≥ 50) with stone + cash
     const later = step(save.state, 60)
     expect(later.run.market.lemon).toBeLessThan(old.state.run.market.lemon + 30)
     expect(later.run.tick).toBe(old.state.run.tick + 60)
   })
 
-  it('every past fixture lands on v13 with the board not bought, no ⭐ and no orders', () => {
+  it('every pre-board fixture lands on the latest with the board not bought, no ⭐ and no orders', () => {
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]) {
       const { run } = deserialize(raw)!.state
       expect(run.orders).toEqual(createInitialState().run.orders)
@@ -563,10 +565,26 @@ describe('save v13: the 📋 Noticeboard', () => {
   })
 })
 
+describe('save v14: the gold tier', () => {
+  it('migrates the real v13 fixture (orders unlocked, ⭐, iron tools) to v14: everything kept, gold at 0', () => {
+    const old = JSON.parse(v13)
+    expect(old.version).toBe(13)
+    expect(old.state.run).toMatchObject({ vein: { level: 3 }, pickaxe: { tier: 'iron' }, orders: { unlocked: true }, stars: 5 })
+    const save = deserialize(v13)!
+    expect(save).toEqual({
+      version: 14,
+      savedAtMs: old.savedAtMs,
+      state: { meta: old.state.meta, run: { ...old.state.run, lifetime: { ...old.state.run.lifetime, goldBars: 0, goldBarsSmelted: 0 } } },
+    })
+    // the migrated run plays on
+    expect(step(save.state, 120).run.tick).toBe(old.state.run.tick + 120)
+  })
+})
+
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(13)
-    for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12]) {
+    expect(SAVE_VERSION).toBe(14)
+    for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
       expect(run.licenses).toEqual(old.licenses)

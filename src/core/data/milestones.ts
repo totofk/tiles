@@ -23,10 +23,13 @@ export type MilestoneId =
   | 'vein1'
   | 'vein2'
   | 'vein3'
+  | 'vein4'
   | 'furnace'
   | 'firstBar'
+  | 'firstGoldBar'
   | 'copperPickaxe'
   | 'ironPickaxe'
+  | 'goldPickaxe'
   | 'tiles12'
   | 'tiles16'
   | 'tiles20'
@@ -62,10 +65,13 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'vein1', label: 'Vein Lv1', when: (r) => r.vein.level >= 1 },
   { id: 'vein2', label: 'Vein Lv2', when: (r) => r.vein.level >= 2 },
   { id: 'vein3', label: 'Vein Lv3', when: (r) => r.vein.level >= 3 },
+  { id: 'vein4', label: 'Vein Lv4', when: (r) => r.vein.level >= 4 },
   { id: 'furnace', label: 'Furnace', when: (r) => r.furnace.built },
   { id: 'firstBar', label: 'First bar', when: (r) => r.lifetime.barsSmelted >= 1 },
+  { id: 'firstGoldBar', label: 'First gold bar', when: (r) => r.lifetime.goldBarsSmelted >= 1 },
   { id: 'copperPickaxe', label: 'Copper pickaxe', when: (r) => pickaxeAt(r, 1) },
   { id: 'ironPickaxe', label: 'Iron pickaxe', when: (r) => pickaxeAt(r, 2) },
+  { id: 'goldPickaxe', label: 'Gold pickaxe', when: (r) => pickaxeAt(r, 3) },
   { id: 'tiles12', label: '12 tiles', when: (r) => r.tiles.length >= 12 },
   { id: 'tiles16', label: '16 tiles', when: (r) => r.tiles.length >= 16 },
   { id: 'tiles20', label: '20 tiles', when: (r) => r.tiles.length >= 20 },

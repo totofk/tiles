@@ -26,6 +26,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   LOCKED: 'Not unlocked yet',
   NO_MINE_LICENSE: 'Buy the mine license first',
   NO_PICKAXE: 'No pickaxe',
+  NO_IRON_PICKAXE: 'Needs the iron pickaxe',
   NOT_BLUNT: 'Pickaxe is not blunt yet',
   BAG_FULL: 'Storage is full — sell something',
   NOT_ENOUGH_ITEMS: 'Not enough items',

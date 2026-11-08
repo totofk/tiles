@@ -18,6 +18,7 @@ import {
   storageSlotsPerLevel,
   veinDrops,
   veinNeedsFurnace,
+  veinNeedsPickaxe,
   veinUpgradeCost,
   woodCost,
   type Price,
@@ -171,9 +172,12 @@ function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunS
 
 /** next vein level: a new drop table for the rocks after the current one, which keeps its type and progress */
 export function upgradeVein(state: GameState): ActionResult {
-  const { vein, furnace } = state.run
-  const blocked = veinNeedsFurnace(vein.level + 1) && !furnace.built ? 'NO_FURNACE' : null
-  return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: vein.level + 1 } }, blocked)
+  const { vein, furnace, pickaxe } = state.run
+  const next = vein.level + 1
+  // Lv4 drops gold rocks, which only the iron pickaxe or better breaks as gold (anything less mines them as stone)
+  const blocked =
+    veinNeedsFurnace(next) && !furnace.built ? 'NO_FURNACE' : veinNeedsPickaxe(next) && pickaxe?.tier !== 'iron' && pickaxe?.tier !== 'gold' ? 'NO_IRON_PICKAXE' : null
+  return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: next } }, blocked)
 }
 
 /** next storage level: +storageSlotsPerLevel() capacity */

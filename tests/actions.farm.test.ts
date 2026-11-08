@@ -222,6 +222,6 @@ describe('lifetime totals', () => {
     s = okState(mining.sellItem(s, 'stone', 3))
     s = okState(bank.takeLoan(s))
     const income = picked(cropSellPrice('radish', meta, 0)) + 3 * 2
-    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0 })
+    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 })
   })
 })

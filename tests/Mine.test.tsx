@@ -31,13 +31,11 @@ const text = () => document.body.textContent ?? ''
 const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' as const, durability })
 
 describe('Mine panel', () => {
-  it('shows the current vein with %, the next level greyed with its cost, and the gold teaser with no numbers', () => {
+  it('shows the current vein with % and the next level greyed with its cost; the vein ends at Lv4 (no teaser)', () => {
     setup({})
     expect(text()).toContain(`Vein Lv0: ${STONE} Stone 100 %`)
     expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}25 💰100`)).toBeTruthy()
-    const gold = screen.getByText(/gold ore/)
-    expect(gold.textContent).toBe('🔒 Lv4: gold ore — coming')
-    expect(gold.textContent).not.toMatch(new RegExp(`%|💰|${STONE}|\\d\\s`))
+    expect(screen.queryByText(/coming/)).toBeNull()
   })
 
   it('the next vein level has an Upgrade button, disabled with the reason until it is affordable', () => {
@@ -68,11 +66,28 @@ describe('Mine panel', () => {
     expect((screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('at the last vein level shows only the current table and the gold teaser', () => {
-    setup({ vein: { level: 3, progress: 0, rock: 'stone' } })
-    expect(text()).toContain(`Vein Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${ITEMS.ironOre.emoji} Iron ore 10 %`)
-    expect(screen.queryByText(/^Lv4: /)).toBeNull()
-    expect(screen.getByText(/gold ore/)).toBeTruthy()
+  it('vein Lv4 needs the iron pickaxe: the row shows the gold table and price, the button says so over copper', () => {
+    const GOLD_ORE = ITEMS.goldOre.emoji
+    const lv3 = { cash: 5000, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
+    setup({ ...lv3, pickaxe: { tier: 'copper', durability: 100 } })
+    expect(screen.getByText(/^Lv4: /).textContent).toBe(
+      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}45 ${IRON_BAR}8 💰5000`,
+    )
+    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }).textContent).toBe('Upgrade vein to Lv4 — Needs the iron pickaxe')
+    cleanup()
+    const t = setup({ ...lv3, pickaxe: { tier: 'iron', durability: 100 } })
+    fireEvent.click(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }))
+    t.rerender()
+    expect(t.get().run.vein.level).toBe(4)
+    // the gold pickaxe is offered once the vein drops gold ore (never at Lv3)
+    expect(screen.getByRole('button', { name: /^Craft gold pickaxe/ }).textContent).toBe(`Craft gold pickaxe (${ITEMS.goldBar.emoji}5 💰500) — Not enough items`)
+  })
+
+  it('at the last vein level (Lv4) shows only the current table, gold in it', () => {
+    setup({ vein: { level: 4, progress: 0, rock: 'goldOre' }, pickaxe: { tier: 'iron', durability: 100 } })
+    expect(text()).toContain(`Vein Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${ITEMS.goldOre.emoji} Gold ore 8 %`)
+    expect(screen.queryByText(/^Lv5: /)).toBeNull()
+    expect(screen.queryByText(/coming/)).toBeNull()
   })
 
   it('shows the current rock type and its hits: a copper rock takes 3', () => {
@@ -204,12 +219,11 @@ describe('Mine panel', () => {
     expect(t.get().run.vein.level).toBe(3)
   })
 
-  it('batch 13: iron is open to everyone: on vein Lv2 the Lv3 upgrade and the iron hint show, the gold teaser, no iron teaser', () => {
+  it('batch 13: iron is open to everyone: on vein Lv2 the Lv3 upgrade and the iron hint show, no locked-level teaser', () => {
     setup({ cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: wooden() })
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ })).toBeTruthy()
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
-    expect(screen.queryByText('🔒 Lv3: iron ore — coming')).toBeNull()
-    expect(screen.getByText(/gold ore — coming/)).toBeTruthy()
+    expect(screen.queryByText(/— coming/)).toBeNull()
   })
 
   it('an iron rock shows "as stone" with stone hits below a copper pickaxe, its own 4 hits with one', () => {

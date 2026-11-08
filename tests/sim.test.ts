@@ -1868,7 +1868,7 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
 describe('batch 11: mining stays below the farm cap with the iron tier', () => {
   const pumpkin = runCropBot('pumpkin').cashPerEnergy
   const bench = (tier: PickaxeTier, lv10: boolean) =>
-    mineBench({ pickaxe: true, tier, vein: 3, xp: lv10 ? 400 * { wooden: 1, copper: 2, iron: 4 }[tier] : 0, mastered: lv10 }).cashPerEnergy
+    mineBench({ pickaxe: true, tier, vein: 3, xp: lv10 ? 400 * { wooden: 1, copper: 2, iron: 4, gold: 8 }[tier] : 0, mastered: lv10 }).cashPerEnergy
   const mining = {
     woodLv10Vein3: bench('wooden', true),
     copperLv10Vein3: bench('copper', true),

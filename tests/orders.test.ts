@@ -71,6 +71,10 @@ describe('orderPool: only what the state can make now', () => {
     const vein3 = { ...vein2, vein: { ...vein2.vein, level: 3 } }
     expect(orderPool(vein3)).not.toContain('ironOre')
     expect(orderPool({ ...vein3, pickaxe: { tier: 'copper', durability: 3 } })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'copperBar', 'ironBar'])
+    // gold rocks need the iron pickaxe: vein Lv4 adds them (and their bars) only then
+    const vein4 = { ...vein3, vein: { ...vein3.vein, level: 4 } }
+    expect(orderPool({ ...vein4, pickaxe: { tier: 'copper', durability: 3 } })).not.toContain('goldOre')
+    expect(orderPool({ ...vein4, pickaxe: { tier: 'iron', durability: 3 } })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'goldOre', 'copperBar', 'ironBar', 'goldBar'])
     // no mine license: no items even with a deep vein
     expect(orderPool({ ...vein3, mineLicense: false })).toEqual(['radish'])
   })

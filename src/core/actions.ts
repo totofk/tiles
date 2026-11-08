@@ -37,6 +37,7 @@ export type ActionError =
   | 'LOCKED'
   | 'NO_MINE_LICENSE'
   | 'NO_PICKAXE'
+  | 'NO_IRON_PICKAXE'
   | 'NOT_BLUNT'
   | 'BAG_FULL'
   | 'NOT_ENOUGH_ITEMS'
