@@ -23,6 +23,7 @@ describe('stats(state)', () => {
       { label: 'Waterings', value: '0' },
       { label: 'Plantings', value: '0' },
       { label: 'Copper bars collected', value: '0' },
+      { label: 'Orders completed', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Iron bars smelted', value: '0' },
@@ -31,6 +32,7 @@ describe('stats(state)', () => {
       { label: 'Wages paid', value: '💰0' },
       { label: 'Plants by workers', value: '0' },
       { label: 'Mines by workers', value: '0' },
+      { label: '⭐ earned', value: '0' },
     ])
     const meta = createInitialState().meta
     expect(multipliers).toEqual([
@@ -89,7 +91,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 31, ironBars: 4, ironBarsSmelted: 5 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 31, ironBars: 4, ironBarsSmelted: 5, ordersCompleted: 0, starsEarned: 0 },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row

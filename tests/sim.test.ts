@@ -1063,7 +1063,7 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
     expect(summary.finalCash).toBe(5897)
     expect(summary.rngState).toBe(1328891991)
     // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
-    expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116, bars: 5 })
+    expect(summary.counters).toEqual({ harvests: 107, sales: 386, mines: 447, digs: 0, waters: 525, plants: 116, bars: 5, orders: 0 })
   })
 })
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import { fireUnitTicks, upgradeUnlocked, workerActionTicks } from '../core/balance'
 import { ITEMS } from '../core/data/items'
+import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { step } from '../core/step'
@@ -43,6 +44,8 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_CERTIFICATE: 'Buy the certificate first',
   POOL_FULL: 'No more workers to hire',
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
+  BAD_SLOT: 'No order in that slot',
+  NO_STARS: `Not enough ${STAR_EMOJI}`,
 }
 
 export const FIRE_EMOJI = '🔥'

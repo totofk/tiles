@@ -36,7 +36,7 @@ describe('createInitialState', () => {
     expect(run.energy).toBe(10)
     expect(run.licenses).toEqual(['radish'])
     expect(run.upgrades).toEqual({ energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 })
-    expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0 })
+    expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 })
     expect(run.seeds).toEqual({})
     expect(run.autoBuySeeds).toBe(true)
     expect(meta.prestigeCount).toBe(0)

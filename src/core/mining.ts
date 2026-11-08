@@ -147,16 +147,17 @@ export function repairPickaxe(state: GameState): ActionResult {
   return pay(state, pickaxeRepairCost(pickaxe.tier, state.meta), { pickaxe: { ...pickaxe, durability: pickaxeDurability(pickaxe.tier) } })
 }
 
-/** pays the items from storage, then the cash, and applies `gain`; NOT_ENOUGH_ITEMS before NO_CASH */
+/** pays the items from storage, then ⭐, then the cash, and applies `gain`; NOT_ENOUGH_ITEMS, NO_STARS, NO_CASH */
 export function pay(state: GameState, price: Price, gain: Partial<RunState> = {}): ActionResult {
   const { run } = state
-  const { cash, ...items } = price
+  const { cash, stars = 0, ...items } = price
   const ids = ITEM_IDS.filter((id) => (items[id] ?? 0) > 0)
   if (ids.some((id) => (run.inventory[id] ?? 0) < items[id]!)) return fail('NOT_ENOUGH_ITEMS')
+  if (run.stars < stars) return fail('NO_STARS')
   if (run.cash < cash) return fail('NO_CASH')
   const inventory = { ...run.inventory }
   for (const id of ids) inventory[id] = (inventory[id] ?? 0) - items[id]!
-  return withRun(state, { cash: run.cash - cash, inventory, ...gain })
+  return withRun(state, { cash: run.cash - cash, stars: run.stars - stars, inventory, ...gain })
 }
 
 // Mine upgrades pay items from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),

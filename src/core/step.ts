@@ -11,6 +11,7 @@ import {
 import { recordMilestones } from './data/milestones'
 import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
+import { tickOrders } from './orders'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { workersAct } from './workers'
 
@@ -62,7 +63,8 @@ function stepOnce(state: GameState): GameState {
     market: decayMarket(run.market),
   }
   // milestones record per tick (worker actions already recorded through withRun), so step(s, n) = n × step(s, 1)
-  return { meta, run: recordMilestones(before, tickFurnace(nextRun)) }
+  const after = tickOrders({ meta, run: tickFurnace(nextRun) })
+  return { meta, run: recordMilestones(before, after.run) }
 }
 
 /** advance `ticks` whole seconds; pure, never mutates `state` */

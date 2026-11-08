@@ -57,8 +57,8 @@ const WOOD_BUY_COST = 4
 // smelting); copper bars have no price at all, so there is no smelt-to-sell loop.
 const ITEM_SELL_PRICE = { wood: 2, stone: 2, coal: 4, copperOre: 1, ironOre: 1 } satisfies Partial<Record<ItemId, number>>
 export type SellableItemId = keyof typeof ITEM_SELL_PRICE
-/** a price in cash plus items from storage */
-export type Price = { cash: number } & Partial<Record<ItemId, number>>
+/** a price in cash plus items from storage, and ⭐ (never scaled by the cost multiplier) */
+export type Price = { cash: number; stars?: number } & Partial<Record<ItemId, number>>
 // Furnace (round-5 research): built once vein level `vein` is owned.
 const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 // Fuelled furnace (batch 9): fire is kept in burn ticks, one fire unit = FIRE_UNIT_TICKS; a fuel item adds FUEL_UNITS.
@@ -206,6 +206,76 @@ const HAND_PICKED_BONUS = 1.25
 /** sale multiplier of a crop the player harvested by hand (tap or tool press) */
 export function handPickedBonus(): number {
   return HAND_PICKED_BONUS
+}
+
+// Noticeboard (batch 14, DECISIONS "📋 Noticeboard + ⭐", docs/research/orders.md): a Shop purchase shown after
+// ORDER_BOARD.at sales. An order's count = its tier's minutes × what the player makes per minute (crops: tiles ÷ grow
+// ticks × 60; vein items: ORDER_ROCKS_PER_MIN × drop share; bars: furnace bars per minute), so ⭐ is paced by time.
+// Item counts are clamped to half the storage capacity. Ordered crops pay base × (1 + ORDER_BOARD.bonus) and add no
+// glut; delivered items pay base value × bonus. A discarded order's slot refills after ORDER_COOLDOWN_TICKS.
+const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; bonus: number; slots: number } = {
+  cost: { stone: 10, cash: 100 },
+  counter: 'sales',
+  at: 50,
+  bonus: 0.25,
+  slots: 2,
+}
+const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: number }> = [
+  { minutes: 5, weight: 0.5, stars: 1 },
+  { minutes: 10, weight: 0.35, stars: 2 },
+  { minutes: 20, weight: 0.15, stars: 4 },
+]
+const ORDER_ROCKS_PER_MIN = 12
+const ORDER_COOLDOWN_TICKS = 600
+
+/** the Noticeboard's price */
+export function orderBoardCost(meta: MetaState): Price {
+  return scalePrice(ORDER_BOARD.cost, meta)
+}
+
+/** the board shows (and can be bought) once counters[counter] ≥ at */
+export function orderBoardUnlock(): { counter: CounterId; at: number } {
+  return { counter: ORDER_BOARD.counter, at: ORDER_BOARD.at }
+}
+
+/** order slots a new board has */
+export function orderStartSlots(): number {
+  return ORDER_BOARD.slots
+}
+
+/** extra share of the base price an ordered good pays */
+export function orderBonus(): number {
+  return ORDER_BOARD.bonus
+}
+
+export function orderTierCount(): number {
+  return ORDER_TIERS.length
+}
+
+/** minutes of production an order of this tier asks for */
+export function orderTierMinutes(tier: number): number {
+  return ORDER_TIERS[tier].minutes
+}
+
+/** ⭐ for completing an order of this tier */
+export function orderTierStars(tier: number): number {
+  return ORDER_TIERS[tier].stars
+}
+
+/** the tier a roll r in [0, 1) lands on, by weight */
+export function rollOrderTier(r: number): number {
+  let x = r * ORDER_TIERS.reduce((sum, t) => sum + t.weight, 0)
+  const tier = ORDER_TIERS.findIndex((t) => (x -= t.weight) < 0)
+  return tier < 0 ? ORDER_TIERS.length - 1 : tier
+}
+
+/** rocks per minute an item order's count assumes */
+export function orderRocksPerMin(): number {
+  return ORDER_ROCKS_PER_MIN
+}
+
+export function orderCooldownTicks(): number {
+  return ORDER_COOLDOWN_TICKS
 }
 
 // Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); prestige spends them

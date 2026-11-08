@@ -15,6 +15,7 @@ import {
 import { CROPS, CROP_IDS } from './data/crops'
 import { PICKAXE_NAMES } from './data/items'
 import { MILESTONES, earlierMilestones } from './data/milestones'
+import { STAR_EMOJI } from './data/orders'
 import { TOOLS, TOOL_JOBS, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
@@ -35,6 +36,7 @@ const COUNTER_LABELS: Record<CounterId, string> = {
   waters: 'Waterings',
   plants: 'Plantings',
   bars: 'Copper bars collected',
+  orders: 'Orders completed',
 }
 
 const times = (f: number) => `×${Math.round(f * 100) / 100}`
@@ -85,6 +87,7 @@ export function stats(state: GameState): Stats {
     { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
     { label: 'Plants by workers', value: `${lifetime.workerPlants}` },
     { label: 'Mines by workers', value: `${lifetime.workerMines}` },
+    { label: `${STAR_EMOJI} earned`, value: `${lifetime.starsEarned}` },
   ]
   const { pool, assigned } = run.workers
 

@@ -17,7 +17,8 @@ import {
 import type { CropId } from './data/crops'
 import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
-import { cropSale } from './market'
+// actions ↔ orders is a cycle of function bindings only (used at call time), like step ↔ workers
+import { harvestSale } from './orders'
 import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
 
@@ -54,6 +55,8 @@ export type ActionError =
   | 'NO_CERTIFICATE'
   | 'POOL_FULL'
   | 'NO_FREE_WORKER'
+  | 'BAD_SLOT'
+  | 'NO_STARS'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
@@ -86,7 +89,8 @@ export function nextRandom(rngState: number): [number, number] {
 }
 
 // Farm actions validate in this order: BAD_TILE, tile status, license/seeds/cash (plant), NO_ENERGY.
-// `energy` = what the action costs the player (0 when a worker does it).
+// `energy` = what the action costs the player (0 when a worker does it). `run` = the run with the action's other
+// changes (seeds, rngState, market, orders …); energy, cash, tiles, counters and lifetime are applied on top of it.
 function farmAction(
   state: GameState,
   i: number,
@@ -94,11 +98,9 @@ function farmAction(
   apply: (tile: Tile) => {
     tile: Tile
     cashDelta?: number
-    market?: RunState['market']
     counters?: Partial<RunState['counters']>
-    seeds?: RunState['seeds']
     harvested?: CropId
-    rngState?: number
+    run?: RunState
   },
   energy = ACTION_ENERGY_COST,
 ): ActionResult {
@@ -107,16 +109,14 @@ function farmAction(
   const error = check(run.tiles[i])
   if (error) return fail(error)
   if (run.energy < energy) return fail('NO_ENERGY')
-  const { tile, cashDelta = 0, market, counters, seeds = run.seeds, harvested, rngState = run.rngState } = apply(run.tiles[i])
+  const { tile, cashDelta = 0, counters, harvested, run: next = run } = apply(run.tiles[i])
   return withRun(state, {
+    ...next,
     energy: run.energy - energy,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
-    ...(market && { market }),
-    counters: { ...run.counters, ...counters },
-    seeds,
-    rngState,
-    lifetime: addLifetime(run, energy, harvested ? cashDelta : 0, harvested),
+    counters: { ...next.counters, ...counters },
+    lifetime: addLifetime(next, energy, harvested ? cashDelta : 0, harvested),
   })
 }
 
@@ -158,9 +158,8 @@ export function plant(state: GameState, i: number, cropId: CropId, energy = ACTI
       return {
         tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 },
         cashDelta: kept ? 0 : -price,
-        seeds: stock > 0 && !kept ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds,
         counters: { plants: run.counters.plants + 1 },
-        rngState,
+        run: { ...run, rngState, seeds: stock > 0 && !kept ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds },
       }
     },
     energy,
@@ -184,7 +183,8 @@ export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST):
 }
 
 // Harvest sells instantly: there is no inventory and no separate sell action. A copper sickle may yield 2 crops:
-// both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1).
+// both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1). An accepted order for
+// the crop takes the units first (harvestSale), so every harvest — tap, tool press or worker — fills it.
 export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   return farmAction(
     state,
@@ -200,14 +200,13 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       const crops = hit ? 2 : 1
       // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
       // is hand-picked, a worker's (energy 0) is not
-      const sale = cropSale(state, t.cropId!, crops, energy > 0 ? handPickedBonus() : 1)
+      const sale = harvestSale({ ...state, run: { ...run, rngState } }, t.cropId!, crops, energy > 0 ? handPickedBonus() : 1)
       return {
         tile: clearedTile(t),
         cashDelta: sale.cash,
-        market: sale.market,
         counters: { harvests: harvests + 1, sales: sales + crops },
         harvested: t.cropId,
-        rngState,
+        run: sale.run,
       }
     },
     energy,

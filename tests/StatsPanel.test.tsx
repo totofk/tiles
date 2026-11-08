@@ -19,7 +19,7 @@ describe('Stats panel', () => {
         mastery: { copper: 50 },
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 1, harvest: 0, plant: 2 },
-        lifetime: { cashEarned: 321, energySpent: 99, bars: 4, harvests: { radish: 12 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 },
+        lifetime: { cashEarned: 321, energySpent: 99, bars: 4, harvests: { radish: 12 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0 },
       },
     }
     const { container } = render(<Stats state={state} />)

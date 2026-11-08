@@ -4,10 +4,20 @@ import type { CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
-import { createInitialMeta, createInitialState, createTile, type GameState, type Loan, type MultiplierKey, type Tile } from '../core/state'
+import {
+  createInitialMeta,
+  createInitialState,
+  createTile,
+  type Counters,
+  type GameState,
+  type Lifetime,
+  type Loan,
+  type MultiplierKey,
+  type Tile,
+} from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 12
+export const SAVE_VERSION = 13
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -84,10 +94,15 @@ type SaveV7 = { version: 7; savedAtMs: number; state: { meta: MetaV11; run: RunV
 type SaveV8 = { version: 8; savedAtMs: number; state: { meta: MetaV11; run: RunV8 } }
 type SaveV9 = { version: 9; savedAtMs: number; state: { meta: MetaV11; run: RunV9 } }
 type SaveV10 = { version: 10; savedAtMs: number; state: { meta: MetaV11; run: RunV10 } }
-type RunV11 = Omit<GameState['run'], 'market' | 'milestones'>
+type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime'> & {
+  counters: Omit<Counters, 'orders'>
+  lifetime: Omit<Lifetime, 'ordersCompleted' | 'starsEarned'>
+}
+type RunV11 = Omit<RunV12, 'market' | 'milestones'>
 type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: RunV11 } }
-type SaveV12 = { version: 12; savedAtMs: number; state: GameState }
-export type Save = SaveV12
+type SaveV12 = { version: 12; savedAtMs: number; state: { meta: GameState['meta']; run: RunV12 } }
+type SaveV13 = { version: 13; savedAtMs: number; state: GameState }
+export type Save = SaveV13
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -301,10 +316,40 @@ function migrateV11(save: SaveV11): SaveV12 {
   }
 }
 
+// v12 → v13: the 📋 Noticeboard. Not bought (it is a Shop purchase, never granted), the starting slots, no ⭐, no
+// orders completed. Nothing else changes.
+function migrateV12(save: SaveV12): SaveV13 {
+  const { meta, run } = save.state
+  const fresh = createInitialState().run
+  return {
+    version: 13,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        orders: fresh.orders,
+        stars: 0,
+        counters: { ...run.counters, orders: 0 },
+        lifetime: { ...run.lifetime, ordersCompleted: 0, starsEarned: 0 },
+      },
+    },
+  }
+}
+
+type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
+
 /** brings any known version up to the current Save; null for unknown or future versions */
-function migrate(data: { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }): Save | null {
+function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
+  if (data.version === 13) return data as SaveV13
+  const v12 = toV12(data)
+  return v12 && migrateV12(v12)
+}
+
+/** v1 … v12 up to v12; null for anything else */
+function toV12(data: RawSave): SaveV12 | null {
   switch (data.version) {
     case 1:
       return migrateV11(migrateV10(migrateV9(migrateV8(migrateV7(migrateV6(migrateV5(migrateV4(migrateV3(migrateV2(migrateV1(data as SaveV1)))))))))))

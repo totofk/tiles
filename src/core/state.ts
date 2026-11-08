@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, START_TILES, STARTING_CASH, energyMax, orderStartSlots } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
@@ -69,7 +69,20 @@ export type RunState = {
   market: Record<CropId, number>
   /** tick each milestone was first reached; a milestone already true when tracking started stays absent (before tracking) */
   milestones: Partial<Record<MilestoneId, number>>
+  /** the 📋 Noticeboard (batch 14) */
+  orders: Orders
+  /** ⭐ held; earned only by completing orders, spent only on ⭐ rows (never bought or sold for cash) */
+  stars: number
 }
+
+/** what an order may ask for: a crop (filled by harvests) or an item (delivered from storage) */
+export type OrderGood = CropId | ItemId
+/** tier indexes the balance order tiers (minutes, ⭐); an accepted crop order takes every harvest of its crop */
+export type Offer = { good: OrderGood; count: number; done: number; tier: number; accepted: boolean }
+/** a slot holds an offer, or counts down to its next one after a discard */
+export type OrderSlot = Offer | { cooldownTicks: number }
+/** offers has one entry per owned slot once the board is bought (empty before) */
+export type Orders = { unlocked: boolean; slots: number; offers: OrderSlot[] }
 
 /** pool = hired; assigned per job ≤ pool in total; a job takes workers only once its certificate is bought */
 export type Workers = { pool: number; assigned: Record<WorkerJob, number>; certificates: WorkerJob[] }
@@ -82,9 +95,9 @@ export type Pickaxe = { tier: PickaxeTier; durability: number }
 
 /**
  * sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds;
- * bars = copper bars collected from the furnace tray
+ * bars = copper bars collected from the furnace tray; orders = orders completed
  */
-export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number; bars: number }
+export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number; bars: number; orders: number }
 export type CounterId = keyof Counters
 
 /**
@@ -123,6 +136,8 @@ export type Lifetime = {
   workerMines: number
   ironBars: number
   ironBarsSmelted: number
+  ordersCompleted: number
+  starsEarned: number
 }
 
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
@@ -160,7 +175,7 @@ export function createInitialState(): GameState {
       tiles: Array.from({ length: START_TILES }, createTile),
       licenses: [STARTING_CROP],
       upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
-      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0 },
+      counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 },
       tick: 0,
       mineLicense: false,
       pickaxe: null,
@@ -169,7 +184,7 @@ export function createInitialState(): GameState {
       storageLevel: 0,
       vein: { level: 0, progress: 0, rock: 'stone' },
       furnace: createFurnace(),
-      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0 },
+      lifetime: { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0 },
       mastery: {},
       masteredTiers: [],
       rngState: INITIAL_RNG_SEED,
@@ -183,6 +198,8 @@ export function createInitialState(): GameState {
       workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0 }, certificates: [] },
       market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
       milestones: {},
+      orders: { unlocked: false, slots: orderStartSlots(), offers: [] },
+      stars: 0,
     },
   }
 }

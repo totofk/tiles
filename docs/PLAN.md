@@ -742,6 +742,22 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
 - **Batch 13 (task 78): observation for Toon, not tuned (not a batch-13 number):** the 👷 hire button still unlocks at 30
   harvests (`WORKER_HIRE_UNLOCK`, ~8 min in) while the first certificate now comes at ~25 min. A player can hire 💰150
   workers who have no job for ~15 min. Moving the hire unlock to "owns a certificate" would close that gap.
+- **Batch 14 (task 79): a cooling slot rolls its new offer inside step(), when the cooldown reaches 0.** The plan lists
+  the actions that open a slot (buy board, complete, discard, buy slot, reroll), but a discard only starts the 600-tick
+  cooldown and `{ cooldownTicks }` has no room for a pre-rolled offer. The roll uses `run.rngState` inside step(), which
+  is deterministic, so runs still replay and step(s, n) = n × step(s, 1) (tested). Completions by a worker's harvest
+  roll inside step() too, through the harvest action.
+- **Batch 14 (task 79): "can make now" is read literally for items and bars.** An item joins the pool only with the mine
+  license and only if the owned pickaxe mines it as itself (iron ore needs a copper pickaxe; otherwise it is mined as
+  stone). A bar joins only when the furnace is built *and* its ore is in the pool: a furnace at vein Lv1 has no copper ore
+  to smelt, so "bars once the furnace exists" would offer an order nobody can fill. Wood (bought, never mined) is not in
+  the pool.
+- **Batch 14 (task 79): every offer is accepted first, items too.** Accept routes a crop's harvests; on an item order it
+  shows Deliver. Deliver moves the whole rest at once (`NOT_ENOUGH_ITEMS` when storage is short), like the clerk's "an
+  item order storage can fill". Delivered items count no sale (they are not sold); their bonus cash counts as cash
+  earned. Two accepted orders for one crop fill in slot order.
+- **Batch 14 (task 79): new errors `BAD_SLOT` (no such slot, or it is cooling down) and `NO_STARS`;** `pay()` takes an
+  optional `stars` in `Price` (checked after items, before cash, never scaled by the cost multiplier).
 
 
 ## Batch 3 — round-1 fixes + mining v1 (tasks 10–14)
@@ -2322,7 +2338,7 @@ Why: cash is trivial for veteran players; ⭐ is paced by time, not tile count, 
 everyone, and crop orders are the outlet for a flooded market. Design: docs/research/orders.md §1 recs 1–10
 (state shape adapted to save v13; Workshop goods join the pool later through the same tables).
 
-- [ ] 79. **Orders core + save v13.** FIRST commit `tests/fixtures/save-v12.json` (realistic, market glut > 0,
+- [x] 79. **Orders core + save v13.** FIRST commit `tests/fixtures/save-v12.json` (realistic, market glut > 0,
     milestones present).
     - 🛒 Shop card "📋 Noticeboard": `{ stone: 10, cash: 100 }`, visible after 50 sales. Bought, not automation.
     - `run.orders = { unlocked, slots, offers: Array<Offer | { cooldownTicks: number }> }`,
