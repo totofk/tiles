@@ -772,6 +772,20 @@ Lowest cash in the run: 4. Cash at tick 600: 304.
   nor dropped by the vein, so the clerk leaves bar orders to the player (it still delivers one the player accepted).
 - **Batch 14 (task 81): the batch-13 sim's certificate table skips `clerk`** (the batch-13 ladder never reaches the
   board); no number in it changed.
+- **Batch 14 (task 82): ⭐/h is "about equal" only when the farm makes what the count assumes; not tuned.** A crop
+  order's count uses tiles ÷ grow time (the plan's formula). The batch-13 24-tile lemon farm (one worker per job)
+  harvests 114 lemons/h, 48 % of that, so it earns 5 ⭐/h against carrot's 11. The same farm with six workers (228/h)
+  earns 10. No batch-14 number moves this ratio: tier minutes, weights and ⭐ scale both farms alike. If Toon wants
+  understaffed farms to keep pace, the lever is the count basis (e.g. the farm's harvests over the last hour instead
+  of tiles ÷ grow time). That is a rule change, so it is not made here. The sim adds the six-worker farm as a third
+  data point and pins all three.
+- **Batch 14 (task 82): order cash bonus measured at +27 % to +41 % of income, above the research's +12–18 %; not
+  tuned.** The plan sets no cash target, and ⭐ is in range. The bot accepts every order for its crop, so nearly all
+  harvests go through an order; on 24 tiles the board also skips the ≈ 10 % glut. If Toon wants it nearer the research,
+  the lever is `ORDER_BOARD.bonus` (estimated, not run: at 0.1 the glut bypass alone stays, roughly +20 % on 24 lemon
+  tiles).
+- **Batch 14 (task 82): `runBot` got an `onTick` hook** (test code only) so the property test sees the ladder's
+  states; every older run passes no hook and replays unchanged.
 - **Batch 14 (task 80): `.hud` wraps.** The ⭐ span adds ≈ 58 px; with a loan the 375 px HUD needs ≈ 394 px of 343, so
   it now wraps to a second line rather than overflowing (the overflow with a loan existed before at ≈ 336 + 👷).
 
@@ -2383,7 +2397,7 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
     action every WORKER_ACTION_TICKS, 💰1 wage, same pool cap 6: deliver an item order storage can fill, else accept
     any offer whose good the farm grows or the vein drops; never discards. Milestones table gains: board bought,
     first order, 10 ⭐, clerk certificate.
-- [ ] 82. **Sim (`tests/sim.test.ts` "batch 14").** Report ⭐/hour and order cash bonus as % of income for a 9-tile
+- [x] 82. **Sim (`tests/sim.test.ts` "batch 14").** Report ⭐/hour and order cash bonus as % of income for a 9-tile
     carrot farm and the 24-tile lemon farm (expect ⭐ rate about equal, 4–12 ⭐/h); hours to buy the whole ⭐ shop;
     hierarchy pin (mining cash/energy incl. item-order bonus < 0.9 × pumpkin farming); every item order count ≤ bag
     capacity at its moment; generator only offers goods the state can produce (property test over the ladder bot's
@@ -2450,3 +2464,40 @@ everyone, and crop orders are the outlet for a flooded market. Design: docs/rese
 - Layout (computed, as above): ⭐ shop row = `+ Slot 3`/⭐10 ≈ 70 px + 4 + `🔄 Reroll`/⭐2 ≈ 81 px ≈ 155 px ≤ 284
   (1024), 358 (1440), 359 (375). 👷 Clerk row = label + `orders 0/20` ≈ 70 + Certificate button over
   `🥉6 ⭐20 💰200` ≈ 108 + ⓘ 28 + gaps 8 ≈ 214 px ≤ 284, the width every other certificate row already fits.
+
+### Sim (task 82, `tests/sim.test.ts` "batch 14", measured, `rules.batch13` on)
+
+Bot (`orderFarm`): one crop, 2 h, 💰1000 start, the board bought at tick 0 (refunded, so both runs start alike) vs no
+board. Before each tick it accepts every offer for its crop and discards every other one (the 10-min cooldown then
+refills the slot); it never rerolls and never spends ⭐. Income = cash change + standing crops per hour.
+
+| farm | harvests/h | ⭐/h | orders/h | income/h with board | without | order cash bonus | h to ⭐ shop (60) |
+|---|---|---|---|---|---|---|---|
+| 9-tile carrot, by hand | 320 | **11** | 6.5 | 💰4,500 | 💰3,542 | **+27 %** | **5.5** |
+| 24-tile lemon, 1 planter/waterer/harvester + attentive player (batch 13 farm) | 114 | **5** | 3 | 💰16,766 | 💰12,340 | **+35.9 %** | **12** |
+| 24-tile lemon, 2 per job (pool 6) + attentive player | 228 | **10** | 6.5 | 💰29,814 | 💰21,117 | **+41.2 %** | **6** |
+
+- **⭐/h:** all three are inside 4–12. Carrot by hand (320 of a nominal 324/h) and the six-worker lemon farm (228 of
+  240/h) are equal within 1 ⭐/h, so ⭐ is paced by time, not tile count or crop price. The three-worker lemon farm
+  earns half: its one waterer caps it at ~120 lemon cycles/h (48 % of the 240/h the count assumes), so each order
+  takes twice its tier minutes. See Deviations.
+- **Order cash bonus** (income with board ÷ without − 1): +27 % to +41 %, above the research's +12–18 %. The research
+  assumed 40–60 % of harvests routed through orders; this player accepts every order for its crop, so ~all harvests
+  go through one, and on 24 lemon tiles the board also removes the glut (≈ 0.9 → 1, so ×1.25 on top of ×1.11).
+  Not tuned (no target in the plan); see Deviations for the lever.
+- **Hours to the whole ⭐ shop** (3rd slot 10 + 4th slot 30 + clerk certificate 20 = 60 ⭐; rerolls are consumables):
+  5.5 h (carrot), 6 h (six-worker lemon), 12 h (three-worker lemon), at 2 slots, without the rate a 3rd slot adds.
+- **Hierarchy:** the best mining bench (iron Lv10, vein Lv3, repairs at input value) earns 2.09 cash/energy; with every
+  mined item paid at (1 + 0.25) it is 2.62, against the cap 0.9 × 24-tile pumpkin by hand = 0.9 × 10.22 = 9.20. Delivered
+  items actually earn less than selling (base × 0.25 and the item is gone), so this is an upper bound.
+- **Storage fit:** over the batch-13 iron ladder (2 h, 120 states, one per minute), every item order count of every
+  good in the pool at every tier is ≤ ⌊bag ÷ 2⌋ (the largest is exactly half) and ≥ 1.
+- **Generator property:** for the same 120 states, every good in `orderPool` and 20 rolled offers per state pass an
+  independent "can produce" predicate (licensed crop; mine license + the vein drops it + a copper pickaxe for iron;
+  furnace + its ore for bars). The pool grows from 1 good (carrot) to 10 (4 crops, stone, coal, copper and iron ore,
+  both bars).
+- **No batch-14 number changed** (`ORDER_BOARD`, `ORDER_TIERS`, `ORDER_ROCKS_PER_MIN`, `ORDER_COOLDOWN_TICKS`,
+  `ORDER_SLOT_STARS`, `ORDER_REROLL_STARS`, the clerk certificate are the plan's values). Every older pin replays
+  unchanged (the older bots never buy the board).
+- step(s, n) = n × step(s, 1) is tested with workers, the market, accepted crop orders and a cooling slot
+  (`tests/orders.test.ts`, task 79) and with the clerk, a harvester, crop + item orders and the market (task 81).

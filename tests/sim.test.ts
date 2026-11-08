@@ -25,6 +25,9 @@ import {
   furnaceCost,
   furnaceTrayCap,
   mineLicenseCost,
+  orderBonus,
+  orderSlotStars,
+  orderTierCount,
   pickaxeCraftCost,
   pickaxeDurability,
   pickaxeRepairCost,
@@ -34,6 +37,7 @@ import {
   storageSlotsPerLevel,
   toolMaxLevel,
   toolTierCost,
+  veinDrops,
   veinUpgradeCost,
   type Price,
 } from '../src/core/balance'
@@ -47,6 +51,9 @@ import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWorker } from '../src/core/workers'
+import { acceptOrder, buyOrderBoard, discardOrder, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
+import type { OrderGood } from '../src/core/state'
+import type { ItemId } from '../src/core/data/items'
 
 // Batch 12: the crop market is on in every run; `withoutMarket` switches it off (factor 1) only for the "before" runs.
 const market = vi.hoisted(() => ({ on: true }))
@@ -303,6 +310,7 @@ function runBot(
     iron = false,
     buyTools = false,
     onEnd,
+    onTick,
   }: {
     ticks?: number
     licenses?: CropId[]
@@ -336,6 +344,8 @@ function runBot(
     buyTools?: boolean
     /** receives the state at the cut-off */
     onEnd?: (s: GameState) => void
+    /** batch 14: receives the state after every tick */
+    onTick?: (s: GameState) => void
   } = {},
 ) {
   const goals = iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
@@ -513,6 +523,7 @@ function runBot(
     seen()
     if (s.run.furnace.ready > 0) ladderTicks.firstBar ??= s.run.tick
     if (s.run.lifetime.ironBarsSmelted > 0) ladderTicks.firstIronBar ??= s.run.tick
+    onTick?.(s)
   }
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
@@ -2157,5 +2168,176 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
       for (let i = 0; i < 600; i++) one = step(one, 1)
       expect(step(start, 600)).toEqual(one)
     })
+  })
+})
+
+/**
+ * Batch 14: one crop on `tileCount` tiles for `ticks`, 💰1000 at the start (seeds never block it), with or without the
+ * 📋 board (bought at tick 0, the purchase refunded so both runs start alike). Board policy before each tick: accept
+ * every open offer for the farmed crop, discard every other (the cooldown then refills the slot); never rerolls, never
+ * spends ⭐. perJob 0 = runCropBot's player (bestFarmAction with all its energy); perJob k = staffedLemon's farm with k
+ * planters, waterers and harvesters and its attentive player. Income = cash change + standing crops (runCropBot's
+ * accounting) per hour.
+ */
+function orderFarm(crop: CropId, tileCount: number, perJob: number, board: boolean, ticks = MARKET_TICKS) {
+  const init = createInitialState()
+  const tiles = [...init.run.tiles, ...Array.from({ length: tileCount - init.run.tiles.length }, createTile)]
+  const n = perJob
+  const staffed = n > 0
+  const assigned = { plant: n, water: n, harvest: n, ore: 0, fuel: 0, mine: 0, clerk: 0 }
+  const workers = { pool: 3 * n, assigned, certificates: [...WORKER_JOBS] }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, workers, tiles } }
+  if (board) {
+    const bought = buyOrderBoard({ ...s, run: { ...s.run, inventory: { stone: 10 }, counters: { ...s.run.counters, sales: 50 } } })
+    if (!bought.ok) throw new Error(bought.error)
+    s = { ...s, run: { ...s.run, orders: bought.state.run.orders, rngState: bought.state.run.rngState } }
+  }
+  const take = (r: ActionResult) => {
+    if (r.ok) s = r.state
+    return r.ok
+  }
+  let budget = 0
+  let lowest = s.run.cash
+  for (let t = 0; t < ticks; t++) {
+    s.run.orders.offers.forEach((o, i) => {
+      if (isOffer(o) && !o.accepted) take(o.good === crop ? acceptOrder(s, i) : discardOrder(s, i))
+    })
+    if (staffed) {
+      budget = Math.min(budget + ATTENTIVE_ENERGY_PER_MIN / 60, ATTENTIVE_ENERGY_PER_MIN)
+      for (let i = 0; i < s.run.tiles.length && budget >= 1; i++) if (take(harvest(s, i))) budget -= 1
+    } else
+      while (s.run.energy >= ACTION_ENERGY_COST) {
+        const next = bestFarmAction(s, [crop])
+        if (!next) break
+        s = next.state
+      }
+    s = step(s, 1)
+    lowest = Math.min(lowest, s.run.cash)
+  }
+  const field = s.run.tiles.reduce((sum, t) => sum + (t.cropId ? cropSellPrice(t.cropId, s.meta, 0) * growthProgress(t, s) : 0), 0)
+  const hours = ticks / HOUR_TICKS
+  return {
+    incomePerHour: Math.round((s.run.cash - 1000 + field) / hours),
+    starsPerHour: Math.round((s.run.lifetime.starsEarned / hours) * 10) / 10,
+    ordersPerHour: Math.round((s.run.lifetime.ordersCompleted / hours) * 10) / 10,
+    harvestsPerHour: Math.round(s.run.counters.harvests / hours),
+    lowest,
+    end: s,
+  }
+}
+
+/** the goods a state can make, written apart from orderPool: what the property test checks the generator against */
+function canProduce(run: GameState['run'], good: OrderGood): boolean {
+  if ((CROP_IDS as readonly string[]).includes(good)) return run.licenses.includes(good as CropId)
+  const mined = (id: ItemId) =>
+    run.mineLicense && (veinDrops(run.vein.level)[id] ?? 0) > 0 && (id !== 'ironOre' || PICKAXE_TIERS.indexOf(run.pickaxe?.tier ?? 'wooden') >= 1)
+  if (good === 'copperBar') return run.furnace.built && mined('copperOre')
+  if (good === 'ironBar') return run.furnace.built && mined('ironOre')
+  return mined(good as ItemId)
+}
+
+describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
+  const r = withBatch13(() => {
+    const farm = (crop: CropId, tileCount: number, perJob: number) => {
+      const on = orderFarm(crop, tileCount, perJob, true)
+      const off = orderFarm(crop, tileCount, perJob, false)
+      const { end, ...shown } = on
+      void end
+      return { ...shown, incomeOff: off.incomePerHour, bonusPct: Math.round(((on.incomePerHour - off.incomePerHour) / off.incomePerHour) * 1000) / 10 }
+    }
+    // the batch-13 24-tile lemon farm (one worker per job), and the same farm with the full pool of six (two per job)
+    const farms = { carrot9: farm('radish', 9, 0), lemon24: farm('lemon', TILE_CAP, 1), lemon24x6: farm('lemon', TILE_CAP, 2) }
+    // the whole ⭐ shop: 3rd + 4th slot and the clerk certificate (rerolls are consumables)
+    const shopStars = orderSlotStars(2)! + orderSlotStars(3)! + certificateCost('clerk', createInitialState().meta).stars!
+    const hoursToShop = Object.fromEntries(Object.entries(farms).map(([k, f]) => [k, Math.round((shopStars / f.starsPerHour) * 10) / 10]))
+    // hierarchy: the best mining bench with every item paid at (1 + bonus) vs 24-tile pumpkin farming with no orders
+    const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+    const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
+    const miningWithBonus = ironLv10 * (1 + orderBonus())
+    // the generator over the ladder bot's states (every 60 ticks of the batch-13 iron ladder)
+    const states: GameState[] = []
+    runBot(true, {
+      ticks: IRON_TICKS,
+      licenses: LICENSE_ORDER,
+      crops: PLANT_ORDER,
+      ladder: true,
+      copperTools: true,
+      workers: true,
+      furnace: true,
+      planter: true,
+      iron: true,
+      buyTools: true,
+      onTick: (s) => {
+        if (s.run.tick % 60 === 0) states.push(s)
+      },
+    })
+    return { farms, shopStars, hoursToShop, pumpkin24, ironLv10, miningWithBonus, states }
+  })
+  const { farms, shopStars, hoursToShop, pumpkin24, ironLv10, miningWithBonus, states } = r
+  // every good of every sampled state's pool, every tier: the count and the bag capacity at that moment
+  const counts = states.flatMap((s) =>
+    orderPool(s.run).flatMap((good) => Array.from({ length: orderTierCount() }, (_, tier) => ({ tick: s.run.tick, good, tier, count: orderCount(s, good, tier), bag: s.run.bagCapacity }))),
+  )
+  const items = counts.filter((c) => !isCropGood(c.good))
+  const poolSizes = states.map((s) => orderPool(s.run).length)
+  console.log(
+    'batch 14',
+    JSON.stringify(
+      { farms, shopStars, hoursToShop, pumpkin24, ironLv10, miningWithBonus, cap: 0.9 * pumpkin24, states: states.length, poolSizes: [Math.min(...poolSizes), Math.max(...poolSizes)], maxItemShare: Math.max(...items.map((c) => c.count / c.bag)) },
+      null,
+      1,
+    ),
+  )
+
+  it('⭐ per hour is paced by time: every farm earns 4–12 ⭐/h; equal within 1.5 ⭐/h when the farm makes what the count assumes', () => {
+    for (const f of Object.values(farms)) {
+      expect(f.starsPerHour).toBeGreaterThanOrEqual(4)
+      expect(f.starsPerHour).toBeLessThanOrEqual(12)
+      expect(f.lowest).toBeGreaterThanOrEqual(0)
+    }
+    // carrot by hand harvests ~99 % of tiles ÷ grow time, six lemon workers ~95 %; three make ~48 %, so they earn ~half
+    expect(Math.abs(farms.carrot9.starsPerHour - farms.lemon24x6.starsPerHour)).toBeLessThanOrEqual(1.5)
+  })
+
+  it('orders add income on every farm; ⭐/h, order cash bonus and hours to the whole ⭐ shop pinned (PLAN.md "Batch 14 results")', () => {
+    for (const f of Object.values(farms)) expect(f.bonusPct).toBeGreaterThan(0)
+    const pick = ({ starsPerHour, ordersPerHour, harvestsPerHour, incomePerHour, incomeOff, bonusPct }: (typeof farms)['carrot9']) => ({
+      starsPerHour,
+      ordersPerHour,
+      harvestsPerHour,
+      incomePerHour,
+      incomeOff,
+      bonusPct,
+    })
+    expect({ carrot9: pick(farms.carrot9), lemon24: pick(farms.lemon24), lemon24x6: pick(farms.lemon24x6), shopStars, hoursToShop }).toEqual({
+      carrot9: { starsPerHour: 11, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 4500, incomeOff: 3542, bonusPct: 27 },
+      lemon24: { starsPerHour: 5, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 16766, incomeOff: 12340, bonusPct: 35.9 },
+      lemon24x6: { starsPerHour: 10, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 29814, incomeOff: 21117, bonusPct: 41.2 },
+      shopStars: 60,
+      hoursToShop: { carrot9: 5.5, lemon24: 12, lemon24x6: 6 },
+    })
+  })
+
+  it('hierarchy: the best mining bench with every item at (1 + bonus) stays < 0.9 × 24-tile pumpkin farming', () => {
+    expect(miningWithBonus).toBeLessThan(0.9 * pumpkin24)
+  })
+
+  it('every item order count ≤ the bag capacity at its moment (and ≤ half of it)', () => {
+    expect(items.length).toBeGreaterThan(0)
+    for (const c of items) expect(c.count).toBeLessThanOrEqual(Math.floor(c.bag / 2))
+    for (const c of counts) expect(c.count).toBeGreaterThanOrEqual(1)
+  })
+
+  it('the generator only offers goods the state can produce (pool and 20 rolls per sampled ladder state)', () => {
+    expect(states.length).toBe(IRON_TICKS / 60)
+    for (const s of states) {
+      for (const good of orderPool(s.run)) expect(canProduce(s.run, good), `${good} at tick ${s.run.tick}`).toBe(true)
+      for (let k = 0; k < 20; k++) {
+        const [offer] = rollOffer(s, (k * 2654435761) >>> 0)
+        expect(canProduce(s.run, offer.good), `${offer.good} at tick ${s.run.tick}`).toBe(true)
+      }
+    }
+    // the ladder reaches iron, so the pool grows from the starting crop to crops, vein items and both bars
+    expect(Math.max(...poolSizes)).toBeGreaterThanOrEqual(8)
   })
 })
