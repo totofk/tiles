@@ -1,6 +1,9 @@
-import { loanDebtCap, loanPrincipal, loanRepayStep, loanStartDebt } from '../core/balance'
+import { PRESTIGE_GATE_DEEDS, deedsFor, loanDebtCap, loanPrincipal, loanRepayStep, loanStartDebt } from '../core/balance'
 import { debtDue, loanTicksToCap, repay, repayAll, takeLoan } from '../core/bank'
+import { sellFarmUnlocked } from '../core/prestige'
 import type { GameState } from '../core/state'
+import { Legacy, SellCard } from './Legacy'
+import type { PanelProps } from './panelTabs'
 import { ERROR_TEXT, type Act } from './useGame'
 
 /** 1 tick = 1 s */
@@ -52,5 +55,56 @@ export function Bank({ state, act }: { state: GameState; act: Act }) {
         </div>
       )}
     </section>
+  )
+}
+
+/** the deed meter: what the lifetime total will be worth when prestige opens (a meter only, batch 12) */
+export function Deeds({ state }: { state: GameState }) {
+  const cash = Math.floor(state.run.lifetime.cashEarned)
+  const deeds = deedsFor(cash)
+  return (
+    <p className="deeds">
+      Lifetime cash 💰{cash.toLocaleString('en-US')} → {deeds} deed{deeds === 1 ? '' : 's'} when "Sell the farm" opens
+    </p>
+  )
+}
+
+/** what still blocks the sale gate, in the Fields-unlock "needs …" style: uncovered farm jobs, then deeds short */
+function gateShort(state: GameState): string {
+  const { run } = state
+  const deeds = deedsFor(run.lifetime.cashEarned)
+  return [
+    !run.workers.certificates.includes('plant') && 'planter certificate',
+    !run.workers.certificates.includes('harvest') && 'harvester certificate',
+    run.workshop.hoppers.length < 1 && '1 sprinkler',
+    deeds < PRESTIGE_GATE_DEEDS && `${PRESTIGE_GATE_DEEDS - deeds} more deeds`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+}
+
+/** the 🏦 Bank tab (batch 21): the loan, then the prestige group as one block — the deed meter, the sale card (a
+ * locked teaser row naming what is missing until the gate opens), and the 🏆 Legacy shop once a farm has been sold */
+export function BankTab({ state, act, sell }: PanelProps) {
+  const sold = state.meta.prestigeCount > 0 || state.meta.deeds > 0
+  return (
+    <>
+      <Bank state={state} act={act} />
+      <Deeds state={state} />
+      {sellFarmUnlocked(state) ? (
+        <SellCard state={state} sell={sell} />
+      ) : (
+        <section className="shop">
+          <h2>🏆 Sell the farm</h2>
+          <div className="shop-row one-col">
+            <button className="locked" disabled>
+              🔒 Sell the farm
+              <small>needs {gateShort(state)}</small>
+            </button>
+          </div>
+        </section>
+      )}
+      {sold && <Legacy state={state} act={act} />}
+    </>
   )
 }

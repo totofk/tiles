@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CropId } from '../core/data/crops'
 import type { GameState } from '../core/state'
-import { Bank } from './Bank'
+import { BankTab } from './Bank'
 import { Farm } from './Farm'
 import { Shop } from './Shop'
 import type { FeedbackProps } from './FeedbackCard'
@@ -34,7 +34,7 @@ export const PANEL_TABS = [
   { id: 'farm', label: '🌾 Farm', Panel: Farm },
   { id: 'shop', label: '🛒 Shop', Panel: Shop },
   { id: 'upgrades', label: '⬆️ Upgrades', Panel: Upgrades },
-  { id: 'bank', label: '🏦 Bank', Panel: Bank },
+  { id: 'bank', label: '🏦 Bank', Panel: BankTab },
   { id: 'stats', label: '📊 Stats', Panel: StatsTab },
 ] as const satisfies readonly { id: string; label: string; Panel: (p: PanelProps) => ReactNode }[]
 

@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { Bank } from '../src/app/Bank'
+import { Bank, BankTab, Deeds } from '../src/app/Bank'
+import { EMPTY_FEEDBACK } from '../src/app/feedback'
 import { Hud } from '../src/app/Hud'
 import { createInitialState, type GameState, type Loan } from '../src/core/state'
 
@@ -60,5 +61,59 @@ describe('HUD debt badge', () => {
     cleanup()
     render(<Hud state={withRun({ loan: loan(41.3) })} />)
     expect(screen.getByTitle('Bank debt').textContent).toBe('🏦 −💰42')
+  })
+})
+
+describe('prestige group in the Bank tab (batch 21)', () => {
+  const panel = (state: GameState) => (
+    <BankTab
+      state={state}
+      act={noop}
+      cropId="radish"
+      onSelectCrop={noop}
+      farmTab={false}
+      ui={{ view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] }, priceShown: {} }}
+      reset={noop}
+      sell={noop}
+      feedback={EMPTY_FEEDBACK}
+      setFeedback={noop}
+      exportCode={() => null}
+      importCode={() => ({ ok: false, error: 'BAD_SAVE' })}
+    />
+  )
+
+  it('deed meter: ⌊√(lifetime cash ÷ 10 000)⌋ deeds, a meter only', () => {
+    render(<Deeds state={withRun({ lifetime: { ...createInitialState().run.lifetime, cashEarned: 1_040_000 } })} />)
+    expect(screen.getByText('Lifetime cash 💰1,040,000 → 10 deeds when "Sell the farm" opens')).toBeTruthy()
+  })
+
+  it('pre-gate: the loan, the meter and a locked teaser row naming what is missing', () => {
+    render(panel(createInitialState()))
+    expect(screen.getByText('Borrow 💰30 · repay 💰33 now, grows to at most 💰60')).toBeTruthy()
+    expect(screen.getByText(/→ 0 deeds when "Sell the farm" opens/)).toBeTruthy()
+    expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 sprinkler + 8 more deeds')
+    expect(button(/🔒 Sell the farm/).disabled).toBe(true)
+    expect(screen.queryByRole('heading', { name: '🏆 Legacy' })).toBeNull()
+  })
+
+  it('the teaser shrinks as gates close; the sale card shows once the gate is open', () => {
+    const atGate = withRun({
+      lifetime: { ...createInitialState().run.lifetime, cashEarned: 640_000 },
+      workers: { ...createInitialState().run.workers, certificates: ['plant', 'harvest'] },
+      workshop: { built: true, hoppers: [5], valve: false },
+    })
+    // 8 deeds on the meter, every job covered: the gate is open
+    render(panel(atGate))
+    expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
+    expect(screen.getByText('Sell now: +8 deeds (💰8 + 0 from ⭐)')).toBeTruthy()
+    expect(screen.queryByText(/needs /)).toBeNull()
+  })
+
+  it('the 🏆 Legacy shop shows once a farm has been sold', () => {
+    const s = createInitialState()
+    const sold = { ...s, meta: { ...s.meta, prestigeCount: 1, deeds: 9 } }
+    render(panel(sold))
+    expect(screen.getByRole('heading', { name: '🏆 Legacy' })).toBeTruthy()
+    expect(screen.getByText(/9 deeds to spend — 1 farm sold/)).toBeTruthy()
   })
 })

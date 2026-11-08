@@ -1,12 +1,9 @@
 import { useState } from 'react'
-import { deedsFor } from '../core/balance'
 import type { GameState } from '../core/state'
 import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
 import { DangerZone } from './DangerZone'
 import { FeedbackCard } from './FeedbackCard'
-import { sellFarmUnlocked } from '../core/prestige'
-import { Legacy, SellCard } from './Legacy'
 import type { PanelProps } from './panelTabs'
 import { SaveTransfer, copyText } from './SaveTransfer'
 
@@ -39,17 +36,6 @@ export function Stats({ state }: { state: GameState }) {
   )
 }
 
-/** the deed meter: what the lifetime total will be worth when prestige opens (a meter only, batch 12) */
-export function Deeds({ state }: { state: GameState }) {
-  const cash = Math.floor(state.run.lifetime.cashEarned)
-  const deeds = deedsFor(cash)
-  return (
-    <p className="deeds">
-      Lifetime cash 💰{cash.toLocaleString('en-US')} → {deeds} deed{deeds === 1 ? '' : 's'} when "Sell the farm" opens
-    </p>
-  )
-}
-
 /** the milestone timeline and "Copy report" (core `reportLines`, never the save) */
 export function Timeline({ state }: { state: GameState }) {
   const [copied, setCopied] = useState<boolean | null>(null)
@@ -79,16 +65,12 @@ export function Timeline({ state }: { state: GameState }) {
   )
 }
 
-/** the 📊 Stats tab: the stats, deeds, the sale card (once the gate opens), the 🏆 Legacy shop (once a farm has been
- * sold), timeline, 💬 Feedback, Save export/import, then the Danger zone with Reset */
-export function StatsTab({ state, act, feedback, setFeedback, reset, sell, exportCode, importCode }: PanelProps) {
-  const sold = state.meta.prestigeCount > 0 || state.meta.deeds > 0
+/** the 📊 Stats tab (batch 21: the prestige group moved to 🏦 Bank): the stats, timeline, 💬 Feedback, Save
+ * export/import, then the Danger zone with Reset */
+export function StatsTab({ state, feedback, setFeedback, reset, exportCode, importCode }: PanelProps) {
   return (
     <>
       <Stats state={state} />
-      <Deeds state={state} />
-      {sellFarmUnlocked(state) && <SellCard state={state} sell={sell} />}
-      {sold && <Legacy state={state} act={act} />}
       <Timeline state={state} />
       <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
       <SaveTransfer exportCode={exportCode} importCode={importCode} />

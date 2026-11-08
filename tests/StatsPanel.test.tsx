@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Deeds, Stats, Timeline } from '../src/app/Stats'
+import { Stats, Timeline } from '../src/app/Stats'
 import { createInitialState, type GameState } from '../src/core/state'
 import { reportLines, stats } from '../src/core/stats'
 import { SAVE_VERSION } from '../src/save/serialize'
@@ -28,12 +28,6 @@ describe('Stats panel', () => {
     const shown = [...container.querySelectorAll('.stats > div')].map((d) => d.textContent)
     const { totals, multipliers } = stats(state)
     expect(shown).toEqual([...totals, ...multipliers].map((r) => `${r.label}${r.value}${r.source ? ` (${r.source})` : ''}`))
-  })
-
-  it('deed meter: ⌊√(lifetime cash ÷ 10 000)⌋ deeds, a meter only', () => {
-    const s = createInitialState()
-    render(<Deeds state={{ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, cashEarned: 1_040_000 } } }} />)
-    expect(screen.getByText('Lifetime cash 💰1,040,000 → 10 deeds when "Sell the farm" opens')).toBeTruthy()
   })
 
   it('timeline lists the recorded milestones; Copy report copies reportLines with the build and save version', async () => {
