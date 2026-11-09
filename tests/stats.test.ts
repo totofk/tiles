@@ -4,8 +4,7 @@ import { STARTING_CASH, cropGrowTicks, cropSellPrice, energyMax, handPickedBonus
 import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState } from '../src/core/state'
-import { MILESTONES } from '../src/core/data/milestones'
-import { REPORT_MAX_LINES, feedbackSummary, reportLines, stats, timelineLines } from '../src/core/stats'
+import { feedbackSummary, stats, timelineLines } from '../src/core/stats'
 
 const row = (rows: { label: string }[], label: string) => rows.find((r) => r.label === label)
 
@@ -167,7 +166,7 @@ describe('feedbackSummary(state)', () => {
   })
 })
 
-describe('timelineLines / reportLines', () => {
+describe('timelineLines', () => {
   const with_ = (run: Partial<GameState['run']>): GameState => {
     const s = createInitialState()
     return { ...s, run: { ...s.run, ...run } }
@@ -191,29 +190,5 @@ describe('timelineLines / reportLines', () => {
     })
     // firstHarvest, sales25 and the carrot and pumpkin licenses were true before tracking; lemon is recorded (not owned here)
     expect(timelineLines(s.run)).toEqual(['… 4 earlier milestones before tracking (tracking since 2h 0m)', 'Lemon license — 2h 30m'])
-  })
-
-  it('reportLines: header, run summary, market factors, then the timeline', () => {
-    const s = with_({ cash: 12.7, milestones: { firstHarvest: 100 }, counters: { ...createInitialState().run.counters, harvests: 1 } })
-    expect(reportLines(s, ['Build: abc', 'Save: v12'])).toEqual([
-      'Build: abc',
-      'Save: v12',
-      'Played: 0m 00s',
-      'Cash: 💰12',
-      'Lifetime cash: 💰0',
-      `Tiles: ${s.run.tiles.length}`,
-      'Workers: 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0, clerk 0)',
-      'Vein: Lv0',
-      'Market: carrot 100 %, chilli 100 %, pumpkin 100 %, lemon 100 %, tomato 100 %, corn 100 %, grape 100 %, strawberry 100 %',
-      'Timeline:',
-      'First harvest — 1m',
-    ])
-  })
-
-  it('reportLines never passes 30 lines: a long timeline ends with "… N more"', () => {
-    const milestones = Object.fromEntries(MILESTONES.map((m, i) => [m.id, i * 60]))
-    const lines = reportLines(with_({ milestones }), ['Build: abc', 'Save: v12'])
-    expect(lines).toHaveLength(REPORT_MAX_LINES)
-    expect(lines.at(-1)).toBe(`… ${10 + MILESTONES.length - (REPORT_MAX_LINES - 1)} more`)
   })
 })

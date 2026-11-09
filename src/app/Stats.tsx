@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import type { GameState } from '../core/state'
-import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
-import { SAVE_VERSION } from '../save/serialize'
+import { stats, timelineLines, type StatRow } from '../core/stats'
 import { DataModal } from './DataModal'
 import { FeedbackCard } from './FeedbackCard'
-import { copyText, Modal } from './Modal'
+import { Modal } from './Modal'
 import { RoadmapList } from './Roadmap'
 import type { PanelProps } from './panelTabs'
 
@@ -37,14 +36,9 @@ export function Stats({ state }: { state: GameState }) {
   )
 }
 
-/** the milestone timeline and "Copy report" (core `reportLines`, never the save) */
+/** the milestone timeline (batch 23.1: the "Copy report" button is gone; 💬 Feedback carries the save itself) */
 export function Timeline({ state }: { state: GameState }) {
-  const [copied, setCopied] = useState<boolean | null>(null)
   const lines = timelineLines(state.run)
-  const copy = async () => {
-    const header = [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]
-    setCopied(await copyText(reportLines(state, header).join('\n')))
-  }
   return (
     <section className="shop">
       <h2>Timeline</h2>
@@ -57,11 +51,6 @@ export function Timeline({ state }: { state: GameState }) {
       ) : (
         <p className="timeline-empty">No milestones yet — your first harvest starts the list.</p>
       )}
-      <button className="report" onClick={copy}>
-        Copy report
-      </button>
-      {copied === true && <p role="status">Report copied — paste it in 💬 Feedback or a message</p>}
-      {copied === false && <p role="alert">Could not copy — this browser blocks the clipboard</p>}
     </section>
   )
 }

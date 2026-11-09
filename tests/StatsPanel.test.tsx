@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { PARKED_IDEAS, PARKED_LABEL, PARKED_ORDER, RoadmapList } from '../src/app/Roadmap'
 import { Stats, StatsTab, Timeline } from '../src/app/Stats'
 import type { PanelProps } from '../src/app/panelTabs'
 import { EMPTY_FEEDBACK } from '../src/app/feedback'
 import { createInitialState, type GameState } from '../src/core/state'
-import { reportLines, stats } from '../src/core/stats'
-import { SAVE_VERSION } from '../src/save/serialize'
+import { stats } from '../src/core/stats'
 
 afterEach(cleanup)
 
@@ -33,17 +32,12 @@ describe('Stats panel', () => {
     expect(shown).toEqual([...totals, ...multipliers].map((r) => `${r.label}${r.value}${r.source ? ` (${r.source})` : ''}`))
   })
 
-  it('timeline lists the recorded milestones; Copy report copies reportLines with the build and save version', async () => {
-    const writeText = vi.fn(() => Promise.resolve())
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
+  it('timeline lists the recorded milestones; no Copy report button anymore (task 123)', () => {
     const s = createInitialState()
     const state: GameState = { ...s, run: { ...s.run, counters: { ...s.run.counters, harvests: 1 }, milestones: { firstHarvest: 100 } } }
     render(<Timeline state={state} />)
     expect(screen.getAllByRole('listitem').map((li) => li.textContent)).toEqual(['First harvest — 1m'])
-    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Copy report' })))
-    expect(writeText).toHaveBeenCalledWith(reportLines(state, [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]).join('\n'))
-    expect(screen.getByRole('status').textContent).toMatch(/Report copied/)
-    vi.unstubAllGlobals()
+    expect(screen.queryByRole('button', { name: 'Copy report' })).toBeNull()
   })
 })
 

@@ -1112,7 +1112,7 @@ details > summary:focus-visible {
   overflow: hidden;
 }
 
-/* 📊 Stats deed meter, timeline and Copy report: plain text rows at the panel's content width */
+/* 📊 Stats deed meter and timeline: plain text rows at the panel's content width */
 .deeds,
 .timeline-empty {
   margin: 8px 0 0;
@@ -1134,13 +1134,6 @@ details > summary:focus-visible {
   padding-left: 20px;
   font-size: 13px;
   line-height: 1.4;
-}
-.report {
-  margin-top: 8px;
-}
-.report + p {
-  margin: 4px 0 0;
-  font-size: 13px;
 }
 /* 📊 Stats "Save": the feedback card's column; Import armed turns red like Reset */
 

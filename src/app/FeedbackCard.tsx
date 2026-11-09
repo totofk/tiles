@@ -1,6 +1,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import type { GameState } from '../core/state'
-import { feedbackSummary, timelineLines } from '../core/stats'
+import { feedbackSummary } from '../core/stats'
+import { encodeSave } from '../save/codec'
 import { SAVE_VERSION } from '../save/serialize'
 import {
   DETAILS_MAX,
@@ -25,7 +26,8 @@ function context(state: GameState): FeedbackContext {
     ua: navigator.userAgent,
     time: new Date().toISOString(),
     summary: feedbackSummary(state),
-    timeline: timelineLines(state.run),
+    // the LIVE run at send time, like 💾 Data export (wall clock stays in src/app)
+    saveCode: encodeSave({ version: SAVE_VERSION, savedAtMs: Date.now(), state }),
   }
 }
 
@@ -99,6 +101,7 @@ export function FeedbackCard({ state, feedback, setFeedback }: FeedbackProps) {
       </button>
       {status === 'sent' && <p role="status">Sent — thank you</p>}
       {status === 'failed' && <p role="alert">Could not send — check your connection</p>}
+      <small>Your save and game stats are attached.</small>
     </section>
   )
 }

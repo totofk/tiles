@@ -4,7 +4,6 @@ import {
   energyRegenPerTick,
   fireUnitTicks,
   growTimeFactor,
-  marketFactor,
   masteredPreserveBonus,
   masteryLevel,
   multiplier,
@@ -151,32 +150,6 @@ export function timelineLines(run: RunState): string[] {
     return tick === undefined ? [] : [{ tick, line: `${m.label} — ${playTime(tick)}` }]
   })
   return [...head, ...reached.sort((a, b) => a.tick - b.tick).map((r) => r.line)]
-}
-
-/** the "Copy report" limit; a longer timeline is cut and ends with "… N more" */
-export const REPORT_MAX_LINES = 30
-
-/**
- * The "Copy report" text, one item per line, never the save: `header` (build and save version, which only the app
- * knows), play time, cash, lifetime cash, tiles, workers per job, vein, market factors, then the timeline.
- */
-export function reportLines(state: GameState, header: string[]): string[] {
-  const { run } = state
-  const lines = [
-    ...header,
-    `Played: ${duration(run.tick)}`,
-    `Cash: 💰${Math.floor(run.cash)}`,
-    `Lifetime cash: 💰${Math.round(run.lifetime.cashEarned)}`,
-    `Tiles: ${run.tiles.length}`,
-    `Workers: ${run.workers.pool} (${WORKER_JOBS.map((job) => `${job} ${run.workers.assigned[job]}`).join(', ')})`,
-    `Vein: Lv${run.vein.level}`,
-    `Market: ${CROP_IDS.map((id) => `${CROPS[id].name.toLowerCase()} ${Math.round(marketFactor(id, run.market[id]) * 100)} %`).join(', ')}`,
-    'Timeline:',
-    ...timelineLines(run),
-  ]
-  if (lines.length <= REPORT_MAX_LINES) return lines
-  const kept = lines.slice(0, REPORT_MAX_LINES - 1)
-  return [...kept, `… ${lines.length - kept.length} more`]
 }
 
 /** One plain-text line about the run for a feedback report (never the save). */

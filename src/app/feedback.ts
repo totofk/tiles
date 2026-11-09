@@ -19,7 +19,7 @@ export const EMPTY_DRAFT: FeedbackDraft = { kind: 'Feedback', title: '', details
 export type FeedbackState = { draft: FeedbackDraft; sentAt: number | null }
 export const EMPTY_FEEDBACK: FeedbackState = { draft: EMPTY_DRAFT, sentAt: null }
 
-/** timeline: core `timelineLines`, the same lines "Copy report" ends with */
+/** saveCode: `encodeSave` of the live run at send time (the save carries `milestones`, so no timeline lines) */
 export type FeedbackContext = {
   build: string
   saveVersion: number
@@ -27,7 +27,7 @@ export type FeedbackContext = {
   ua: string
   time: string
   summary: string
-  timeline: string[]
+  saveCode: string
 }
 
 export const canSend = (d: FeedbackDraft) => d.title.trim() !== '' && d.details.trim() !== ''
@@ -44,7 +44,7 @@ export function buildFeedbackBody(d: FeedbackDraft, c: FeedbackContext): URLSear
     `UA: ${c.ua}`,
     `Time: ${c.time}`,
     `Game: ${c.summary}`,
-    ...(c.timeline.length ? ['Timeline:', ...c.timeline] : []),
+    `Save code: ${c.saveCode}`,
   ].join('\n')
   return new URLSearchParams({
     [ENTRY.kind]: d.kind,

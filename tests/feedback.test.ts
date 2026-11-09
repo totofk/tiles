@@ -9,7 +9,12 @@ import {
   sendFeedback,
   type FeedbackContext,
 } from '../src/app/feedback'
+import { createInitialState } from '../src/core/state'
+import { decodeSave, encodeSave } from '../src/save/codec'
+import { SAVE_VERSION } from '../src/save/serialize'
 
+const state = createInitialState()
+const saveCode = encodeSave({ version: SAVE_VERSION, savedAtMs: 0, state })
 const ctx: FeedbackContext = {
   build: 'abc1234',
   saveVersion: 11,
@@ -17,7 +22,7 @@ const ctx: FeedbackContext = {
   ua: 'TestUA/1.0',
   time: '2026-11-08T00:00:00.000Z',
   summary: 'cash 20 · vein Lv0',
-  timeline: [],
+  saveCode,
 }
 const draft = { ...EMPTY_DRAFT, kind: 'Bug report' as const, title: ' Furnace stuck ', details: 'It stopped.\n', contact: 'me@x.y' }
 
@@ -30,13 +35,20 @@ describe('buildFeedbackBody', () => {
     expect(body.get('entry.767920014')).toBe('me@x.y')
     expect(body.get('entry.1552861218')).toBe(
       'It stopped.\n\n---\nBuild: abc1234\nSave: v11\nScreen: 375×812 @3\nUA: TestUA/1.0\nTime: 2026-11-08T00:00:00.000Z\n' +
-        'Game: cash 20 · vein Lv0',
+        'Game: cash 20 · vein Lv0\n' +
+        `Save code: ${saveCode}`,
     )
   })
 
-  it('a timeline follows the game line under "Timeline:"', () => {
-    const body = buildFeedbackBody(draft, { ...ctx, timeline: ['First harvest — 1m', 'Pumpkin license — 4m'] })
-    expect(body.get('entry.1552861218')).toMatch(/Game: cash 20 · vein Lv0\nTimeline:\nFirst harvest — 1m\nPumpkin license — 4m$/)
+  it('the last line is the live save as a TILES1 code that decodeImport round-trips; no Timeline lines (task 123)', () => {
+    const details = buildFeedbackBody(draft, ctx).get('entry.1552861218')!
+    expect(details).not.toContain('Timeline:')
+    const code = details.split('Save code: ')[1]!
+    const decoded = decodeSave(code)
+    expect(decoded.version).toBe(SAVE_VERSION)
+    expect(decoded.state.run.cash).toBe(state.run.cash)
+    expect(decoded.state.run.tiles).toHaveLength(state.run.tiles.length)
+    expect(decoded.state.run.milestones).toEqual(state.run.milestones)
   })
 
   it('an empty contact is sent empty; the honeypot is never sent', () => {

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FeedbackCard } from '../src/app/FeedbackCard'
 import { COOLDOWN_MS, EMPTY_FEEDBACK } from '../src/app/feedback'
 import { createInitialState } from '../src/core/state'
+import { decodeSave } from '../src/save/codec'
 
 const post = vi.fn<typeof fetch>()
 beforeEach(() => {
@@ -59,6 +60,20 @@ describe('💬 Feedback card', () => {
     expect(sentDetails()).toContain('fuel 0, mine 0, clerk 0)')
     expect(screen.getByRole('status').textContent).toBe('Sent — thank you')
     expect(field(/Title/).value).toBe('')
+  })
+
+  it('attaches the live save as the last body line, no timeline; the form says so (task 123)', async () => {
+    render(<Host />)
+    fill()
+    await press()
+    const details = sentDetails()
+    expect(details).not.toContain('Timeline:')
+    const code = details.split('Save code: ')[1]!
+    expect(code).toMatch(/^TILES1\./)
+    const decoded = decodeSave(code)
+    expect(decoded.state.run.cash).toBe(20)
+    expect(decoded.state.run.tiles).toHaveLength(createInitialState().run.tiles.length)
+    expect(screen.getByText('Your save and game stats are attached.')).toBeTruthy()
   })
 
   it('one send per 30 s', async () => {
