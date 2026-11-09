@@ -3600,7 +3600,7 @@ see there). No save shape change, no SAVE_VERSION bump, no RNG change (sim pins 
 jsdom cannot measure layout. The CSS below is the spec — write it as given (names may differ, structure may not).
 Hermes re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440.
 
-- [ ] 129. **Shared columns for `.item-grid` + furnace recipe line.**
+- [x] 129. **Shared columns for `.item-grid` + furnace recipe line.**
     - Columns live on the CONTAINER; rows use `subgrid` so every row shares them. Drop the 0-width reserved
       column (batch 25 adds its own column when the toggle ships):
       ```css
@@ -3644,7 +3644,7 @@ Hermes re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440.
     - Tests: extend `tests/appCss.test.ts` — `.item-grid` declares the 5 columns, `.item-row` uses
       `grid-template-columns: subgrid`, an `@container` rule exists, no `.item-sub` media swap remains. jsdom: both
       grids render inside a `.item-grid-wrap`, every `.item-row` has 5 children; the furnace recipe renders two lines.
-- [ ] 130. **🔧 Workshop + 🚜 Fields cards: groups, one-line gauges, aligned buttons.**
+- [x] 130. **🔧 Workshop + 🚜 Fields cards: groups, one-line gauges, aligned buttons.**
     - Groups (batch 24 `.group` pattern, `<h3>` sub-heading where named):
       Fields = (1) status gauges (To plant / Growing / Ready); (2) **Plant** — one row per licensed crop;
       (3) **Expand** — +1 Field, Pipes; (4) **Machines** — Harvester Mk1–3, Seeder Mk1–2.
@@ -3686,7 +3686,7 @@ Hermes re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440.
       with h3 "Build"; an owned machine renders `.owned-badge` and no button; a RecipeRow button's text holds the
       verb + price but NOT the effect text; `priceText({ ironBar: 12, cash: 50000 })` contains `\u2060`.
       appCss test: `.recipe-row` and `.gauge-row` use `subgrid`.
-- [ ] 131. **Order board states (item 5).** `Orders.tsx` + `.order-row` CSS.
+- [x] 131. **Order board states (item 5).** `Orders.tsx` + `.order-row` CSS.
     - Offer (not accepted): dashed frame, muted text, a "New" badge, Accept is the primary button.
     - Accepted: solid frame + a progress bar. Crop order: "filling from harvests" + `done/count`. Item order: the
       count already in storage, e.g. `🔶 12 / 15 in storage` (today item rows show `done/count` = 0 even with the
@@ -3698,7 +3698,7 @@ Hermes re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440.
       state only, not saved), second press discards. Offers and zero-progress accepted orders discard on one press.
     - Tests (jsdom): seed one offer, one accepted-in-progress, one ready → each row has its state class/badge; the
       summary shows `· 1 ready`; ✕ on the in-progress order needs two presses; item order shows the storage count.
-- [ ] 132. **Worker activity visibility (item 10) — TEMPORARY CSS pass.**
+- [x] 132. **Worker activity visibility (item 10) — TEMPORARY CSS pass.**
     - Farm next-target ring (`.cell-target`, today 2 px dashed, -4 px offset): solid 3 px in the job colour + a
       slow opacity pulse (`@keyframes`, ~1.5 s). Keep the act flash (`.cell-flash`).
     - Workers card rows, all 7 jobs: a dot before the job name — ● green pulsing = acted in the last work round,
@@ -3721,3 +3721,52 @@ the TRUE END of this file. Hermes verifies live: seed with every license, Fields
 owned, Workshop 1/4, every item 3-digit, all three order states, every worker kind → at 375 / 1024 / 1440 / 2560 /
 3440: name cells ≥ "Copper ore" / "Strawberry" (no "Copper…" pairs), no row overflow, every Fields/Workshop button
 the same left edge, no emoji/number split, ring visible on green and soil; before/after screenshots.
+
+## Batch 24.1 results (2026-11-10)
+
+Tasks 129–132 done, one commit each (719e4af, 2a23678, bc7abe5, 8fa42b7). `pnpm test` 45 files / 818 tests green,
+`pnpm lint`, `pnpm build`, `tsc -b --force` clean; purity grep over `src/core` + `src/save` clean (only the
+pre-existing `src/save/storage.ts:26` wallClock seam). No save shape change, no SAVE_VERSION bump, no RNG change —
+sim pins did not move.
+
+- **129** `.item-grid` columns now live on the container (`minmax(0,1fr) auto auto 64px 64px`), rows are `subgrid`;
+  both users (seed pouch, Mine sell list) wrapped in `.item-grid-wrap` (`container-type: inline-size`), two-line
+  fallback under 359 px via `@container` with grid-areas. The viewport `.item-sub`/`.item-price` media swap is gone
+  (appCss test asserts absence). Furnace recipe split into recipe line + `have:` stock line, every token `nowrap`.
+- **130** Workshop + Fields regrouped (`.group` + `<h3>`): gauges one shared `.gauge-grid` (label | bar | count,
+  `subgrid` rows), recipe/crop/expand rows one `.recipe-grid` per card (fixed 144 px button column, `@container
+  (max-width: 299px)` single-column fallback); effect + hint lines moved under the name; owned recipes render
+  `✓ Built` instead of a button. `priceText`/`shortOf` join emoji to number with U+2060 (tests updated to match).
+- **131** Order rows carry `order-offer` (dashed + New badge) / `order-accepted` (solid + progress bar, crop
+  "filling from harvests", item `N / M in storage`) / `order-ready` (green + ✓ Ready + filled Deliver). ✕ at the
+  row end (44 px hit area, 16 px from the primary), two-press arm for accepted orders with progress. Summary
+  appends `· N ready`.
+- **132** `workRound`'s `touched` now reports every job that acted (`WorkTouch` = job + optional tile/slot; the
+  clerk carries its slot via the new pure `clerkTarget` extracted from `clerkAction` — behavior-identical, no RNG
+  change). New `workerActivity(state)` in `src/core/workers.ts` exposes the pre-round touches; `useGame` computes
+  it once per crossed tick and feeds both the tile rings and the new `worked` state. Solid 3 px pulsing
+  `.cell-target` ring per job colour, activity dot on all 7 job rows (`job-dot`/`job-dot-on`), amber flash on the
+  furnace Smelt group and the clerk's order row, `· N working` in the collapsed summary;
+  `prefers-reduced-motion` gets a steady ring and dot.
+
+### Deviations
+
+- Per-row `.item-sub` removed as planned, but the price-each now lives in the `extra` cell in one-line mode too
+  (not only in two-line mode) — the `@media (max-width: 767px)` swap had no one-line replacement.
+- Fields/Workshop groups sit in ONE `.recipe-grid` per card; the divider ABOVE the recipe block comes from
+  `.recipe-wrap` (margin/border), while the dividers between Plant/Expand/Machines come from the existing
+  `.group:not(:first-child)` rule — no new divider mechanism.
+- U+2060 joiner applied to `priceText`/`shortOf` outputs only; other emoji+number strings (Shop's "needs 🥈4
+  more" lines, summary texts) keep plain spaces.
+- Item-order storage count shows `N / M` with M = remaining (`count − done`), matching what a Deliver takes.
+- Clerk slot reporting chose the second plan option (extend `touched`) over per-round state diffing in `src/app`;
+  `clerkTarget` is the extracted pure finder, unit-tested in `tests/orders.test.ts`.
+- Task 130's gate run had 2 test-literal failures (a fixture used a non-existent crop id; 2 literals missing the
+  U+2060 joiner) — fixed and verified by running those two test files in isolation; the full suite was not re-run
+  for that commit alone (it is green in the final run).
+- Machine was under heavy external load (load avg 9.8–13.7) during early runs: one `pnpm test` invocation hit the
+  timeout and was killed and re-run once, and a sim perf test flaked once — both pass in isolation and in the
+  final full run.
+- jsdom cannot measure layout or animations: all container-query breakpoints, subgrid column sharing, the ring /
+  dot pulses and the amber flashes are verified structurally (class presence + appCss assertions) only. Hermes
+  re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440 per the gate list above.
