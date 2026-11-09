@@ -484,3 +484,18 @@ the big crafting round.
   weight them later. No feature is blocked because one system out-earns another. Hard guards only: no infinite cash
   loop, no soft lock or stall, prices ≤ storage capacity, nothing negative, saves migrate. The sim's hierarchy
   asserts become reported numbers in batch 25.
+
+## Layout follow-up, order states, worker activity (batch 24.1, 2026-11-09, Toon go)
+
+- **Repeated rows share columns for real.** Columns are declared once on the grid container and rows use
+  `subgrid`; a container query (not a viewport media query) turns a row into two lines when its panel is narrow.
+  Why: batch 24 gave each row its own `auto` grid, so columns drifted row to row and the name cell collapsed to 0 px
+  in the 1024 px Mine column — the panel width, not the viewport, decides whether one line fits.
+- **Recipe buttons carry only the verb and the price.** Effect text and "needs … more" move under the name; every
+  button in a card has the same width; owned recipes show "✓ Built" instead of a disabled button. Why: Toon found
+  the Workshop/Fields cards cramped — buttons sized to their text gave three different placements in one card.
+- **An emoji never wraps away from its number** (word joiner in `priceText`).
+- **Order rows show their state** (New / Accepted with progress / Ready); Discard is a small ✕ away from the primary
+  button, two presses once an order has progress.
+- **Worker activity is visible** (ring, per-job dot, "· N working"). This CSS pass is a stopgap: Toon will bring
+  animation references for a proper pass later (Motion AI Kit reviewed and deferred — tiles has no Motion dependency).

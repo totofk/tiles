@@ -3583,3 +3583,141 @@ before/after furnace screenshots.
 - Not verifiable without a browser (Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440): no horizontal
   overflow at 375 with every tool at level 2, every license, 3-digit counts; bars ≥ 8 px from neighbours and
   groups ≥ 16 px as rendered; the computed clamp column widths; before/after furnace screenshots.
+
+## Batch 24.1 — Layout follow-up (shared columns, Workshop + Fields cards) + order states + worker activity (tasks 129–132, no save bump)
+
+Why (Toon + Hermes live check, 2026-11-09): batch 24's `.item-grid` made each `.item-row` its own grid with `auto`
+columns, so (1) the `minmax(0, 1fr)` name cell collapsed to **0 px** in the 1024 px Mine column (~194 px wide) and
+rows overflowed by ~200 px, and at 1440 "Copper ore" / "Copper bar" both truncated to "Copper…"; (2) counts and
+prices drift row to row because the columns are not shared; (3) the furnace recipe line wraps "wood 120" alone onto
+a new line. Toon also reported the 🔧 Workshop and 🚜 Fields cards still cramped: batch 24's layout seed never unlocked
+them, so they still are flat `.worker-row` siblings with content-width buttons and long effect text inside the
+button. Plus two accepted minor-feedback items: 5 (order board states) and 10 (worker activity, TEMPORARY CSS — a
+real animation pass comes later with Toon's references). Decisions: `docs/DECISIONS.md` "Layout follow-up, order
+states, worker activity (batch 24.1)". All work is `src/app` (task 132 may extend `src/core/workers.ts` reporting,
+see there). No save shape change, no SAVE_VERSION bump, no RNG change (sim pins must not move).
+
+jsdom cannot measure layout. The CSS below is the spec — write it as given (names may differ, structure may not).
+Hermes re-measures on the live build at 375 / 1024 / 1440 / 2560 / 3440.
+
+- [ ] 129. **Shared columns for `.item-grid` + furnace recipe line.**
+    - Columns live on the CONTAINER; rows use `subgrid` so every row shares them. Drop the 0-width reserved
+      column (batch 25 adds its own column when the toggle ships):
+      ```css
+      .item-grid-wrap { container-type: inline-size; }       /* wrapper element around each .item-grid */
+      .item-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto 64px 64px; /* name | count | extra | btn | btn */
+        gap: var(--s2);
+        font-size: 14px;
+      }
+      .item-row {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: subgrid;
+        align-items: center;
+        min-height: 44px;
+      }
+      @container (max-width: 359px) {
+        .item-row {
+          grid-template-columns: minmax(0, 1fr) 64px 64px;
+          grid-template-areas: 'name name count' 'extra b1 b2';
+          row-gap: var(--s1);
+          padding: var(--s1) 0;
+        }
+        .item-row > :nth-child(1) { grid-area: name; }
+        .item-row > :nth-child(2) { grid-area: count; justify-self: end; }
+        .item-row > :nth-child(3) { grid-area: extra; }
+        .item-row > :nth-child(4) { grid-area: b1; }
+        .item-row > :nth-child(5) { grid-area: b2; }
+      }
+      ```
+      The container query needs an ANCESTOR container, hence the wrapper div (a grid cannot query itself). Both
+      users (seed pouch `Farm.tsx`, Mine sell list `Mine.tsx`) get the wrapper. Every row keeps exactly 5 children in
+      this order (unsellable rows keep their two empty `<span />`). In the 2-line mode the price-each shows in the
+      `extra` cell, so the `@media (max-width: 767px)` `.item-sub` / `.item-price` swap is removed (one mechanism,
+      container-based, not viewport-based).
+    - Furnace Smelt group (`Mine.tsx` recipe `<small>`): split into TWO lines — line 1 the recipe
+      (ore + coal-or-wood → bars · N s, emojis from `ITEMS` as today), line 2 the stock (`have: ore N · coal N · wood N`). Every token (`ore N`,
+      `coal N`, `wood N`, and each `emoji+number` of the recipe) is `white-space: nowrap`, so a number never wraps
+      away from its label.
+    - Tests: extend `tests/appCss.test.ts` — `.item-grid` declares the 5 columns, `.item-row` uses
+      `grid-template-columns: subgrid`, an `@container` rule exists, no `.item-sub` media swap remains. jsdom: both
+      grids render inside a `.item-grid-wrap`, every `.item-row` has 5 children; the furnace recipe renders two lines.
+- [ ] 130. **🔧 Workshop + 🚜 Fields cards: groups, one-line gauges, aligned buttons.**
+    - Groups (batch 24 `.group` pattern, `<h3>` sub-heading where named):
+      Fields = (1) status gauges (To plant / Growing / Ready); (2) **Plant** — one row per licensed crop;
+      (3) **Expand** — +1 Field, Pipes; (4) **Machines** — Harvester Mk1–3, Seeder Mk1–2.
+      Workshop = (1) machine gauges; (2) **Build** — Sprinkler, Smart valve.
+    - Gauge rows (Fields `StatLine` + the Growing row, Workshop "Machine N" rows) become ONE line,
+      `label | bar | count`, sharing columns within the card:
+      ```css
+      .gauge-grid { display: grid; grid-template-columns: max-content minmax(48px, 1fr) max-content;
+                    gap: var(--s2) var(--s3); align-items: center; }
+      .gauge-row  { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
+      .gauge-row > .gauge-note { grid-column: 1 / -1; }  /* "⏳ N beyond pipes", "stalled" on its own line */
+      .gauge-row > small { text-align: right; font-variant-numeric: tabular-nums; }
+      ```
+    - Recipe / crop / expand rows (`RecipeRow`, the crop rows, +1 Field, Pipes) share ONE grid per card:
+      ```css
+      .recipe-wrap { container-type: inline-size; }
+      .recipe-grid { display: grid; grid-template-columns: minmax(0, 1fr) 144px; gap: var(--s2) var(--s3); }
+      .recipe-row  { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center;
+                     min-height: 44px; }
+      .recipe-row > button, .recipe-row > .owned-badge { width: 144px; }
+      .recipe-row small { display: block; font-size: 12px; color: #555; }
+      @container (max-width: 299px) {
+        .recipe-row { grid-template-columns: minmax(0, 1fr); }
+        .recipe-row > button, .recipe-row > .owned-badge { width: 100%; }
+      }
+      ```
+      Left cell = emoji + name, then `<small>` lines UNDER the name: the effect text (today inside the button,
+      `Workshop.tsx:45`), and the hint (`needs 🥈11 more` or the locked `reason`). The button holds only two
+      lines: the verb (`Build` / `Buy` / `Plant 10` / `+1 Field`) and the price (`🥈12 💰50000`; crop rows
+      `no ⚡ · 🌱 ×10 💰20`; +1 Field `💰11100 · ~2 h`), price line `white-space: nowrap`. Same for the crop rows
+      (the `needs 50 home harvests` line already sits under the name) and Pipes (already has its sub-line).
+    - Owned recipes (`owned === true`) render NO button: a `<span class="owned-badge">✓ Built</span>` in the
+      button column, and the effect line under the name stays (e.g. `7200 tiles/h`). A disabled dashed "Build ✓"
+      button reads as "locked".
+    - `priceText` (`Mine.tsx`) and `shortOf` (`Workshop.tsx`) join each emoji to its number with U+2060 WORD
+      JOINER (`${emoji}\u2060${n}`) so a line can never break between "🥈" and "12". Tokens stay space-separated.
+      Update any test that compares these strings literally.
+    - Tests (jsdom): Fields renders the 4 groups in order with h3 "Plant", "Expand", "Machines"; Workshop 2 groups
+      with h3 "Build"; an owned machine renders `.owned-badge` and no button; a RecipeRow button's text holds the
+      verb + price but NOT the effect text; `priceText({ ironBar: 12, cash: 50000 })` contains `\u2060`.
+      appCss test: `.recipe-row` and `.gauge-row` use `subgrid`.
+- [ ] 131. **Order board states (item 5).** `Orders.tsx` + `.order-row` CSS.
+    - Offer (not accepted): dashed frame, muted text, a "New" badge, Accept is the primary button.
+    - Accepted: solid frame + a progress bar. Crop order: "filling from harvests" + `done/count`. Item order: the
+      count already in storage, e.g. `🔶 12 / 15 in storage` (today item rows show `done/count` = 0 even with the
+      goods in storage).
+    - Ready (`deliverOrder(state, slot).ok`): green frame, "✓ Ready" badge, filled green Deliver button. The
+      collapsed card summary appends `· N ready` when N > 0.
+    - Discard becomes a small ✕ button at the row end, ≥ 16 px away from the primary button (44 px hit area). An
+      ACCEPTED order with progress > 0 needs two presses: first press turns the ✕ into "Discard?" for 3 s (UI
+      state only, not saved), second press discards. Offers and zero-progress accepted orders discard on one press.
+    - Tests (jsdom): seed one offer, one accepted-in-progress, one ready → each row has its state class/badge; the
+      summary shows `· 1 ready`; ✕ on the in-progress order needs two presses; item order shows the storage count.
+- [ ] 132. **Worker activity visibility (item 10) — TEMPORARY CSS pass.**
+    - Farm next-target ring (`.cell-target`, today 2 px dashed, -4 px offset): solid 3 px in the job colour + a
+      slow opacity pulse (`@keyframes`, ~1.5 s). Keep the act flash (`.cell-flash`).
+    - Workers card rows, all 7 jobs: a dot before the job name — ● green pulsing = acted in the last work round,
+      ○ grey = idle; the existing "unpaid" marker unchanged.
+    - Off-farm act spots flash amber like the Mine button (`.mine-flash` pattern): the furnace Smelt group when
+      the ore/fuel worker acted, the order row the clerk acted on.
+    - Collapsed Workers summary: append `· N working` after `free X / Y`.
+    - `prefers-reduced-motion: reduce`: no pulse — solid ring and a steady dot (the existing reduced-motion block
+      pattern in app.css).
+    - Who acted: today `workRound` (`src/core/workers.ts`) returns `touched` for tile jobs only. Either diff the
+      state per round in `src/app`, or extend `touched` to report every job that acted (job id, plus tile/slot
+      when there is one). A core change must stay pure, must not change the save shape, must not add or reorder
+      RNG draws (sim pins must not move), and needs a unit test for the new entries.
+    - Tests (jsdom): seed every worker kind active → each row has the active dot; summary shows `· N working`;
+      the ring class is present on the next target.
+
+Gates: `pnpm test`, `pnpm lint`, `pnpm build`, `tsc -b --force`, purity grep `Date.now|react` clean over `src/core`
+and `src/save` (pre-existing `src/save/storage.ts` clock seam excepted). `## Batch 24.1 results` + `### Deviations` at
+the TRUE END of this file. Hermes verifies live: seed with every license, Fields 110 tiles + pipes + one machine
+owned, Workshop 1/4, every item 3-digit, all three order states, every worker kind → at 375 / 1024 / 1440 / 2560 /
+3440: name cells ≥ "Copper ore" / "Strawberry" (no "Copper…" pairs), no row overflow, every Fields/Workshop button
+the same left edge, no emoji/number split, ring visible on green and soil; before/after screenshots.
