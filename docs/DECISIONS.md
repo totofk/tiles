@@ -457,3 +457,30 @@ Timeline lines leave the feedback body because the save carries `milestones`. Th
 field has no length validation, so no new form field is needed — this replaces batch 23's "deferred until a
 long-text field exists". "Copy report" is removed; the Timeline stays in Stats for players to read. Offline gains
 already live in the welcome-back banner, so the timeline does not become an offline summary.
+
+## Minor-feedback layout pass + bars sell as disposal (batch 24, 2026-11-09, Toon go)
+
+Toon walked 11 minor-feedback items one by one (Discord, 2026-11-09). Accepted for this batch: items 2 (cramped UI),
+4 (seed pouch Buy ×10 wraps), 11 (inventory rows wrap) and making bars sellable. Later batches: 24.1 order states +
+worker activity (items 5, 10), 25 mine QoL (ore sorting, pickaxe rack, mastery ore bonus, hit carry-over, gold
+pickaxe, sickle seed drop; save v20), 26 furnace molds (item 8; save v21). Item 9 (storage weight) is parked until
+the big crafting round.
+
+- **Spacing is a hierarchy, not a bigger gap.** Tokens `--s1..--s4` = 4/8/12/16 px; 8 px inside a group, 16 px
+  between groups, a divider + sub-heading before Upgrades. The furnace is four groups: Fire / Smelt / Output /
+  Upgrades. Why: Toon rejected a uniform gap bump — a card of flat siblings reads as one wall at any gap.
+- **Wide screens widen the side columns** (caps 320 → 440, 380 → 480); at ≥ 1440 px the panel is always open with no
+  toggle, and a saved `collapsed` is ignored there so nobody is stuck collapsed without a button.
+- **Repeated rows share one grid** (seed pouch + sell list): fixed columns, price inside the button, ellipsis names,
+  so a row's shape never depends on name length or price digits. One column is reserved for batch 25's sort toggle.
+- **Bars sell below input value (disposal, never profit)** — replaces "Bars never sell" (round 5). Why: `bagCount`
+  counts bars, so a bag full of unused bars blocked digging, Collect and the stone-paid storage upgrade; the only
+  escape was discarding orders until one asked for that bar (Toon: a boring lottery). The old fear was a
+  cash → wood → bar → cash loop; one furnace makes at most ~180 copper bars/h (≈ 💰900/h at 💰5), against
+  ≈ 💰26k/h for 24 lemon tiles, so there is no income threat, only the correctness guard: price ≤ ⌊input sell value
+  at the cheapest recipe⌋ − 1 → copper 2, iron 3, gold 5. Bars stay out of "Sell all when full" (they pay for
+  upgrades).
+- **Design stance (Toon):** tiles is an integrated "everything together" game — build systems first, balance and
+  weight them later. No feature is blocked because one system out-earns another. Hard guards only: no infinite cash
+  loop, no soft lock or stall, prices ≤ storage capacity, nothing negative, saves migrate. The sim's hierarchy
+  asserts become reported numbers in batch 25.

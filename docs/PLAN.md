@@ -3449,3 +3449,80 @@ Gates: `pnpm test`, `pnpm lint`, `pnpm build`, purity grep `Date.now|react` clea
 - The feedback test fixture pins `saveVersion: 11` in `Save: v11` (a stale sample value that was already in the
   fixture) while the attached code carries the real `SAVE_VERSION`; harmless because the line is display-only.
 
+
+## Batch 24 — Minor-feedback layout pass + sellable bars (tasks 125–128, no save bump)
+
+Why (Toon, 2026-11-09, minor-feedback items 2, 4, 11 + the bar soft lock): on his ultrawide (3440 px) and on
+mobile the UI is cramped — every card is one flat wall of siblings under a 4–6 px gap, side columns are capped while
+the farm has ~790 px of empty space per side, repeated rows (seed pouch, sell list) wrap differently row by row, and
+the mobile tool bar is content-width and left-aligned. Separately, bars count toward storage but cannot be sold, so a
+bag full of unused bars blocks digging, Collect and the stone-paid storage upgrade (soft lock). Decisions:
+`docs/DECISIONS.md` "Minor-feedback layout pass + bars sell as disposal (batch 24)". All UI work is `src/app`
+only; task 127 also touches two numbers in `src/core/balance.ts`. No save shape change.
+
+- [ ] 125. **Spacing scale, wide columns, always-open panel ≥ 1440.**
+    - Add `--s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px` to `:root` in `src/app/app.css` and replace the hard-coded
+      gaps/margins/paddings (today: 6 px ×11, 8 px ×9, 4 px ×9) with them. Minimum 8 px (`--s2`) between any two
+      buttons; `.panel` padding 8 → 12 (`--s3`). Keep 2–3 px only where elements are meant to touch (icon + text).
+    - `app.css:227` grid: `clamp(220px, 22vw, 440px) minmax(0, 1fr) clamp(300px, 26vw, 480px)` (was 320 / 380), so
+      2560/3440 widen the side columns; 1024 and 1440 compute the same as today (22vw/26vw are below the caps).
+    - ≥ 1440 px (`min-width: 1440px`): no panel-collapse toggle (`App.tsx:179–184` `.panel-toggle`), the side
+      panel is always open and a persisted `tiles.ui.collapsed = true` is IGNORED there (do not overwrite it; it
+      still applies at 1024–1439, which keeps the toggle). Test: render at ≥ 1440 with `collapsed: true` in
+      `tiles.ui` → panel content rendered, no toggle button; at 1024–1439 the toggle is still there.
+- [ ] 126. **Grouped cards + Farm tool bar.**
+    - Two-level vertical rhythm: `--s2` (8 px) inside a group, `--s4` (16 px) between groups, a 1 px divider + a
+      small "Upgrades" sub-heading before every upgrades block. Progress bars (`.bar`, app.css:484, 6 px) get
+      ≥ 8 px from the text above and the buttons below.
+    - Furnace (`Mine.tsx` furnace `<details class="mine-furnace">`, today every child is a flat sibling under
+      `gap: 4px`, app.css:596): wrap the children in four group elements, in this order: (1) **Fire** — status
+      line + fire bar + hint + Fill buttons; (2) **Smelt** — ore choice + recipe line + Load + smelt progress bar;
+      (3) **Output** — Collect + tray line; (4) **Upgrades** — sub-heading + upgrade rows, 8 px apart. Apply the
+      same group/heading rule to the Pickaxe, Orders and Workers cards where they hold more than one block.
+    - Farm-tab tool group (`Tools.tsx`) becomes a collapsible card: default OPEN, header looks like a button with
+      an explicit ▸/▾ chevron (not the native marker), open state stored in `tiles.ui` as `toolsOpen` (default
+      `true`; an old `tiles.ui` without the field reads as open). Not in the save.
+    - Empty `.tool-step` spacers (`Tools.tsx:120`, app.css:772–781, 44 px each side of a level-1/level-3 button):
+      render them ONLY when another row in the same group is level 2 (so mixed groups stay aligned); otherwise
+      the button takes the full row width. Level-2 rows keep − / +. A player with no level-2 tool sees full-width
+      buttons, nothing else changes.
+    - Mobile (≤ 767 px) fixed tool bar: `.tools > button { flex: 1 }` (app.css:752 is `flex: none`) so buttons fill
+      the bar evenly; ≥ 8 px gap between the tool bar and the tab bar (today ~4 px).
+    - Tests (jsdom): furnace renders the four groups in order with the Upgrades heading; tool card toggles and
+      persists `toolsOpen`; no `.tool-step` when no tool is level 2; `.tool-step` present in a group that mixes
+      level 2 and level 3.
+- [ ] 127. **One grid for repeated rows; bars sell as disposal.**
+    - New shared class (e.g. `.item-grid` on the container, `.item-row` per row) used by BOTH the seed pouch
+      (`Farm.tsx:24–35`, `.pouch-row`) and the Mine sell list (`Mine.tsx:382–394`, `.mine-item`); delete the
+      `flex-wrap` + `flex: 1 0 auto; white-space: nowrap` rules (app.css:885–899, 725–733) they replace.
+      Columns: name (`minmax(0, 1fr)`, `overflow: hidden; text-overflow: ellipsis; white-space: nowrap`) | count
+      (right-aligned, `font-variant-numeric: tabular-nums`) | extra (ⓘ in the pouch; price each "💰N" in the sell
+      list) | action 1 | action 2 | one EMPTY reserved column (batch 25 adds a Keep ↔ Sell toggle there; width 0 for
+      now). Every row one 44 px line, 8 px between buttons. Seed buttons: "×1" / "×10" on line one and the price
+      "💰N" on line two INSIDE the button (like `.shop-row button`), fixed 64 px wide. Sell buttons "sell 1" /
+      "sell all" fixed width. Unsellable items (wood) keep empty action cells so columns align.
+      ≤ 767 px: the sell list's price-each moves under the name (second line of the name cell); buttons never wrap.
+    - Bars become sellable at a price below their inputs' sell value (disposal, never profit). In
+      `src/core/balance.ts` add to `ITEM_SELL_PRICE`: `copperBar: 2, ironBar: 3, goldBar: 5`, and rewrite the comment
+      above it ("bars sell below the sell value of their inputs at the cheapest recipe, so smelting to sell never
+      beats selling the ore and coal"). Derivation (fixed here, do not re-decide): a cycle burns `barTicks` of fire
+      whatever the batch, so the cheapest recipe is batch 3; per bar = 2 ore (💰1 each) + fire/3 (copper 2 units,
+      iron 4, gold 6; 1 coal = 2 units sells 💰4, wood sells 💰2 per unit, the same) → copper 2 + 1.33 = 3.33, iron
+      2 + 2.67 = 4.67, gold 2 + 4 = 6; price = ⌊value⌋ − 1 → 2 / 3 / 5. The sell-price multiplier applies as for
+      every item (`itemSellPrice`).
+    - Test (balance): for every bar, its sell price ≤ ⌊2 × ore price + (barTicks / (fireUnitTicks × top batch)) ×
+      (coal price / coal units)⌋ − 1, computed from the balance functions (not literals), and every bar
+      `isSellable`.
+    - Bars are NOT added to the "Sell all … when storage is full" button (`SELL_WHEN_FULL`, `Mine.tsx:63`): bars pay
+      for upgrades, so only their own row's sell 1 / sell all sell them. Test: Sell all leaves bars in storage.
+    - Tests (jsdom): seed pouch and sell list render through the shared grid class; a bar row shows sell 1 /
+      sell all and selling 1 bar adds its price; no `.pouch-row` / `.mine-item` flex-wrap rules remain.
+- [ ] 128. **Docs**: rename `docs/research/art-assets.md` heading "Batch 24 sketch" → "Batch X sketch" (the art
+    batch has no number yet). `## Batch 24 results` + `### Deviations` at the TRUE END of this file, including the
+    CSS column widths you chose and anything you could not verify without a browser (Hermes re-measures live at
+    375 / 1024 / 1440 / 2560 / 3440).
+
+Gates: `pnpm test`, `pnpm lint`, `pnpm build`, purity grep `Date.now|react` clean over `src/core` and `src/save`.
+Hermes verifies live after the batch: no horizontal overflow (`scrollWidth ≤ clientWidth`) of any row/bar at 375
+with every tool at level 2 and every license with 3-digit counts; bars ≥ 8 px from neighbours, groups ≥ 16 px;
+before/after furnace screenshots.
