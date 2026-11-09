@@ -5,7 +5,9 @@ import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { createInitialState } from '../src/core/state'
 import { deserialize, serialize } from '../src/save/serialize'
-import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY, exportSave } from '../src/save/storage'
+import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
+import { encodeSave } from '../src/save/codec'
+import codeV15 from './fixtures/code-v15.txt?raw'
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -288,13 +290,15 @@ describe('layout content', () => {
     expect((screen.getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('half-written idea')
   })
 
-  it('Reset save lives only in 📊 Stats; two presses back the run up to tiles.save.backup.reset and reset', () => {
+  it('Reset save lives only in the 💾 Data modal; two presses back the run up to tiles.save.backup.reset', () => {
     const s = createInitialState()
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 777 } }, Date.now()))
     const confirm = vi.spyOn(window, 'confirm')
     render(<App />)
     expect(screen.queryByRole('button', { name: 'Reset save' })).toBeNull()
     fireEvent.click(panelTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
+    expect(screen.getByRole('dialog', { name: '💾 Data' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Reset save' }))
     expect(localStorage.getItem(RESET_BACKUP_KEY)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Press again to erase everything' }))
@@ -303,17 +307,37 @@ describe('layout content', () => {
     expect(confirm).not.toHaveBeenCalled()
   })
 
-  it('Import save (two presses) backs the live run up to tiles.save.backup.import and loads the pasted one', () => {
+  it('💾 Data Import: the confirm card compares both saves, then backs the live run up and loads the pasted one', () => {
     const s = createInitialState()
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 4321 } }, Date.now()))
-    const code = exportSave(localStorage)!
+    const incoming = JSON.parse(serialize({ ...s, run: { ...s.run, cash: 999 } }, Date.now())) as ReturnType<typeof deserialize>
+    const code = encodeSave(incoming!)
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 777 } }, Date.now()))
     render(<App />)
     fireEvent.click(panelTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: code } })
-    fireEvent.click(screen.getByRole('button', { name: 'Import save' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Press again to replace this save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
+    const card = screen.getByRole('table')
+    expect(card.textContent).toContain('This device')
+    expect(card.textContent).toContain(String(s.run.tiles.length))
+    expect(screen.queryByText(/Will migrate/)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(777)
-    expect(screen.getByText('💰 4321')).toBeTruthy()
+    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.cash).toBe(999)
+  })
+
+  it('💾 Data Import: an older code shows the migrate note and still imports', () => {
+    const s = createInitialState()
+    localStorage.setItem(SAVE_KEY, serialize(s, Date.now()))
+    render(<App />)
+    fireEvent.click(panelTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
+    fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
+    fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
+    expect(screen.getByText(/Will migrate v15 → v19/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
+    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(19)
+    expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)
   })
 })

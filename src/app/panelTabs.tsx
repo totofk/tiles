@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import type { CropId } from '../core/data/crops'
 import type { GameState } from '../core/state'
+import type { Save } from '../save/serialize'
+import type { ImportResult } from '../save/storage'
 import { BankTab } from './Bank'
 import { Farm } from './Farm'
 import { Shop } from './Shop'
 import type { FeedbackProps } from './FeedbackCard'
-import type { SaveTransferProps } from './SaveTransfer'
 import { StatsTab } from './Stats'
 import type { UiState } from './uiState'
 import { Upgrades } from './Upgrades'
@@ -22,8 +23,10 @@ export type PanelProps = {
   ui: UiState
   reset: () => void
   sell: () => void
-} & Omit<FeedbackProps, 'state'> &
-  SaveTransferProps
+  /** 💾 Data modal hooks: serialise the live run, and commit a decoded import (backup + write + reload) */
+  exportCode: () => string
+  applyImport: (save: Save) => ImportResult
+} & Omit<FeedbackProps, 'state'>
 
 /**
  * Side panel tabs, also the panel entries of the mobile tab bar. Adding a tab is one entry here;

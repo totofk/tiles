@@ -1,5 +1,5 @@
 import { createInitialState, type GameState } from '../core/state'
-import { SAVE_VERSION, catchUp, deserialize, offlineTicks, serialize } from './serialize'
+import { SAVE_VERSION, catchUp, deserialize, offlineTicks, serialize, type Save } from './serialize'
 
 export const SAVE_KEY = 'tiles.save'
 /** an unreadable save is moved here instead of being overwritten */
@@ -42,35 +42,21 @@ export function loadGame(storage: KeyValueStore, now: Clock = wallClock): Loaded
   return { state: catchUp(save.state, awayMs), awayMs, ticks: offlineTicks(awayMs), before: save.state }
 }
 
-/** the run as it was just before a 📊 Stats "Import save" (overwritten by the next import) */
+/** the run as it was just before a 💾 Data "Import save" (overwritten by the next import) */
 export const IMPORT_BACKUP_KEY = `${SAVE_KEY}.backup.import`
 
-/** the stored save as base64 of its UTF-8 JSON, for 📊 Stats "Export save"; null when nothing is saved */
-export function exportSave(storage: KeyValueStore): string | null {
-  const raw = storage.getItem(SAVE_KEY)
-  return raw === null ? null : btoa(Array.from(new TextEncoder().encode(raw), (b) => String.fromCharCode(b)).join(''))
-}
-
-export type ImportResult = { ok: true } | { ok: false; error: 'BAD_SAVE' | 'STORAGE' }
+export type ImportResult = { ok: true } | { ok: false; error: 'STORAGE' }
 
 /**
- * Writes a pasted export as the save, after copying the current one to IMPORT_BACKUP_KEY. The caller loads it
- * through loadGame (backup of an older version, migration, offline catch-up). Anything deserialize rejects (not
- * base64, not UTF-8, not a save, a future version) is BAD_SAVE and nothing is written.
+ * Writes an already-decoded, already-migrated Save (the codec ran the boot deserialize chain — there is no
+ * second validator), after copying the current one to IMPORT_BACKUP_KEY. The caller then reloads, so boot loads
+ * it with the same offline catch-up and cap as any restart.
  */
-export function importSave(storage: KeyValueStore, text: string): ImportResult {
-  let raw: string
-  try {
-    const bytes = Uint8Array.from(atob(text.replace(/\s/g, '')), (c) => c.charCodeAt(0))
-    raw = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return { ok: false, error: 'BAD_SAVE' }
-  }
-  if (!deserialize(raw)) return { ok: false, error: 'BAD_SAVE' }
+export function commitImport(storage: KeyValueStore, save: Save): ImportResult {
   try {
     const current = storage.getItem(SAVE_KEY)
     if (current !== null) storage.setItem(IMPORT_BACKUP_KEY, current)
-    storage.setItem(SAVE_KEY, raw)
+    storage.setItem(SAVE_KEY, serialize(save.state, save.savedAtMs))
   } catch {
     // quota full or storage blocked: the save itself is untouched (it is written last)
     return { ok: false, error: 'STORAGE' }

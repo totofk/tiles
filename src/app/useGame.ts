@@ -9,8 +9,9 @@ import { sellFarm } from '../core/prestige'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
 import { sprinklerWatered } from '../core/workshop'
-import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
-import { PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
+import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
+import { encodeSave } from '../save/codec'
+import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { onForeignSaveEvent } from './crossTab'
 import { marketMoves } from './marketText'
 
@@ -174,26 +175,27 @@ export function useGame() {
     setBanner(null)
   }, [commit, showToast])
 
-  // the stored save lags the live run by up to a second, so both first write the live run
+  // 💾 Data export: the LIVE run as a TILES1 code (the stored save lags by up to a second, so it is written too)
   const exportCode = useCallback(() => {
-    saveGame(localStorage, stateRef.current)
-    return exportSave(localStorage)
+    const save: Save = { version: SAVE_VERSION, savedAtMs: wallClock(), state: stateRef.current }
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify(save))
+    } catch {
+      // storage blocked: the code still carries the live run
+    }
+    return encodeSave(save)
   }, [])
 
-  const importCode = useCallback(
-    (text: string): ImportResult => {
+  // 💾 Data import: the codec already migrated the pasted save in memory; back the live run up, write, reload —
+  // boot then applies the same offline catch-up (and its cap) as any restart
+  const applyImport = useCallback(
+    (save: Save): ImportResult => {
       saveGame(localStorage, stateRef.current)
-      const r = importSave(localStorage, text)
-      if (!r.ok) return r
-      const loaded = loadGame(localStorage)
-      setActed([])
-      setWatered([])
-      setMinerActed(false)
-      commit(loaded.state)
-      setBanner(loaded.ticks > 0 ? bannerText(loaded.awayMs, loaded.before, loaded.state) : null)
+      const r = commitImport(localStorage, save)
+      if (r.ok) window.location.reload()
       return r
     },
-    [commit],
+    [],
   )
 
   // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden or frozen.
@@ -277,5 +279,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed, frozen }
+  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed, frozen }
 }

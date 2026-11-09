@@ -2,10 +2,10 @@ import { useState } from 'react'
 import type { GameState } from '../core/state'
 import { reportLines, stats, timelineLines, type StatRow } from '../core/stats'
 import { SAVE_VERSION } from '../save/serialize'
-import { DangerZone } from './DangerZone'
+import { DataModal } from './DataModal'
 import { FeedbackCard } from './FeedbackCard'
+import { copyText, Modal } from './Modal'
 import type { PanelProps } from './panelTabs'
-import { SaveTransfer, copyText } from './SaveTransfer'
 
 function Rows({ rows }: { rows: StatRow[] }) {
   return (
@@ -65,16 +65,33 @@ export function Timeline({ state }: { state: GameState }) {
   )
 }
 
-/** the 📊 Stats tab (batch 21: the prestige group moved to 🏦 Bank): the stats, timeline, 💬 Feedback, Save
- * export/import, then the Danger zone with Reset */
-export function StatsTab({ state, feedback, setFeedback, reset, exportCode, importCode }: PanelProps) {
+/** the 📊 Stats action row: every entry opens the same shared modal primitive (batch 23) */
+const STATS_ACTIONS = [{ id: 'data', label: '💾 Data' }] as const
+type StatsActionId = (typeof STATS_ACTIONS)[number]['id']
+
+/** the 📊 Stats tab (batch 23): the stats, timeline, then the modal buttons — 💾 Data carries export/import and
+ * the Danger zone with Reset; the inline Save card and Reset button are gone from the layout */
+export function StatsTab(props: PanelProps) {
+  const { state, feedback, setFeedback } = props
+  const [open, setOpen] = useState<StatsActionId | null>(null)
+  const close = () => setOpen(null)
   return (
     <>
       <Stats state={state} />
       <Timeline state={state} />
+      <nav className="stats-actions" aria-label="Tools">
+        {STATS_ACTIONS.map((a) => (
+          <button key={a.id} aria-expanded={open === a.id} onClick={() => setOpen(a.id)}>
+            {a.label}
+          </button>
+        ))}
+      </nav>
       <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
-      <SaveTransfer exportCode={exportCode} importCode={importCode} />
-      <DangerZone reset={reset} />
+      {open === 'data' && (
+        <Modal title="💾 Data" close={close}>
+          <DataModal state={state} exportCode={props.exportCode} applyImport={props.applyImport} reset={props.reset} />
+        </Modal>
+      )}
     </>
   )
 }
