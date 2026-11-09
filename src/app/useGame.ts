@@ -186,13 +186,18 @@ export function useGame() {
     return encodeSave(save)
   }, [])
 
-  // 💾 Data import: the codec already migrated the pasted save in memory; back the live run up, write, reload —
-  // boot then applies the same offline catch-up (and its cap) as any restart
+  // 💾 Data import: the codec already migrated the pasted save in memory; back the live run up, freeze every
+  // autosave of this tab (pagehide, hidden visibilitychange, debounce — not freeze(), which shows the other-tab
+  // banner), write, reload — boot then applies the same offline catch-up (and its cap) as any restart
   const applyImport = useCallback(
     (save: Save): ImportResult => {
       saveGame(localStorage, stateRef.current)
+      frozenRef.current = true
+      window.clearTimeout(saveTimer.current)
+      saveTimer.current = undefined
       const r = commitImport(localStorage, save)
       if (r.ok) window.location.reload()
+      else frozenRef.current = false // nothing was written: the game keeps running and saving
       return r
     },
     [],
