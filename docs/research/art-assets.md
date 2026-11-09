@@ -55,7 +55,7 @@ small size, no text, centered per cell, magenta #FF00FF background. Sets: A crop
 & machines 5×2, D UI 5×2 (objects listed row by row). Toon generates set A first for style approval, then B–D
 with A as reference. Raw grids land in `~/Documents/Project/side-project/tiles/design/raw/` (untracked).
 
-## Batch 24 sketch (NOT dispatched — assets not generated yet)
+## Batch X sketch (NOT dispatched — assets not generated yet)
 
 - task: `tools/slice-sheet.py` (Pillow; magenta key → grid slice → trim → resize 64 → WebP + manifest JSON)
 - task: `src/app/Icon.tsx` + assets-manifest; replace emoji per theme (crops first), keep emoji as fallback

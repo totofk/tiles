@@ -3460,7 +3460,7 @@ bag full of unused bars blocks digging, Collect and the stone-paid storage upgra
 `docs/DECISIONS.md` "Minor-feedback layout pass + bars sell as disposal (batch 24)". All UI work is `src/app`
 only; task 127 also touches two numbers in `src/core/balance.ts`. No save shape change.
 
-- [ ] 125. **Spacing scale, wide columns, always-open panel ≥ 1440.**
+- [x] 125. **Spacing scale, wide columns, always-open panel ≥ 1440.**
     - Add `--s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px` to `:root` in `src/app/app.css` and replace the hard-coded
       gaps/margins/paddings (today: 6 px ×11, 8 px ×9, 4 px ×9) with them. Minimum 8 px (`--s2`) between any two
       buttons; `.panel` padding 8 → 12 (`--s3`). Keep 2–3 px only where elements are meant to touch (icon + text).
@@ -3470,7 +3470,7 @@ only; task 127 also touches two numbers in `src/core/balance.ts`. No save shape 
       panel is always open and a persisted `tiles.ui.collapsed = true` is IGNORED there (do not overwrite it; it
       still applies at 1024–1439, which keeps the toggle). Test: render at ≥ 1440 with `collapsed: true` in
       `tiles.ui` → panel content rendered, no toggle button; at 1024–1439 the toggle is still there.
-- [ ] 126. **Grouped cards + Farm tool bar.**
+- [x] 126. **Grouped cards + Farm tool bar.**
     - Two-level vertical rhythm: `--s2` (8 px) inside a group, `--s4` (16 px) between groups, a 1 px divider + a
       small "Upgrades" sub-heading before every upgrades block. Progress bars (`.bar`, app.css:484, 6 px) get
       ≥ 8 px from the text above and the buttons below.
@@ -3491,7 +3491,7 @@ only; task 127 also touches two numbers in `src/core/balance.ts`. No save shape 
     - Tests (jsdom): furnace renders the four groups in order with the Upgrades heading; tool card toggles and
       persists `toolsOpen`; no `.tool-step` when no tool is level 2; `.tool-step` present in a group that mixes
       level 2 and level 3.
-- [ ] 127. **One grid for repeated rows; bars sell as disposal.**
+- [x] 127. **One grid for repeated rows; bars sell as disposal.**
     - New shared class (e.g. `.item-grid` on the container, `.item-row` per row) used by BOTH the seed pouch
       (`Farm.tsx:24–35`, `.pouch-row`) and the Mine sell list (`Mine.tsx:382–394`, `.mine-item`); delete the
       `flex-wrap` + `flex: 1 0 auto; white-space: nowrap` rules (app.css:885–899, 725–733) they replace.
@@ -3517,7 +3517,7 @@ only; task 127 also touches two numbers in `src/core/balance.ts`. No save shape 
       for upgrades, so only their own row's sell 1 / sell all sell them. Test: Sell all leaves bars in storage.
     - Tests (jsdom): seed pouch and sell list render through the shared grid class; a bar row shows sell 1 /
       sell all and selling 1 bar adds its price; no `.pouch-row` / `.mine-item` flex-wrap rules remain.
-- [ ] 128. **Docs**: rename `docs/research/art-assets.md` heading "Batch 24 sketch" → "Batch X sketch" (the art
+- [x] 128. **Docs**: rename `docs/research/art-assets.md` heading "Batch 24 sketch" → "Batch X sketch" (the art
     batch has no number yet). `## Batch 24 results` + `### Deviations` at the TRUE END of this file, including the
     CSS column widths you chose and anything you could not verify without a browser (Hermes re-measures live at
     375 / 1024 / 1440 / 2560 / 3440).
@@ -3526,3 +3526,60 @@ Gates: `pnpm test`, `pnpm lint`, `pnpm build`, purity grep `Date.now|react` clea
 Hermes verifies live after the batch: no horizontal overflow (`scrollWidth ≤ clientWidth`) of any row/bar at 375
 with every tool at level 2 and every license with 3-digit counts; bars ≥ 8 px from neighbours, groups ≥ 16 px;
 before/after furnace screenshots.
+
+## Batch 24 results
+
+- **Spacing scale / wide columns / always-open panel (task 125).** `--s1..--s4` (4/8/12/16) in `:root`; ~40
+  gap/margin/padding declarations tokenized, `.panel` padding `var(--s3)`, no `gap: 6px` left (asserted by
+  `tests/appCss.test.ts`). Grid columns `clamp(220px, 22vw, 440px) minmax(0, 1fr) clamp(300px, 26vw, 480px)` in
+  both the `.app` and `.panel-collapsed` rules. `App.tsx` reads `media('(min-width: 1440px)')`: at ≥ 1440 the
+  panel-toggle is not rendered and a saved `collapsed: true` is ignored (kept in `tiles.ui`, not overwritten);
+  1024–1439 keeps the toggle. Tests: `tests/App.test.tsx` "always-open panel at ≥ 1440 px" with stubbed
+  matchMedia (collapsed-save → panel content rendered, no toggle; 1024 stub → toggle present).
+- **Grouped cards + Farm tool bar (task 126).** `.group` = column flex `gap: var(--s2)`;
+  `.group:not(:first-child)` = `margin-top: var(--s4); padding-top: var(--s2); border-top: 1px solid #eee`;
+  `.group > h3` 13 px grey sub-heading. Furnace body = four groups Fire / Smelt / Output / Upgrades (Upgrades
+  carries the `<h3>`); the Pickaxe block (pickaxe + offerTier craft), Orders rows and Workers job rows each sit
+  in one `.group` with their hire/shop row in a nested group. 🧰 Tools card: `.tools-head` button with a
+  `::before` ▸/▾ chevron driven by `aria-expanded`, state in `tiles.ui.toolsOpen` (default `true`, absent field
+  reads open); persisted UI only, save untouched. `.tool-step` spacers render only when some row in the group is
+  level 2 (`STACK_ORDER.some(job => tools[job] === 2)`). Mobile: `@media (max-width: 767px) { .tools > button
+  { flex: 1 } }` placed AFTER the base `flex: none` rule (equal specificity — source order decides), and the bar
+  sits `calc(var(--tabbar-h) + var(--s2) + safe-area)` from the bottom. Tests: furnace four groups in order;
+  tools card toggles and persists; no `.tool-step` without a level-2 tool; mixed 2+3 keeps alignment.
+- **One grid for repeated rows; bars sell as disposal (task 127).** Shared `.item-grid`/`.item-row`,
+  `grid-template-columns: minmax(0, 1fr) auto auto auto auto 0` — name (ellipsis) | tabular-nums ×N | extra
+  (ⓘ / 💰N) | two 64 px action buttons | 0-width reserved column (batch 25 Keep toggle). Seed buttons `Buy ×N`
+  with `💰N` on a second line inside; sell buttons `sell 1` / `sell all` fixed width; unsellable rows keep empty
+  cells (since bars joined `ITEM_SELL_PRICE`, every mine item is sellable — the empty-cell branch stays for
+  future items). ≤ 767 px: `.item-sub` (price each) drops under the name, `.item-price` hides. `.pouch-row` /
+  `.mine-item` rules deleted (asserted gone). `ITEM_SELL_PRICE` += `copperBar: 2, ironBar: 3, goldBar: 5` with
+  the disposal comment; `balance.test.ts` derives each price from the balance functions
+  (⌊2×ore + (barTicks/(fireUnitTicks×top batch))×coal unit⌋ − 1) and proves price < input value.
+  `SELL_WHEN_FULL` excludes wood AND bars — Sell-all-when-full leaves bars in storage (tested:
+  stone 15 + copperBar 5 = full bag → stone 0, bars 5).
+- **Docs (task 128).** `docs/research/art-assets.md` heading renamed to "Batch X sketch"; this section written;
+  task boxes 125–128 ticked.
+- Gates: `pnpm test` 803/803, `pnpm lint` clean, `pnpm build` ok, purity grep `Date.now|react` — `src/core`
+  clean; `src/save/storage.ts:26` `wallClock = () => Date.now()` is the pre-existing clock-injection seam this
+  batch did not touch.
+
+### Deviations
+
+- Inter-group visual gap is 24 px where the parent's column gap (`--s2`) and the group's `margin-top: var(--s4)`
+  stack; the plan's "16 px between groups" is the group's own margin. All cards share the parent's 8 px rhythm.
+- Literal spacing kept where elements are meant to touch: `.cell` padding 6/4 and 3 px cell gap, `.tabbar`
+  button 0/2, `.stats > div` 3 px 0, 2 px label gaps, `.depth` 3 px, `.mine-badge` 1 px 6 px, 6 px `.bar`
+  height (task 126 only required ≥ 8 px clearance around bars, which the group rhythm gives).
+- The "Upgrades" `<h3>` renders only in the furnace card — the only card whose upgrades block follows content
+  groups; Pickaxe/Orders/Workers hold a single upgrade list each, where a heading would repeat the card title.
+- `.panel-collapsed` is applied on `collapsed && !wide` (not `desktop && !wide && collapsed`): jsdom has no
+  matchMedia, and CSS applies the class only inside the ≥ 1024 media query anyway — desktop behaviour identical,
+  covered by the stubbed-matchMedia App tests.
+- Reading `app.css?raw` under vitest returned '' — `tests/appCss.test.ts` (node env) reads the file with
+  `node:fs` instead; `/// <reference types="node" />` scopes the node types to that one test file.
+- jsdom renders `display: none` text, so the bar-row textContent assertion includes the mobile-only
+  "💰N each" line.
+- Not verifiable without a browser (Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440): no horizontal
+  overflow at 375 with every tool at level 2, every license, 3-digit counts; bars ≥ 8 px from neighbours and
+  groups ≥ 16 px as rendered; the computed clamp column widths; before/after furnace screenshots.
