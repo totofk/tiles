@@ -266,6 +266,35 @@ describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
   })
 })
 
+describe('always-open panel at ≥ 1440 px (matchMedia stubbed)', () => {
+  const stub = (wide: boolean) => {
+    window.matchMedia = ((q: string) => ({
+      matches: wide ? /min-width: (768|1024|1440)px/.test(q) : /min-width: (768|1024)px/.test(q),
+    })) as typeof window.matchMedia
+  }
+  afterEach(() => Reflect.deleteProperty(window, 'matchMedia'))
+
+  it('a persisted collapsed is ignored: no toggle, the panel content renders (batch 24 task 125)', () => {
+    stub(true)
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'farm', tab: 'farm', collapsed: true }))
+    render(<App />)
+    expect(app().classList.contains('panel-collapsed')).toBe(false)
+    expect(document.querySelector('.panel-toggle')).toBeNull()
+    expect(document.querySelector('.panel .farm-tab')).toBeTruthy() // the 🌾 Farm tab is on screen
+    // and the saved value is not overwritten: it still applies below 1440
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!).collapsed).toBe(true)
+  })
+
+  it('at 1024–1439 the toggle is still there and collapsed still hides the panel content', () => {
+    stub(false)
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'farm', tab: 'farm', collapsed: true }))
+    render(<App />)
+    expect(app().classList.contains('panel-collapsed')).toBe(true)
+    expect(document.querySelector('.panel-toggle')).toBeTruthy()
+    expect(document.querySelector('.panel .farm-tab')).toBeNull()
+  })
+})
+
 describe('layout content', () => {
   it('shows a locked Mine card with the license price before the mine license', () => {
     render(<App />)

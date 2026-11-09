@@ -10,6 +10,12 @@
   --toolbar-h: 56px;
   /* farm tiles grow with the column up to this size; at ≥ 768 px the height left for the farm also caps them */
   --tile-max: 260px;
+  /* spacing scale (batch 24): 8 px inside a group, 16 px between groups; 2–3 px stays literal where
+     elements are meant to touch (icon + text) */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
 }
 
 body {
@@ -22,10 +28,10 @@ body {
 /* ---- layout shell: mobile first, one view at a time (< 768 px) ---- */
 .app {
   min-height: 100vh;
-  padding: 0 8px calc(var(--tabbar-h) + 16px);
+  padding: 0 var(--s2) calc(var(--tabbar-h) + var(--s4));
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--s3);
 }
 .top {
   position: sticky;
@@ -33,8 +39,8 @@ body {
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 8px;
+  gap: var(--s2);
+  padding-top: var(--s2);
   background: var(--bg);
 }
 .top .hud {
@@ -47,7 +53,7 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--s2);
 }
 .planting {
   margin: 0;
@@ -55,7 +61,7 @@ body {
 }
 .panel {
   min-width: 0;
-  padding: 8px;
+  padding: var(--s3);
   border-radius: 8px;
   background: #fff;
   display: flex;
@@ -64,19 +70,19 @@ body {
 .panel-head {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--s2);
 }
 .panel-tabs {
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: 4px;
+  gap: var(--s2);
 }
 /* one line per tab, so the icon stays beside its label and all tabs fit next to the › toggle (300 px panel at 1024) */
 .panel-tabs button {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0 4px;
+  padding: 0 var(--s1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -144,12 +150,12 @@ body {
       'top top'
       'mine farm';
     align-items: start;
-    column-gap: 16px;
-    padding: 0 12px 24px;
+    column-gap: var(--s4);
+    padding: 0 var(--s3) 24px;
   }
   .top {
     grid-area: top;
-    padding-top: 12px;
+    padding-top: var(--s3);
   }
   .mine {
     grid-area: mine;
@@ -169,7 +175,7 @@ body {
     height: 100vh;
     height: 100dvh;
     grid-template-rows: auto minmax(0, 1fr);
-    padding-bottom: 12px;
+    padding-bottom: var(--s3);
   }
   .mine,
   .farm {
@@ -191,7 +197,7 @@ body {
     display: block;
   }
   .panel-open {
-    padding: 0 12px;
+    padding: 0 var(--s3);
   }
   .panel-close {
     align-self: flex-end;
@@ -223,8 +229,8 @@ body {
 @media (min-width: 1024px) {
   .app {
     /* side columns scale with the viewport so the farm stays the widest column (~420 px at 1024, ~670 at 1440);
-       the panel's 300 px floor fits its three tabs and the › toggle at 1024 */
-    grid-template-columns: clamp(220px, 22vw, 320px) minmax(0, 1fr) clamp(300px, 26vw, 380px);
+       the caps widen at 2560/3440 (batch 24); the panel's 300 px floor fits its three tabs and the › toggle at 1024 */
+    grid-template-columns: clamp(220px, 22vw, 440px) minmax(0, 1fr) clamp(300px, 26vw, 480px);
     grid-template-areas:
       'top top top'
       'mine farm panel';
@@ -241,7 +247,7 @@ body {
   }
   /* collapsed: the panel shrinks to its expand button and the farm column takes the width */
   .panel-collapsed {
-    grid-template-columns: clamp(220px, 22vw, 320px) minmax(0, 1fr) auto;
+    grid-template-columns: clamp(220px, 22vw, 440px) minmax(0, 1fr) auto;
   }
   .panel-collapsed > .panel > :not(.panel-head),
   .panel-collapsed .panel-head > :not(.panel-toggle) {
@@ -259,11 +265,11 @@ body {
   /* 🌾 Farm tab: the stacked tool rows (column from the ≥ 768 .tools rule) across the panel's content width */
   .panel .tools {
     align-self: stretch;
-    margin: 8px 0 0;
+    margin: var(--s2) 0 0;
   }
   .farm-tab h2 {
     font-size: 15px;
-    margin: 8px 0 4px;
+    margin: var(--s2) 0 var(--s1);
   }
 }
 
@@ -289,8 +295,8 @@ button:disabled {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 4px 8px;
-  padding: 8px;
+  gap: var(--s1) var(--s2);
+  padding: var(--s2);
   background: #fff;
   border-radius: 8px;
   font-weight: 600;
@@ -306,13 +312,13 @@ button:disabled {
 }
 
 .banner {
-  padding: 8px;
+  padding: var(--s2);
   border-radius: 8px;
   background: #dbeafe;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
 }
 .banner button {
   min-height: 32px;
@@ -326,7 +332,7 @@ button:disabled {
 /* --n (columns for the tile count) comes from FarmGrid; mobile keeps 3 so tiles stay tappable */
 .grid {
   --cols: 3;
-  --gap: 6px;
+  --gap: var(--s2);
   container-type: inline-size;
   width: 100%;
   max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) - 1) * var(--gap));
@@ -523,12 +529,12 @@ button:disabled {
 }
 
 .mine {
-  padding: 8px;
+  padding: var(--s2);
   border-radius: 8px;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--s2);
 }
 .mine h2 {
   font-size: 15px;
@@ -582,7 +588,7 @@ button:disabled {
 .stats > div {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--s2);
   padding: 3px 0;
   border-bottom: 1px solid #eee;
 }
@@ -596,7 +602,7 @@ button:disabled {
 .mine-furnace {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s2);
   font-size: 14px;
 }
 /* every collapsible card (🔥 Furnace, 👷 Workers): a pressable header. display: flex hides the native marker, so a
@@ -605,8 +611,8 @@ details > summary {
   min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 8px;
+  gap: var(--s1);
+  padding: 0 var(--s2);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.05);
   cursor: pointer;
@@ -635,14 +641,14 @@ details > summary:focus-visible {
 .workers {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s2);
   font-size: 14px;
 }
 .worker-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--s2);
 }
 .worker-row > span:first-child {
   flex: 1 0 auto;
@@ -650,7 +656,7 @@ details > summary:focus-visible {
 }
 .worker-row button {
   min-width: 44px;
-  padding: 0 8px;
+  padding: 0 var(--s2);
 }
 .worker-row small {
   display: block;
@@ -667,14 +673,14 @@ details > summary:focus-visible {
 .orders {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--s2);
   font-size: 14px;
 }
 .order-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: var(--s2);
 }
 .order-row > span:first-child {
   flex: 1 0 auto;
@@ -682,7 +688,7 @@ details > summary:focus-visible {
 }
 .order-row button {
   min-width: 44px;
-  padding: 0 8px;
+  padding: 0 var(--s2);
 }
 .order-row small,
 .order-note {
@@ -695,7 +701,7 @@ details > summary:focus-visible {
   color: #555;
 }
 .unpaid {
-  padding: 0 6px;
+  padding: 0 var(--s2);
   border-radius: 999px;
   background: #ffcdd2;
   font-size: 12px;
@@ -704,13 +710,13 @@ details > summary:focus-visible {
 .mine-furnace-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
-  gap: 6px;
+  gap: var(--s2);
 }
 .furnace-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
+  gap: var(--s2);
 }
 .mine .furnace-hint {
   color: #bf360c;
@@ -719,7 +725,7 @@ details > summary:focus-visible {
   display: block;
 }
 .mine-furnace-actions button {
-  padding: 0 4px;
+  padding: 0 var(--s1);
   font-size: 13px;
 }
 .mine-item {
@@ -738,23 +744,29 @@ details > summary:focus-visible {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+  bottom: calc(var(--tabbar-h) + var(--s2) + env(safe-area-inset-bottom));
   z-index: 2;
   height: var(--toolbar-h);
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
+  gap: var(--s2);
+  padding: 0 var(--s2);
   background: #fff;
   border-top: 1px solid #8a7a5c;
 }
 .tools > button,
 .tool-row > button {
   flex: none;
-  padding: 0 12px;
+  padding: 0 var(--s3);
   white-space: nowrap;
   -webkit-touch-callout: none;
   user-select: none;
+}
+/* batch 24: on the fixed mobile bar the buttons share its width evenly (one per job at every level) */
+@media (max-width: 767px) {
+  .tools > button {
+    flex: 1;
+  }
 }
 /* copper tier: an inset copper stripe along the bottom, so the button keeps its width */
 .tools .copper {
@@ -773,7 +785,7 @@ details > summary:focus-visible {
    slots as empty 44 px spans, so every press button has the same width */
 .tool-row {
   display: flex;
-  gap: 6px;
+  gap: var(--s2);
 }
 .tool-row > .tool-step {
   flex: none;
@@ -786,19 +798,19 @@ details > summary:focus-visible {
 }
 /* the level-2 mark: a click on it (or right-click / long-press on the button) opens the n popover */
 .tool-more {
-  margin-left: 4px;
+  margin-left: var(--s1);
   font-size: 12px;
   color: #555;
 }
 .tool-pop {
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 8px;
+  bottom: calc(100% + var(--s2));
+  left: var(--s2);
   z-index: 3;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px;
+  gap: var(--s2);
+  padding: var(--s2);
   background: #fff;
   border: 1px solid #8a7a5c;
   border-radius: 8px;
@@ -814,7 +826,7 @@ details > summary:focus-visible {
   font-weight: 600;
 }
 .farm:has(> .tools) {
-  padding-bottom: var(--toolbar-h);
+  padding-bottom: calc(var(--toolbar-h) + var(--s2));
 }
 .app[data-view='farm']:has(.tools) > .toast {
   bottom: calc(var(--tabbar-h) + var(--toolbar-h) + 16px + env(safe-area-inset-bottom));
@@ -904,26 +916,26 @@ details > summary:focus-visible {
 .pouch-auto {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s2);
   min-height: 44px;
   font-size: 14px;
 }
 
 .shop h2 {
   font-size: 15px;
-  margin: 8px 0 4px;
+  margin: var(--s2) 0 var(--s1);
 }
 .shop-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--s2);
 }
 /* upgrade rows carry a "now → next" line, so they get the full width */
 .shop-row.one-col {
   grid-template-columns: minmax(0, 1fr);
 }
 .shop-row button {
-  padding: 6px;
+  padding: var(--s2);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -959,7 +971,7 @@ details > summary:focus-visible {
   position: fixed;
   z-index: 5;
   max-width: min(280px, calc(100vw - 16px));
-  padding: 6px 8px;
+  padding: var(--s1) var(--s2);
   border-radius: 6px;
   background: #fff8e1;
   border: 1px solid #e0c97a;
@@ -987,7 +999,7 @@ details > summary:focus-visible {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s2);
 }
 .shop-row small {
   font-size: 12px;
@@ -1039,7 +1051,7 @@ details > summary:focus-visible {
   white-space: nowrap;
 }
 .bank p {
-  margin: 4px 0 8px;
+  margin: var(--s1) 0 var(--s2);
 }
 .bank-debt {
   font-weight: 600;
@@ -1050,7 +1062,7 @@ details > summary:focus-visible {
   color: #555;
 }
 .hud-debt {
-  padding: 2px 8px;
+  padding: 2px var(--s2);
   border-radius: 999px;
   background: #ffcdd2;
   font-size: 13px;
@@ -1060,17 +1072,17 @@ details > summary:focus-visible {
 .feedback {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--s2);
+  margin-top: var(--s3);
   font-size: 14px;
 }
 .feedback-kinds {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--s2);
 }
 .feedback-kinds button {
-  padding: 0 4px;
+  padding: 0 var(--s1);
   white-space: nowrap;
 }
 .feedback-kinds [aria-pressed='true'] {
@@ -1091,7 +1103,7 @@ details > summary:focus-visible {
 .feedback textarea {
   width: 100%;
   max-width: 100%;
-  padding: 8px;
+  padding: var(--s2);
   border: 1px solid #8a7a5c;
   border-radius: 8px;
   font: inherit;
@@ -1115,7 +1127,7 @@ details > summary:focus-visible {
 /* 📊 Stats deed meter and timeline: plain text rows at the panel's content width */
 .deeds,
 .timeline-empty {
-  margin: 8px 0 0;
+  margin: var(--s2) 0 0;
   font-size: 14px;
 }
 .timeline {
@@ -1140,8 +1152,8 @@ details > summary:focus-visible {
 /* 📊 Stats modal buttons (batch 23): one row under the timeline, each opens the shared modal */
 .stats-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--s2);
+  margin-top: var(--s3);
 }
 .stats-actions button {
   flex: 1 1 auto;
@@ -1155,7 +1167,7 @@ details > summary:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: var(--s4);
   background: rgba(0, 0, 0, 0.45);
 }
 .modal {
@@ -1163,7 +1175,7 @@ details > summary:focus-visible {
   flex-direction: column;
   width: min(100%, 480px);
   max-height: min(100%, 640px);
-  padding: 8px;
+  padding: var(--s2);
   border-radius: 8px;
   background: #fff;
 }
@@ -1171,7 +1183,7 @@ details > summary:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: var(--s2);
 }
 .modal header h2 {
   margin: 0;
@@ -1193,7 +1205,7 @@ details > summary:focus-visible {
 .modal-body textarea {
   width: 100%;
   max-width: 100%;
-  padding: 8px;
+  padding: var(--s2);
   border: 1px solid #8a7a5c;
   border-radius: 8px;
   font: inherit;
@@ -1206,8 +1218,8 @@ details > summary:focus-visible {
 .data-import {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--s2);
+  margin-top: var(--s3);
   font-size: 14px;
 }
 .data-export textarea {
@@ -1216,29 +1228,29 @@ details > summary:focus-visible {
 }
 .data-row {
   display: flex;
-  gap: 8px;
+  gap: var(--s2);
 }
 .data-export p,
 .data-import p,
 .import-compare p {
-  margin: 4px 0 0;
+  margin: var(--s1) 0 0;
   font-size: 13px;
 }
 .import-compare table {
   border-collapse: collapse;
-  margin-top: 8px;
+  margin-top: var(--s2);
   font-size: 13px;
 }
 .import-compare th,
 .import-compare td {
-  padding: 2px 8px 2px 0;
+  padding: 2px var(--s2) 2px 0;
   text-align: left;
 }
 .import-compare thead th {
   border-bottom: 1px solid #8a7a5c;
 }
 .import-confirm {
-  margin-top: 8px;
+  margin-top: var(--s2);
   border-color: #9b2c2c;
   background: #c62828;
   color: #fff;
@@ -1247,7 +1259,7 @@ details > summary:focus-visible {
 
 /* 🗺 Roadmap modal: one line per parked idea, the order note, the not-promises label */
 .roadmap {
-  margin-top: 8px;
+  margin-top: var(--s2);
   font-size: 14px;
 }
 .roadmap-label {
@@ -1257,13 +1269,13 @@ details > summary:focus-visible {
   font-style: italic;
 }
 .roadmap-list {
-  margin: 8px 0 0;
+  margin: var(--s2) 0 0;
   padding-left: 20px;
   font-size: 13px;
   line-height: 1.5;
 }
 .roadmap-order {
-  margin: 8px 0 0;
+  margin: var(--s2) 0 0;
   font-size: 13px;
   color: #555;
 }
@@ -1273,12 +1285,12 @@ details > summary:focus-visible {
   display: flex;
   flex-direction: column;
   margin-top: 24px;
-  padding-top: 8px;
+  padding-top: var(--s2);
   border-top: 1px solid #eee;
 }
 .reset {
   align-self: flex-start;
-  padding: 0 8px;
+  padding: 0 var(--s2);
   border: none;
   background: none;
   color: #9b2c2c;
@@ -1302,7 +1314,7 @@ details > summary:focus-visible {
   bottom: calc(var(--tabbar-h) + 16px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
-  padding: 10px 16px;
+  padding: 10px var(--s4);
   border-radius: 8px;
   background: #333;
   color: #fff;

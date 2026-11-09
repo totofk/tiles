@@ -41,9 +41,13 @@ export default function App() {
   // App re-renders every tick, so a resize is picked up within a second
   const media = (q: string) => window.matchMedia?.(q).matches ?? false
   const desktop = media('(min-width: 1024px)')
-  const panelOnScreen = desktop ? !collapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
+  // batch 24: at ≥ 1440 the panel is always open with no toggle; a saved `collapsed` is ignored there (not
+  // overwritten — it still applies at 1024–1439, which keeps the toggle)
+  const wide = media('(min-width: 1440px)')
+  const panelCollapsed = desktop && !wide && collapsed
+  const panelOnScreen = desktop ? !panelCollapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
   // the farm actions sit in the side panel only while it is beside the farm; collapsed, they go back to the farm column
-  const farmTab = desktop && !collapsed
+  const farmTab = desktop && !panelCollapsed
   const tabs = farmTab ? PANEL_TABS : PANEL_TABS.filter((t) => t.id !== 'farm')
   // a remembered 🌾 Farm shows 🛒 Shop where there is no Farm tab
   const shown = tabs.find((t) => t.id === tab) ?? tabs[0]
@@ -117,7 +121,7 @@ export default function App() {
   ]
 
   return (
-    <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed ? ' panel-collapsed' : ''}`} data-view={view}>
+    <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed && !wide ? ' panel-collapsed' : ''}`} data-view={view}>
       <div className="top">
         <Hud state={state} />
         <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
@@ -175,14 +179,16 @@ export default function App() {
               )
             })}
           </div>
-          <button
-            className="panel-toggle"
-            aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
-            aria-expanded={!collapsed}
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? '‹' : '›'}
-          </button>
+          {!wide && (
+            <button
+              className="panel-toggle"
+              aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+              aria-expanded={!collapsed}
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? '‹' : '›'}
+            </button>
+          )}
           <button className="panel-close" aria-label="Close panel" onClick={() => setSlideOpen(false)}>
             ✕
           </button>
