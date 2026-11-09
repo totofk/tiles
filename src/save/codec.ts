@@ -6,8 +6,10 @@ import { SAVE_VERSION, deserialize, type Save } from './serialize'
 export type DecodeTag = 'not-tiles' | 'truncated' | 'corrupt' | 'newer-version'
 
 export class SaveCodeError extends Error {
-  constructor(readonly tag: DecodeTag) {
+  readonly tag: DecodeTag
+  constructor(tag: DecodeTag) {
     super(tag)
+    this.tag = tag
     this.name = 'SaveCodeError'
   }
 }
