@@ -3395,7 +3395,7 @@ import writes the incoming save, then `location.reload()` fires `pagehide`, whos
 run over it (write log: 💰123456 imported → 💰20 on pagehide). Feedback should carry the player's real save, so
 Hermes can reproduce bugs and compute balance from exact state; the Copy report button goes.
 
-- [ ] 122. **Import sticks.** `src/app/useGame.ts` `applyImport`: before `commitImport`, stop every autosave path
+- [x] 122. **Import sticks.** `src/app/useGame.ts` `applyImport`: before `commitImport`, stop every autosave path
     of this tab — set `frozenRef.current = true` and clear the pending `saveTimer` — so `pagehide`, the hidden
     `visibilitychange` save and the debounced save cannot write after the import. Do NOT call `freeze()` if it
     shows the "changed in another tab" banner (no banner flash on import). If `commitImport` returns
@@ -3403,7 +3403,7 @@ Hermes can reproduce bugs and compute balance from exact state; the Copy report 
     stubbed): apply an import, then dispatch `pagehide`, a hidden `visibilitychange` and advance timers past the
     save debounce → `localStorage['tiles.save']` still holds the imported run (cash, tiles) and
     `tiles.save.backup.import` holds the old one. The test must FAIL on today's code.
-- [ ] 123. **Feedback attaches the save; Copy report goes.** In 💬 Feedback the sent body (`buildFeedbackBody`,
+- [x] 123. **Feedback attaches the save; Copy report goes.** In 💬 Feedback the sent body (`buildFeedbackBody`,
     field `Tell us more`, entry.1552861218 — the form has no length validation) ends with the context block:
     Build / Save / Screen / UA / Time / Game (`feedbackSummary`, unchanged), then a last line
     `Save code: TILES1.…` = `encodeSave` of the LIVE run at send time (same as 💾 Data export: version, wall-clock
@@ -3414,6 +3414,38 @@ Hermes can reproduce bugs and compute balance from exact state; the Copy report 
     else uses them, with their tests. The 2000-char counter still limits only what the player types. Tests: body
     ends with a `Save code:` line that `decodeImport` round-trips to the live state; no `Timeline:` in the body;
     no "Copy report" button in Stats.
-- [ ] 124. **Docs**: `## Batch 23.1 results` + `### Deviations` at the true end of this file.
+- [x] 124. **Docs**: `## Batch 23.1 results` + `### Deviations` at the true end of this file.
 
 Gates: `pnpm test`, `pnpm lint`, `pnpm build`, purity grep `Date.now|react` clean over `src/core` and `src/save`.
+
+## Batch 23.1 results
+
+- **Task 122 (import sticks).** Regression test written first (`tests/useGame.test.tsx`, jsdom, `location.reload`
+  stubbed, fake timers): apply an import, then fire `pagehide`, a hidden `visibilitychange` and advance 2 s past
+  the save debounce → `tiles.save` must still hold the imported run and `tiles.save.backup.import` the old one.
+  Confirmed RED on the pre-fix code (`expected 20 to be 123456`), then green after the fix. Fix in `applyImport`
+  (`src/app/useGame.ts`): after the live-run backup save, set `frozenRef.current = true` (not `freeze()` — no
+  other-tab banner) and clear the pending `saveTimer`; unfreeze only when `commitImport` returns `{ ok: false }`.
+- **Task 123 (save attached to feedback; Copy report gone).** `FeedbackContext.timeline` is replaced by
+  `saveCode`; `buildFeedbackBody` ends the context block with `Save code: <TILES1 code>` and no longer emits
+  `Timeline:` lines. `FeedbackCard` builds the code at send time via `encodeSave({ version, savedAtMs: Date.now(),
+  state })` — Date.now stays in `src/app`, matching the 💾 Data export. One `<small>` note under the form:
+  "Your save and game stats are attached." (reuses `.feedback small`, no new CSS). `Stats.tsx` Timeline loses the
+  Copy report button and its status lines; `reportLines` / `REPORT_MAX_LINES` and their tests are deleted, with
+  the now-unused `marketFactor` import and the `.report` CSS rules. Tests: body round-trips through `decodeSave`
+  to the live run (feedback.test.ts node-side on `buildFeedbackBody`, FeedbackCard.test.tsx end-to-end through
+  the real send path), no `Timeline:` in the body, no Copy report button in Stats.
+- **Task 124.** This section.
+- Gates: `pnpm test` 790/790 across 44 files, `pnpm lint` clean, `pnpm build` clean, before each of the two code
+  commits (d209c6a, c25b800). No save-version bump — `SAVE_VERSION` untouched at 19.
+
+### Deviations
+
+- Purity grep `Date.now|react` over `src/core` + `src/save` reports one hit: `src/save/storage.ts:26` `wallClock`
+  — the game's single, pre-existing wall clock (documented in that file), unchanged by this batch. No new
+  `Date.now` or react import entered `src/core`/`src/save`.
+- The task-123 test uses `decodeSave` (codec.ts's thin wrapper) rather than calling `decodeImport` directly; it
+  exercises the same decode/migrate path.
+- The feedback test fixture pins `saveVersion: 11` in `Save: v11` (a stale sample value that was already in the
+  fixture) while the attached code carries the real `SAVE_VERSION`; harmless because the line is display-only.
+
