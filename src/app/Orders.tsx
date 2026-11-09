@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount, orderTierStars } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
 import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
 import type { GameState, Offer, OrderGood } from '../core/state'
+import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
 import type { Act } from './useGame'
 
@@ -17,9 +19,17 @@ function orderCash(state: GameState, o: Offer): number {
   return Math.round(isCropGood(o.good) ? o.count * cropSellPrice(o.good, state.meta, state.run.upgrades.sellPrice) * orderBonus() : o.count * itemOrderValue(state, o.good))
 }
 
-/** one slot: the good and progress, tier dots, ⭐ and cash; Accept, Deliver (accepted item orders) and Discard */
+/** one slot: the good and progress, tier dots, ⭐ and cash; Accept, Deliver (accepted item orders) and Discard.
+ * batch 24.1: the row frame states the order's state — dashed offer / solid accepted / green ready with badges, a
+ * progress bar on accepted rows, and the ✕ needs a second press within 3 s once an accepted order has progress */
 function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: number }) {
   const s = state.run.orders.offers[slot]
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 3000)
+    return () => clearTimeout(t)
+  }, [armed])
   if (!isOffer(s))
     return (
       <div className="order-row order-wait">
@@ -28,27 +38,37 @@ function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: numb
     )
   const name = isCropGood(s.good) ? CROPS[s.good].name : ITEMS[s.good].name
   const dots = '●'.repeat(s.tier + 1) + '○'.repeat(orderTierCount() - s.tier - 1)
+  const ready = s.accepted && deliverOrder(state, slot).ok
+  const remaining = s.count - s.done
+  const stored = isCropGood(s.good) ? 0 : Math.min(state.run.inventory[s.good] ?? 0, remaining)
+  const progress = isCropGood(s.good) ? s.done : stored
+  const twoPress = s.accepted && progress > 0
+  const stateClass = ready ? 'order-ready' : s.accepted ? 'order-accepted' : 'order-offer'
   return (
-    <div className="order-row">
+    <div className={`order-row ${stateClass}`}>
       <span>
-        {goodEmoji(s.good)} {s.done} / {s.count}
+        {goodEmoji(s.good)} {s.accepted && !isCropGood(s.good) ? `${stored} / ${remaining} in storage` : `${s.done} / ${s.count}`}
+        {!s.accepted && <span className="order-badge order-badge-new">New</span>}
+        {ready && <span className="order-badge order-badge-ready">✓ Ready</span>}
         <small>
           <span aria-label={`size ${s.tier + 1} of ${orderTierCount()}`}>{dots}</span> · {STAR_EMOJI}
           {orderTierStars(s.tier)} · +💰{orderCash(state, s)}
         </small>
+        {s.accepted && isCropGood(s.good) && <small>filling from harvests</small>}
       </span>
+      {s.accepted && <Bar value={remaining > 0 ? progress / remaining : 1} kind="grow" />}
       {!s.accepted && (
-        <button onClick={() => act((g) => acceptOrder(g, slot))} aria-label={`Accept ${name} order`}>
+        <button className="order-primary" onClick={() => act((g) => acceptOrder(g, slot))} aria-label={`Accept ${name} order`}>
           Accept
         </button>
       )}
       {s.accepted && !isCropGood(s.good) && (
-        <button disabled={!deliverOrder(state, slot).ok} onClick={() => act((g) => deliverOrder(g, slot))} aria-label={`Deliver ${name} order`}>
+        <button className={ready ? 'order-deliver' : undefined} disabled={!deliverOrder(state, slot).ok} onClick={() => act((g) => deliverOrder(g, slot))} aria-label={`Deliver ${name} order`}>
           Deliver
         </button>
       )}
-      <button onClick={() => act((g) => discardOrder(g, slot))} aria-label={`Discard ${name} order`}>
-        Discard
+      <button className="order-x" onClick={() => (twoPress && !armed ? setArmed(true) : act((g) => discardOrder(g, slot)))} aria-label={`Discard ${name} order`}>
+        {twoPress && armed ? 'Discard?' : '✕'}
       </button>
     </div>
   )
@@ -67,6 +87,8 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
     </small>
   )
   const slotStars = orderSlotStars(orders.slots)
+  const readyN = orders.offers.filter((o, i) => isOffer(o) && o.accepted && deliverOrder(state, i).ok).length
+  const readySuffix = readyN > 0 ? ` · ${readyN} ready` : ''
   const rows = (
     <>
       {/* batch 24: the order rows are one group, the ⭐ shop another over a divider */}
@@ -95,6 +117,7 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
       <details className="orders">
         <summary>
           {BOARD_EMOJI} Orders · {STAR_EMOJI} {stars}
+          {readySuffix}
         </summary>
         {note}
         {rows}
@@ -104,6 +127,7 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
     <section className="orders">
       <h2>
         {BOARD_EMOJI} Orders · {STAR_EMOJI} {stars}
+        {readySuffix}
       </h2>
       {note}
       {rows}

@@ -789,6 +789,58 @@ details > summary:focus-visible {
   min-height: 44px;
   color: #555;
 }
+/* batch 24.1 (task 131): the frame states the order's state — dashed/muted offer, solid accepted, green ready */
+.order-offer {
+  padding: var(--s2);
+  border: 1px dashed #b0a58c;
+  border-radius: 8px;
+  color: #555;
+}
+.order-accepted {
+  padding: var(--s2);
+  border: 1px solid #b0a58c;
+  border-radius: 8px;
+}
+.order-ready {
+  padding: var(--s2);
+  border: 1px solid #2e7d32;
+  border-radius: 8px;
+}
+.order-badge {
+  margin-left: var(--s1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.order-badge-new {
+  background: #fff3c4;
+}
+.order-badge-ready {
+  background: #c8e6c9;
+}
+.order-primary {
+  font-weight: 600;
+  border-color: #8a7a5c;
+}
+.order-deliver {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  font-weight: 600;
+}
+/* the ✕ sits at the row end, 16 px from the primary (8 gap + 8 margin) with a 44 px hit area */
+.order-x {
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: var(--s2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: #9b2c2c;
+}
+.order-accepted > .bar,
+.order-ready > .bar {
+  flex: 1 0 100%; /* the progress bar takes its own line under the text */
+}
 .unpaid {
   padding: 0 var(--s2);
   border-radius: 999px;

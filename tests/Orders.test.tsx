@@ -41,15 +41,15 @@ describe('📋 Orders', () => {
     const bonus = Math.round(40 * cropSellPrice('radish', init.meta, 0) * orderBonus())
     expect(open.textContent).toContain('🥕 12 / 40')
     expect(open.textContent).toContain(`●●○ · ⭐2 · +💰${bonus}`)
-    expect(within(open).getAllByRole('button').map((b) => b.textContent)).toEqual(['Accept', 'Discard'])
+    expect(within(open).getAllByRole('button').map((b) => b.textContent)).toEqual(['Accept', '✕'])
     expect(wait.textContent).toBe('⏳ next order in 7:12')
   })
 
-  it('Accept, then an accepted crop order has Discard only; an item order Deliver (enabled when storage holds the rest)', () => {
+  it('Accept, then an accepted crop order has ✕ only; an item order Deliver (enabled when storage holds the rest)', () => {
     const t = setup(board([offer({}), offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true })], { inventory: { stone: 8 } }))
     within(rows()[0]).getByRole('button', { name: /Accept Carrot order/ }).click()
     t.rerender()
-    expect(within(rows()[0]).getAllByRole('button').map((b) => b.textContent)).toEqual(['Discard'])
+    expect(within(rows()[0]).getAllByRole('button').map((b) => b.textContent)).toEqual(['✕'])
     const item = rows()[1]
     expect(item.textContent).toContain(`+💰${Math.round(8 * itemSellPrice('stone', init.meta, 0) * orderBonus())}`)
     within(item).getByRole('button', { name: /Deliver Stone order/ }).click()
@@ -84,6 +84,52 @@ describe('📋 Orders', () => {
     const details = document.querySelector('details.orders') as HTMLDetailsElement
     expect(details.open).toBe(false)
     expect(details.querySelector('summary')!.textContent).toBe('📋 Orders · ⭐ 5')
+  })
+
+  it('batch 24.1: offer / accepted / ready rows carry their state class and badge; the item row shows the storage count, the summary counts ready', () => {
+    setup(
+      board(
+        [
+          offer({}), // open offer
+          offer({ count: 40, done: 12, accepted: true }), // accepted crop order, filling
+          offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true }), // ready item order
+        ],
+        { inventory: { stone: 8 } },
+      ),
+    )
+    const [open, accepted, ready] = rows()
+    expect(open.classList.contains('order-offer')).toBe(true)
+    expect(open.textContent).toContain('New')
+    expect(accepted.classList.contains('order-accepted')).toBe(true)
+    expect(accepted.textContent).toContain('filling from harvests')
+    expect(accepted.querySelector('.bar')).toBeTruthy()
+    expect(ready.classList.contains('order-ready')).toBe(true)
+    expect(ready.textContent).toContain('✓ Ready')
+    expect(ready.textContent).toContain('in storage') // not the old done 0/8
+    expect(ready.querySelector('button.order-deliver')).toBeTruthy()
+    expect(screen.getByRole('heading').textContent).toBe('📋 Orders · ⭐ 5 · 1 ready')
+  })
+
+  it('batch 24.1: ✕ on an accepted order with progress needs a second press; offers and zero-progress orders discard on one', () => {
+    const t = setup(board([offer({ done: 12, accepted: true })]))
+    within(rows()[0])
+      .getByRole('button', { name: /Discard/ })
+      .click()
+    t.rerender()
+    expect(t.get().run.orders.offers[0]).toEqual(expect.objectContaining({ accepted: true })) // armed, not discarded
+    expect(within(rows()[0]).getByRole('button', { name: /Discard/ }).textContent).toBe('Discard?')
+    within(rows()[0])
+      .getByRole('button', { name: /Discard/ })
+      .click()
+    t.rerender()
+    expect(t.get().run.orders.offers[0]).toEqual({ cooldownTicks: orderCooldownTicks() })
+    cleanup()
+    const one = setup(board([offer({})]))
+    within(rows()[0])
+      .getByRole('button', { name: /Discard/ })
+      .click()
+    one.rerender()
+    expect(one.get().run.orders.offers[0]).toEqual({ cooldownTicks: orderCooldownTicks() })
   })
 })
 
