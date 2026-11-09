@@ -13,7 +13,8 @@ import { Upgrades } from './Upgrades'
 import type { Act } from './useGame'
 
 /** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded); feedback: the 📊 Stats tab's form, held by App;
- * ui: the cosmetic `tiles.ui` state, so the price tags can trend against what they last showed */
+ * ui: the cosmetic `tiles.ui` state, so the price tags can trend against what they last showed;
+ * toggleTools: flips ui.toolsOpen (the 🌾 Farm tab's 🧰 Tools card, batch 24) */
 export type PanelProps = {
   state: GameState
   act: Act
@@ -21,6 +22,7 @@ export type PanelProps = {
   onSelectCrop: (id: CropId) => void
   farmTab: boolean
   ui: UiState
+  toggleTools: () => void
   reset: () => void
   sell: () => void
   /** 💾 Data modal hooks: serialise the live run, and commit a decoded import (backup + write + reload) */

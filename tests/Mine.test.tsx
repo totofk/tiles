@@ -183,6 +183,20 @@ describe('Mine panel', () => {
     expect(text()).toContain('🔥 fire 3 / 10 · smart')
   })
 
+  it('batch 24: the furnace card renders four groups — Fire / Smelt / Output / Upgrades — in order, with the heading', () => {
+    setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' } })
+    const groups = [...document.querySelectorAll('.mine-furnace > .group')]
+    expect(groups).toHaveLength(4)
+    expect(groups.map((g) => g.querySelector('h3')?.textContent ?? null)).toEqual([null, null, null, 'Upgrades'])
+    // Fire: the status line + fire bar + ⓘ + the Fill buttons
+    expect(groups[0].textContent).toContain('🔥 fire 0 / 10')
+    expect([...groups[0].querySelectorAll('button')].filter((b) => !b.classList.contains('info-btn')).map((b) => b.textContent!.slice(0, 4))).toEqual(['Fill', 'Fill'])
+    // Smelt: the ore picker, the recipe line and Load; Output: Collect alone
+    expect(groups[1].querySelector('[aria-label="Ore to smelt"]')).toBeTruthy()
+    expect([...groups[1].querySelectorAll('button')].some((b) => b.textContent!.startsWith('Load'))).toBe(true)
+    expect([...groups[2].querySelectorAll('button')].map((b) => b.textContent!.slice(0, 7))).toEqual(['Collect'])
+  })
+
   it('furnace upgrades: next level and price, disabled with the reason, bought, hidden at max', () => {
     const t = setup({ furnace: built, cash: 150, inventory: { copperBar: 3 } })
     const upgrade = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement

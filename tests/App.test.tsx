@@ -131,6 +131,7 @@ describe('persisted UI state (tiles.ui)', () => {
       view: 'mine',
       tab: 'upgrades',
       collapsed: true,
+      toolsOpen: true,
       seen: { shop: [], upgrades: [] },
       priceShown: {},
     })
@@ -251,6 +252,19 @@ describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
     expect(panel().queryAllByRole('button', { pressed: false })).toHaveLength(0)
     expect(panel().queryByRole('heading', { name: 'Seed pouch' })).toBeNull()
     expect((panel().getByRole('button', { name: /Chilli/ }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('the 🧰 Tools card collapses and the state persists as tiles.ui.toolsOpen (batch 24)', () => {
+    render(<App />)
+    expect(document.querySelectorAll('.panel .tool-row')).toHaveLength(3)
+    fireEvent.click(panel().getByRole('button', { name: '🧰 Tools' }))
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!).toolsOpen).toBe(false)
+    expect(document.querySelectorAll('.panel .tool-row')).toHaveLength(0)
+    // survives a reload
+    cleanup()
+    render(<App />)
+    expect(document.querySelectorAll('.panel .tool-row')).toHaveLength(0)
+    expect(panel().getByRole('button', { name: '🧰 Tools' }).getAttribute('aria-expanded')).toBe('false')
   })
 
   it('collapsing the panel puts the tool bar back on the farm column, as the same stacked rows', () => {

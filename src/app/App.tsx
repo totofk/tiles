@@ -32,6 +32,7 @@ export default function App() {
   const setView = (v: View) => setUi((u) => ({ ...u, view: v }))
   const setTab = (t: PanelTabId) => setUi((u) => ({ ...u, tab: t }))
   const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
+  const toggleTools = () => setUi((u) => ({ ...u, toolsOpen: !u.toolsOpen }))
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
   // the 📊 Stats tab's feedback draft and cooldown, here so a tab switch keeps them (not saved)
@@ -104,7 +105,7 @@ export default function App() {
     )
   }
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, feedback, setFeedback, reset, sell, exportCode, applyImport }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, feedback, setFeedback, reset, sell, exportCode, applyImport }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },

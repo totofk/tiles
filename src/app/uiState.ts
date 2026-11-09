@@ -14,13 +14,22 @@ export type UiState = {
   tab: PanelTabId
   /** desktop only: a collapsed panel gives its width to the farm */
   collapsed: boolean
+  /** the 🌾 Farm tab's 🧰 Tools card (batch 24); a tiles.ui from before batch 24 reads as open */
+  toolsOpen: boolean
   /** badge keys (badges.ts) the player has seen on each tab; a key not in here is news */
   seen: Record<BadgeTab, string[]>
   /** the market factor each licensed crop's price tag last showed on screen (▲▼ trend arrows, batch 21) */
   priceShown: Partial<Record<CropId, number>>
 }
 
-export const DEFAULT_UI: UiState = { view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] }, priceShown: {} }
+export const DEFAULT_UI: UiState = {
+  view: 'farm',
+  tab: 'farm',
+  collapsed: false,
+  toolsOpen: true,
+  seen: { shop: [], upgrades: [] },
+  priceShown: {},
+}
 
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === 'string')
 
@@ -39,6 +48,7 @@ export function parseUi(raw: string | null): UiState {
     view: VIEWS.find((x) => x === o.view) ?? DEFAULT_UI.view,
     tab: PANEL_TABS.find((t) => t.id === o.tab)?.id ?? DEFAULT_UI.tab,
     collapsed: typeof o.collapsed === 'boolean' ? o.collapsed : DEFAULT_UI.collapsed,
+    toolsOpen: typeof o.toolsOpen === 'boolean' ? o.toolsOpen : DEFAULT_UI.toolsOpen,
     seen: Object.fromEntries(
       BADGE_TABS.map((t) => {
         const v = (o.seen as Record<string, unknown> | null | undefined)?.[t]

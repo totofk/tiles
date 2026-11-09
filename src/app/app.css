@@ -561,8 +561,25 @@ button:disabled {
 .mine-pickaxe {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: var(--s2);
   font-size: 14px;
+}
+/* batch 24 two-level card rhythm: 8 px inside a group, 16 px + a divider between groups; an h3 names a block
+   (the furnace's Upgrades) */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.group:not(:first-child) {
+  margin-top: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid #eee;
+}
+.group > h3 {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
 }
 .mine-vein {
   display: flex;
@@ -782,7 +799,7 @@ details > summary:focus-visible {
   box-shadow: inset 0 -4px 0 #c9a227;
 }
 /* desktop stacked rows (🌾 Farm tab, collapsed-panel fallback): [−] [press] [+]; a level-1 / 3 row keeps the − / +
-   slots as empty 44 px spans, so every press button has the same width */
+   slots as empty 44 px spans while any row is level 2, so every press button has the same width */
 .tool-row {
   display: flex;
   gap: var(--s2);
@@ -795,6 +812,25 @@ details > summary:focus-visible {
 .tool-row > :not(.tool-step) {
   flex: 1;
   min-width: 0;
+}
+/* the 🧰 Tools card header (🌾 Farm tab, batch 24): a pressable header like a card's summary, own ▸ / ▾ chevron */
+.tools-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 var(--s2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  text-align: left;
+}
+.tools-head::before {
+  content: '▸';
+  flex: none;
+  width: 1em;
+  text-align: center;
+}
+.tools-head[aria-expanded='true']::before {
+  content: '▾';
 }
 /* the level-2 mark: a click on it (or right-click / long-press on the button) opens the n popover */
 .tool-more {

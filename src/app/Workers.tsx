@@ -91,15 +91,20 @@ export function Workers({ state, act }: { state: GameState; act: Act }) {
         👷 Workers · free {freeWorkers(run)} / {pool}
         {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
       </summary>
-      {WORKER_JOBS.map((job) => (
-        <JobRow key={job} state={state} act={act} job={job} />
-      ))}
+      {/* batch 24: the job rows are one group, hiring another over a divider */}
+      <div className="group">
+        {WORKER_JOBS.map((job) => (
+          <JobRow key={job} state={state} act={act} job={job} />
+        ))}
+      </div>
       {hireUnlocked(run) && (
-        <div className="worker-row">
-          <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
-            👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${workerHireCost(pool, meta)}`}</small>
-          </button>
-          <Info text={TIPS.hire} />
+        <div className="group">
+          <div className="worker-row">
+            <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
+              👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${workerHireCost(pool, meta)}`}</small>
+            </button>
+            <Info text={TIPS.hire} />
+          </div>
         </div>
       )}
     </details>

@@ -69,19 +69,24 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
   const slotStars = orderSlotStars(orders.slots)
   const rows = (
     <>
-      {orders.offers.map((_, i) => (
-        <OrderRow key={i} state={state} act={act} slot={i} />
-      ))}
+      {/* batch 24: the order rows are one group, the ⭐ shop another over a divider */}
+      <div className="group">
+        {orders.offers.map((_, i) => (
+          <OrderRow key={i} state={state} act={act} slot={i} />
+        ))}
+      </div>
       {/* the ⭐ shop: only ⭐ buys these, and nothing here sells */}
-      <div className="order-row order-shop">
-        {slotStars !== null && (
-          <button disabled={!buyOrderSlot(state).ok} onClick={() => act(buyOrderSlot)}>
-            + Slot {orders.slots + 1} <small>{STAR_EMOJI}{slotStars}</small>
+      <div className="group">
+        <div className="order-row order-shop">
+          {slotStars !== null && (
+            <button disabled={!buyOrderSlot(state).ok} onClick={() => act(buyOrderSlot)}>
+              + Slot {orders.slots + 1} <small>{STAR_EMOJI}{slotStars}</small>
+            </button>
+          )}
+          <button disabled={!rerollOrders(state).ok} onClick={() => act(rerollOrders)}>
+            {REROLL_EMOJI} Reroll <small>{STAR_EMOJI}{orderRerollStars()}</small>
           </button>
-        )}
-        <button disabled={!rerollOrders(state).ok} onClick={() => act(rerollOrders)}>
-          {REROLL_EMOJI} Reroll <small>{STAR_EMOJI}{orderRerollStars()}</small>
-        </button>
+        </div>
       </div>
     </>
   )

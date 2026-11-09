@@ -86,9 +86,26 @@ function StepPopover({ state, act, job, onClose }: { state: GameState; act: Act;
 /**
  * one press button per owned tool. Default (mobile bar, tablet column): a level-2 button's ⋯ / right-click /
  * long-press opens the n popover. stacked (desktop): one row per tool, Plant / Water / Harvest, with − / + beside a
- * level-2 button; level 1 / 3 keep empty slots there so every press button has the same width.
+ * level-2 button; level 1 / 3 keep empty slots there while any row is level 2, so every press button in a mixed
+ * group has the same width (batch 24) — with no level-2 tool the buttons take the full row.
+ * onToggle (the 🌾 Farm tab): the rows sit in a collapsible 🧰 Tools card whose open state lives in tiles.ui
+ * (`open`); without it the bare stacked rows render (the collapsed-panel fallback in the farm column).
  */
-export function Tools({ state, act, cropId, stacked = false }: { state: GameState; act: Act; cropId: CropId; stacked?: boolean }) {
+export function Tools({
+  state,
+  act,
+  cropId,
+  stacked = false,
+  open = true,
+  onToggle,
+}: {
+  state: GameState
+  act: Act
+  cropId: CropId
+  stacked?: boolean
+  open?: boolean
+  onToggle?: () => void
+}) {
   const { run } = state
   const [openJob, setOpenJob] = useState<ToolJob | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -116,19 +133,30 @@ export function Tools({ state, act, cropId, stacked = false }: { state: GameStat
   const tier = (job: ToolJob) => (run.toolTier[job] > 0 ? { className: TIER_CLASS[run.toolTier[job] - 1], title: tierName(job, run.toolTier[job]) } : {})
 
   if (stacked) {
+    // empty − / + slots only while some row in the group is level 2, so mixed groups stay aligned
+    const anyStep = STACK_ORDER.some((job) => run.tools[job] === 2)
     const step = (job: ToolJob, dir: -1 | 1) =>
-      run.tools[job] === 2 ? <StepButton state={state} act={act} job={job} dir={dir} /> : <span className="tool-step" aria-hidden="true" />
+      run.tools[job] === 2 ? (
+        <StepButton state={state} act={act} job={job} dir={dir} />
+      ) : anyStep ? (
+        <span className="tool-step" aria-hidden="true" />
+      ) : null
+    const rows = STACK_ORDER.filter((job) => run.tools[job] > 0).map((job) => (
+      <div key={job} className="tool-row">
+        {step(job, -1)}
+        <button {...tier(job)} onClick={() => press(job)}>
+          {label(job)}
+        </button>
+        {step(job, 1)}
+      </div>
+    ))
+    if (!onToggle) return <div className="tools tools-stacked">{rows}</div>
     return (
       <div className="tools tools-stacked">
-        {STACK_ORDER.filter((job) => run.tools[job] > 0).map((job) => (
-          <div key={job} className="tool-row">
-            {step(job, -1)}
-            <button {...tier(job)} onClick={() => press(job)}>
-              {label(job)}
-            </button>
-            {step(job, 1)}
-          </div>
-        ))}
+        <button className="tools-head" aria-expanded={open} onClick={onToggle}>
+          🧰 Tools
+        </button>
+        {open && rows}
       </div>
     )
   }

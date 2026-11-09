@@ -147,6 +147,32 @@ describe('farm tool buttons', () => {
       expect(document.querySelector('.tool-more')).toBeNull()
     })
 
+    it('batch 24: with no level-2 tool every row is one full-width button — no empty − / + slots', () => {
+      setup({ tools: { water: 1, harvest: 3, plant: 1 } }, true)
+      expect(document.querySelectorAll('.tool-step')).toHaveLength(0)
+      for (const r of document.querySelectorAll('.tool-row')) expect(r.children).toHaveLength(1)
+    })
+
+    it('batch 24: a group mixing level 2 and level 3 keeps the empty slots on the level-3 row', () => {
+      setup({ tools: { water: 2, harvest: 3, plant: 0 }, toolN: { water: 1, harvest: 1, plant: 1 } }, true)
+      expect(document.querySelectorAll('.tool-row > button.tool-step')).toHaveLength(2) // Water's − / +
+      expect(document.querySelectorAll('.tool-row > span.tool-step[aria-hidden="true"]')).toHaveLength(2) // Harvest's empty slots
+    })
+
+    it('batch 24: with onToggle the rows sit in a 🧰 Tools card — a header button whose open state hides and shows them', () => {
+      const s = createInitialState()
+      const state: GameState = { ...s, run: { ...s.run, tools: { water: 1, harvest: 0, plant: 0 } } }
+      let open = false
+      const view = render(<Tools state={state} act={() => {}} cropId="radish" stacked open={open} onToggle={() => (open = !open)} />)
+      const head = () => screen.getByRole('button', { name: '🧰 Tools' })
+      expect(head().getAttribute('aria-expanded')).toBe('false')
+      expect(document.querySelectorAll('.tool-row')).toHaveLength(0)
+      open = true
+      view.rerender(<Tools state={state} act={() => {}} cropId="radish" stacked open={open} onToggle={() => (open = !open)} />)
+      expect(head().getAttribute('aria-expanded')).toBe('true')
+      expect(document.querySelectorAll('.tool-row')).toHaveLength(1)
+    })
+
     it('− / + set n within 1 … ceil(tiles / 3) with the same disabled states as the popover', () => {
       const t = setup({ tools: { water: 0, harvest: 2, plant: 0 } }, true)
       const fewer = () => screen.getByRole('button', { name: 'Harvest fewer tiles' }) as HTMLButtonElement

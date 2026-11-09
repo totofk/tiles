@@ -68,12 +68,12 @@ export function DigSeeds({ act }: { act: Act }) {
 }
 
 /** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop, ui }: PanelProps) {
+export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools }: PanelProps) {
   const { run } = state
   return (
     <section className="farm-tab">
       <Orders state={state} act={act} />
-      <Tools state={state} act={act} cropId={cropId} stacked />
+      <Tools state={state} act={act} cropId={cropId} stacked open={ui.toolsOpen} onToggle={toggleTools} />
       <h2>Crop to plant</h2>
       <div className="shop-row">
         {CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => (

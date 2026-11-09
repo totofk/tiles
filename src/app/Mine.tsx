@@ -130,108 +130,122 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
       <summary>
         {FIRE_EMOJI} Furnace · fire {fire}/{cap} · ore {f.ore} · {f.ready} ready
       </summary>
-      <div className="furnace-line">
-        <span>
-          {FIRE_EMOJI} fire {fire} / {cap}
-          {f.smart && ' · smart'}
-        </span>
-        <Info text={FURNACE_TIPS.fire} />
-      </div>
-      <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
-      {f.fire > 0 && !f.smart && f.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
-      {picker && (
-        <div className="mine-furnace-actions" role="group" aria-label="Ore to smelt">
-          {ORE_IDS.map((id) => {
-            const r = setOreKind(state, id)
-            const picked = f.oreKind === id
-            const armed = confirmKind === id
+      {/* batch 24: four groups — Fire / Smelt / Output / Upgrades — 8 px inside, 16 px + a divider between */}
+      <div className="group">
+        <div className="furnace-line">
+          <span>
+            {FIRE_EMOJI} fire {fire} / {cap}
+            {f.smart && ' · smart'}
+          </span>
+          <Info text={FURNACE_TIPS.fire} />
+        </div>
+        <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
+        {f.fire > 0 && !f.smart && f.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
+        <div className="mine-furnace-actions">
+          {FUEL_IDS.map((fuel) => {
+            const r = addFuel(state, fuel)
             return (
-              <button
-                key={id}
-                aria-pressed={picked}
-                disabled={picked || !r.ok}
-                onClick={() => {
-                  if (f.ore > 0 && !armed) {
-                    setConfirmKind(id)
-                    return
-                  }
-                  setConfirmKind(null)
-                  act((s) => setOreKind(s, id))
-                }}
-              >
-                {ITEMS[id].emoji} {ITEMS[id].name}
-                <small>
-                  {picked
-                    ? f.ore < cycleOre(f)
-                      ? `needs ${cycleOre(f) - f.ore} more to smelt`
-                      : 'smelting'
-                    : armed
-                      ? `press again — forfeit ${f.ore} ${ITEMS[f.oreKind].emoji}`
-                      : r.ok
-                        ? `switch${f.ore > 0 ? ` — forfeits ${f.ore}` : ''}`
-                        : shortReason(r)}
-                </small>
+              <button key={fuel} disabled={!r.ok} onClick={() => act((s) => addFuel(s, fuel))}>
+                Fill with {ITEMS[fuel].emoji} {ITEMS[fuel].name.toLowerCase()}
+                {uses(r, state, fuel)}
               </button>
             )
           })}
         </div>
-      )}
-      <span>
-        {oreEmoji} ore {f.ore} / {oreSlotCap()}
-        {f.progress > 0 && ` · ${f.progress}/${ticks} s`}
-      </span>
-      {f.progress > 0 && <Bar value={f.progress / ticks} kind="grow" />}
-      <small>
-        {oreEmoji}
-        {cycleOre(f)} + {ITEMS.coal.emoji}
-        {smeltFuel('coal', f.oreKind)} or {ITEMS.wood.emoji}
-        {smeltFuel('wood', f.oreKind)} → {barEmoji}
-        {bars} · {ticks} s ·{' '}
-        {(['ore', 'coal', 'wood'] as const).map((key, i) => (
-          <Fragment key={key}>
-            {i > 0 && ' · '}
-            <span className="nowrap">
-              {key} {have(stock[key])}
-            </span>
-          </Fragment>
-        ))}
-      </small>
-      <div className="mine-furnace-actions">
-        <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
-          Load {oreEmoji} ore
-          {uses(ore, state, f.oreKind)}
-        </button>
-        {FUEL_IDS.map((fuel) => {
-          const r = addFuel(state, fuel)
+      </div>
+      <div className="group">
+        {picker && (
+          <div className="mine-furnace-actions" role="group" aria-label="Ore to smelt">
+            {ORE_IDS.map((id) => {
+              const r = setOreKind(state, id)
+              const picked = f.oreKind === id
+              const armed = confirmKind === id
+              return (
+                <button
+                  key={id}
+                  aria-pressed={picked}
+                  disabled={picked || !r.ok}
+                  onClick={() => {
+                    if (f.ore > 0 && !armed) {
+                      setConfirmKind(id)
+                      return
+                    }
+                    setConfirmKind(null)
+                    act((s) => setOreKind(s, id))
+                  }}
+                >
+                  {ITEMS[id].emoji} {ITEMS[id].name}
+                  <small>
+                    {picked
+                      ? f.ore < cycleOre(f)
+                        ? `needs ${cycleOre(f) - f.ore} more to smelt`
+                        : 'smelting'
+                      : armed
+                        ? `press again — forfeit ${f.ore} ${ITEMS[f.oreKind].emoji}`
+                        : r.ok
+                          ? `switch${f.ore > 0 ? ` — forfeits ${f.ore}` : ''}`
+                          : shortReason(r)}
+                  </small>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        <span>
+          {oreEmoji} ore {f.ore} / {oreSlotCap()}
+          {f.progress > 0 && ` · ${f.progress}/${ticks} s`}
+        </span>
+        <small>
+          {oreEmoji}
+          {cycleOre(f)} + {ITEMS.coal.emoji}
+          {smeltFuel('coal', f.oreKind)} or {ITEMS.wood.emoji}
+          {smeltFuel('wood', f.oreKind)} → {barEmoji}
+          {bars} · {ticks} s ·{' '}
+          {(['ore', 'coal', 'wood'] as const).map((key, i) => (
+            <Fragment key={key}>
+              {i > 0 && ' · '}
+              <span className="nowrap">
+                {key} {have(stock[key])}
+              </span>
+            </Fragment>
+          ))}
+        </small>
+        <div className="mine-furnace-actions">
+          <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
+            Load {oreEmoji} ore
+            {uses(ore, state, f.oreKind)}
+          </button>
+        </div>
+        {f.progress > 0 && <Bar value={f.progress / ticks} kind="grow" />}
+      </div>
+      <div className="group">
+        <div className="mine-furnace-actions">
+          <button disabled={!collect.ok} onClick={() => act(collectBars)}>
+            Collect {f.ready} {barEmoji}
+            <small>{f.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${f.ready}/${furnaceTrayCap()}`}</small>
+          </button>
+        </div>
+      </div>
+      <div className="group">
+        <h3>Upgrades</h3>
+        {FURNACE_UPGRADE_IDS.map((id) => {
+          const level = furnaceUpgradeLevel(f, id)
+          const cost = furnaceUpgradeCost(id, level, meta)
+          if (!cost) return null
+          const r = buyFurnaceUpgrade(state, id)
           return (
-            <button key={fuel} disabled={!r.ok} onClick={() => act((s) => addFuel(s, fuel))}>
-              Fill with {ITEMS[fuel].emoji} {ITEMS[fuel].name.toLowerCase()}
-              {uses(r, state, fuel)}
-            </button>
+            <Item key={id} tip={FURNACE_TIPS[id]}>
+              <button disabled={!r.ok} onClick={() => act((s) => buyFurnaceUpgrade(s, id))}>
+                {UPGRADE_LABEL[id](level)}
+                <small>
+                  {priceText(cost)}
+                  {!r.ok && ` · ${shortReason(r)}`}
+                </small>
+              </button>
+            </Item>
           )
         })}
-        <button disabled={!collect.ok} onClick={() => act(collectBars)}>
-          Collect {f.ready} {barEmoji}
-          <small>{f.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${f.ready}/${furnaceTrayCap()}`}</small>
-        </button>
       </div>
-      {FURNACE_UPGRADE_IDS.map((id) => {
-        const level = furnaceUpgradeLevel(f, id)
-        const cost = furnaceUpgradeCost(id, level, meta)
-        if (!cost) return null
-        const r = buyFurnaceUpgrade(state, id)
-        return (
-          <Item key={id} tip={FURNACE_TIPS[id]}>
-            <button disabled={!r.ok} onClick={() => act((s) => buyFurnaceUpgrade(s, id))}>
-              {UPGRADE_LABEL[id](level)}
-              <small>
-                {priceText(cost)}
-                {!r.ok && ` · ${shortReason(r)}`}
-              </small>
-            </button>
-          </Item>
-        )
-      })}
     </details>
   )
 }
@@ -341,32 +355,35 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
       ) : (
         run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">{FIRE_EMOJI} Furnace — buy it in the 🛒 Shop</span>
       )}
-      {run.pickaxe?.durability === 0 ? (
-        <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
-          Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
-          {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
-        </button>
-      ) : run.pickaxe ? (
-        <div className="mine-pickaxe">
-          <span>
-            {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · ~
-            {Math.round(expectedUses(run.pickaxe.tier, run, run.pickaxe.durability))} more uses
-          </span>
-          <Bar value={run.pickaxe.durability / pickaxeDurability(run.pickaxe.tier)} kind="tool" />
-        </div>
-      ) : (
-        <button disabled={!craftPickaxe(state).ok} onClick={() => act(craftPickaxe)}>
-          No pickaxe — craft ({priceText(pickaxeCraftCost('wooden', meta))})
-        </button>
-      )}
-      {offerTier && nextCraft && (
-        <button disabled={!nextCraft.ok} onClick={() => act((s) => craftPickaxe(s, offerTier))}>
-          Craft {PICKAXE_NAMES[offerTier].toLowerCase()} ({priceText(pickaxeCraftCost(offerTier, meta))})
-          {!nextCraft.ok && <small> — {ERROR_TEXT[nextCraft.error]}</small>}
-        </button>
-      )}
+      {/* batch 24: the pickaxe card's blocks — status + craft, then mastery — each its own group over a divider */}
+      <div className="group">
+        {run.pickaxe?.durability === 0 ? (
+          <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
+            Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
+            {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
+          </button>
+        ) : run.pickaxe ? (
+          <div className="mine-pickaxe">
+            <span>
+              {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · ~
+              {Math.round(expectedUses(run.pickaxe.tier, run, run.pickaxe.durability))} more uses
+            </span>
+            <Bar value={run.pickaxe.durability / pickaxeDurability(run.pickaxe.tier)} kind="tool" />
+          </div>
+        ) : (
+          <button disabled={!craftPickaxe(state).ok} onClick={() => act(craftPickaxe)}>
+            No pickaxe — craft ({priceText(pickaxeCraftCost('wooden', meta))})
+          </button>
+        )}
+        {offerTier && nextCraft && (
+          <button disabled={!nextCraft.ok} onClick={() => act((s) => craftPickaxe(s, offerTier))}>
+            Craft {PICKAXE_NAMES[offerTier].toLowerCase()} ({priceText(pickaxeCraftCost(offerTier, meta))})
+            {!nextCraft.ok && <small> — {ERROR_TEXT[nextCraft.error]}</small>}
+          </button>
+        )}
+      </div>
       {tier && (
-        <div className="mine-pickaxe">
+        <div className="group mine-pickaxe">
           <span>
             Mastery Lv {level}/{max} · {level >= max ? xp : `${xp}/${thresholds[level]}`} xp
           </span>

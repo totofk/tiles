@@ -29,9 +29,16 @@ describe('parseUi', () => {
       view: 'farm',
       tab: 'upgrades',
       collapsed: true,
+      toolsOpen: true,
       seen: { shop: [], upgrades: [] },
       priceShown: {},
     })
+  })
+
+  it('toolsOpen (batch 24): defaults to open when missing, keeps a stored boolean', () => {
+    expect(parseUi(JSON.stringify({})).toolsOpen).toBe(true)
+    expect(parseUi(JSON.stringify({ toolsOpen: false })).toolsOpen).toBe(false)
+    expect(parseUi(JSON.stringify({ toolsOpen: 'closed' })).toolsOpen).toBe(true)
   })
 
   it('priceShown keeps the numeric factors per crop and drops everything else (batch 21)', () => {
@@ -55,7 +62,7 @@ describe('parseUi', () => {
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
+    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)
