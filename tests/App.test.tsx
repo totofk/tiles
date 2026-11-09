@@ -280,13 +280,17 @@ describe('layout content', () => {
     expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥕 Carrot seed!|Nothing this time/)
   })
 
-  it('the 📊 Stats feedback draft survives a tab switch', () => {
+  it('the 📊 Stats feedback draft survives a tab switch (the form lives in the 💬 modal)', () => {
     render(<App />)
     fireEvent.click(panelTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: '💬 Feedback' }))
     fireEvent.change(screen.getByRole('textbox', { name: /Details/ }), { target: { value: 'half-written idea' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     fireEvent.click(panelTab(/Shop/))
     expect(screen.queryByRole('textbox', { name: /Details/ })).toBeNull()
     fireEvent.click(panelTab(/Stats/))
+    expect(screen.queryByRole('textbox', { name: /Details/ })).toBeNull() // closed until reopened
+    fireEvent.click(screen.getByRole('button', { name: '💬 Feedback' }))
     expect((screen.getByRole('textbox', { name: /Details/ }) as HTMLTextAreaElement).value).toBe('half-written idea')
   })
 

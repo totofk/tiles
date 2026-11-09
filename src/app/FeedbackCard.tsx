@@ -5,7 +5,6 @@ import { SAVE_VERSION } from '../save/serialize'
 import {
   DETAILS_MAX,
   EMPTY_FEEDBACK,
-  FEEDBACK_EMOJI,
   FEEDBACK_KINDS,
   TITLE_MAX,
   canSend,
@@ -30,7 +29,8 @@ function context(state: GameState): FeedbackContext {
   }
 }
 
-/** 💬 Feedback card at the end of 📊 Stats; the draft lives in App (props) so a tab switch keeps it */
+/** 💬 Feedback body inside the 💬 modal (batch 23; the modal's title is the heading); the draft lives in App
+ * (props) so a tab switch keeps it. The 4 fields and buildFeedbackBody are unchanged. */
 export function FeedbackCard({ state, feedback, setFeedback }: FeedbackProps) {
   const { draft, sentAt } = feedback
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle')
@@ -60,7 +60,6 @@ export function FeedbackCard({ state, feedback, setFeedback }: FeedbackProps) {
 
   return (
     <section className="shop feedback">
-      <h2>{FEEDBACK_EMOJI} Feedback</h2>
       <div className="feedback-kinds" role="group" aria-label="Kind">
         {FEEDBACK_KINDS.map((k) => (
           <button key={k} type="button" aria-pressed={draft.kind === k} onClick={() => edit({ kind: k })}>

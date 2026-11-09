@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PARKED_IDEAS, PARKED_LABEL, PARKED_ORDER, RoadmapList } from '../src/app/Roadmap'
 import { Stats, StatsTab, Timeline } from '../src/app/Stats'
+import type { PanelProps } from '../src/app/panelTabs'
 import { EMPTY_FEEDBACK } from '../src/app/feedback'
 import { createInitialState, type GameState } from '../src/core/state'
 import { reportLines, stats } from '../src/core/stats'
@@ -47,7 +48,7 @@ describe('Stats panel', () => {
 })
 
 describe('🗺 Roadmap modal (batch 23, task 119)', () => {
-  const props = {
+  const props: PanelProps = {
     state: createInitialState(),
     act: () => {},
     cropId: 'radish',
@@ -76,5 +77,14 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     expect(screen.getByRole('dialog', { name: '🗺 Roadmap' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('💬 Feedback opens as a modal with the unchanged 4 fields (task 120)', () => {
+    render(<StatsTab {...props} />)
+    expect(screen.queryByRole('textbox', { name: /Title/ })).toBeNull() // nothing inline anymore
+    fireEvent.click(screen.getByRole('button', { name: '💬 Feedback' }))
+    const dialog = screen.getByRole('dialog', { name: '💬 Feedback' })
+    expect(within(dialog).getByRole('group', { name: 'Kind' })).toBeTruthy()
+    for (const name of [/Title/, /Details/, /Contact/]) expect(within(dialog).getByRole('textbox', { name })).toBeTruthy()
   })
 })

@@ -70,11 +70,12 @@ export function Timeline({ state }: { state: GameState }) {
 const STATS_ACTIONS = [
   { id: 'data', label: '💾 Data' },
   { id: 'roadmap', label: '🗺 Roadmap' },
+  { id: 'feedback', label: '💬 Feedback' },
 ] as const
 type StatsActionId = (typeof STATS_ACTIONS)[number]['id']
 
-/** the 📊 Stats tab (batch 23): the stats, timeline, then the modal buttons — 💾 Data carries export/import and
- * the Danger zone with Reset; the inline Save card and Reset button are gone from the layout */
+/** the 📊 Stats tab (batch 23): the stats, timeline, then the three modal buttons — 💾 Data carries export/import
+ * and the Danger zone with Reset; the inline Save card, feedback card and Reset button are gone from the layout */
 export function StatsTab(props: PanelProps) {
   const { state, feedback, setFeedback } = props
   const [open, setOpen] = useState<StatsActionId | null>(null)
@@ -90,7 +91,6 @@ export function StatsTab(props: PanelProps) {
           </button>
         ))}
       </nav>
-      <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
       {open === 'data' && (
         <Modal title="💾 Data" close={close}>
           <DataModal state={state} exportCode={props.exportCode} applyImport={props.applyImport} reset={props.reset} />
@@ -99,6 +99,11 @@ export function StatsTab(props: PanelProps) {
       {open === 'roadmap' && (
         <Modal title="🗺 Roadmap" close={close}>
           <RoadmapList />
+        </Modal>
+      )}
+      {open === 'feedback' && (
+        <Modal title="💬 Feedback" close={close}>
+          <FeedbackCard state={state} feedback={feedback} setFeedback={setFeedback} />
         </Modal>
       )}
     </>
