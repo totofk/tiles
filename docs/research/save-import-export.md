@@ -71,12 +71,24 @@ Grammar:
   importable forever); truncate one valid code at EVERY length and assert clean throws; offline-cap-on-import.
 - **Save ID**: display the CRC32 as a short ID (the honest version of the seed idea).
 
-## Batch sketch (23?) — tasks 116–119
+## Batch sketch (23?) — tasks 116–120
 
-116. `src/save/codec.ts` (pure) + tests incl. exhaustive truncation + per-version frozen fixtures.
-117. Stats card: export (live state, textarea/copy/download) + import (decode+migrate in memory, confirm card,
-     backup slot, reload). No core changes.
-118. Cross-tab `storage` listener + freeze banner.
-119. Sim/docs: none needed (no balance change). Docs update only.
+**Correction 2026-11-09 (from docs/IDEAS.md "exists today", verified: `src/app/SaveTransfer.tsx` since commit
+7051f56):** export/import ALREADY SHIPS — 📊 Stats → Save; plain base64 of the save JSON, read-only box, copy,
+two-press import, `tiles.save.backup.import` slot. So this is a RETROFIT of that card to the spec above, not a
+green-field build. Backward compat: codes without the `TILES1.` prefix are accepted as legacy plain-base64
+(with the same version gate) so nothing a player exported before breaks. Feedback already ships too
+(`src/app/feedback.ts`, 4 fields → Google Form, DETAILS_MAX 2000).
 
-Cost estimate: well under $10 on GLM; ~1–2 h.
+- 116. `src/save/codec.ts` (pure) + tests incl. exhaustive truncation + per-version frozen fixtures + legacy
+  plain-base64 fallback decode.
+- 117. Save card: live-state export, auto-selected textarea + clipboard + Download .txt, save-ID display,
+  cross-tab `storage` listener + freeze banner.
+- 118. Import: in-memory decode + boot migrate path, confirm card (deeds/prestige/tiles/saved-ago/migrate note
+  vs current save), backup slot, reload; offline-cap-on-import test.
+- 119. Roadmap card in 📊 Stats (English, data-driven from a src/app list): the 7 parked ideas from
+  docs/IDEAS.md with their suggested order, labelled parked/not-promises (Toon 2026-11-09).
+- 120. Feedback form → 💬 button + modal (minor-feedback item 1; fields + endpoint unchanged).
+
+Deferred (needs Toon's Google Form edit first): "attach my save" opt-in on feedback — base64 8.2 kB ≫
+DETAILS_MAX 2000, so it needs a new long-text form field (or CompressionStream + still a new field).
