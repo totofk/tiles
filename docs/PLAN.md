@@ -3386,3 +3386,34 @@ Feedback. The inline Save section, feedback card and reset button all leave the 
 - **FeedbackCard dropped its inline `<h2>`** (the modal title is the heading); fields, body builder and endpoint
   unchanged. Task 116's first commit carried a constructor parameter property that `erasableSyntaxOnly` rejects —
   fixed in a follow-up commit (`SaveCodeError` sets the field in the body) before anything built on it.
+
+
+## Batch 23.1 — Import fix, save attached to feedback, Copy report removed (tasks 122–124, no save bump)
+
+Why (Toon, 2026-11-09): an import from his main PC did not stick on his Mac. Reproduced on the live build: the
+import writes the incoming save, then `location.reload()` fires `pagehide`, whose handler saves the OLD in-memory
+run over it (write log: 💰123456 imported → 💰20 on pagehide). Feedback should carry the player's real save, so
+Hermes can reproduce bugs and compute balance from exact state; the Copy report button goes.
+
+- [ ] 122. **Import sticks.** `src/app/useGame.ts` `applyImport`: before `commitImport`, stop every autosave path
+    of this tab — set `frozenRef.current = true` and clear the pending `saveTimer` — so `pagehide`, the hidden
+    `visibilitychange` save and the debounced save cannot write after the import. Do NOT call `freeze()` if it
+    shows the "changed in another tab" banner (no banner flash on import). If `commitImport` returns
+    `{ ok: false }`, unfreeze (the game keeps running, nothing changed). Regression test (jsdom, `location.reload`
+    stubbed): apply an import, then dispatch `pagehide`, a hidden `visibilitychange` and advance timers past the
+    save debounce → `localStorage['tiles.save']` still holds the imported run (cash, tiles) and
+    `tiles.save.backup.import` holds the old one. The test must FAIL on today's code.
+- [ ] 123. **Feedback attaches the save; Copy report goes.** In 💬 Feedback the sent body (`buildFeedbackBody`,
+    field `Tell us more`, entry.1552861218 — the form has no length validation) ends with the context block:
+    Build / Save / Screen / UA / Time / Game (`feedbackSummary`, unchanged), then a last line
+    `Save code: TILES1.…` = `encodeSave` of the LIVE run at send time (same as 💾 Data export: version, wall-clock
+    `savedAtMs`, `stateRef`/current state — Date.now stays in src/app). The `Timeline:` lines leave the body (the
+    save carries `milestones`). One small line under the form: "Your save and game stats are attached." No
+    checkbox. Remove the "Copy report" button and its status lines from the Timeline card in `src/app/Stats.tsx`;
+    the timeline list itself stays. Delete `reportLines` / `REPORT_MAX_LINES` from `src/core/stats.ts` if nothing
+    else uses them, with their tests. The 2000-char counter still limits only what the player types. Tests: body
+    ends with a `Save code:` line that `decodeImport` round-trips to the live state; no `Timeline:` in the body;
+    no "Copy report" button in Stats.
+- [ ] 124. **Docs**: `## Batch 23.1 results` + `### Deviations` at the true end of this file.
+
+Gates: `pnpm test`, `pnpm lint`, `pnpm build`, purity grep `Date.now|react` clean over `src/core` and `src/save`.

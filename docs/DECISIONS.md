@@ -446,3 +446,14 @@ CRC32 checksum over the text, legacy plain-base64 codes still accepted, .txt dow
 IDEAS.md ideas in English, "Parked — not promises". **💬 Feedback** = the existing 4-field form, endpoint
 unchanged. No core or balance change; no save bump. Deferred until Toon adds a long-text field to the Google
 Form: attach-save-to-feedback.
+
+
+## Import must not be overwritten; feedback carries the save (batch 23.1, 2026-11-09, Toon go)
+
+An import freezes this tab's autosave (debounce, hidden-visibility, pagehide) before writing, so the reload cannot
+save the old run over the imported one. 💬 Feedback always appends the live save as a `TILES1` code (no opt-in
+checkbox: the save holds only game numbers, and a checkbox would lose the data that makes feedback useful); the
+Timeline lines leave the feedback body because the save carries `milestones`. The Google Form's "Tell us more"
+field has no length validation, so no new form field is needed — this replaces batch 23's "deferred until a
+long-text field exists". "Copy report" is removed; the Timeline stays in Stats for players to read. Offline gains
+already live in the welcome-back banner, so the timeline does not become an offline summary.
