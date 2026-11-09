@@ -436,3 +436,13 @@ unlock stage. Save v19 adds the four market keys + licenses; earned value never 
 
 Toon's forward roadmap notes — intentionally unpolished, committed on purpose ("เอาติดไปได้"). Do not treat it as
 untouchable or delete it from the tree; Hermes may commit updates to it.
+
+## Stats becomes modals: 💾 Data / 🗺 Roadmap / 💬 Feedback (batch 23, 2026-11-09, Toon go)
+
+The inline Save section, feedback card and reset button leave Stats; three buttons open one shared modal
+primitive. **💾 Data** = export/import per the TILES1 spec (`docs/research/save-import-export.md`: base64url +
+CRC32 checksum over the text, legacy plain-base64 codes still accepted, .txt download, save-ID = the CRC) plus a
+**Danger zone** whose reset keeps EXACTLY today's behavior, UI restyle only. **🗺 Roadmap** = the 7 parked
+IDEAS.md ideas in English, "Parked — not promises". **💬 Feedback** = the existing 4-field form, endpoint
+unchanged. No core or balance change; no save bump. Deferred until Toon adds a long-text field to the Google
+Form: attach-save-to-feedback.

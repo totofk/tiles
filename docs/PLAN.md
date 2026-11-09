@@ -3304,3 +3304,33 @@ rules.batch13 on. Pins in `tests/sim.test.ts` `batch 22: four new crops`.
 - **License candidates 800/1,600/3,200/6,400 rejected.** Measured at 0.10–0.28 h of income at unlock; the shipped
   prices (7,000/10,000/15,000/22,000) are the ones inside the band. The band's lower edge is close (grape 0.51 h,
   tomato 0.56 h) — a future speed-up of the early game can push them under 0.5 h and need a re-pin.
+
+## Batch 23 — Save-code retrofit + Stats modals (tasks 116–121, no save bump, no core change)
+
+Why (Toon, 2026-11-09): the shipped Save card is too thin (no checksum, no file, stale export, cross-tab clobber)
+— spec fixed in `docs/research/save-import-export.md` (Hermes research + Claude Fable consult, merged). Stats
+becomes three buttons, each opening one SHARED modal primitive (app layer only): 💾 Data / 🗺 Roadmap / 💬
+Feedback. The inline Save section, feedback card and reset button all leave the Stats layout.
+
+- [ ] 116. **Codec** `src/save/codec.ts` (pure, sync): code := `TILES1.<base64url(compact JSON)>.<crc32-8hex>`
+  (CRC over the base64url TEXT; schema version stays inside the JSON). TextEncoder + chunked base64url — never
+  `btoa` (throws on non-ASCII). Tagged decode errors: `not-tiles | truncated | corrupt | newer-version`; codes
+  without the `TILES1.` prefix decode as legacy plain base64 (same version gate). Tests: round-trip deepEqual,
+  exhaustive truncation (EVERY prefix length of a valid code throws cleanly), frozen export fixture per past
+  schema version (v13..v18: freeze what encode produces from each existing tests/fixtures/save-vN.json),
+  offline-cap-on-import unchanged.
+- [ ] 117. **Cross-tab guard**: `src/app` `storage` listener on `tiles.save` stops the game loop and shows a
+  "save changed in another tab — reload" banner (a second tab's autosave must not silently clobber an import).
+- [ ] 118. **💾 Data modal**: Export serialises LIVE state (`savedAtMs` from Date.now in the app layer — codec
+  itself stays pure), auto-selected read-only textarea + Copy + Download `.txt` + save-ID (the 8-hex CRC shown
+  as an ID). Import: normalise (trim, strip whitespace/backticks, `+/`→`-_`, drop `=`), decode + run the boot
+  load-and-migrate path in memory (no second validator), confirm card (deeds / prestige count / tiles /
+  saved-ago / "will migrate vN→19" vs the same numbers for the current save), then `tiles.save.backup.import`
+  → write → `location.reload()`. **Danger zone**: reset — EXACTLY today's reset behavior (same wipe scope, same
+  confirm semantics — read the current implementation and preserve it), restyled UI only.
+- [ ] 119. **🗺 Roadmap modal**: button + shared modal; English; the 7 parked ideas from `docs/IDEAS.md` one
+  line each + the suggested order + a "Parked — not promises" label; data-driven list in `src/app`.
+- [ ] 120. **💬 Feedback modal**: button + shared modal; the 4 fields and `buildFeedbackBody` unchanged;
+  "Sent — thank you" inside the modal.
+- [ ] 121. **Docs + layout**: results under `## Batch 23 results` + Deviations; 375/1024/1440 layout checks for
+  the Stats button row and all three modals (scrollable content, no overflow).
