@@ -74,6 +74,12 @@ describe('Shop seeds', () => {
     expect(pouchRow(/Chilli/)!.textContent).toContain('×0')
   })
 
+  it('batch 24.1: the seed pouch renders through the shared grid inside its wrapper, 5 cells per row', () => {
+    setup({ cash: 50, licenses: ['radish', 'chilli'] })
+    expect(document.querySelector('.shop .item-grid-wrap .item-grid')).toBeTruthy()
+    for (const row of document.querySelectorAll('.shop .item-row')) expect(row.children).toHaveLength(5)
+  })
+
   it('batch 22: the four new crops come from the same table — seed tag with trend, license buy adds a pouch row', () => {
     const s = createInitialState()
     const t = setup(

@@ -735,6 +735,12 @@ details > summary:focus-visible {
   justify-content: space-between;
   gap: var(--s2);
 }
+/* batch 24.1: the recipe and the stock are two lines; every emoji+number token is .nowrap, so a number never
+   wraps away from its label */
+.furnace-recipe,
+.furnace-stock {
+  display: block;
+}
 .mine .furnace-hint {
   color: #bf360c;
 }
@@ -921,20 +927,49 @@ details > summary:focus-visible {
   border-radius: 50%;
   background: #d32f2f;
 }
-/* batch 24: one grid for repeated rows (seed pouch, Mine sell list): fixed columns, so a row's shape never
-   depends on name length or price digits; the last 0-width column is reserved for batch 25's sort toggle */
+/* batch 24.1: one grid for repeated rows (seed pouch, Mine sell list) — the columns live on the container and
+   every row is a subgrid, so counts and prices align row to row; the wrapper is the container the row's two-line
+   mode queries (a grid cannot query itself), so the panel width, not the viewport, decides */
+.item-grid-wrap {
+  container-type: inline-size;
+}
 .item-grid {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto 64px 64px; /* name | count | extra | btn | btn */
   gap: var(--s2);
   font-size: 14px;
 }
 .item-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto 0;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--s2);
   min-height: 44px;
+}
+/* a row too narrow for one line: the price-each (extra cell) drops to a second line under the name */
+@container (max-width: 359px) {
+  .item-row {
+    grid-template-columns: minmax(0, 1fr) 64px 64px;
+    grid-template-areas: 'name name count' 'extra b1 b2';
+    row-gap: var(--s1);
+    padding: var(--s1) 0;
+  }
+  .item-row > :nth-child(1) {
+    grid-area: name;
+  }
+  .item-row > :nth-child(2) {
+    grid-area: count;
+    justify-self: end;
+  }
+  .item-row > :nth-child(3) {
+    grid-area: extra;
+  }
+  .item-row > :nth-child(4) {
+    grid-area: b1;
+  }
+  .item-row > :nth-child(5) {
+    grid-area: b2;
+  }
 }
 .item-name {
   min-width: 0;
@@ -951,24 +986,8 @@ details > summary:focus-visible {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-/* ≤ 767 px: the sell list's price-each (.item-price) drops to a second line under the name; the buttons never
-   wrap — the grid keeps its columns */
-.item-sub {
-  display: none;
-  font-size: 12px;
-  color: #555;
-}
-@media (max-width: 767px) {
-  .item-sub {
-    display: block;
-  }
-  .item-price {
-    display: none;
-  }
-}
-/* one 44 px action line per button: label + price stacked like a .shop-row button, fixed width so the columns align */
+/* one 44 px action line per button: label + price stacked like a .shop-row button; the 64 px track fixes the width */
 .item-row > button {
-  width: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -195,12 +195,30 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           {oreEmoji} ore {f.ore} / {oreSlotCap()}
           {f.progress > 0 && ` · ${f.progress}/${ticks} s`}
         </span>
-        <small>
-          {oreEmoji}
-          {cycleOre(f)} + {ITEMS.coal.emoji}
-          {smeltFuel('coal', f.oreKind)} or {ITEMS.wood.emoji}
-          {smeltFuel('wood', f.oreKind)} → {barEmoji}
-          {bars} · {ticks} s ·{' '}
+        {/* batch 24.1: the recipe and the stock are two lines, every emoji+number one unbreakable token */}
+        <small className="furnace-recipe">
+          <span className="nowrap">
+            {oreEmoji}
+            {cycleOre(f)}
+          </span>{' '}
+          + <span className="nowrap">{ITEMS.coal.emoji}
+            {smeltFuel('coal', f.oreKind)}
+          </span>{' '}
+          or{' '}
+          <span className="nowrap">
+            {ITEMS.wood.emoji}
+            {smeltFuel('wood', f.oreKind)}
+          </span>{' '}
+          →{' '}
+          <span className="nowrap">
+            {barEmoji}
+            {bars}
+          </span>{' '}
+          ·{' '}
+          <span className="nowrap">{ticks} s</span>
+        </small>
+        <small className="furnace-stock">
+          have:{' '}
           {(['ore', 'coal', 'wood'] as const).map((key, i) => (
             <Fragment key={key}>
               {i > 0 && ' · '}
@@ -396,33 +414,33 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{woodCost(meta)}
       </button>
-      {/* batch 24: one shared grid for repeated rows — name | count | extra | sell 1 | sell all | (batch 25's
-          reserved column); unsellable items keep empty cells so the columns align */}
-      <div className="item-grid">
-        {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => (
-          <div key={id} className="item-row">
-            <span className="item-name">
-              <span className="item-label">
-                {ITEMS[id].emoji} {ITEMS[id].name}
+      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all; the columns
+          live on the container, rows are subgrids; the wrap is the container the two-line mode queries */}
+      <div className="item-grid-wrap">
+        <div className="item-grid">
+          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => (
+            <div key={id} className="item-row">
+              <span className="item-name">
+                <span className="item-label">
+                  {ITEMS[id].emoji} {ITEMS[id].name}
+                </span>
               </span>
-              {/* ≤ 767 px: the price-each drops to a second line under the name */}
-              {isSellable(id) && <small className="item-sub">💰{itemSellPrice(id, meta, run.upgrades.sellPrice)} each</small>}
-            </span>
-            <span className="item-count">×{run.inventory[id]}</span>
-            <span className="item-extra item-price">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
-            {isSellable(id) ? (
-              <>
-                <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
-                <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
-              </>
-            ) : (
-              <>
-                <span />
-                <span />
-              </>
-            )}
-          </div>
-        ))}
+              <span className="item-count">×{run.inventory[id]}</span>
+              <span className="item-extra">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
+              {isSellable(id) ? (
+                <>
+                  <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
+                  <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
+                </>
+              ) : (
+                <>
+                  <span />
+                  <span />
+                </>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )

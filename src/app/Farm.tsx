@@ -21,9 +21,10 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   return (
     <>
       <h2>Seed pouch</h2>
-      {/* batch 24: one shared grid for repeated rows — name | count | ⓘ | Buy ×1 | Buy ×10 | (batch 25's
-          reserved column); the price rides inside each buy button like a .shop-row button */}
-      <div className="item-grid">
+      {/* batch 24.1: one shared grid for repeated rows — name | count | ⓘ | Buy ×1 | Buy ×10; the columns live
+          on the container, rows are subgrids; the wrap is the container the two-line mode queries */}
+      <div className="item-grid-wrap">
+        <div className="item-grid">
         {run.licenses.map((id) => (
           <div key={id} className="item-row">
             <span className="item-name">
@@ -42,6 +43,7 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
             ))}
           </div>
         ))}
+        </div>
       </div>
       <div className="pouch-auto">
         <label>

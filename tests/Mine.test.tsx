@@ -149,7 +149,7 @@ describe('Mine panel', () => {
     expect(button(/^Fill with ⚫/).textContent).toBe('Fill with ⚫ coaluses 1')
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreuses 3`)
     expect(button(/^Collect 1/).textContent).toBe(`Collect 1 ${BAR}tray 1/5`)
-    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 0'])
+    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 0'])
     expect(text()).toContain('🔥 fire 0 / 10')
     expect(text()).toContain(`${ORE} ore 0 / 12`)
     expect(text()).not.toContain('nothing to smelt')
@@ -263,7 +263,7 @@ describe('Mine panel', () => {
     expect(kind(/Iron ore/).getAttribute('aria-pressed')).toBe('true')
     expect(text()).toContain(`${IRON_ORE}2 + ⚫2 or ${WOOD}4 → ${IRON_BAR}1 · 120 s`)
     expect(text()).toContain(`${IRON_ORE} ore 0 / 12`)
-    expect([...document.querySelectorAll('.mine-furnace .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 4', 'wood 0'])
+    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 4', 'wood 0'])
     fireEvent.click(screen.getByRole('button', { name: /^Load/ }))
     t.rerender()
     expect(screen.getByRole('button', { name: /^Load/ }).textContent).toBe(`Load ${IRON_ORE} oreno ore`)
@@ -334,17 +334,29 @@ describe('Mine panel', () => {
     const t = setup({ cash: 0, inventory: { copperBar: 2, wood: 1 } })
     expect(document.querySelector('.mine .item-grid')).toBeTruthy()
     const barRow = () => screen.getByText(`${BAR} Copper bar`).closest('.item-row') as HTMLElement
-    // the price-each column, ×N count and both sell buttons (the mobile .item-sub line is hidden by CSS only);
-    // every mine item is sellable since bars joined, so the wood row gets the full five cells too
-    expect(barRow().textContent).toBe(`${BAR} Copper bar💰2 each×2💰2sell 1sell all`)
+    // the price-each column, ×N count and both sell buttons; every mine item is sellable since bars joined
+    expect(barRow().textContent).toBe(`${BAR} Copper bar×2💰2sell 1sell all`)
     const woodRow = () => screen.getByText(`${WOOD} Wood`).closest('.item-row')!
-    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood💰2 each`, '×1', '💰2', 'sell 1', 'sell all'])
+    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all'])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell 1' }))
     t.rerender()
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([2, 1])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell all' }))
     t.rerender()
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([4, 0])
+  })
+
+  it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 5 cells, the recipe is two lines', () => {
+    setup({ furnace: built, inventory: { copperBar: 2, wood: 1 } })
+    // both users render through the wrapper: the sell list here, the seed pouch in the Farm tab (Shop tests)
+    expect(document.querySelector('.mine .item-grid-wrap .item-grid')).toBeTruthy()
+    for (const row of document.querySelectorAll('.mine .item-row')) expect(row.children).toHaveLength(5)
+    const recipe = document.querySelector('.mine-furnace .furnace-recipe')!
+    const stock = document.querySelector('.mine-furnace .furnace-stock')!
+    expect(recipe.textContent).toBe(`${ORE}2 + ⚫1 or ${WOOD}2 → ${BAR}1 · 60 s`)
+    expect(stock.textContent).toBe('have: ore 0 · coal 0 · wood 1')
+    // every emoji+number of the recipe is its own unbreakable token
+    expect([...recipe.querySelectorAll('.nowrap')].map((e) => e.textContent)).toEqual([`${ORE}2`, `⚫1`, `${WOOD}2`, `${BAR}1`, '60 s'])
   })
 
   it('batch 24: "Sell all when full" never sells bars — they pay for upgrades (own-row buttons only)', () => {

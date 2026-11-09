@@ -19,3 +19,16 @@ describe('app.css class hygiene (batch 24)', () => {
     expect(css).not.toMatch(/gap: 6px/)
   })
 })
+
+describe('app.css shared columns (batch 24.1)', () => {
+  it('.item-grid declares the five columns; rows are subgrids of them', () => {
+    expect(css).toContain('grid-template-columns: minmax(0, 1fr) auto auto 64px 64px')
+    expect(css).toMatch(/\.item-row\s*{[^}]*grid-template-columns: subgrid/s)
+  })
+
+  it('the two-line fallback is a container query on the wrapper, and the old viewport .item-sub swap is gone', () => {
+    expect(css).toContain('.item-grid-wrap')
+    expect(css).toContain('@container (max-width: 359px)')
+    expect(css).not.toContain('.item-sub')
+  })
+})
