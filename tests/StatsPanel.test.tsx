@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { Stats, Timeline } from '../src/app/Stats'
+import { PARKED_IDEAS, PARKED_LABEL, PARKED_ORDER, RoadmapList } from '../src/app/Roadmap'
+import { Stats, StatsTab, Timeline } from '../src/app/Stats'
+import { EMPTY_FEEDBACK } from '../src/app/feedback'
 import { createInitialState, type GameState } from '../src/core/state'
 import { reportLines, stats } from '../src/core/stats'
 import { SAVE_VERSION } from '../src/save/serialize'
@@ -41,5 +43,38 @@ describe('Stats panel', () => {
     expect(writeText).toHaveBeenCalledWith(reportLines(state, [`Build: ${__BUILD__}`, `Save: v${SAVE_VERSION}`]).join('\n'))
     expect(screen.getByRole('status').textContent).toMatch(/Report copied/)
     vi.unstubAllGlobals()
+  })
+})
+
+describe('🗺 Roadmap modal (batch 23, task 119)', () => {
+  const props = {
+    state: createInitialState(),
+    act: () => {},
+    cropId: 'radish',
+    onSelectCrop: () => {},
+    farmTab: false,
+    ui: { view: 'farm', tab: 'farm', collapsed: false, seen: { shop: [], upgrades: [] }, priceShown: {} },
+    reset: () => {},
+    sell: () => {},
+    exportCode: () => '',
+    applyImport: () => ({ ok: true } as const),
+    feedback: EMPTY_FEEDBACK,
+    setFeedback: () => {},
+  }
+
+  it('the RoadmapList is data-driven: every parked idea line, the label and the order note', () => {
+    render(<RoadmapList />)
+    const list = screen.getByRole('list')
+    for (const idea of PARKED_IDEAS) expect(list.textContent).toContain(`${idea.name} — ${idea.line}`)
+    expect(screen.getByText(PARKED_LABEL)).toBeTruthy()
+    expect(screen.getByText(PARKED_ORDER)).toBeTruthy()
+  })
+
+  it('StatsTab opens it from the action row and closes on ✕', () => {
+    render(<StatsTab {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '🗺 Roadmap' }))
+    expect(screen.getByRole('dialog', { name: '🗺 Roadmap' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

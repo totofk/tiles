@@ -5,6 +5,7 @@ import { SAVE_VERSION } from '../save/serialize'
 import { DataModal } from './DataModal'
 import { FeedbackCard } from './FeedbackCard'
 import { copyText, Modal } from './Modal'
+import { RoadmapList } from './Roadmap'
 import type { PanelProps } from './panelTabs'
 
 function Rows({ rows }: { rows: StatRow[] }) {
@@ -66,7 +67,10 @@ export function Timeline({ state }: { state: GameState }) {
 }
 
 /** the 📊 Stats action row: every entry opens the same shared modal primitive (batch 23) */
-const STATS_ACTIONS = [{ id: 'data', label: '💾 Data' }] as const
+const STATS_ACTIONS = [
+  { id: 'data', label: '💾 Data' },
+  { id: 'roadmap', label: '🗺 Roadmap' },
+] as const
 type StatsActionId = (typeof STATS_ACTIONS)[number]['id']
 
 /** the 📊 Stats tab (batch 23): the stats, timeline, then the modal buttons — 💾 Data carries export/import and
@@ -90,6 +94,11 @@ export function StatsTab(props: PanelProps) {
       {open === 'data' && (
         <Modal title="💾 Data" close={close}>
           <DataModal state={state} exportCode={props.exportCode} applyImport={props.applyImport} reset={props.reset} />
+        </Modal>
+      )}
+      {open === 'roadmap' && (
+        <Modal title="🗺 Roadmap" close={close}>
+          <RoadmapList />
         </Modal>
       )}
     </>

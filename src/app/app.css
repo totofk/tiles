@@ -1252,6 +1252,29 @@ details > summary:focus-visible {
   font-weight: 600;
 }
 
+/* 🗺 Roadmap modal: one line per parked idea, the order note, the not-promises label */
+.roadmap {
+  margin-top: 8px;
+  font-size: 14px;
+}
+.roadmap-label {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
+  font-style: italic;
+}
+.roadmap-list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.roadmap-order {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #555;
+}
+
 /* 📊 Stats "Danger zone" (inside 💾 Data since batch 23): small until armed, then a full-width red button */
 .danger {
   display: flex;
