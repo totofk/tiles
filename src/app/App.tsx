@@ -22,7 +22,7 @@ import { Workshop } from './Workshop'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner, acted, watered, minerActed } = useGame()
+  const { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner, acted, watered, minerActed, frozen } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -130,6 +130,12 @@ export default function App() {
             <button aria-label="Dismiss" onClick={dismissBanner}>
               ✕
             </button>
+          </div>
+        )}
+        {frozen && (
+          <div className="banner banner-freeze" role="alert">
+            <span>Save changed in another tab — this one is paused. Reload to pick up the new save.</span>
+            <button onClick={() => window.location.reload()}>Reload</button>
           </div>
         )}
       </div>

@@ -11,6 +11,7 @@ import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/wor
 import { sprinklerWatered } from '../core/workshop'
 import { awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, exportSave, importSave, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
+import { onForeignSaveEvent } from './crossTab'
 import { marketMoves } from './marketText'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
@@ -104,6 +105,13 @@ export function useGame() {
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
   const [banner, setBanner] = useState<string | null>(boot.ticks > 0 ? bannerText(boot.awayMs, boot.before, boot.state) : null)
+  // another tab rewrote the save: the loop, autosave and hide-saves all stop, so they cannot clobber it back
+  const [frozen, setFrozen] = useState(false)
+  const frozenRef = useRef(false)
+  const freeze = useCallback(() => {
+    frozenRef.current = true
+    setFrozen(true)
+  }, [])
   const loop = useRef({ last: 0, acc: 0 })
   const [acted, setActed] = useState<WorkerTarget[]>([])
   const [watered, setWatered] = useState<number[]>([])
@@ -188,10 +196,11 @@ export function useGame() {
     [commit],
   )
 
-  // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden.
+  // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden or frozen.
   useEffect(() => {
     loop.current = { last: performance.now(), acc: 0 }
     const id = window.setInterval(() => {
+      if (frozenRef.current) return
       const l = loop.current
       const now = performance.now()
       if (document.hidden) {
@@ -221,14 +230,22 @@ export function useGame() {
     if (saveTimer.current !== undefined) return
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = undefined
-      saveGame(localStorage, stateRef.current)
+      if (!frozenRef.current) saveGame(localStorage, stateRef.current)
     }, SAVE_DEBOUNCE_MS)
   }, [state])
+
+  // another tab rewrote the save: stop everything and let App show the reload banner (task 117)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => onForeignSaveEvent(e, freeze)
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [freeze])
 
   // save on hide/close; on return, catch up the hidden time by wall clock (same path and cap as a reload)
   useEffect(() => {
     let hiddenAt: number | null = null
     const onVisibility = () => {
+      if (frozenRef.current) return
       if (document.hidden) {
         saveGame(localStorage, stateRef.current)
         hiddenAt = wallClock()
@@ -247,7 +264,9 @@ export function useGame() {
       commit(caught)
       setBanner(bannerText(awayMs, before, caught))
     }
-    const onPageHide = () => saveGame(localStorage, stateRef.current)
+    const onPageHide = () => {
+      if (!frozenRef.current) saveGame(localStorage, stateRef.current)
+    }
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('pagehide', onPageHide)
     return () => {
@@ -258,5 +277,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed }
+  return { state, act, reset, sell, exportCode, importCode, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed, frozen }
 }

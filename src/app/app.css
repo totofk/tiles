@@ -318,6 +318,10 @@ button:disabled {
   min-height: 32px;
   min-width: 44px;
 }
+/* cross-tab freeze (task 117): amber, not blue — the game is paused, only Reload proceeds */
+.banner-freeze {
+  background: #ffe0b2;
+}
 
 /* --n (columns for the tile count) comes from FarmGrid; mobile keeps 3 so tiles stay tappable */
 .grid {
