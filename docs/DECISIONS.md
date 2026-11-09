@@ -431,3 +431,8 @@ inherited the dibber's seed-keep via the planter's seed rules; no price, mainten
 keeps the curve's compression: sell ×~1.8 and seed ×~1.9 per step, floor margin ≥ 2.2×, per-tick income rising
 per tier (lemon 0.31 → strawberry 1.20 cash/tile/tick). License cash = sim-set in the 0.5–1.5 h band at the
 unlock stage. Save v19 adds the four market keys + licenses; earned value never taken away.
+
+## docs/IDEAS.md is tracked (2026-11-09, Toon)
+
+Toon's forward roadmap notes — intentionally unpolished, committed on purpose ("เอาติดไปได้"). Do not treat it as
+untouchable or delete it from the tree; Hermes may commit updates to it.
