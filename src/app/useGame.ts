@@ -7,7 +7,7 @@ import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { createInitialState, type GameState } from '../core/state'
 import { sellFarm } from '../core/prestige'
 import { step } from '../core/step'
-import { ticksUntilWorkers, workerTargets, type WorkerTarget } from '../core/workers'
+import { ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
 import { sprinklerWatered } from '../core/workshop'
 import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { encodeSave } from '../save/codec'
@@ -115,6 +115,8 @@ export function useGame() {
   }, [])
   const loop = useRef({ last: 0, acc: 0 })
   const [acted, setActed] = useState<WorkerTarget[]>([])
+  // task 132: every job that acted on the round (worker dots, off-farm flashes), kept alongside the tile touches
+  const [worked, setWorked] = useState<WorkTouch[]>([])
   const [watered, setWatered] = useState<number[]>([])
   const [minerActed, setMinerActed] = useState(false)
   const saveTimer = useRef<number | undefined>(undefined)
@@ -222,9 +224,12 @@ export function useGame() {
       const before = stateRef.current
       const after = step(before, ticks)
       // the ringed tiles (and the Mine button, when a miner pressed it) flash when this step runs the workers' action
-      // tick; the sprinklers water on the same clock, so their tiles get the 💧 badge; a longer jump just moves on
+      // tick; the sprinklers water on the same clock, so their tiles get the 💧 badge; a longer jump just moves on.
+      // One stepped round gives both the tile touches (the flash) and every job (dots, off-farm flashes)
       const crossed = ticks > ticksUntilWorkers(before) && ticks <= workerActionTicks(before.meta)
-      setActed(crossed ? workerTargets(before) : [])
+      const touches = crossed ? workerActivity(before) : []
+      setActed(touches.filter((t): t is WorkerTarget => t.tile !== undefined))
+      setWorked(touches)
       setWatered(crossed ? sprinklerWatered(before) : [])
       setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
       commit(after)
@@ -266,6 +271,7 @@ export function useGame() {
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
       setActed([])
+      setWorked([])
       setWatered([])
       setMinerActed(false)
       commit(caught)
@@ -284,5 +290,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, watered, minerActed, frozen }
+  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, watered, minerActed, frozen }
 }

@@ -256,18 +256,24 @@ function clerkTakes(run: RunState, good: OrderGood): boolean {
   return (veinDrops(run.vein.level)[good] ?? 0) > 0
 }
 
+/** the slot the clerk's next action touches (deliver first, else accept); -1 = nothing to do */
+export function clerkTarget(state: GameState): number {
+  const { run } = state
+  if (!run.orders.unlocked) return -1
+  const offers = run.orders.offers
+  const deliver = offers.findIndex((s) => isOffer(s) && s.accepted && !isCropGood(s.good) && (run.inventory[s.good] ?? 0) >= s.count - s.done)
+  if (deliver >= 0) return deliver
+  return offers.findIndex((s) => isOffer(s) && !s.accepted && clerkTakes(run, s.good))
+}
+
 /**
  * The order clerk's action (a worker job): deliver the first accepted item order storage can fill, else accept the
  * first open offer whose good clerkTakes; never discards. null = nothing to do (the clerk idles unpaid).
  */
 export function clerkAction(state: GameState): ActionResult | null {
-  const { run } = state
-  if (!run.orders.unlocked) return null
-  const offers = run.orders.offers
-  const deliver = offers.findIndex((s) => isOffer(s) && s.accepted && !isCropGood(s.good) && (run.inventory[s.good] ?? 0) >= s.count - s.done)
-  if (deliver >= 0) return deliverOrder(state, deliver)
-  const accept = offers.findIndex((s) => isOffer(s) && !s.accepted && clerkTakes(run, s.good))
-  return accept >= 0 ? acceptOrder(state, accept) : null
+  const slot = clerkTarget(state)
+  if (slot < 0) return null
+  return (state.run.orders.offers[slot] as Offer).accepted ? deliverOrder(state, slot) : acceptOrder(state, slot)
 }
 
 /** one tick inside step(): every cooling slot counts down; at 0 a fresh offer is rolled into it */

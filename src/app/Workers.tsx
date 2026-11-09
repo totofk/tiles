@@ -4,7 +4,7 @@ import { BOARD_EMOJI } from '../core/data/orders'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
-import { assignWorker, buyCertificate, freeWorkers,hireUnlocked, hireWorker, workerUnpaid } from '../core/workers'
+import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
@@ -34,9 +34,11 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
 /** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
 const jobTip = (job: WorkerJob) => (job === 'harvest' ? `${WORKER_TIPS.harvest} Workers sell at ×1; what you harvest yourself sells at ${HAND_PICKED}.` : WORKER_TIPS[job])
 
-/** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked) */
-function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJob }) {
+/** one job: [−] n [+] once its certificate is owned, else the certificate price (and its gate progress while locked);
+ * `active` = a worker on this job acted in the last work round (the pulsing dot, task 132) */
+function JobRow({ state, act, job, active = false }: { state: GameState; act: Act; job: WorkerJob; active?: boolean }) {
   const { run, meta } = state
+  const dot = <span className={active ? 'job-dot job-dot-on' : 'job-dot'} aria-hidden="true" />
   if (!run.workers.certificates.includes(job)) {
     const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
     const toolLevel = job in TOOLS ? run.tools[job as ToolJob] : 0
@@ -54,7 +56,7 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
     return (
       <div className="worker-row">
         <span>
-          {WORKER_JOB_LABEL[job]}
+          {dot} {WORKER_JOB_LABEL[job]}
           {missing.map((gate) => gate && <small key={gate}>{gate}</small>)}
         </span>
         <button disabled={!buyCertificate(state, job).ok} onClick={() => act((s) => buyCertificate(s, job))}>
@@ -67,7 +69,9 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
   const name = WORKER_JOB_LABEL[job].split(' ')[1]
   return (
     <div className="worker-row">
-      <span>{WORKER_JOB_LABEL[job]}</span>
+      <span>
+        {dot} {WORKER_JOB_LABEL[job]}
+      </span>
       <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
         −
       </button>
@@ -81,20 +85,22 @@ function JobRow({ state, act, job }: { state: GameState; act: Act; job: WorkerJo
   )
 }
 
-/** 👷 card: in the desktop 🌾 Farm tab, below the grid elsewhere; closed by default so the farm column stays short */
-export function Workers({ state, act }: { state: GameState; act: Act }) {
+/** 👷 card: in the desktop 🌾 Farm tab, below the grid elsewhere; closed by default so the farm column stays short.
+ * `worked` = the jobs that acted in the last work round (dots, and "N working" in the summary, task 132) */
+export function Workers({ state, act, worked = [] }: { state: GameState; act: Act; worked?: WorkTouch[] }) {
   const { run, meta } = state
   const { pool } = run.workers
   return (
     <details className="workers">
       <summary>
         👷 Workers · free {freeWorkers(run)} / {pool}
+        {worked.length > 0 && ` · ${worked.length} working`}
         {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
       </summary>
       {/* batch 24: the job rows are one group, hiring another over a divider */}
       <div className="group">
         {WORKER_JOBS.map((job) => (
-          <JobRow key={job} state={state} act={act} job={job} />
+          <JobRow key={job} state={state} act={act} job={job} active={worked.some((w) => w.job === job)} />
         ))}
       </div>
       {hireUnlocked(run) && (

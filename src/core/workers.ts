@@ -16,7 +16,7 @@ import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { fieldsHarvest, fieldsPlantAction } from './fields'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
 import { activePickaxe, dig, pay } from './mining'
-import { clerkAction } from './orders'
+import { clerkAction, clerkTarget } from './orders'
 import type { GameState, RunState } from './state'
 // step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { step } from './step'
@@ -95,6 +95,9 @@ function workerAction(state: GameState, job: WorkerJob): { result: ActionResult;
 
 /** a farm worker's action on a tile */
 export type WorkerTarget = { job: TileJob; tile: number }
+/** every job that acted in a round: the job, plus the tile (farm jobs, the Fields fallback included as tile-less) or
+ * order slot (clerk) it touched */
+export type WorkTouch = { job: WorkerJob; tile?: number; slot?: number }
 
 /** the worker's action, or null when it has nothing to do or the wage would not be left after it (a bought seed) */
 function paidAction(state: GameState, job: WorkerJob): { result: { ok: true; state: GameState }; tile?: number } | null {
@@ -105,12 +108,12 @@ function paidAction(state: GameState, job: WorkerJob): { result: { ok: true; sta
 /**
  * One round of every assigned worker, job by job in WORKER_JOBS order, each paying the wage at its action; a worker
  * with nothing to do idles unpaid, and the round stops when cash < wage (never debt). A planter whose seed would leave
- * less than the wage idles too. `touched` = each farm worker's tile, in action order. Returns the same state object
- * when nobody acts.
+ * less than the wage idles too. `touched` = every job that acted, in action order — the farm job's tile, the clerk's
+ * order slot, no location for the furnace and mine jobs. Returns the same state object when nobody acts.
  */
-function workRound(state: GameState): { state: GameState; touched: WorkerTarget[] } {
+function workRound(state: GameState): { state: GameState; touched: WorkTouch[] } {
   const wage = workerWage(state.meta)
-  const touched: WorkerTarget[] = []
+  const touched: WorkTouch[] = []
   let s = state
   for (const job of WORKER_JOBS) {
     for (let k = 0; k < s.run.workers.assigned[job]; k++) {
@@ -118,6 +121,10 @@ function workRound(state: GameState): { state: GameState; touched: WorkerTarget[
       const a = paidAction(s, job)
       if (!a) break
       if (a.tile !== undefined && isTileJob(job)) touched.push({ job, tile: a.tile })
+      else if (job === 'clerk') {
+        const slot = clerkTarget(s) // computed on the pre-action state, so it names the slot this action touched
+        touched.push(slot >= 0 ? { job, slot } : { job })
+      } else touched.push({ job })
       const { run } = a.result.state
       const lifetime = {
         ...run.lifetime,
@@ -186,6 +193,15 @@ export function buyCertificate(state: GameState, job: WorkerJob): ActionResult {
 export function workerTargets(state: GameState): WorkerTarget[] {
   const { assigned } = state.run.workers
   if (assigned.plant + assigned.water + assigned.harvest === 0) return []
+  return workRound(step(state, ticksUntilWorkers(state))).touched.filter((t): t is WorkerTarget => t.tile !== undefined)
+}
+
+/**
+ * Every job that acts on the workers' NEXT action round (the activity dots, task 132): the same stepped round
+ * workerTargets previews, unfiltered, so furnace, mine and clerk jobs report too. Derived, never saved.
+ */
+export function workerActivity(state: GameState): WorkTouch[] {
+  if (WORKER_JOBS.every((job) => state.run.workers.assigned[job] === 0)) return []
   return workRound(step(state, ticksUntilWorkers(state))).touched
 }
 

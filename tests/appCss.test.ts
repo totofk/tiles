@@ -41,4 +41,10 @@ describe('app.css shared columns (batch 24.1)', () => {
     expect(css).toContain('.recipe-wrap')
     expect(css).toContain('@container (max-width: 299px)')
   })
+
+  it('the worker ring and activity dot pulse, and reduced motion turns both steady (task 132)', () => {
+    expect(css).toMatch(/\.cell-target\s*{[^}]*animation: ring-pulse 1\.5s/s)
+    expect(css).toMatch(/\.job-dot-on\s*{[^}]*animation: dot-pulse 1\.5s/s)
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^{}]*\.cell-target[^{}]*\.job-dot-on/s)
+  })
 })

@@ -79,11 +79,12 @@ export function DigSeeds({ act }: { act: Act }) {
 }
 
 /** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools }: PanelProps) {
+export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked }: PanelProps) {
   const { run } = state
+  const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
   return (
     <section className="farm-tab">
-      <Orders state={state} act={act} />
+      <Orders state={state} act={act} flashSlot={clerkSlot} />
       <Tools state={state} act={act} cropId={cropId} stacked open={ui.toolsOpen} onToggle={toggleTools} />
       <h2>Crop to plant</h2>
       <div className="shop-row">
@@ -97,7 +98,7 @@ export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools }: Pane
       </div>
       <SeedPouch state={state} act={act} />
       <DigSeeds act={act} />
-      <Workers state={state} act={act} />
+      <Workers state={state} act={act} worked={worked} />
       <Workshop state={state} act={act} />
       <Fields state={state} act={act} />
     </section>

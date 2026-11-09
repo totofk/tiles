@@ -131,6 +131,14 @@ describe('📋 Orders', () => {
     one.rerender()
     expect(one.get().run.orders.offers[0]).toEqual({ cooldownTicks: orderCooldownTicks() })
   })
+
+  it('batch 24.1: flashSlot adds the amber worker flash to that row only (the clerk acted on it)', () => {
+    const state = { ...init, run: { ...init.run, ...board([offer({}), offer({})]) } }
+    const view = render(<Orders state={state} act={() => {}} card flashSlot={1} />)
+    expect(rows()[0].classList.contains('mine-flash')).toBe(false)
+    expect(rows()[1].classList.contains('mine-flash')).toBe(true)
+    view.unmount()
+  })
 })
 
 describe('board in the Shop, ⭐ in the HUD, 📋 on ordered ready tiles', () => {

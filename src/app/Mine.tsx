@@ -108,7 +108,7 @@ const UPGRADE_LABEL: Record<FurnaceUpgradeId, (level: number) => string> = {
  * slot asks twice — it forfeits that ore, batch 21), load / fill / collect, and the upgrades not yet at their max
  * level (each hides at max, like the vein upgrade).
  */
-function Furnace({ state, act }: { state: GameState; act: Act }) {
+function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Act; smeltActed?: boolean }) {
   const { run, meta } = state
   const f = run.furnace
   // batch 21: switching with ore in the slot forfeits it, so that press asks twice (the armed kind)
@@ -153,7 +153,8 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
           })}
         </div>
       </div>
-      <div className="group">
+      {/* task 132: the Smelt group flashes amber when the ore/fuel loader acted, like the Mine button */}
+      <div className={`group${smeltActed ? ' mine-flash' : ''}`}>
         {picker && (
           <div className="mine-furnace-actions" role="group" aria-label="Ore to smelt">
             {ORE_IDS.map((id) => {
@@ -269,7 +270,7 @@ function Furnace({ state, act }: { state: GameState; act: Act }) {
 }
 
 /** minerActed: a mine worker pressed Mine on this tick, so the Mine button flashes and pops ⛏️ (as a farm worker's tile does) */
-export function Mine({ state, act, minerActed = false }: { state: GameState; act: Act; minerActed?: boolean }) {
+export function Mine({ state, act, minerActed = false, smeltActed = false }: { state: GameState; act: Act; minerActed?: boolean; smeltActed?: boolean }) {
   const { run, meta } = state
   if (!run.mineLicense) {
     const cost = mineLicenseCost(meta)
@@ -369,7 +370,7 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
         ))}
       </div>
       {run.furnace.built ? (
-        <Furnace state={state} act={act} />
+        <Furnace state={state} act={act} smeltActed={smeltActed} />
       ) : (
         run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">{FIRE_EMOJI} Furnace — buy it in the 🛒 Shop</span>
       )}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { CropId } from '../core/data/crops'
 import type { GameState } from '../core/state'
+import type { WorkTouch } from '../core/workers'
 import type { Save } from '../save/serialize'
 import type { ImportResult } from '../save/storage'
 import { BankTab } from './Bank'
@@ -23,6 +24,8 @@ export type PanelProps = {
   farmTab: boolean
   ui: UiState
   toggleTools: () => void
+  /** task 132: the jobs that acted in the last work round (worker dots, clerk flash) */
+  worked: WorkTouch[]
   reset: () => void
   sell: () => void
   /** 💾 Data modal hooks: serialise the live run, and commit a decoded import (backup + write + reload) */

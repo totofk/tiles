@@ -20,11 +20,12 @@ import {
   rollOrderTier,
 } from '../src/core/balance'
 import { MILESTONES } from '../src/core/data/milestones'
-import { buyCertificate, certificateUnlocked, workersAct } from '../src/core/workers'
+import { buyCertificate, certificateUnlocked, workerActivity, workersAct } from '../src/core/workers'
 import {
   acceptOrder,
   buyOrderBoard,
   buyOrderSlot,
+  clerkTarget,
   rerollOrders,
   deliverOrder,
   discardOrder,
@@ -334,6 +335,18 @@ describe('order clerk (worker job)', () => {
     const later = step(s, 600)
     expect(later.run.orders.offers).toEqual(s.run.orders.offers)
     expect(later.run.lifetime.wagesPaid).toBe(0)
+  })
+
+  it('clerkTarget names the slot the clerk acts on, and workerActivity reports the touch with it (task 132)', () => {
+    const deliver = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 3 } })
+    expect(clerkTarget(deliver)).toBe(1)
+    expect(workerActivity(deliver)).toEqual([{ job: 'clerk', slot: 1 }])
+    const idle = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 2 } })
+    expect(clerkTarget(idle)).toBe(-1)
+    expect(workerActivity(idle)).toEqual([])
+    const accept = clerkFarm([offer({ good: 'lemon', accepted: false })], { plantCrop: 'lemon' })
+    expect(clerkTarget(accept)).toBe(0)
+    expect(workerActivity(accept)).toEqual([{ job: 'clerk', slot: 0 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the clerk, harvest workers, accepted crop orders and the market', () => {

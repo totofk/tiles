@@ -22,7 +22,7 @@ import { Workshop } from './Workshop'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, watered, minerActed, frozen } = useGame()
+  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, watered, minerActed, frozen } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -105,7 +105,10 @@ export default function App() {
     )
   }
 
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, feedback, setFeedback, reset, sell, exportCode, applyImport }
+  // task 132: off-farm worker flashes — the furnace Smelt group (ore/fuel loaders) and the order row the clerk touched
+  const smeltActed = worked.some((w) => w.job === 'ore' || w.job === 'fuel')
+  const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport }
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
@@ -144,7 +147,7 @@ export default function App() {
           </div>
         )}
       </div>
-      <Mine state={state} act={act} minerActed={minerActed} />
+      <Mine state={state} act={act} minerActed={minerActed} smeltActed={smeltActed} />
       <section className="farm">
         {!farmTab && (
           <>
@@ -159,8 +162,8 @@ export default function App() {
         {!farmTab && (
           <>
             <DigSeeds act={act} />
-            <Orders state={state} act={act} card />
-            <Workers state={state} act={act} />
+            <Orders state={state} act={act} card flashSlot={clerkSlot} />
+            <Workers state={state} act={act} worked={worked} />
             <Workshop state={state} act={act} />
             <Fields state={state} act={act} />
           </>

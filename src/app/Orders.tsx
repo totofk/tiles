@@ -22,7 +22,7 @@ function orderCash(state: GameState, o: Offer): number {
 /** one slot: the good and progress, tier dots, ⭐ and cash; Accept, Deliver (accepted item orders) and Discard.
  * batch 24.1: the row frame states the order's state — dashed offer / solid accepted / green ready with badges, a
  * progress bar on accepted rows, and the ✕ needs a second press within 3 s once an accepted order has progress */
-function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: number }) {
+function OrderRow({ state, act, slot, flash = false }: { state: GameState; act: Act; slot: number; flash?: boolean }) {
   const s = state.run.orders.offers[slot]
   const [armed, setArmed] = useState(false)
   useEffect(() => {
@@ -45,7 +45,7 @@ function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: numb
   const twoPress = s.accepted && progress > 0
   const stateClass = ready ? 'order-ready' : s.accepted ? 'order-accepted' : 'order-offer'
   return (
-    <div className={`order-row ${stateClass}`}>
+    <div className={`order-row ${stateClass}${flash ? ' mine-flash' : ''}`}>
       <span>
         {goodEmoji(s.good)} {s.accepted && !isCropGood(s.good) ? `${stored} / ${remaining} in storage` : `${s.done} / ${s.count}`}
         {!s.accepted && <span className="order-badge order-badge-new">New</span>}
@@ -78,7 +78,7 @@ function OrderRow({ state, act, slot }: { state: GameState; act: Act; slot: numb
  * The 📋 Noticeboard once bought: a section at the top of the desktop 🌾 Farm tab; a closed card beside 👷 Workers in
  * the farm column wherever there is no Farm tab, so the grid keeps its height.
  */
-export function Orders({ state, act, card = false }: { state: GameState; act: Act; card?: boolean }) {
+export function Orders({ state, act, card = false, flashSlot = null }: { state: GameState; act: Act; card?: boolean; flashSlot?: number | null }) {
   const { orders, stars } = state.run
   if (!orders.unlocked) return null
   const note = (
@@ -94,7 +94,7 @@ export function Orders({ state, act, card = false }: { state: GameState; act: Ac
       {/* batch 24: the order rows are one group, the ⭐ shop another over a divider */}
       <div className="group">
         {orders.offers.map((_, i) => (
-          <OrderRow key={i} state={state} act={act} slot={i} />
+          <OrderRow key={i} state={state} act={act} slot={i} flash={i === flashSlot} />
         ))}
       </div>
       {/* the ⭐ shop: only ⭐ buys these, and nothing here sells */}

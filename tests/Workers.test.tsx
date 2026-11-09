@@ -105,7 +105,7 @@ describe('👷 Workers card', () => {
 
   it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine, then Clerk; the plant certificate shows its price and gate', () => {
     setup({}, { plants: 12 })
-    const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.firstChild!.textContent)
+    const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.childNodes[2]!.textContent)
     expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine', '📋 Clerk'])
     // the clerk certificate is priced in ⭐ + copper bars + cash and gated by orders completed
     const clerk = screen.getByText('📋 Clerk').closest('.worker-row') as HTMLElement
@@ -146,6 +146,17 @@ describe('👷 Workers card', () => {
   it('sits below the grid in the mobile Farm view', () => {
     render(<App />)
     expect(within(document.querySelector<HTMLElement>('.farm')!).getByText(/👷 Workers/)).toBeTruthy()
+  })
+
+  it('batch 24.1: every job row carries a dot — green pulsing for the jobs that acted, grey for the idle ones; the summary counts working', () => {
+    const s = createInitialState()
+    const state: GameState = { ...s, run: { ...s.run, ...certified(2, 1, 1) } }
+    render(<Workers state={state} act={() => {}} worked={[{ job: 'water' }, { job: 'mine' }]} />)
+    const dot = (label: string) => screen.getByText(label).closest('.worker-row')!.querySelector('.job-dot')!
+    expect(dot('💧 Water').classList.contains('job-dot-on')).toBe(true)
+    expect(dot('⛏️ Mine').classList.contains('job-dot-on')).toBe(true)
+    expect(dot('🌾 Harvest').classList.contains('job-dot-on')).toBe(false) // idle: grey, no pulse
+    expect(summary()).toBe('👷 Workers · free 0 / 2 · 2 working')
   })
 })
 

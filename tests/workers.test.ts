@@ -34,6 +34,7 @@ import {
   hireUnlocked,
   hireWorker,
   ticksUntilWorkers,
+  workerActivity,
   workerTargets,
   workerUnpaid,
   workersAct,
@@ -699,5 +700,18 @@ describe('new runs', () => {
     expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
     expect([init.run.plantCrop, init.run.lifetime.workerPlants, init.run.lifetime.workerMines]).toEqual(['radish', 0, 0])
+  })
+})
+
+describe('workerActivity (batch 24.1, task 132)', () => {
+  it('reports the loaders as job-only touches; the ring preview stays farm-only', () => {
+    const s = smeltery({}, { copperOre: 5 }, { ore: 1 })
+    expect(workerActivity(s)).toEqual([{ job: 'ore' }])
+    expect(workerTargets(s)).toEqual([])
+    expect(workerActivity(smeltery({}, { coal: 1 }, { fuel: 1 }))).toEqual([{ job: 'fuel' }])
+  })
+
+  it('an idle round reports nothing', () => {
+    expect(workerActivity(smeltery({}, { copperOre: 1 }, { ore: 1 }))).toEqual([])
   })
 })

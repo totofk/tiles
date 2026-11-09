@@ -406,19 +406,27 @@ button:disabled {
 }
 /* worker targets (task 60): none of these take layout space. The ring is an outline drawn 2–4 px inside the border
    box (a border would resize the tile, and mature/rotting tiles already use a 2 px border); the flash is an inset
-   shadow wash; the pop is absolute in the top-right corner of the (relative) .cell. */
+   shadow wash; the pop is absolute in the top-right corner of the (relative) .cell.
+   batch 24.1: the ring is solid 3 px in the job colour with a slow opacity pulse (task 132, temporary CSS pass). */
 .cell-target {
-  outline: 2px dashed;
+  --ring: #8a7a5c;
+  outline: 3px solid var(--ring);
   outline-offset: -4px;
+  animation: ring-pulse 1.5s ease-in-out infinite;
 }
 .cell-target-water {
-  outline-color: #1565c0;
+  --ring: #1565c0;
 }
 .cell-target-harvest {
-  outline-color: #6d4c41;
+  --ring: #6d4c41;
 }
 .cell-target-plant {
-  outline-color: #2e7d32;
+  --ring: #2e7d32;
+}
+@keyframes ring-pulse {
+  50% {
+    outline-color: transparent;
+  }
 }
 /* an author outline (the ring) would hide the browser's focus ring, so focus draws its own over it */
 .cell:focus-visible {
@@ -478,11 +486,13 @@ button:disabled {
     box-shadow: inset 0 0 0 999px rgba(255, 179, 0, 0);
   }
 }
-/* reduced motion: no flash, the pop shows still until the next tick */
+/* reduced motion: no flash, the pop shows still until the next tick; the worker ring and dot stay steady */
 @media (prefers-reduced-motion: reduce) {
   .cell-flash,
   .mine-flash,
-  .cell-pop {
+  .cell-pop,
+  .cell-target,
+  .job-dot-on {
     animation: none;
   }
 }
@@ -683,6 +693,23 @@ details > summary:focus-visible {
 .worker-n {
   min-width: 2ch;
   text-align: center;
+}
+/* batch 24.1 (task 132): a dot before the job name — green pulsing = acted in the last work round, grey = idle */
+.job-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c9c4b8;
+}
+.job-dot-on {
+  background: #43a047;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+@keyframes dot-pulse {
+  50% {
+    opacity: 0.35;
+  }
 }
 /* batch 24.1: gauge rows (label | bar | count) share columns across the whole card */
 .gauge-grid {

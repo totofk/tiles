@@ -48,6 +48,7 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     cropId: 'radish',
     onSelectCrop: () => {},
     farmTab: false,
+    worked: [],
     ui: { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, seen: { shop: [], upgrades: [] }, priceShown: {} },
     toggleTools: () => {},
     reset: () => {},
