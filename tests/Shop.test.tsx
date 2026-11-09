@@ -24,6 +24,8 @@ function setup(run: Partial<GameState['run']>, uiState?: { priceShown: Partial<R
 }
 const BAR = ITEMS.copperBar.emoji
 const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
+// batch 24: the shared item grid — the crop name also sits on its seed button, so scope to the pouch row
+const pouchRow = (name: RegExp) => screen.getAllByText(name).map((el) => el.closest('.item-row')).find(Boolean)
 
 describe('Shop seeds', () => {
   it('lists every crop in license order: owned ones as seed buttons, the rest as 🔒 license cards', () => {
@@ -69,7 +71,7 @@ describe('Shop seeds', () => {
     fireEvent.click(btn(/Chilli/))
     t.rerender()
     expect(t.get().run.licenses).toEqual(['radish', 'chilli'])
-    expect(screen.getByText(/🌶️ Chilli × 0/)).toBeTruthy()
+    expect(pouchRow(/Chilli/)!.textContent).toContain('×0')
   })
 
   it('batch 22: the four new crops come from the same table — seed tag with trend, license buy adds a pouch row', () => {
@@ -83,7 +85,7 @@ describe('Shop seeds', () => {
     fireEvent.click(btn(/Corn/))
     t.rerender()
     expect(t.get().run.licenses).toEqual(['radish', 'tomato', 'corn'])
-    expect(screen.getByText(/🌽 Corn × 0/)).toBeTruthy()
+    expect(pouchRow(/Corn/)!.textContent).toContain('×0')
   })
 })
 
@@ -166,13 +168,14 @@ describe('Shop seed pouch', () => {
   it('shows a row per licensed crop with its stock; ×1 and ×10 fill the pouch', () => {
     const seed = cropSeedCost('radish', createInitialState().meta)
     const t = setup({ cash: 100, seeds: { radish: 3 } })
-    expect(screen.getByText(/Carrot × 3/)).toBeTruthy()
-    expect(screen.queryByText(/Pumpkin ×/)).toBeNull()
+    // batch 24: the shared item grid — name and ×N count in their own cells
+    expect(pouchRow(/Carrot/)?.textContent).toContain('×3')
+    expect(pouchRow(/Pumpkin/)).toBeUndefined()
     fireEvent.click(btn(/Buy ×10/))
     t.rerender()
     expect(t.get().run.seeds.radish).toBe(13)
     expect(t.get().run.cash).toBe(100 - 10 * seed)
-    expect(screen.getByText(/Carrot × 13/)).toBeTruthy()
+    expect(pouchRow(/Carrot/)!.textContent).toContain('×13')
   })
 
   it('disables a buy the cash cannot cover', () => {

@@ -336,11 +336,11 @@ describe('gold smelting (batch 16)', () => {
 })
 
 describe('copper items', () => {
-  it('ore sells for 1 and takes a storage slot; bars take a slot and have no sell path', () => {
+  it('ore sells for 1 and takes a storage slot; bars take a slot and sell below their inputs (batch 24)', () => {
     const s = withRun({ cash: 0, inventory: { copperOre: 2, copperBar: 3 } })
     expect(bagCount(s.run)).toBe(5)
     expect(okState(sellItem(s, 'copperOre', 2)).run.cash).toBe(2)
-    expect(isSellable('copperBar')).toBe(false)
-    expect(sellItem(s, 'copperBar', 1)).toEqual({ ok: false, error: 'NOT_SELLABLE' })
+    expect(isSellable('copperBar')).toBe(true)
+    expect(okState(sellItem(s, 'copperBar', 3)).run.cash).toBe(6)
   })
 })

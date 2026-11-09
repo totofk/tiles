@@ -240,7 +240,8 @@ describe('desktop 🌾 Farm tab (matchMedia stubbed to ≥ 1024 px)', () => {
     fireEvent.click(panel().getByRole('button', { name: /Chilli/ }))
     expect(panel().getByRole('button', { name: /Chilli/, pressed: true })).toBeTruthy()
     fireEvent.click(panel().getByRole('button', { name: /^Plant 1/ }))
-    expect(panel().getByText(/Chilli × 1/)).toBeTruthy()
+    // batch 24: the shared item grid — name and ×N count in their own cells
+    expect(panel().getAllByText(/Chilli/).some((el) => el.closest('.item-row')?.textContent.includes('×1'))).toBe(true)
     expect(farm().getAllByRole('button').filter((b) => b.textContent?.includes('🌶️'))).toHaveLength(1)
   })
 

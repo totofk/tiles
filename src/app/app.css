@@ -745,15 +745,6 @@ details > summary:focus-visible {
   padding: 0 var(--s1);
   font-size: 13px;
 }
-.mine-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-.mine-item button {
-  padding: 0 10px;
-}
 
 /* mobile: the tool bar is fixed above the tab bar (thumb reach); one button per job at every level, so three fit
    375 px. It lives in .farm, so it hides with the Farm view */
@@ -930,22 +921,61 @@ details > summary:focus-visible {
   border-radius: 50%;
   background: #d32f2f;
 }
-.pouch-row {
+/* batch 24: one grid for repeated rows (seed pouch, Mine sell list): fixed columns, so a row's shape never
+   depends on name length or price digits; the last 0-width column is reserved for batch 25's sort toggle */
+.item-grid {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  flex-direction: column;
+  gap: var(--s2);
+  font-size: 14px;
 }
-/* the count never wraps away from its name; the buttons drop to the next line instead */
-.pouch-row > span:first-child,
-.mine-item > span:first-child {
-  flex: 1 0 auto;
+.item-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto auto 0;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+}
+.item-name {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pouch-row button {
-  padding: 0 8px;
+.item-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
-.pouch-row small {
+/* ≤ 767 px: the sell list's price-each (.item-price) drops to a second line under the name; the buttons never
+   wrap — the grid keeps its columns */
+.item-sub {
+  display: none;
+  font-size: 12px;
+  color: #555;
+}
+@media (max-width: 767px) {
+  .item-sub {
+    display: block;
+  }
+  .item-price {
+    display: none;
+  }
+}
+/* one 44 px action line per button: label + price stacked like a .shop-row button, fixed width so the columns align */
+.item-row > button {
+  width: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  font-size: 13px;
+}
+.item-row > button small {
   font-size: 12px;
   color: #555;
 }
@@ -1019,17 +1049,6 @@ details > summary:focus-visible {
 }
 .tip[hidden] {
   display: none;
-}
-.pouch-row,
-.pouch-auto {
-  flex-wrap: wrap;
-}
-/* the ⓘ sits right after the crop name, so it stays on the first line when the buy buttons wrap */
-.pouch-row > span:first-child {
-  flex-grow: 0;
-}
-.pouch-row > .info-btn {
-  margin-right: auto;
 }
 .pouch-auto > label {
   flex: 1;

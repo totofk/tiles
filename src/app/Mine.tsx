@@ -59,8 +59,8 @@ import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 /** pickaxe tiers above wooden map 1:1 to an ore; the vein at this level drops it */
 type OreTier = 'copper' | 'iron' | 'gold'
 const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore`] ?? 0) > 0
-/** what "sell all" sells when storage is full; wood stays for crafting and repairs */
-const SELL_WHEN_FULL = ITEM_IDS.filter(isSellable).filter((id) => id !== 'wood')
+/** what "sell all" sells when storage is full; wood stays for crafting and repairs, bars pay for upgrades (batch 24) */
+const SELL_WHEN_FULL = ITEM_IDS.filter((id) => isSellable(id) && id !== 'wood' && !ORE_IDS.map(oreBar).includes(id))
 
 /** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
 const SMELT_SHORT: Partial<Record<ActionError, string>> = {
@@ -396,20 +396,34 @@ export function Mine({ state, act, minerActed = false }: { state: GameState; act
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{woodCost(meta)}
       </button>
-      {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => (
-        <div key={id} className="mine-item">
-          <span>
-            {ITEMS[id].emoji} {ITEMS[id].name} ×{run.inventory[id]}
-          </span>
-          {isSellable(id) && (
-            <>
-              <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
-              <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
-              <small>💰{itemSellPrice(id, meta, run.upgrades.sellPrice)} each</small>
-            </>
-          )}
-        </div>
-      ))}
+      {/* batch 24: one shared grid for repeated rows — name | count | extra | sell 1 | sell all | (batch 25's
+          reserved column); unsellable items keep empty cells so the columns align */}
+      <div className="item-grid">
+        {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => (
+          <div key={id} className="item-row">
+            <span className="item-name">
+              <span className="item-label">
+                {ITEMS[id].emoji} {ITEMS[id].name}
+              </span>
+              {/* ≤ 767 px: the price-each drops to a second line under the name */}
+              {isSellable(id) && <small className="item-sub">💰{itemSellPrice(id, meta, run.upgrades.sellPrice)} each</small>}
+            </span>
+            <span className="item-count">×{run.inventory[id]}</span>
+            <span className="item-extra item-price">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
+            {isSellable(id) ? (
+              <>
+                <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
+                <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
+              </>
+            ) : (
+              <>
+                <span />
+                <span />
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </section>
   )
 }

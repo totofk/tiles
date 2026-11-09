@@ -187,7 +187,7 @@ export function buyStorage(state: GameState): ActionResult {
   return buyMineUpgrade(state, cost, { storageLevel: run.storageLevel + 1, bagCapacity: run.bagCapacity + storageSlotsPerLevel() })
 }
 
-/** each unit sold counts as one sale. Order: BAD_AMOUNT, NOT_SELLABLE (copper bars), NOT_ENOUGH_ITEMS */
+/** each unit sold counts as one sale. Order: BAD_AMOUNT, NOT_SELLABLE (seeds), NOT_ENOUGH_ITEMS */
 export function sellItem(state: GameState, id: ItemId, n: number): ActionResult {
   const { run } = state
   if (!isAmount(n)) return fail('BAD_AMOUNT')

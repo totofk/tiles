@@ -3,24 +3,33 @@ import {
   START_TILES,
   STARTING_CASH,
   TILE_CAP,
+  barTicks,
+  batchBars,
   cropGrowTicks,
   cropRotGraceTicks,
   cropSeedCost,
   cropSellPrice,
   energyMax,
+  fireUnitTicks,
+  fuelUnits,
+  furnaceUpgradeMaxLevel,
+  isSellable,
+  itemSellPrice,
   licenseCost,
   masteryLevel,
   masteryMaxLevel,
   masteryThresholds,
   moistureDrainPerTick,
   multiplier,
+  oreBar,
   pickaxeDurability,
   preserveChance,
+  smeltOre,
   tileCost,
   upgradeCost,
 } from '../src/core/balance'
 import { CROP_IDS } from '../src/core/data/crops'
-import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
+import { ORE_IDS, PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { createInitialMeta, createInitialState, type MetaState } from '../src/core/state'
 
 const meta = createInitialMeta()
@@ -132,5 +141,19 @@ describe('pickaxe mastery', () => {
 
   it('copper mastery thresholds are wood ×2 (20 … 800 xp)', () => {
     expect(masteryThresholds('copper')).toEqual([20, 50, 90, 140, 200, 280, 380, 500, 640, 800])
+  })
+})
+
+describe('bar sell prices (batch 24: disposal, never a profit)', () => {
+  it('every bar is sellable at ≤ ⌊input sell value at the cheapest recipe⌋ − 1', () => {
+    const topBatch = batchBars(furnaceUpgradeMaxLevel('batch'))
+    const coalUnit = itemSellPrice('coal', meta, 0) / fuelUnits('coal')
+    for (const ore of ORE_IDS) {
+      const bar = oreBar(ore)
+      const inputs = smeltOre() * itemSellPrice(ore, meta, 0) + (barTicks(ore) / (fireUnitTicks() * topBatch)) * coalUnit
+      expect(isSellable(bar)).toBe(true)
+      expect(itemSellPrice(bar, meta, 0)).toBe(Math.floor(inputs) - 1)
+      expect(itemSellPrice(bar, meta, 0)).toBeLessThan(inputs) // selling the ore and coal always beats smelting to sell
+    }
   })
 })

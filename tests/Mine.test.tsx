@@ -162,9 +162,6 @@ describe('Mine panel', () => {
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreno ore`)
     fireEvent.click(button(/^Collect 1/))
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
-    // bars have no sell buttons
-    t.rerender()
-    expect(within(screen.getByText(/Copper bar ×1/).parentElement!).queryByRole('button')).toBeNull()
   })
 
   it('a plain furnace lit with nothing to smelt says so; a smart one does not', () => {
@@ -331,5 +328,32 @@ describe('Mine panel', () => {
     expect(t.get().run.cash).toBe(value)
     expect(t.get().run.inventory).toEqual({ stone: 0, coal: 0, wood: 2 })
     expect(screen.queryByRole('button', { name: /^Sell all/ })).toBeNull()
+  })
+
+  it('batch 24: bars sell as disposal through the shared item grid — sell 1 pays their price, sell all clears them', () => {
+    const t = setup({ cash: 0, inventory: { copperBar: 2, wood: 1 } })
+    expect(document.querySelector('.mine .item-grid')).toBeTruthy()
+    const barRow = () => screen.getByText(`${BAR} Copper bar`).closest('.item-row') as HTMLElement
+    // the price-each column, ×N count and both sell buttons (the mobile .item-sub line is hidden by CSS only);
+    // every mine item is sellable since bars joined, so the wood row gets the full five cells too
+    expect(barRow().textContent).toBe(`${BAR} Copper bar💰2 each×2💰2sell 1sell all`)
+    const woodRow = () => screen.getByText(`${WOOD} Wood`).closest('.item-row')!
+    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood💰2 each`, '×1', '💰2', 'sell 1', 'sell all'])
+    fireEvent.click(within(barRow()).getByRole('button', { name: 'sell 1' }))
+    t.rerender()
+    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([2, 1])
+    fireEvent.click(within(barRow()).getByRole('button', { name: 'sell all' }))
+    t.rerender()
+    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([4, 0])
+  })
+
+  it('batch 24: "Sell all when full" never sells bars — they pay for upgrades (own-row buttons only)', () => {
+    const t = setup({ cash: 0, inventory: { stone: 15, copperBar: 5 } })
+    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('Storage is full')
+    const value = 15 * itemSellPrice('stone', t.get().meta, 0)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} 💰${value}$`) }))
+    t.rerender()
+    expect(t.get().run.cash).toBe(value)
+    expect(t.get().run.inventory).toEqual({ stone: 0, copperBar: 5 })
   })
 })

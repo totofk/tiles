@@ -21,19 +21,28 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   return (
     <>
       <h2>Seed pouch</h2>
-      {run.licenses.map((id) => (
-        <div key={id} className="pouch-row">
-          <span>
-            {CROP_EMOJI[id]} {CROPS[id].name} × {run.seeds[id] ?? 0}
-          </span>
-          <Info text={TIPS.pouch} />
-          {[1, 10].map((n) => (
-            <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
-              Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
-            </button>
-          ))}
-        </div>
-      ))}
+      {/* batch 24: one shared grid for repeated rows — name | count | ⓘ | Buy ×1 | Buy ×10 | (batch 25's
+          reserved column); the price rides inside each buy button like a .shop-row button */}
+      <div className="item-grid">
+        {run.licenses.map((id) => (
+          <div key={id} className="item-row">
+            <span className="item-name">
+              <span className="item-label">
+                {CROP_EMOJI[id]} {CROPS[id].name}
+              </span>
+            </span>
+            <span className="item-count">×{run.seeds[id] ?? 0}</span>
+            <span className="item-extra">
+              <Info text={TIPS.pouch} />
+            </span>
+            {[1, 10].map((n) => (
+              <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
+                Buy ×{n} <small>💰{n * cropSeedCost(id, meta)}</small>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
       <div className="pouch-auto">
         <label>
           <input type="checkbox" checked={run.autoBuySeeds} onChange={(e) => act((s) => setAutoBuySeeds(s, e.target.checked))} />
