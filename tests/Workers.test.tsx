@@ -40,9 +40,9 @@ describe('👷 Workers card', () => {
     setup({})
     expect(summary()).toBe('👷 Workers · free 0 / 0')
     expect(row('Water').textContent).toContain('waters 0/40')
-    expect(within(row('Water')).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.stone.emoji}20 💰500`)
+    expect(within(row('Water')).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.stone.emoji}⁠20 💰⁠500`)
     expect(within(row('Harvest')).getByRole('button', { name: /Certificate/ }).textContent).toBe(
-      `Certificate ${ITEMS.stone.emoji}20 ${ITEMS.coal.emoji}5 💰750`,
+      `Certificate ${ITEMS.stone.emoji}⁠20 ${ITEMS.coal.emoji}⁠5 💰⁠750`,
     )
     expect(row('Harvest').textContent).toContain('harvests 0/40')
     expect(row('Water').textContent).toContain('needs 💧 Water Cart (tool Lv3)')
@@ -110,10 +110,10 @@ describe('👷 Workers card', () => {
     // the clerk certificate is priced in ⭐ + copper bars + cash and gated by orders completed
     const clerk = screen.getByText('📋 Clerk').closest('.worker-row') as HTMLElement
     expect(clerk.textContent).toContain('orders 0/20')
-    expect(within(clerk).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}6 ⭐20 💰200`)
+    expect(within(clerk).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠6 ⭐⁠20 💰⁠200`)
     const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
     expect(plant.textContent).toContain('plants 12/60')
-    expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}10 💰300`)
+    expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠10 💰⁠300`)
   })
 
   it('the mine row shows only the gates still missing, one line each: mines n/200, vein Lv3; its certificate is in iron bars', () => {
@@ -121,7 +121,7 @@ describe('👷 Workers card', () => {
     const gates = () => [...mineRow().querySelectorAll('span:first-child > small')].map((e) => e.textContent)
     setup({ vein: { level: 1, progress: 0, rock: 'stone' } }, { mines: 10 })
     expect(gates()).toEqual(['mines 10/200', 'vein Lv3'])
-    expect(within(mineRow()).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.ironBar.emoji}5 💰500`)
+    expect(within(mineRow()).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.ironBar.emoji}⁠5 💰⁠500`)
     cleanup()
     setup({ vein: { level: 2, progress: 0, rock: 'stone' } }, { mines: 682 })
     expect(gates()).toEqual(['vein Lv3'])

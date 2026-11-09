@@ -20,7 +20,7 @@ const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
 /** one line of the 3-bar breakdown, the Workshop machine-gauge pattern (label · bar · count) */
 function StatLine({ label, value, total, kind }: { label: string; value: number; total: number; kind: 'water' | 'energy' }) {
   return (
-    <div className="worker-row">
+    <div className="gauge-row">
       <span>{label}</span>
       <Bar value={total > 0 ? value / total : 0} kind={kind} />
       <small>{`${value}/${total}`}</small>
@@ -43,55 +43,67 @@ export function Fields({ state, act }: { state: GameState; act: Act }) {
         {`${FIELDS_EMOJI} Fields · ${n} tiles · 🌾 ${ready} ready`}
         {stalled > 0 && <span className="unpaid">{`${WAIT_EMOJI} ${stalled} stalled`}</span>}
       </summary>
-      <StatLine label="To plant" value={free} total={n} kind="water" />
-      {/* the growing bar fills with the tiles the pipes actually water; the gap is the stalled tiles */}
-      <div className="worker-row">
-        <span>Growing</span>
-        <Bar value={n > 0 ? covered / n : 0} kind="grow" />
-        <small>{`${covered}/${n}`}</small>
-        {stalled > 0 && <span className="unpaid">{`${WAIT_EMOJI} ${stalled} beyond pipes`}</span>}
+      <div className="group gauge-grid">
+        <StatLine label="To plant" value={free} total={n} kind="water" />
+        {/* the growing bar fills with the tiles the pipes actually water; the gap is the stalled tiles */}
+        <div className="gauge-row">
+          <span>Growing</span>
+          <Bar value={n > 0 ? covered / n : 0} kind="grow" />
+          <small>{`${covered}/${n}`}</small>
+          {stalled > 0 && <span className="unpaid gauge-note">{`${WAIT_EMOJI} ${stalled} beyond pipes`}</span>}
+        </div>
+        <StatLine label="Ready" value={ready} total={n} kind="energy" />
       </div>
-      <StatLine label="Ready" value={ready} total={n} kind="energy" />
-      {run.licenses.map((id) => {
-        const plantable = fieldsPlantable(run, id)
-        const batch = plantBatch()
-        return (
-          <div className="worker-row" key={id}>
-            <span>
-              {CROP_EMOJI[id]} {CROPS[id].name} × {run.fields.planted[id]}
-              {!plantable && <small>{`needs ${fieldsCropHarvests()} home harvests (${run.lifetime.harvests[id] ?? 0}/${fieldsCropHarvests()})`}</small>}
-            </span>
-            {run.fields.plantCrop === id ? (
-              <button onClick={() => act((s) => stopFieldsPlant(s))}>Stop</button>
-            ) : (
-              <button disabled={!plantable || !plantFields(state, id).ok} onClick={() => act((s) => plantFields(s, id))}>
-                {`Plant ${batch}`}
-                <small>{`no ⚡ · 🌱 ×${batch} 💰${batch * cropSeedCost(id, meta)}`}</small>
+      <div className="recipe-wrap">
+        <div className="recipe-grid">
+          <div className="group">
+            <h3>Plant</h3>
+            {run.licenses.map((id) => {
+              const plantable = fieldsPlantable(run, id)
+              const batch = plantBatch()
+              return (
+                <div className="recipe-row" key={id}>
+                  <span>
+                    {CROP_EMOJI[id]} {CROPS[id].name} × {run.fields.planted[id]}
+                    {!plantable && <small>{`needs ${fieldsCropHarvests()} home harvests (${run.lifetime.harvests[id] ?? 0}/${fieldsCropHarvests()})`}</small>}
+                  </span>
+                  {run.fields.plantCrop === id ? (
+                    <button onClick={() => act((s) => stopFieldsPlant(s))}>Stop</button>
+                  ) : (
+                    <button disabled={!plantable || !plantFields(state, id).ok} onClick={() => act((s) => plantFields(s, id))}>
+                      {`Plant ${batch}`}
+                      <small className="recipe-price">{`no ⚡ · 🌱 ×${batch} 💰${batch * cropSeedCost(id, meta)}`}</small>
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <div className="group">
+            <h3>Expand</h3>
+            <div className="recipe-row">
+              <span>Empty land next</span>
+              <button disabled={!buyField(state).ok} onClick={() => act((s) => buyField(s))}>
+                +1 Field
+                <small className="recipe-price">{`💰${fieldTileCost(n, meta)}${payback > 0 ? ` · ~${payback} h` : ''}`}</small>
+                {run.cash < fieldTileCost(n, meta) && <small>{`needs 💰⁠${fieldTileCost(n, meta) - run.cash} more`}</small>}
               </button>
+            </div>
+            {pipePrice && (
+              <div className="recipe-row">
+                <span>
+                  {`${PIPES_EMOJI} Pipes Lv${run.fields.pipes + 1}`}
+                  <small>{`waters ${pipeCoverNext} tiles · ${(pipeCoalPer10Tiles() * pipeCoverNext) / 10}${ITEMS.coal.emoji}/h from the pump`}</small>
+                </span>
+                <button disabled={!buyPipes(state).ok} onClick={() => act((s) => buyPipes(s))}>
+                  Build
+                  <small className="recipe-price">{priceText(pipePrice)}</small>
+                </button>
+              </div>
             )}
           </div>
-        )
-      })}
-      <div className="worker-row">
-        <span>Empty land next</span>
-        <button disabled={!buyField(state).ok} onClick={() => act((s) => buyField(s))}>
-          +1 Field
-          <small>{`💰${fieldTileCost(n, meta)}${payback > 0 ? ` · ~${payback} h` : ''}`}</small>
-          {run.cash < fieldTileCost(n, meta) && <small>{`needs 💰${fieldTileCost(n, meta) - run.cash} more`}</small>}
-        </button>
-      </div>
-      {pipePrice && (
-        <div className="worker-row">
-          <span>
-            {`${PIPES_EMOJI} Pipes Lv${run.fields.pipes + 1}`}
-            <small>{`waters ${pipeCoverNext} tiles · ${(pipeCoalPer10Tiles() * pipeCoverNext) / 10}${ITEMS.coal.emoji}/h from the pump`}</small>
-          </span>
-          <button disabled={!buyPipes(state).ok} onClick={() => act((s) => buyPipes(s))}>
-            Build
-            <small>{priceText(pipePrice)}</small>
-          </button>
-        </div>
-      )}
+          <div className="group">
+            <h3>Machines</h3>
       {(['harvester', 'seeder'] as const).flatMap((kind) =>
         Array.from({ length: machineMaxTiers(kind) }, (_, i) => i + 1).map((tier) => {
           const rate = machineTilesPerHour(kind, tier)
@@ -113,7 +125,10 @@ export function Fields({ state, act }: { state: GameState; act: Act }) {
             />
           )
         }),
-      )}
+            )}
+          </div>
+        </div>
+      </div>
     </details>
   )
 }

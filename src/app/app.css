@@ -684,6 +684,78 @@ details > summary:focus-visible {
   min-width: 2ch;
   text-align: center;
 }
+/* batch 24.1: gauge rows (label | bar | count) share columns across the whole card */
+.gauge-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(48px, 1fr) max-content;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+}
+.gauge-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+}
+.gauge-row > .gauge-note {
+  grid-column: 1 / -1; /* "⏳ N beyond pipes", "stalled" on its own line */
+}
+.gauge-row > small {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* batch 24.1: recipe/crop/expand rows share ONE grid per card (name column + a fixed 144 px button column, so every
+   button in the card shares a left edge); the wrapper is the container the one-column fallback queries. The groups
+   inside are subgrids so the rows align through the h3 headings; the between-group divider is the batch 24
+   .group:not(:first-child) rule, and .recipe-wrap carries the divider above the whole block after the gauges */
+.recipe-wrap {
+  container-type: inline-size;
+  margin-top: var(--s4);
+  padding-top: var(--s2);
+  border-top: 1px solid #eee;
+}
+.recipe-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 144px;
+  gap: var(--s2) var(--s3);
+}
+.recipe-grid > .group {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+.recipe-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 44px;
+}
+.recipe-row > button,
+.recipe-row > .owned-badge {
+  width: 144px;
+}
+.recipe-row small {
+  display: block;
+  font-size: 12px;
+  color: #555;
+}
+.recipe-row .recipe-price {
+  white-space: nowrap;
+}
+.owned-badge {
+  text-align: center;
+  color: #2e7d32;
+}
+@container (max-width: 299px) {
+  .recipe-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .recipe-row > button,
+  .recipe-row > .owned-badge {
+    width: 100%;
+  }
+}
 /* 📋 Orders (task 80): a section at the top of the desktop 🌾 Farm tab, a closed card beside 👷 Workers elsewhere.
    A row = the good + progress (two lines) and at most two 44 px buttons, ≈ 250 px, so it fits the 284 px Farm tab at
    1024 and the 359 px column at 375 on one line; it wraps rather than overflows (see PLAN "Batch 14 results"). */

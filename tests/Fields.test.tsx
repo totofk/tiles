@@ -29,7 +29,7 @@ function setup(run: Partial<GameState['run']>) {
   return { get: () => state, rerender: () => view.rerender(ui()) }
 }
 
-const row = (label: RegExp) => screen.getByText(label).closest('.worker-row') as HTMLElement
+const row = (label: RegExp) => screen.getByText(label).closest('.recipe-row, .gauge-row, .worker-row') as HTMLElement
 
 describe('the machine rows in the 🚜 Fields card (batch 19, task 98)', () => {
   it('five rows with tier, throughput, upkeep and coal-free; greyed with the certificate reason before the ladder holds', () => {
@@ -48,7 +48,7 @@ describe('the machine rows in the 🚜 Fields card (batch 19, task 98)', () => {
 
   it('with the certificate the reason line becomes the missing-materials line, and a buy lands as ✓ with the rate', () => {
     setup({ cash: 999999 })
-    expect(row(/Harvester Mk1/).textContent).toContain(`needs ${ITEMS.ironBar.emoji}12 more`) // cash is there, the bar is not
+    expect(row(/Harvester Mk1/).textContent).toContain(`needs ${ITEMS.ironBar.emoji}⁠12 more`) // cash is there, the bar is not
     cleanup()
     const t = setup({ inventory: { ironBar: 12 }, cash: 999999 })
     const mk1 = row(/Harvester Mk1/)
@@ -56,6 +56,22 @@ describe('the machine rows in the 🚜 Fields card (batch 19, task 98)', () => {
     fireEvent.click(mk1.querySelector('button')!)
     t.rerender()
     expect(t.get().run.fields.machines.harvester).toEqual([1])
-    expect(row(/Harvester Mk1/).textContent).toContain('✓ 1800 tiles/h')
+    expect(row(/Harvester Mk1/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
+    expect(row(/Harvester Mk1/).textContent).toContain('1800 tiles/h')
+  })
+})
+
+describe('batch 24.1: the 🚜 Fields card groups', () => {
+  it('gauges group first, then one recipe grid with Plant / Expand / Machines in order', () => {
+    setup({ licenses: ['radish', 'pumpkin'] })
+    const card = document.querySelector('details.workers')!
+    const top = [...card.children].filter((c) => c.tagName === 'DIV')
+    expect(top.map((g) => g.className)).toEqual(['group gauge-grid', 'recipe-wrap'])
+    expect([...card.querySelectorAll('.gauge-row')].map((r) => r.children[0].textContent)).toEqual(['To plant', 'Growing', 'Ready'])
+    const groups = [...card.querySelectorAll('.recipe-grid > .group')]
+    expect(groups.map((g) => g.querySelector('h3')!.textContent)).toEqual(['Plant', 'Expand', 'Machines'])
+    expect([...groups[0].querySelectorAll('.recipe-row')].map((r) => r.children[0].textContent)).toMatchObject([expect.stringContaining('Carrot'), expect.stringContaining('Pumpkin')])
+    expect([...groups[1].querySelectorAll('.recipe-row button')].map((b) => b.firstChild!.textContent)).toEqual(['+1 Field', 'Build'])
+    expect([...groups[2].querySelectorAll('.recipe-row')].length).toBe(5)
   })
 })

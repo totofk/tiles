@@ -31,4 +31,14 @@ describe('app.css shared columns (batch 24.1)', () => {
     expect(css).toContain('@container (max-width: 359px)')
     expect(css).not.toContain('.item-sub')
   })
+
+  it('gauge and recipe rows are subgrids sharing one grid per card; the narrow fallback is a container query', () => {
+    expect(css).toMatch(/\.gauge-grid\s*{[^}]*grid-template-columns: max-content minmax\(48px, 1fr\) max-content/s)
+    expect(css).toMatch(/\.gauge-row\s*{[^}]*grid-template-columns: subgrid/s)
+    expect(css).toMatch(/\.recipe-grid\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) 144px/s)
+    expect(css).toMatch(/\.recipe-row\s*{[^}]*grid-template-columns: subgrid/s)
+    expect(css).toMatch(/\.recipe-grid > \.group\s*{[^}]*grid-template-columns: subgrid/s)
+    expect(css).toContain('.recipe-wrap')
+    expect(css).toContain('@container (max-width: 299px)')
+  })
 })

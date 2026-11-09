@@ -7,7 +7,7 @@ import { Shop } from '../src/app/Shop'
 import { Workshop } from '../src/app/Workshop'
 import type { Act } from '../src/app/useGame'
 import { priceText } from '../src/app/Mine'
-import { sprinklerHopper, sprinklerTiles, workshopCost } from '../src/core/balance'
+import { sprinklerCost, sprinklerHopper, sprinklerMax, sprinklerTiles, valveCost, workshopCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 import { sprinklerWatered } from '../src/core/workshop'
@@ -31,7 +31,7 @@ function setup(run: Partial<GameState['run']>) {
 
 const summary = () => document.querySelector('summary')!.textContent
 const btn = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
-const row = (label: RegExp) => screen.getByText(label).closest('.worker-row') as HTMLElement
+const row = (label: RegExp) => screen.getByText(label).closest('.recipe-row, .gauge-row, .worker-row') as HTMLElement
 /** growing lemon tiles with the given moistures (far from done, so nothing matures during a test) */
 const growingTiles = (moistures: number[]): Tile[] =>
   moistures.map((moisture) => ({ status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture, ticksSinceMature: 0 }))
@@ -90,9 +90,9 @@ describe('🔧 Workshop card', () => {
     setup({ workshop: { built: true, hoppers: [], valve: false }, inventory: { goldBar: 2, ironBar: 5, copperBar: 8 }, cash: 3000 })
     const build = btn(/Build/)
     expect(build.disabled).toBe(true)
-    const line = row(/^💧 Sprinkler$/).textContent!
-    expect(line).toContain(`needs ${ITEMS.ironBar.emoji}3 ${ITEMS.goldBar.emoji}2 💰5000 more`)
-    expect(line).toContain(`${ITEMS.copperBar.emoji}8`)
+    const line = row(/^💧 Sprinkler/).textContent!
+    expect(line).toContain(`needs ${ITEMS.ironBar.emoji}⁠3 ${ITEMS.goldBar.emoji}⁠2 💰⁠5000 more`)
+    expect(line).toContain(`${ITEMS.copperBar.emoji}⁠8`)
     expect(line).toContain(`waters ${sprinklerTiles()} tiles`)
   })
 
@@ -105,15 +105,15 @@ describe('🔧 Workshop card', () => {
     expect(row(/Machine 1/).textContent).toContain(`${ITEMS.coal.emoji} 0/${sprinklerHopper()}`)
     cleanup()
     setup({ workshop: { built: true, hoppers: [24, 24, 24, 24], valve: false }, inventory: { goldBar: 9, ironBar: 9, copperBar: 9 }, cash: 99999 })
-    const maxed = btn(/Build/)
-    expect(maxed.disabled).toBe(true)
-    expect(maxed.classList.contains('owned')).toBe(true)
-    expect(maxed.textContent).toContain('✓ 4 machines')
+    // owned renders NO button: a ✓ Built badge in the button column, the effect line stays under the name
+    expect(screen.queryByRole('button', { name: /Build/ })).toBeNull()
+    expect(row(/^💧 Sprinkler/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
+    expect(row(/^💧 Sprinkler/).textContent).toContain(`${sprinklerMax()} machines`)
   })
 
   it('the valve recipe row pays 2 gold bars and cash, then shows ✓; short bars give a needs line', () => {
     setup({ workshop: { built: true, hoppers: [24], valve: false }, cash: 99999 })
-    expect(row(/Smart valve/).textContent).toContain(`needs ${ITEMS.goldBar.emoji}2`)
+    expect(row(/Smart valve/).textContent).toContain(`needs ${ITEMS.goldBar.emoji}⁠2`)
     expect(btn(/^Buy/).disabled).toBe(true)
     cleanup()
     const t = setup({ workshop: { built: true, hoppers: [24], valve: false }, inventory: { goldBar: 2 }, cash: 99999 })
@@ -121,7 +121,22 @@ describe('🔧 Workshop card', () => {
     t.rerender()
     expect(t.get().run.workshop.valve).toBe(true)
     expect(t.get().run.inventory.goldBar).toBe(0)
-    expect(btn(/^Buy/).textContent).toContain('✓')
+    expect(screen.queryByRole('button', { name: /^Buy/ })).toBeNull()
+    expect(row(/Smart valve/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
+  })
+
+  it('batch 24.1: two groups — gauges then one Build recipe grid with an h3; the button holds verb + price, never the effect', () => {
+    const t = setup({ workshop: { built: true, hoppers: [10], valve: false }, cash: 99999, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 } })
+    const card = document.querySelector('details.workers')!
+    const groups = [...card.children].filter((c) => c.tagName === 'DIV')
+    expect(groups.map((g) => g.className)).toEqual(['group gauge-grid', 'recipe-wrap'])
+    const build = card.querySelector('.recipe-grid')!
+    expect([...build.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Build'])
+    expect([...build.querySelectorAll('.group > .recipe-row button')].map((b) => b.textContent)).toEqual([
+      `Build${priceText(sprinklerCost(t.get().meta))}`,
+      `Buy${priceText(valveCost(t.get().meta))}`,
+    ])
+    expect(priceText({ ironBar: 12, cash: 50000 })).toContain('⁠')
   })
 
   it('sits below 👷 Workers in the mobile farm column', () => {

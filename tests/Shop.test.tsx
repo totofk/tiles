@@ -136,13 +136,13 @@ describe('Farm tools in the Shop', () => {
   it('the tier row sells copper at tool Lv1, then iron; the owned card appears at the max tier', () => {
     const IRON = ITEMS.ironBar.emoji
     const t = setup({ cash: 10100, inventory: { copperBar: 4 }, tools: { water: 1, harvest: 0, plant: 0 } })
-    expect(tool(`${BAR} Copper Can`).textContent).toContain(`moisture 2 · ${BAR}4 💰100`)
+    expect(tool(`${BAR} Copper Can`).textContent).toContain(`moisture 2 · ${BAR}⁠4 💰⁠100`)
     expect(tool(`${BAR} Copper Sickle`).disabled).toBe(true) // no Sickle Lv1
     fireEvent.click(tool(`${BAR} Copper Can`))
     t.rerender()
     expect(t.get().run.toolTier.water).toBe(1)
     const iron = tool(`${IRON} Iron Can`)
-    expect(iron.textContent).toContain(`moisture 4 · ${IRON}4 💰10000`)
+    expect(iron.textContent).toContain(`moisture 4 · ${IRON}⁠4 💰⁠10000`)
     expect(iron.textContent).toContain(`needs ${IRON}4 more`) // cash in hand, bars not
     expect(iron.disabled).toBe(true)
 
@@ -162,7 +162,7 @@ describe('Farm tools in the Shop', () => {
     const t = setup({ cash: 10000, inventory: { goldBar: 4 }, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 2, harvest: 2, plant: 2 } })
     expect(tool(`${IRON} Iron Can`).textContent).toContain('Iron is the last watering can')
     const gold = tool(`${GOLD} Gold Sickle`)
-    expect(gold.textContent).toContain(`30 % double · ${GOLD}4 💰10000`)
+    expect(gold.textContent).toContain(`30 % double · ${GOLD}⁠4 💰⁠10000`)
     fireEvent.click(gold)
     t.rerender()
     expect(t.get().run.toolTier.harvest).toBe(3)

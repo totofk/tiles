@@ -102,7 +102,7 @@ describe('board in the Shop, ⭐ in the HUD, 📋 on ordered ready tiles', () =>
       return found?.textContent ?? null
     }
     expect(card(at(49))).toBeNull()
-    expect(card(at(50))).toBe('📋 Notice board⛰️10 💰100')
+    expect(card(at(50))).toBe('📋 Notice board⛰️⁠10 💰⁠100')
     expect(card(at(50, true))).toBeNull()
   })
 

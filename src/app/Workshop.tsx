@@ -13,8 +13,8 @@ const VALVE_EMOJI = '🎛️' // Unicode 7
 /** one token per material the recipe is short of, the TierTool "needs 🟨2 💰2500 more" pattern */
 export function shortOf(cost: Price, run: GameState['run']): string[] {
   return [
-    ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}${cost[id]! - (run.inventory[id] ?? 0)}`),
-    ...(cost.cash > run.cash ? [`💰${cost.cash - run.cash}`] : []),
+    ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}⁠${cost[id]! - (run.inventory[id] ?? 0)}`),
+    ...(cost.cash > run.cash ? [`💰⁠${cost.cash - run.cash}`] : []),
   ]
 }
 
@@ -36,15 +36,20 @@ export function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, 
   const short = shortOf(cost, state.run)
   const hint = reason ?? (short.length > 0 ? `needs ${short.join(' ')} more` : '')
   return (
-    <div className="worker-row">
+    <div className="recipe-row">
       <span>
         {emoji} {name}
-      </span>
-      <button className={owned ? 'owned' : undefined} disabled={owned || !buy(state).ok} onClick={() => act((s) => buy(s))}>
-        {verb}
-        <small>{owned ? `✓ ${ownedText}` : `${effect} · ${priceText(cost)}`}</small>
+        <small>{owned ? ownedText : effect}</small>
         {!owned && hint && <small>{hint}</small>}
-      </button>
+      </span>
+      {owned ? (
+        <span className="owned-badge">✓ Built</span>
+      ) : (
+        <button disabled={!buy(state).ok} onClick={() => act((s) => buy(s))}>
+          {verb}
+          <small className="recipe-price">{priceText(cost)}</small>
+        </button>
+      )}
     </div>
   )
 }
@@ -61,40 +66,49 @@ export function Workshop({ state, act }: { state: GameState; act: Act }) {
         {`🔧 Workshop · ${SPRINKLER_EMOJI} Sprinklers ${n}/${sprinklerMax()} — waters ${n * sprinklerTiles()} tiles`}
         {workshop.hoppers.some((h) => h < 1) && <span className="unpaid">stalled</span>}
       </summary>
-      {workshop.hoppers.map((h, i) => (
-        <div className="worker-row" key={i}>
-          <span>
-            {`${SPRINKLER_EMOJI} Machine ${i + 1}`}
-            {h < 1 && ' — stalled'}
-          </span>
-          <Bar value={h / sprinklerHopper()} kind="fire" />
-          <small>{`${ITEMS.coal.emoji} ${h}/${sprinklerHopper()}`}</small>
+      <div className="group gauge-grid">
+        {workshop.hoppers.map((h, i) => (
+          <div className="gauge-row" key={i}>
+            <span>
+              {`${SPRINKLER_EMOJI} Machine ${i + 1}`}
+              {h < 1 && ' — stalled'}
+            </span>
+            <Bar value={h / sprinklerHopper()} kind="fire" />
+            <small>{`${ITEMS.coal.emoji} ${h}/${sprinklerHopper()}`}</small>
+          </div>
+        ))}
+      </div>
+      <div className="recipe-wrap">
+        <div className="recipe-grid">
+          <div className="group">
+            <h3>Build</h3>
+            <RecipeRow
+              state={state}
+              act={act}
+              emoji={SPRINKLER_EMOJI}
+              name="Sprinkler"
+              verb="Build"
+              cost={sprinklerCost(meta)}
+              effect={`waters ${sprinklerTiles()} tiles`}
+              owned={n >= sprinklerMax()}
+              ownedText={`${sprinklerMax()} machines`}
+              buy={buySprinkler}
+            />
+            <RecipeRow
+              state={state}
+              act={act}
+              emoji={VALVE_EMOJI}
+              name="Smart valve"
+              verb="Buy"
+              cost={valveCost(meta)}
+              effect="holds moisture during a coal stall"
+              owned={workshop.valve}
+              ownedText="holds moisture during a coal stall"
+              buy={buyValve}
+            />
+          </div>
         </div>
-      ))}
-      <RecipeRow
-        state={state}
-        act={act}
-        emoji={SPRINKLER_EMOJI}
-        name="Sprinkler"
-        verb="Build"
-        cost={sprinklerCost(meta)}
-        effect={`waters ${sprinklerTiles()} tiles`}
-        owned={n >= sprinklerMax()}
-        ownedText={`${sprinklerMax()} machines`}
-        buy={buySprinkler}
-      />
-      <RecipeRow
-        state={state}
-        act={act}
-        emoji={VALVE_EMOJI}
-        name="Smart valve"
-        verb="Buy"
-        cost={valveCost(meta)}
-        effect="holds moisture during a coal stall"
-        owned={workshop.valve}
-        ownedText="holds moisture during a coal stall"
-        buy={buyValve}
-      />
+      </div>
     </details>
   )
 }

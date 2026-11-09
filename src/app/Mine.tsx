@@ -71,10 +71,10 @@ const SMELT_SHORT: Partial<Record<ActionError, string>> = {
   NOT_EMPTY: 'collect first',
 }
 
-/** "⛰️20 ⚫5 💰150"; no cash part when it is free */
+/** "⛰️20 ⚫5 💰150"; no cash part when it is free; ⁠ joins each emoji to its number so a line never breaks between them */
 export function priceText(price: Price): string {
-  const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}${price[id]}`)
-  return [...items, ...(price.stars ? [`${STAR_EMOJI}${price.stars}`] : []), ...(price.cash ? [`💰${price.cash}`] : [])].join(' ')
+  const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}⁠${price[id]}`)
+  return [...items, ...(price.stars ? [`${STAR_EMOJI}⁠${price.stars}`] : []), ...(price.cash ? [`💰⁠${price.cash}`] : [])].join(' ')
 }
 
 function sellAll(s: GameState): ActionResult {

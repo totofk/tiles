@@ -34,7 +34,7 @@ describe('Mine panel', () => {
   it('shows the current vein with % and the next level greyed with its cost; the vein ends at Lv4 (no teaser)', () => {
     setup({})
     expect(text()).toContain(`Vein Lv0: ${STONE} Stone 100 %`)
-    expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}25 💰100`)).toBeTruthy()
+    expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}⁠25 💰⁠100`)).toBeTruthy()
     expect(screen.queryByText(/coming/)).toBeNull()
   })
 
@@ -59,7 +59,7 @@ describe('Mine panel', () => {
   it('vein Lv2 is copper ore and needs the furnace: the Upgrade button says so until it is built', () => {
     const rich = { cash: 1e3, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: { level: 1, progress: 0, rock: 'stone' as const } }
     setup(rich)
-    expect(screen.getByText(/^Lv2: /).textContent).toBe(`Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % — ${STONE}30 ⚫10 💰200`)
+    expect(screen.getByText(/^Lv2: /).textContent).toBe(`Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % — ${STONE}⁠30 ⚫⁠10 💰⁠200`)
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }).textContent).toBe('Upgrade vein to Lv2 — Build the furnace first')
     cleanup()
     setup({ ...rich, furnace: built })
@@ -71,7 +71,7 @@ describe('Mine panel', () => {
     const lv3 = { cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
     setup({ ...lv3, pickaxe: { tier: 'copper', durability: 100 } })
     expect(screen.getByText(/^Lv4: /).textContent).toBe(
-      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}45 ${IRON_BAR}8 💰7500`,
+      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}⁠45 ${IRON_BAR}⁠8 💰⁠7500`,
     )
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }).textContent).toBe('Upgrade vein to Lv4 — Needs the iron pickaxe')
     cleanup()
@@ -80,7 +80,7 @@ describe('Mine panel', () => {
     t.rerender()
     expect(t.get().run.vein.level).toBe(4)
     // the gold pickaxe is offered once the vein drops gold ore (never at Lv3)
-    expect(screen.getByRole('button', { name: /^Craft gold pickaxe/ }).textContent).toBe(`Craft gold pickaxe (${ITEMS.goldBar.emoji}5 💰500) — Not enough items`)
+    expect(screen.getByRole('button', { name: /^Craft gold pickaxe/ }).textContent).toBe(`Craft gold pickaxe (${ITEMS.goldBar.emoji}⁠5 💰⁠500) — Not enough items`)
   })
 
   it('at the last vein level (Lv4) shows only the current table, gold in it', () => {
@@ -117,7 +117,7 @@ describe('Mine panel', () => {
 
   it('a blunt pickaxe shows the repair button with its wood cost', () => {
     setup({ pickaxe: wooden(0), inventory: { wood: 2 } })
-    const repair = screen.getByRole('button', { name: `Blunt wooden pickaxe — repair (${WOOD}2)` }) as HTMLButtonElement
+    const repair = screen.getByRole('button', { name: `Blunt wooden pickaxe — repair (${WOOD}⁠2)` }) as HTMLButtonElement
     expect(repair.disabled).toBe(false)
   })
 
@@ -125,7 +125,7 @@ describe('Mine panel', () => {
     const furnace = built
     setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 4 } })
     const craft = screen.getByRole('button', { name: /^Craft copper pickaxe/ }) as HTMLButtonElement
-    expect(craft.textContent).toBe(`Craft copper pickaxe (${BAR}5 💰50) — Not enough items`)
+    expect(craft.textContent).toBe(`Craft copper pickaxe (${BAR}⁠5 💰⁠50) — Not enough items`)
     expect(craft.disabled).toBe(true)
     cleanup()
     const t = setup({ pickaxe: wooden(), furnace, cash: 50, inventory: { copperBar: 5 }, mastery: { wooden: 33 } })
@@ -197,13 +197,13 @@ describe('Mine panel', () => {
   it('furnace upgrades: next level and price, disabled with the reason, bought, hidden at max', () => {
     const t = setup({ furnace: built, cash: 150, inventory: { copperBar: 3 } })
     const upgrade = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
-    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 10 → 20${BAR}4 💰150 · Not enough items`)
+    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 10 → 20${BAR}⁠4 💰⁠150 · Not enough items`)
     expect(upgrade(/^Fire cap/).disabled).toBe(true)
-    expect(upgrade(/^Batch/).textContent).toBe(`Batch 1 → 2 bars${BAR}6 💰200 · Not enough items`)
-    expect(upgrade(/^Smart furnace/).textContent).toBe(`Smart furnace${BAR}10 💰400 · Not enough items`)
+    expect(upgrade(/^Batch/).textContent).toBe(`Batch 1 → 2 bars${BAR}⁠6 💰⁠200 · Not enough items`)
+    expect(upgrade(/^Smart furnace/).textContent).toBe(`Smart furnace${BAR}⁠10 💰⁠400 · Not enough items`)
     cleanup()
     const rich = setup({ furnace: { ...built, levels: { fireCap: 1, batch: 2 } }, cash: 1e4, inventory: { copperBar: 30 } })
-    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 20 → 40${BAR}8 💰300`)
+    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 20 → 40${BAR}⁠8 💰⁠300`)
     expect(screen.queryByRole('button', { name: /^Batch/ })).toBeNull() // max level
     fireEvent.click(upgrade(/^Fire cap/))
     fireEvent.click(upgrade(/^Smart furnace/))
@@ -219,7 +219,7 @@ describe('Mine panel', () => {
     const lv2 = { cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' as const } }
     setup({ ...lv2, bagCapacity: 40, inventory: { stone: 35, copperBar: 5 }, pickaxe: wooden() })
     expect(screen.getByText(/^Lv3: /).textContent).toBe(
-      `Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${IRON_ORE} Iron ore 10 % — ${STONE}40 ${BAR}5 💰400`,
+      `Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${IRON_ORE} Iron ore 10 % — ${STONE}⁠40 ${BAR}⁠5 💰⁠400`,
     )
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ }).textContent).toBe('Upgrade vein to Lv3 — Needs 📦 45 storage')
     expect(screen.getByText(/needs a copper pickaxe/).textContent).toBe(`${IRON_ORE} Iron ore needs a copper pickaxe or better, else it is mined as ${STONE} stone`)
@@ -293,7 +293,7 @@ describe('Mine panel', () => {
     cleanup()
     const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
     setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 4 } })
-    expect(screen.getByRole('button', { name: /^Craft/ }).textContent).toBe(`Craft iron pickaxe (${IRON_BAR}5 💰200) — Not enough items`)
+    expect(screen.getByRole('button', { name: /^Craft/ }).textContent).toBe(`Craft iron pickaxe (${IRON_BAR}⁠5 💰⁠200) — Not enough items`)
     cleanup()
     const t = setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 5 } })
     fireEvent.click(screen.getByRole('button', { name: /^Craft iron pickaxe/ }))
@@ -303,7 +303,7 @@ describe('Mine panel', () => {
     expect(screen.queryByRole('button', { name: /^Craft/ })).toBeNull()
     cleanup()
     setup({ furnace: built, vein: lv3, pickaxe: { tier: 'iron', durability: 0 }, inventory: { ironBar: 2 } })
-    expect((screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}2)` }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}⁠2)` }) as HTMLButtonElement).disabled).toBe(false)
   })
 
   it('a mine worker press flashes the Mine button and pops ⛏️; nothing otherwise', () => {
