@@ -627,6 +627,10 @@ button:disabled {
 .estate-chip-warn {
   border-color: #ef6c00;
   color: #8f4100;
+  /* the bottleneck + its fix is the longest chip (421 px at 1024): let it wrap inside the pane, not push past it */
+  white-space: normal;
+  max-width: 100%;
+  border-radius: 12px;
 }
 /* crop rows: as many columns as fit, each row a label + a 96 px action */
 .estate-rows {
@@ -644,9 +648,11 @@ button:disabled {
 }
 .estate-row > span {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: block;
+}
+/* the income + price line under the crop name: measured live, a one-line row cut 7–59 px of the price at 375 /
+   1024 / 2560, so both lines wrap (rows grow to ~68 px) and the button keeps its 96 px column */
+.estate-row > span > small {
   display: block;
 }
 /* the ghost row's Buy button: dashed like a +1 Field slot */
@@ -687,6 +693,9 @@ button:disabled {
    sits just above it */
 .estate-hint {
   position: fixed;
+  /* it floats over the scrolling Estate like the bar under it, so it needs the page colour behind the text */
+  background: var(--bg);
+  margin: 0;
   left: 0;
   right: 0;
   bottom: calc(var(--tabbar-h) + var(--s2) + env(safe-area-inset-bottom) + var(--toolbar-h) + var(--s1));
@@ -1394,6 +1403,10 @@ details > summary:focus-visible {
 /* descendant since batch 27: with the Tractor the tool bar renders inside the Surface */
 .farm:has(.tools) {
   padding-bottom: calc(var(--toolbar-h) + var(--s2));
+}
+/* the Estate's phone hint sits one line above the bar */
+.farm:has(.estate-hint) {
+  padding-bottom: calc(var(--toolbar-h) + var(--s2) + 34px);
 }
 .app[data-view='farm']:has(.tools) > .toast {
   bottom: calc(var(--tabbar-h) + var(--toolbar-h) + 16px + env(safe-area-inset-bottom));
