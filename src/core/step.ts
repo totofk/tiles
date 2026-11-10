@@ -7,6 +7,7 @@ import {
   loanDebtCap,
   loanDebtPerTick,
   moistureDrainPerTick,
+  waterMoisture,
 } from './balance'
 import { recordMilestones } from './data/milestones'
 import { fieldsAct, machinesAct } from './fields'
@@ -15,7 +16,7 @@ import { decayMarket } from './market'
 import { tickOrders } from './orders'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { workersAct } from './workers'
-import { sprinklersAct } from './workshop'
+import { isIrrigated } from './workshop'
 
 /** a tile with its crop removed (harvest or rot); keeps the soil moisture */
 export function clearedTile(tile: Tile): Tile {
@@ -23,22 +24,23 @@ export function clearedTile(tile: Tile): Tile {
 }
 
 // Growth checks moisture BEFORE this tick's drain: a full bar (1) buys exactly
-// 1 / moistureDrainPerTick growth ticks. `held` (the smart valve holding a stalled sprinkler's tiles) skips the
-// drain, so the tile keeps growing at the moisture it froze at.
-function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number, held = false): Tile {
-  let next = tile
-  if (tile.status === 'planted' && tile.cropId) {
-    if (tile.growth < cropGrowTicks(tile.cropId, meta, fertilizerLevel)) {
-      if (tile.moisture > 0) next = { ...tile, growth: tile.growth + 1 }
+// 1 / moistureDrainPerTick growth ticks. An `irrigated` tile (its bed has a sprinkler) is set to the iron-can
+// fill before growth and is never drained, so it always grows.
+function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number, irrigated = false): Tile {
+  const wet = irrigated ? { ...tile, moisture: waterMoisture(2) } : tile
+  let next = wet
+  if (wet.status === 'planted' && wet.cropId) {
+    if (wet.growth < cropGrowTicks(wet.cropId, meta, fertilizerLevel)) {
+      if (wet.moisture > 0) next = { ...wet, growth: wet.growth + 1 }
     } else {
-      const ticksSinceMature = tile.ticksSinceMature + 1
+      const ticksSinceMature = wet.ticksSinceMature + 1
       next =
-        ticksSinceMature > cropRotGraceTicks(tile.cropId, meta)
-          ? clearedTile(tile)
-          : { ...tile, ticksSinceMature }
+        ticksSinceMature > cropRotGraceTicks(wet.cropId, meta)
+          ? clearedTile(wet)
+          : { ...wet, ticksSinceMature }
     }
   }
-  if (held) return next
+  if (irrigated) return next
   const drained = next.moisture - moistureDrainPerTick(meta)
   const moisture = drained < FLOAT_EPSILON ? 0 : drained
   return moisture === next.moisture ? next : { ...next, moisture }
@@ -53,12 +55,9 @@ function stepLoan(loan: Loan | null): Loan | null {
 
 function stepOnce(state: GameState): GameState {
   const before = state.run
-  // sprinklers run first (batch 17): their watering lands before the water worker picks targets, and `held`
-  // (valve) is index-aligned with the tiles the drain step below runs on
-  const machines = sprinklersAct(state)
   // batch 19: the Fields machines work before the workers — a harvester takes the ready cohorts first, the harvester
   // workers fill the gap; the seeder plants before the planter
-  const worked = machinesAct({ ...state, run: machines.run })
+  const worked = machinesAct(state)
   // the Fields cohorts grow after the workers (a batch planted this tick starts growing this tick, like a home tile)
   const { run, meta } = fieldsAct(workersAct(worked))
   const max = energyMax(run.upgrades.energyMax, meta)
@@ -68,7 +67,7 @@ function stepOnce(state: GameState): GameState {
   const nextRun: RunState = {
     ...run,
     energy,
-    tiles: run.tiles.map((t, i) => stepTile(t, meta, run.upgrades.fertilizer, machines.held[i])),
+    tiles: run.tiles.map((t, i) => stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i))),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),
     market: decayMarket(run.market),

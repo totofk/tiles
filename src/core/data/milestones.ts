@@ -82,7 +82,7 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'furnace', label: 'Furnace', when: (r) => r.furnace.built },
   // batch 17: the workshop itself, the first machine, the smart valve
   { id: 'workshop', label: 'Workshop', when: (r) => r.workshop.built },
-  { id: 'firstSprinkler', label: 'First sprinkler', when: (r) => r.workshop.hoppers.length >= 1 },
+  { id: 'firstSprinkler', label: 'First sprinkler', when: (r) => r.workshop.beds.some(Boolean) },
   { id: 'valve', label: 'Smart valve', when: (r) => r.workshop.valve },
   // batch 18: the Fields unlocked, then tile counts
   { id: 'fieldsUnlocked', label: 'Fields unlocked', when: (r) => r.fields.unlocked },

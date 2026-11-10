@@ -21,6 +21,8 @@ import type { UpgradeId } from './data/upgrades'
 import { harvestSale } from './orders'
 import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
+// actions ↔ workshop is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
+import { isIrrigated } from './workshop'
 
 export type ActionError =
   | 'NO_ENERGY'
@@ -28,6 +30,7 @@ export type ActionError =
   | 'NOT_UNTILLED'
   | 'NOT_TILLED'
   | 'NOT_PLANTED'
+  | 'IRRIGATED'
   | 'NOT_MATURE'
   | 'NO_LICENSE'
   | 'NO_CASH'
@@ -180,7 +183,8 @@ export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST):
   return farmAction(
     state,
     i,
-    (t) => (t.status === 'planted' ? null : 'NOT_PLANTED'),
+    // the irrigated check sits before the energy spend: a sprinkler-covered bed never costs the player anything
+    (t) => (t.status !== 'planted' ? 'NOT_PLANTED' : isIrrigated(run, i) ? 'IRRIGATED' : null),
     (t) => ({ tile: { ...t, moisture: waterMoisture(run.toolTier.water) }, counters: { waters: run.counters.waters + 1 } }),
     energy,
   )

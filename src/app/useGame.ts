@@ -8,7 +8,6 @@ import { createInitialState, type GameState } from '../core/state'
 import { sellFarm } from '../core/prestige'
 import { step } from '../core/step'
 import { ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
-import { sprinklerWatered } from '../core/workshop'
 import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { encodeSave } from '../save/codec'
 import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
@@ -21,6 +20,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NOT_UNTILLED: 'Already tilled',
   NOT_TILLED: 'Till the soil first',
   NOT_PLANTED: 'Nothing planted',
+  IRRIGATED: 'This bed has a sprinkler — no watering needed',
   NOT_MATURE: 'Not ready yet',
   NO_LICENSE: 'Buy the license first',
   NO_CASH: 'Not enough cash',
@@ -117,7 +117,6 @@ export function useGame() {
   const [acted, setActed] = useState<WorkerTarget[]>([])
   // task 132: every job that acted on the round (worker dots, off-farm flashes), kept alongside the tile touches
   const [worked, setWorked] = useState<WorkTouch[]>([])
-  const [watered, setWatered] = useState<number[]>([])
   const [minerActed, setMinerActed] = useState(false)
   const saveTimer = useRef<number | undefined>(undefined)
 
@@ -230,7 +229,6 @@ export function useGame() {
       const touches = crossed ? workerActivity(before) : []
       setActed(touches.filter((t): t is WorkerTarget => t.tile !== undefined))
       setWorked(touches)
-      setWatered(crossed ? sprinklerWatered(before) : [])
       setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
       commit(after)
     }, LOOP_MS)
@@ -272,7 +270,6 @@ export function useGame() {
       const caught = catchUp(before, awayMs)
       setActed([])
       setWorked([])
-      setWatered([])
       setMinerActed(false)
       commit(caught)
       setBanner(bannerText(awayMs, before, caught))
@@ -290,5 +287,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, watered, minerActed, frozen }
+  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, minerActed, frozen }
 }

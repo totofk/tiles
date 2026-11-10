@@ -14,7 +14,7 @@ const atGate = (over: Partial<GameState['run']> = {}): GameState => {
       ...s.run,
       lifetime: { ...s.run.lifetime, cashEarned: 640_000 },
       workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
-      workshop: { built: true, hoppers: [5], valve: false },
+      workshop: { built: true, beds: [true, false, false, false], valve: false },
       stars: 37,
       ...over,
     },
@@ -53,7 +53,7 @@ describe('sellFarm', () => {
       workers: { pool: 0, certificates: [] },
       lifetime: s.run.lifetime,
     })
-    expect(run.workshop).toEqual({ built: false, hoppers: [], valve: false })
+    expect(run.workshop).toEqual({ built: false, beds: [false, false, false, false], valve: false })
   })
 
   it('refuses a loan in progress, then refuses NO_GAIN once the deeds are claimed', () => {

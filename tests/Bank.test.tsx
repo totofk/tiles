@@ -93,7 +93,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     render(panel(createInitialState()))
     expect(screen.getByText('Borrow 💰30 · repay 💰33 now, grows to at most 💰60')).toBeTruthy()
     expect(screen.getByText(/→ 0 deeds when "Sell the farm" opens/)).toBeTruthy()
-    expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 sprinkler + 8 more deeds')
+    expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 bed sprinkler + 8 more deeds')
     expect(button(/🔒 Sell the farm/).disabled).toBe(true)
     expect(screen.queryByRole('heading', { name: '🏆 Legacy' })).toBeNull()
   })
@@ -102,7 +102,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     const atGate = withRun({
       lifetime: { ...createInitialState().run.lifetime, cashEarned: 640_000 },
       workers: { ...createInitialState().run.workers, certificates: ['plant', 'harvest'] },
-      workshop: { built: true, hoppers: [5], valve: false },
+      workshop: { built: true, beds: [true, false, false, false], valve: false },
     })
     // 8 deeds on the meter, every job covered: the gate is open
     render(panel(atGate))

@@ -1,34 +1,26 @@
 import { describe, expect, it } from 'vitest'
-import {
-  moistureDrainPerTick,
-  sprinklerCoalTicks,
-  sprinklerCost,
-  sprinklerHopper,
-  sprinklerMax,
-  sprinklerTiles,
-  valveCost,
-  workerActionTicks,
-  workshopCost,
-  workshopVeinLevel,
-  type Price,
-} from '../src/core/balance'
-import { buildWorkshop, buySprinkler, buyValve, fillHopper, sprinklersAct, sprinklerTargets } from '../src/core/workshop'
-import { createInitialState, type GameState, type Tile } from '../src/core/state'
+import { moistureDrainPerTick, sprinklerCost, sprinklerMax, valveCost, workshopCost, workshopVeinLevel, type Price } from '../src/core/balance'
+import { buyTile, water } from '../src/core/actions'
+import { toolTargets } from '../src/core/tools'
+import { createInitialState, createTile, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
-import { catchUp } from '../src/save/serialize'
+import { buildSprinkler, buildWorkshop, buyValve, isIrrigated } from '../src/core/workshop'
 
 const init = createInitialState()
 const drain = moistureDrainPerTick(init.meta)
+const NO_BEDS = [false, false, false, false]
+/** the full sprinkler recipe beside the cash it needs */
+const FULL = { stone: 99, ironBar: 99, copperBar: 99, goldBar: 99, cash: 99999 }
 
-/** a workshop-ready run: vein Lv4, the workshop built with `hoppers` coal per machine, planted tiles as given */
-function withWorkshop(hoppers: number[], tiles: Tile[], extra: Partial<GameState['run']> = {}): GameState {
+/** a workshop-ready run: vein Lv4, the workshop built with the given bed sockets, tiles as given */
+function withWorkshop(beds: boolean[], tiles: Tile[], extra: Partial<GameState['run']> = {}): GameState {
   return {
     ...init,
     run: {
       ...init.run,
       tiles,
       vein: { ...init.run.vein, level: 4 },
-      workshop: { built: true, hoppers, valve: false },
+      workshop: { built: true, beds, valve: false },
       ...extra,
     },
   }
@@ -39,16 +31,13 @@ const growingTiles = (moistures: number[]): Tile[] =>
   moistures.map((moisture) => ({ status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture, ticksSinceMature: 0 }))
 
 describe('workshop: balance', () => {
-  it('workshop costs 30 stone + 6 iron bars + its cash part and needs vein Lv4; sprinkler recipe, pump and valve numbers', () => {
+  it('workshop costs 30 stone + 6 iron bars + its cash part and needs vein Lv4; sprinkler recipe unchanged', () => {
     expect(workshopCost(init.meta)).toEqual({ stone: 30, ironBar: 6, cash: workshopCost(init.meta).cash })
     expect(Object.entries(workshopCost(init.meta) as Price).length).toBe(3)
     expect(workshopVeinLevel()).toBe(4)
     expect(sprinklerCost(init.meta)).toEqual({ goldBar: 4, ironBar: 8, copperBar: 8, cash: sprinklerCost(init.meta).cash })
+    // 4 beds of 6 tiles; the valve keeps its recipe for batch 28
     expect(sprinklerMax()).toBe(4)
-    expect(sprinklerTiles()).toBe(6)
-    // ≈ 12 coal/h per machine: 1 coal per 300 ticks (5 min); the hopper holds ≈ 2 h
-    expect(sprinklerCoalTicks()).toBe(300)
-    expect(sprinklerHopper()).toBe(24)
     expect(valveCost(init.meta)).toEqual({ goldBar: 2, cash: valveCost(init.meta).cash })
   })
 })
@@ -57,7 +46,7 @@ describe('buildWorkshop', () => {
   it('is LOCKED below vein Lv4 and ALREADY_OWNED once built', () => {
     const s = { ...init, run: { ...init.run, vein: { ...init.run.vein, level: 3 }, inventory: { stone: 30, ironBar: 6 }, cash: 99999 } }
     expect(buildWorkshop(s)).toEqual({ ok: false, error: 'LOCKED' })
-    const built = withWorkshop([], [])
+    const built = withWorkshop([...NO_BEDS], [])
     expect(buildWorkshop(built)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
 
@@ -65,7 +54,7 @@ describe('buildWorkshop', () => {
     const s = { ...init, run: { ...init.run, vein: { ...init.run.vein, level: 4 }, inventory: { stone: 30, ironBar: 6 }, cash: 99999 } }
     const r = buildWorkshop(s)
     if (!r.ok) throw new Error(r.error)
-    expect(r.state.run.workshop).toEqual({ built: true, hoppers: [], valve: false })
+    expect(r.state.run.workshop).toEqual({ built: true, beds: NO_BEDS, valve: false })
     expect([r.state.run.inventory.stone, r.state.run.inventory.ironBar]).toEqual([0, 0])
     expect(r.state.run.milestones.workshop).toBe(r.state.run.tick)
     // items first, then cash (the pay order)
@@ -76,131 +65,96 @@ describe('buildWorkshop', () => {
   })
 })
 
-describe('buySprinkler', () => {
-  it('is NO_WORKSHOP without the workshop, MAX_LEVEL at 4 machines, and pays the recipe', () => {
-    const full = { stone: 99, ironBar: 99, copperBar: 99, goldBar: 99, coal: 99 }
-    expect(buySprinkler({ ...init, run: { ...init.run, inventory: full, cash: 99999 } })).toEqual({ ok: false, error: 'NO_WORKSHOP' })
-    const four = withWorkshop([24, 24, 24, 24], [], { inventory: full, cash: 99999 })
-    expect(buySprinkler(four)).toEqual({ ok: false, error: 'MAX_LEVEL' })
+describe('buildSprinkler', () => {
+  it('is NO_WORKSHOP without the workshop, LOCKED off the lot or on a bed with no owned tile, ALREADY_OWNED on a built bed', () => {
+    expect(buildSprinkler({ ...init, run: { ...init.run, inventory: { ...FULL }, cash: FULL.cash } }, 0)).toEqual({ ok: false, error: 'NO_WORKSHOP' })
+    const nine = withWorkshop(NO_BEDS, Array.from({ length: 9 }, createTile), { inventory: { ...FULL }, cash: FULL.cash })
+    // bed 3 has no owned tile at 9 tiles (3 × 6 = 18 > 9), and there is no bed 4 or −1
+    expect(buildSprinkler(nine, 3)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buildSprinkler(nine, 4)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buildSprinkler(nine, -1)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buildSprinkler(nine, 0.5)).toEqual({ ok: false, error: 'LOCKED' })
+    const built = withWorkshop([true, false, false, false], nine.run.tiles, { inventory: { ...FULL }, cash: FULL.cash })
+    expect(buildSprinkler(built, 0)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+  })
 
-    const s = withWorkshop([], [], { inventory: full, cash: 99999 })
-    const r = buySprinkler(s)
-    expect(r.ok && r.state.run.workshop.hoppers).toEqual([0])
+  it('pays the recipe on the build itself and lights bed 1; the milestone records; a tile bought into the bed later is irrigated at once', () => {
+    const s = withWorkshop(NO_BEDS, Array.from({ length: 9 }, createTile), { inventory: { ...FULL }, cash: FULL.cash })
+    const r = buildSprinkler(s, 1)
+    expect(r.ok && r.state.run.workshop.beds).toEqual([false, true, false, false])
     expect(r.ok && r.state.run.milestones.firstSprinkler).toBeDefined()
-    expect(r.ok && r.state.run.inventory).toEqual({ stone: 99, ironBar: 91, copperBar: 91, goldBar: 95, coal: 99 })
+    expect(r.ok && r.state.run.inventory).toEqual({ ...FULL, ironBar: 91, copperBar: 91, goldBar: 95 })
+    expect(r.ok && r.state.run.cash).toBe(FULL.cash - sprinklerCost(s.meta).cash)
+    // bed 1 covers tiles 6–11 but only 6–8 exist: tile 9 bought into it is irrigated the moment it exists (beds-only formula)
+    expect(isIrrigated(r.ok ? r.state.run : s.run, 6)).toBe(true)
+    expect(isIrrigated(r.ok ? r.state.run : s.run, 12)).toBe(false)
+    const grown = buyTile({ ...(r.ok ? r.state : s), run: { ...(r.ok ? r.state : s).run, cash: 999999 } })
+    expect(grown.ok && isIrrigated(grown.state.run, 9)).toBe(true)
+
+    const noItems = withWorkshop(NO_BEDS, s.run.tiles, { inventory: {}, cash: FULL.cash })
+    expect(buildSprinkler(noItems, 0)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    const noCash = withWorkshop(NO_BEDS, s.run.tiles, { inventory: { ...FULL }, cash: 0 })
+    expect(buildSprinkler(noCash, 0)).toEqual({ ok: false, error: 'NO_CASH' })
   })
 })
 
 describe('buyValve', () => {
-  it('is NO_WORKSHOP without the workshop, ALREADY_OWNED once bought, and pays 2 gold bars', () => {
-    expect(buyValve({ ...init, run: { ...init.run, inventory: { goldBar: 2 }, cash: 99999 } })).toEqual({ ok: false, error: 'NO_WORKSHOP' })
-    const owned = withWorkshop([24], [], { workshop: { built: true, hoppers: [24], valve: true }, inventory: { goldBar: 2 }, cash: 99999 })
-    expect(buyValve(owned)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
-    const s = withWorkshop([24], [], { inventory: { goldBar: 2 }, cash: 99999 })
-    const r = buyValve(s)
-    expect(r.ok && r.state.run.workshop.valve).toBe(true)
-    expect(r.ok && r.state.run.inventory.goldBar).toBe(0)
-    expect(r.ok && r.state.run.milestones.valve).toBeDefined()
+  it('sits LOCKED until batch 28 — with or without the workshop, owned or not', () => {
+    expect(buyValve({ ...init, run: { ...init.run, inventory: { goldBar: 2 }, cash: 99999 } })).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyValve(withWorkshop(NO_BEDS, [], { inventory: { goldBar: 2 }, cash: 99999 }))).toEqual({ ok: false, error: 'LOCKED' })
+    const owned = withWorkshop([true, false, false, false], [], { workshop: { built: true, beds: [true, ...NO_BEDS.slice(1)], valve: true } })
+    expect(buyValve(owned)).toEqual({ ok: false, error: 'LOCKED' })
   })
 })
 
-describe('fillHopper', () => {
-  it('moves coal from storage into the hopper, capped by hopper room and coal in store; FULL / NO_FUEL', () => {
-    expect(fillHopper(withWorkshop([24], [], { inventory: { coal: 5 } }), 0)).toEqual({ ok: false, error: 'FULL' })
-    expect(fillHopper(withWorkshop([20], [], { inventory: {} }), 0)).toEqual({ ok: false, error: 'NO_FUEL' })
-    const r = fillHopper(withWorkshop([20], [], { inventory: { coal: 5 } }), 0, 4)
-    expect(r.ok && [r.state.run.workshop.hoppers[0], r.state.run.inventory.coal]).toEqual([24, 1])
-    const byRoom = fillHopper(withWorkshop([23], [], { inventory: { coal: 5 } }), 0, 4)
-    expect(byRoom.ok && [byRoom.state.run.workshop.hoppers[0], byRoom.state.run.inventory.coal]).toEqual([24, 4])
-    const byCoal = fillHopper(withWorkshop([0], [], { inventory: { coal: 2 } }), 0, 4)
-    expect(byCoal.ok && [byCoal.state.run.workshop.hoppers[0], byCoal.state.run.inventory.coal]).toEqual([2, 0])
+describe('watering skips irrigated tiles', () => {
+  it('water on an irrigated tile is IRRIGATED and spends no energy; toolTargets never lists one', () => {
+    const s = withWorkshop([true, false, false, false], growingTiles([0, 0, 0, 0, 0, 0, 0, 0, 0]))
+    expect(water(s, 3)).toEqual({ ok: false, error: 'IRRIGATED' })
+    const wet = water(s, 7) // bed 1 has no sprinkler
+    expect(wet.ok).toBe(true)
+    expect(wet.ok && wet.state.run.energy).toBe(s.run.energy - 1)
+    expect(toolTargets(s, 'water')).toEqual([6, 7, 8])
+  })
+
+  it('the water worker with every tile irrigated takes no action and is paid nothing', () => {
+    const s = withWorkshop(
+      [true, true, true, true],
+      growingTiles(Array(24).fill(0)),
+      { workers: { pool: 1, assigned: { ...init.run.workers.assigned, water: 1 }, certificates: ['water'] }, cash: 100 },
+    )
+    const after = step(s, 600)
+    expect(after.run.counters.waters).toBe(0)
+    expect(after.run.lifetime.wagesPaid).toBe(0)
+    expect(after.run.cash).toBe(100)
   })
 })
 
-describe('sprinklersAct', () => {
-  it('waters the 6 driest growing tiles to iron-can moisture on the worker clock, one chunk per machine', () => {
-    // 8 growing tiles at 0.2 … 1.6 + 2 tiles that must not be touched: a mature one and a tilled one
-    const moistures = [1.6, 1.4, 1.2, 1.0, 0.8, 0.6, 0.4, 0.2]
-    const tiles = [
-      ...growingTiles(moistures),
-      { status: 'planted' as const, cropId: 'lemon' as const, growth: 360, moisture: 0.3, ticksSinceMature: 5 },
-      { status: 'tilled' as const, growth: 0, moisture: 0.1, ticksSinceMature: 0 },
-    ]
-    const s = withWorkshop([24, 24], tiles, { tick: workerActionTicks(init.meta) })
-    const { run, held } = sprinklersAct(s)
-    // machine 1 takes the 6 driest (0.2 … 1.2), machine 2 the next 2 (1.4, 1.6) — 12 covered, all at 4
-    expect(run.tiles.slice(0, 8).map((t) => t.moisture)).toEqual([4, 4, 4, 4, 4, 4, 4, 4])
-    expect(run.tiles[8].moisture).toBe(0.3)
-    expect(run.tiles[9].moisture).toBe(0.1)
-    expect(held.every((h) => !h)).toBe(true)
+describe('step with irrigated beds', () => {
+  it('an irrigated planted tile at moisture 0 grows to full and never drains; rot is unchanged', () => {
+    const s = withWorkshop([true, false, false, false], growingTiles([0, 0, 0, 0, 0, 0, 2]), { tick: 5 })
+    // lemon grows 360 ticks from 10, then rots after a 720-tick grace → tilled at step 1,071, still holding moisture 4
+    const after = step(s, 1100)
+    expect(after.run.tiles.slice(0, 6).map((t) => t.status)).toEqual(Array(6).fill('tilled'))
+    expect(after.run.tiles.slice(0, 6).every((t) => t.moisture === 4)).toBe(true)
+    // bed 1's tile kept draining: moisture 2 ran out after 2/drain = 120 growth ticks, stalled dry at growth 130
+    expect(after.run.tiles[6]).toMatchObject({ status: 'planted', growth: 130, moisture: 0 })
   })
 
-  it('does nothing off the worker clock except the pump: coal burns 1 per machine every 300 ticks', () => {
-    const tiles = growingTiles([1, 1, 1])
-    const mid = sprinklersAct(withWorkshop([7, 3], tiles, { tick: 6 }))
-    expect(mid.run.tiles.map((t) => t.moisture)).toEqual([1, 1, 1])
-    expect(mid.run.workshop.hoppers).toEqual([7, 3])
-    const burn = sprinklersAct(withWorkshop([7, 3, 0], tiles, { tick: sprinklerCoalTicks() }))
-    expect(burn.run.tiles.map((t) => t.moisture)).toEqual([4, 4, 4]) // tick 300 is also a worker clock tick
-    expect(burn.run.workshop.hoppers).toEqual([6, 2, 0])
-  })
-
-  it('a machine with an empty hopper waters nothing (its tiles stall, never die)', () => {
-    const tiles = growingTiles([1, 1, 1, 1, 1, 1, 1])
-    const { run } = sprinklersAct(withWorkshop([24, 0], tiles, { tick: 5 }))
-    // machine 1 waters the first 6; machine 2 is dry, so tile 7 (moisture 1, the 7th driest) keeps draining
-    expect(run.tiles.map((t) => t.moisture)).toEqual([4, 4, 4, 4, 4, 4, 1])
-  })
-
-  it('with the valve, a stalled machine holds every growing tile below the fill (no drain this tick); without it they drain', () => {
-    const tiles = growingTiles([2, 2, 2, 2, 2, 2, 2, 3])
-    const stalled = withWorkshop([0], tiles, { workshop: { built: true, hoppers: [0], valve: true }, tick: 1 })
-    const { run, held } = sprinklersAct(stalled)
-    expect(run.tiles.map((t) => t.moisture)).toEqual([2, 2, 2, 2, 2, 2, 2, 3])
-    expect(held).toEqual([true, true, true, true, true, true, true, true])
-    // held tiles skip the drain but keep growing; growth 10 → 11 everywhere (moisture > 0)
-    const stepped = step({ ...stalled, run }, 1)
-    expect(stepped.run.tiles.map((t) => t.moisture)).toEqual([2, 2, 2, 2, 2, 2, 2, 3])
-    expect(stepped.run.tiles.every((t) => t.growth === 11)).toBe(true)
-    const noValve = step(withWorkshop([0], tiles, { tick: 1 }), 1)
-    expect(noValve.run.tiles.map((t) => t.moisture)).toEqual(Array(8).fill(2 - drain).map((m, i) => (i === 7 ? 3 - drain : m)))
-  })
-})
-
-describe('sprinklerTargets', () => {
-  it('lists the tiles machine i waters now, driest first, after earlier machines took their chunks', () => {
-    const tiles = growingTiles([3, 0.5, 4, 1])
-    expect(sprinklerTargets(withWorkshop([24, 24], tiles), 0)).toEqual([1, 3, 0])
-    expect(sprinklerTargets(withWorkshop([24, 24], tiles), 1)).toEqual([])
-    // a dry machine waters nothing
-    expect(sprinklerTargets(withWorkshop([0], tiles), 0)).toEqual([])
-  })
-})
-
-describe('step with sprinklers', () => {
-  const moistures = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 2]
-
-  it('a sprinkler covers watering through step and during offline catch-up like a worker', () => {
-    const s = withWorkshop([24], growingTiles(moistures), { tick: 5 })
+  it('an irrigated tile at moisture 0 grows on the very first step; a dry tile outside the bed drains', () => {
+    const s = withWorkshop([true, false, false, false], growingTiles([0, 0, 0, 0, 0, 0, 2]), { tick: 5 })
     const after = step(s, 1)
-    // watered to the fill this tick, then the tick's own drain applies
-    expect(after.run.tiles.slice(0, 6).map((t) => t.moisture)).toEqual(Array(6).fill(4 - drain))
-    expect(after.run.workshop.hoppers).toEqual([24]) // no burn before tick 300
-    // 8 h offline from full hoppers: the pump burns 8 × 12 coal = 96 > 24, so it stalls after 2 h. The machine
-    // covered watering while it ran — every tile finished its whole grow-and-rot cycle (tilled again), long before
-    // the coal ran out, so the stall cost nothing here
-    const away = catchUp(withWorkshop([24], growingTiles(moistures), { tick: 5 }), 8 * 3600 * 1000)
-    expect(away.run.workshop.hoppers).toEqual([0])
-    expect(away.run.tiles.every((t) => t.status === 'tilled')).toBe(true)
+    expect(after.run.tiles[0]).toMatchObject({ growth: 11, moisture: 4 })
+    expect(after.run.tiles[6]).toMatchObject({ growth: 11, moisture: 2 - drain })
   })
 
-  it('step(s, n) = n × step(s, 1) with the pump, a stalled machine and the valve on', () => {
-    const s = withWorkshop([24, 0, 5], growingTiles([...moistures, ...moistures, ...moistures, ...moistures].slice(0, 24)), {
-      workshop: { built: true, hoppers: [24, 0, 5], valve: true },
-      tick: 4,
+  it('step(s, n) = n × step(s, 1) with 2 built beds (batch 26 pin c)', () => {
+    const moistures = [0.4, 0.4, 0.4, 0.4, 0.4, 0.4, 2, 0, 1, 3, 0.5, 4]
+    const s = withWorkshop([true, true, false, false], growingTiles(moistures), {
       workers: { pool: 1, assigned: { ...init.run.workers.assigned, fuel: 1 }, certificates: ['fuel'] },
       inventory: { coal: 10 },
       cash: 100,
+      tick: 4,
     })
     let one = s
     for (let i = 0; i < 900; i++) one = step(one, 1)

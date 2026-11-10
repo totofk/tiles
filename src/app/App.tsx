@@ -22,7 +22,7 @@ import { Workshop } from './Workshop'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, watered, minerActed, frozen } = useGame()
+  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, minerActed, frozen } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -158,7 +158,7 @@ export default function App() {
             <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
           </>
         )}
-        <FarmGrid state={state} onTap={onTap} acted={acted} watered={watered} />
+        <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
         {!farmTab && (
           <>
             <DigSeeds act={act} />

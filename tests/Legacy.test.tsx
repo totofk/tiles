@@ -26,7 +26,7 @@ const atGate = (): GameState => {
       ...s.run,
       lifetime: { ...s.run.lifetime, cashEarned: 640_000 },
       workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
-      workshop: { built: true, hoppers: [5], valve: false },
+      workshop: { built: true, beds: [true, false, false, false], valve: false },
       stars: 37,
       orders: { unlocked: true, slots: 4, offers: [] },
     },

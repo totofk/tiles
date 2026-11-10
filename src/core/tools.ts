@@ -5,6 +5,7 @@ import type { CropId } from './data/crops'
 import type { ToolJob } from './data/tools'
 import type { GameState, RunState } from './state'
 import { isMature } from './tile'
+import { isIrrigated } from './workshop'
 
 // A tool press is the job's manual action applied to tiles in priority order, so it costs exactly what the same
 // taps would. Level 1 = 1 tile, level 2 = toolCount tiles, level 3 = every eligible tile.
@@ -40,8 +41,9 @@ export function toolTargets(state: GameState, job: ToolJob): number[] {
     case 'harvest':
       return all.filter((i) => isMature(tiles[i], state)).sort((a, b) => tiles[b].ticksSinceMature - tiles[a].ticksSinceMature)
     case 'water':
+      // a bed with a sprinkler holds its moisture by itself, so no watering act ever targets its tiles
       return all
-        .filter((i) => tiles[i].status === 'planted' && !isMature(tiles[i], state) && tiles[i].moisture < full)
+        .filter((i) => tiles[i].status === 'planted' && !isMature(tiles[i], state) && tiles[i].moisture < full && !isIrrigated(state.run, i))
         .sort((a, b) => tiles[a].moisture - tiles[b].moisture)
     case 'plant':
       return all.filter((i) => tiles[i].status === 'tilled')

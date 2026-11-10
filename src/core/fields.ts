@@ -46,12 +46,12 @@ function withCohorts(f: Fields, cohorts: Cohort[]): Fields {
   }
 }
 
-/** the unlock's gates: planter and harvester certificates owned, watering covered by ≥ 1 sprinkler */
+/** the unlock's gates: planter and harvester certificates owned, watering covered by ≥ 1 bed sprinkler */
 export function fieldsGates(run: RunState): { plant: boolean; harvest: boolean; water: boolean } {
   return {
     plant: run.workers.certificates.includes('plant'),
     harvest: run.workers.certificates.includes('harvest'),
-    water: run.workshop.built && run.workshop.hoppers.length >= 1,
+    water: run.workshop.built && run.workshop.beds.some(Boolean),
   }
 }
 

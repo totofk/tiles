@@ -48,7 +48,7 @@ function withFields(count = 0, extra: Partial<GameState['run']> = {}, f: Partial
       ...init.run,
       fields: { ...init.run.fields, unlocked: true, count, ...f },
       workers: { ...init.run.workers, certificates: [...init.run.workers.certificates, 'plant', 'harvest'] },
-      workshop: { built: true, hoppers: [24], valve: false },
+      workshop: { built: true, beds: [true, false, false, false], valve: false },
       ...extra,
     },
   }
@@ -79,7 +79,7 @@ describe('unlockFields', () => {
     const certs = (jobs: GameState['run']['workers']['certificates']) => ({ ...init.run.workers, certificates: jobs })
     expect(fieldsGates(init.run)).toEqual({ plant: false, harvest: false, water: false })
     expect(unlockFields(init)).toEqual({ ok: false, error: 'LOCKED' })
-    const withMachines = { ...init, run: { ...init.run, workshop: { built: true, hoppers: [24], valve: false } } }
+    const withMachines = { ...init, run: { ...init.run, workshop: { built: true, beds: [true, false, false, false], valve: false } } }
     expect(fieldsGates(withMachines.run)).toEqual({ plant: false, harvest: false, water: true })
     const both = { ...withMachines, run: { ...withMachines.run, workers: certs(['plant', 'harvest']) } }
     expect(fieldsGates(both.run)).toEqual({ plant: true, harvest: true, water: true })
@@ -324,7 +324,7 @@ describe('step identity over cohorts', () => {
         lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
         inventory: { coal: 10 },
         workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'harvest'] },
-        workshop: { built: true, hoppers: [24], valve: false },
+        workshop: { built: true, beds: [true, false, false, false], valve: false },
         orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true }] },
         fields: {
           ...init.run.fields,
@@ -559,7 +559,7 @@ describe('step identity with machines', () => {
         lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
         inventory: { coal: 50 },
         workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'harvest'] },
-        workshop: { built: true, hoppers: [24], valve: false },
+        workshop: { built: true, beds: [true, false, false, false], valve: false },
         orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true }] },
         fields: {
           ...init.run.fields,
