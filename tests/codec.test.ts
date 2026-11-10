@@ -21,14 +21,16 @@ import v15Raw from './fixtures/save-v15.json?raw'
 import v16Raw from './fixtures/save-v16.json?raw'
 import v17Raw from './fixtures/save-v17.json?raw'
 import v18Raw from './fixtures/save-v18.json?raw'
+import v19Raw from './fixtures/save-v19.json?raw'
 import codeV13 from './fixtures/code-v13.txt?raw'
 import codeV14 from './fixtures/code-v14.txt?raw'
 import codeV15 from './fixtures/code-v15.txt?raw'
 import codeV16 from './fixtures/code-v16.txt?raw'
 import codeV17 from './fixtures/code-v17.txt?raw'
 import codeV18 from './fixtures/code-v18.txt?raw'
+import codeV19 from './fixtures/code-v19.txt?raw'
 
-const fixtures = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13Raw, v14Raw, v15Raw, v16Raw, v17Raw, v18Raw] as const
+const fixtures = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13Raw, v14Raw, v15Raw, v16Raw, v17Raw, v18Raw, v19Raw] as const
 
 /** the legacy plain-base64 export the pre-batch-23 SaveTransfer produced (standard alphabet, padded) */
 function legacyCode(saveFile: Save): string {
@@ -39,7 +41,7 @@ function legacyCode(saveFile: Save): string {
 }
 
 describe('encodeSave / decodeSave', () => {
-  it('round-trips every fixture save and a fresh v19 deepEqual', () => {
+  it('round-trips every fixture save and a fresh v20 deepEqual', () => {
     const saves: Save[] = fixtures.map((raw) => deserialize(raw)!)
     saves.push(JSON.parse(serialize(createInitialState(), 123)) as Save)
     for (const [i, save] of saves.entries()) {
@@ -115,6 +117,7 @@ describe('frozen export fixtures (v13–v18)', () => {
     16: [v16Raw, codeV16],
     17: [v17Raw, codeV17],
     18: [v18Raw, codeV18],
+    19: [v19Raw, codeV19],
   }
   for (const [v, [raw, code]] of Object.entries(frozen).map(([n, pair]) => [Number(n), pair] as const)) {
     it(`code-v${v}.txt decodes to save-v${v}.json migrated, and encode is byte-stable`, () => {

@@ -18,13 +18,14 @@ import v15 from './fixtures/save-v15.json?raw'
 import v16 from './fixtures/save-v16.json?raw'
 import v17 from './fixtures/save-v17.json?raw'
 import v18 from './fixtures/save-v18.json?raw'
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, deedsFor, energyMax, loanDebtPerTick, multiplier } from '../src/core/balance'
+import v19 from './fixtures/save-v19.json?raw'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier } from '../src/core/balance'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
 import { sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import type { GameState } from '../src/core/state'
 import { certificateUnlocked, freeWorkers } from '../src/core/workers'
-import { dig } from '../src/core/mining'
+import { bagCount, dig } from '../src/core/mining'
 import { createFields, createFurnace, createInitialMeta, createInitialState, createMachines, createTile, createWorkshop } from '../src/core/state'
 import { step } from '../src/core/step'
 import { buildWorkshop } from '../src/core/workshop'
@@ -80,6 +81,30 @@ const v19Run = (run: { market: Record<string, number>; fields: { planted: Record
   fields: { ...run.fields, planted: { ...run.fields.planted, ...v19Zeros } },
 })
 const v12Run = (run: { tick: number }) => ({ market: createInitialState().run.market, milestones: { trackingStarted: run.tick } })
+/** a pre-v20 run: its workshop is the old hoppers shape */
+type HopperRun = {
+  cash: number
+  bagCapacity: number
+  inventory: Record<string, number | undefined>
+  upgrades: { sellPrice: number }
+  workshop: { built: boolean; hoppers: number[]; valve: boolean }
+}
+/** v19 → v20 expected run: the workshop's hoppers become beds (any machine already kept all 24 tiles wet); the
+ * hopper coal moves into storage up to the bag's room (clamped at 0 — a bag can sit above its cap) and the
+ * overflow is sold at coal's sell price into cash */
+function v20Run<T extends HopperRun>(run: T, meta: GameState['meta']) {
+  const { hoppers, ...workshop } = run.workshop
+  const coal = hoppers.reduce((a, b) => a + b, 0)
+  const bag = Object.values(run.inventory).reduce<number>((a, b) => a + (b ?? 0), 0)
+  const moved = Math.max(0, Math.min(coal, run.bagCapacity - bag))
+  const refund = (coal - moved) * itemSellPrice('coal', meta, run.upgrades.sellPrice)
+  return {
+    ...run,
+    cash: run.cash + refund,
+    inventory: moved > 0 || run.inventory.coal !== undefined ? { ...run.inventory, coal: (run.inventory.coal ?? 0) + moved } : run.inventory,
+    workshop: { ...workshop, beds: hoppers.length >= 1 ? [true, true, true, true] : [false, false, false, false] },
+  }
+}
 /** v12 → v13: the 📋 Noticeboard not bought, no ⭐, no orders completed; v13 → v14: no gold yet */
 const v13Lifetime = { ordersCompleted: 0, starsEarned: 0 }
 const v14Lifetime = { ...v13Lifetime, goldBars: 0, goldBarsSmelted: 0 }
@@ -115,7 +140,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 19, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 20, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -378,10 +403,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v18 and v19 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v19 and v20 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(19)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 20 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(20)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 21 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -470,7 +495,7 @@ describe('serialize / deserialize', () => {
   it('migrates a real v1 save (6 tiles, energy above the new max) to v12', () => {
     const old = JSON.parse(v1).state
     const save = deserialize(v1)!
-    expect(save.version).toBe(19)
+    expect(save.version).toBe(20)
     expect(save.savedAtMs).toBe(1_700_000_000_000)
     const { run, meta } = save.state
     expect(meta).toEqual(v18Meta(v12Meta(old.meta)))
@@ -558,7 +583,7 @@ describe('save v13: the 📋 Noticeboard', () => {
     expect(old.state.run.milestones).toMatchObject({ trackingStarted: 7210, tiles12: 7210 })
     const save = deserialize(v12)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
       state: { meta: v18Meta(old.state.meta), run: v19Run({ ...old.state.run, ...v13Run(old.state.run), workshop: createWorkshop(), fields: createFields() }) },
     })
@@ -599,7 +624,7 @@ describe('save v14: the gold tier', () => {
     expect(old.state.run).toMatchObject({ vein: { level: 3 }, pickaxe: { tier: 'iron' }, orders: { unlocked: true }, stars: 5 })
     const save = deserialize(v13)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
       state: {
         meta: v18Meta(old.state.meta),
@@ -623,7 +648,7 @@ describe('save v15: the workshop', () => {
     expect(old.state.run).toMatchObject({ vein: { level: 4 }, pickaxe: { tier: 'gold' }, orders: { unlocked: true } })
     const save = deserialize(v14)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
       state: { meta: v18Meta(old.state.meta), run: v19Run({ ...old.state.run, workshop: createWorkshop(), fields: createFields() }) },
     })
@@ -640,9 +665,9 @@ describe('save v16: the fields', () => {
     expect(old.state.run).toMatchObject({ workshop: { built: true, hoppers: [23, 11], valve: true }, orders: { unlocked: true } })
     const save = deserialize(v15)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
-      state: { meta: v18Meta(old.state.meta), run: v19Run({ ...old.state.run, fields: createFields() }) },
+      state: { meta: v18Meta(old.state.meta), run: v19Run({ ...v20Run(old.state.run, old.state.meta), fields: createFields() }) },
     })
     // the migrated run plays on, and the fields gate is open (both certificates + a sprinkler): it fails only on
     // materials, never LOCKED
@@ -658,9 +683,9 @@ describe('save v17: the machines', () => {
     expect(old.state.run).toMatchObject({ fields: { unlocked: true, count: 320, pipes: 2 } })
     const save = deserialize(v16)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
-      state: { meta: v18Meta(old.state.meta), run: v19Run({ ...old.state.run, fields: { ...old.state.run.fields, machines: createMachines() } }) },
+      state: { meta: v18Meta(old.state.meta), run: v19Run({ ...v20Run(old.state.run, old.state.meta), fields: { ...old.state.run.fields, machines: createMachines() } }) },
     })
     // the migrated run plays on, and the harvester's gate is open (the certificate is held): it fails only on materials
     expect(step(save.state, 120).run.tick).toBe(old.state.run.tick + 120)
@@ -676,9 +701,9 @@ describe('save v18: the deed ledger', () => {
     expect(old.state.run.lifetime.cashEarned).toBe(780_000)
     const save = deserialize(v17)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
-      state: { meta: v18Meta(old.state.meta), run: v19Run(old.state.run) },
+      state: { meta: v18Meta(old.state.meta), run: v19Run(v20Run(old.state.run, old.state.meta)) },
     })
     // the migrated run sits at the sale gate (8 lifetime deeds, farm jobs covered) and sells 8 + ⭐1
     expect(deedsFor(save.state.run.lifetime.cashEarned)).toBe(8)
@@ -695,9 +720,9 @@ describe('save v19: the four new crops', () => {
     expect(old.state.run.licenses).toEqual(['radish', 'chilli', 'pumpkin', 'lemon'])
     const save = deserialize(v18)!
     expect(save).toEqual({
-      version: 19,
+      version: 20,
       savedAtMs: old.savedAtMs,
-      state: { meta: old.state.meta, run: v19Run(old.state.run) },
+      state: { meta: old.state.meta, run: v19Run(v20Run(old.state.run, old.state.meta)) },
     })
     // the run plays on, and the tomato license is buyable (never granted)
     expect(step(save.state, 60).run.tick).toBe(old.state.run.tick + 60)
@@ -705,9 +730,80 @@ describe('save v19: the four new crops', () => {
   })
 })
 
+describe('save v20: bed sprinklers', () => {
+  it('every fixture v1 … v19 migrates to v20', () => {
+    for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19]) {
+      expect(deserialize(raw)!.version).toBe(20)
+    }
+  })
+
+  it('migrates the real v19 fixture (2 sprinklers, valve, 24 tiles): all four beds, hopper coal sold, nothing earned lost', () => {
+    const old = JSON.parse(v19)
+    expect(old.version).toBe(19)
+    expect(old.state.run.workshop).toEqual({ built: true, hoppers: [18, 14], valve: true })
+    const save = deserialize(v19)!
+    expect(save).toEqual({ version: 20, savedAtMs: old.savedAtMs, state: { meta: old.state.meta, run: v20Run(old.state.run, old.state.meta) } })
+    const run = save.state.run
+    // one machine already kept all 24 tiles wet, so any sprinkler owner gets all four beds; the valve is kept
+    expect(run.workshop).toEqual({ built: true, beds: [true, true, true, true], valve: true })
+    // 32 hopper coal, room for 2: the rest is sold at coal's sell price into cash (a refund, not earnings)
+    const room = old.state.run.bagCapacity - bagCount(old.state.run)
+    expect([room, run.inventory.coal]).toEqual([2, old.state.run.inventory.coal + 2])
+    expect(run.cash).toBe(old.state.run.cash + 30 * itemSellPrice('coal', old.state.meta, old.state.run.upgrades.sellPrice))
+    expect(run.cash).toBeGreaterThanOrEqual(old.state.run.cash)
+    expect([run.tiles.length, run.licenses, run.workers.certificates, run.counters.sales, run.lifetime.cashEarned]).toEqual([
+      old.state.run.tiles.length,
+      old.state.run.licenses,
+      old.state.run.workers.certificates,
+      old.state.run.counters.sales,
+      old.state.run.lifetime.cashEarned,
+    ])
+    // batch 26 pin (a): a migrated sprinkler owner with every tile planted and no water worker has no dry tile 8 h on
+    const planted = { ...save.state, run: { ...run, workers: { ...run.workers, assigned: { ...run.workers.assigned, water: 0 } }, tiles: run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, moisture: 0, growth: 0, ticksSinceMature: 0 })) } }
+    const after = step(planted, 8 * 3600)
+    expect(after.run.tiles.every((t) => t.status !== 'planted' || t.moisture > 0)).toBe(true)
+    expect(after.run.tiles.some((t) => t.growth > 0)).toBe(true)
+  })
+
+  it('a forged v19 with hoppers [5, 24] and an empty bag gets all four beds and all 29 coal into storage', () => {
+    const fresh = JSON.parse(serialize(createInitialState(), 0))
+    fresh.version = 19
+    fresh.state.run.workshop = { built: true, hoppers: [5, 24], valve: false }
+    fresh.state.run.inventory = {}
+    fresh.state.run.bagCapacity = 60
+    fresh.state.run.upgrades = { ...fresh.state.run.upgrades, sellPrice: 3 }
+    const save = deserialize(JSON.stringify(fresh))!
+    expect(save.state.run.workshop.beds).toEqual([true, true, true, true])
+    expect(save.state.run.inventory.coal).toBe(29)
+    expect(save.state.run.cash).toBe(fresh.state.run.cash)
+  })
+
+  it('a bag one slot short of full caps the coal moved and sells the overflow into cash', () => {
+    const fresh = JSON.parse(serialize(createInitialState(), 0))
+    fresh.version = 19
+    fresh.state.run.workshop = { built: true, hoppers: [10, 10], valve: false }
+    fresh.state.run.inventory = { stone: 59 }
+    fresh.state.run.bagCapacity = 60
+    fresh.state.run.upgrades = { ...fresh.state.run.upgrades, sellPrice: 3 }
+    const save = deserialize(JSON.stringify(fresh))!
+    expect(save.state.run.inventory).toEqual({ stone: 59, coal: 1 })
+    expect(save.state.run.cash).toBe(fresh.state.run.cash + 19 * itemSellPrice('coal', fresh.state.meta, 3))
+  })
+
+  it('a v19 workshop with no machines gets no beds', () => {
+    const fresh = JSON.parse(serialize(createInitialState(), 0))
+    fresh.version = 19
+    fresh.state.run.workshop = { built: true, hoppers: [], valve: true }
+    const save = deserialize(JSON.stringify(fresh))!
+    expect(save.state.run.workshop).toEqual({ built: true, beds: [false, false, false, false], valve: true })
+    expect(save.state.run.inventory).toEqual({})
+    expect(save.state.run.cash).toBe(fresh.state.run.cash)
+  })
+})
+
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(19)
+    expect(SAVE_VERSION).toBe(20)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
@@ -843,6 +939,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     [14, v14],
     [15, v15],
     [18, v18],
+    [19, v19],
   ])('keeps the raw v%i save under tiles.save.backup.v%i before migrating it', (version, raw) => {
     const store = memoryStore()
     store.setItem(SAVE_KEY, raw)

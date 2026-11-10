@@ -120,11 +120,11 @@ export type Furnace = {
 }
 
 /**
- * The workshop (batch 17): built once, then sprinklers are bought one at a time. hoppers = coal in each machine's
- * hopper (one entry per machine, filled by the fuel loader); valve = the one-time smart valve that holds a stalled
- * machine's tiles at its moisture until coal returns.
+ * The workshop (batch 17, bed sockets since batch 26): built once, then one permanent sprinkler per bed socket.
+ * beds = one socket per bed (4 = SPRINKLER_MAX); a built bed's six tiles hold full water forever, no coal. valve =
+ * the one-time smart valve (inert until Fields get pressure, batch 28; an owned valve stays owned).
  */
-export type Workshop = { built: boolean; hoppers: number[]; valve: boolean }
+export type Workshop = { built: boolean; beds: boolean[]; valve: boolean }
 
 /** one Fields planting action: `count` tiles of `crop` ripening at `readyTick` (stalled cohorts' readyTick pauses) */
 export type Cohort = { crop: CropId; count: number; readyTick: number }
@@ -270,9 +270,9 @@ export function createFurnace(): Furnace {
   return { built: false, oreKind: 'copperOre', fire: 0, ore: 0, progress: 0, ready: 0, smart: false, levels: { fireCap: 0, batch: 0 } }
 }
 
-/** a workshop not yet built: no machines, no valve */
+/** a workshop not yet built: four empty bed sockets, no valve */
 export function createWorkshop(): Workshop {
-  return { built: false, hoppers: [], valve: false }
+  return { built: false, beds: [false, false, false, false], valve: false }
 }
 
 /** fields not yet unlocked: no tiles, no cohorts, no pipes, no plant crop, no accrued coal */

@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, energyMax } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, energyMax, itemSellPrice } from '../core/balance'
 import type { CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
@@ -10,7 +10,6 @@ import {
   createInitialState,
   createMachines,
   createTile,
-  createWorkshop,
   type Counters,
   type GameState,
   type Lifetime,
@@ -20,7 +19,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 19
+export const SAVE_VERSION = 20
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -112,20 +111,29 @@ type RunV13 = Omit<GameState['run'], 'lifetime' | 'workshop' | 'fields'> & { lif
 type SaveV13 = { version: 13; savedAtMs: number; state: { meta: MetaV12; run: RunV13 } }
 type RunV14 = Omit<GameState['run'], 'workshop' | 'fields'>
 type SaveV14 = { version: 14; savedAtMs: number; state: { meta: MetaV12; run: RunV14 } }
-type RunV15 = Omit<GameState['run'], 'fields'>
+/** the pre-v20 workshop: sprinklers as coal-burning machines, one hopper each */
+type WorkshopV19 = { built: boolean; hoppers: number[]; valve: boolean }
+type RunV19 = Omit<GameState['run'], 'workshop'> & { workshop: WorkshopV19 }
+type RunV15 = Omit<GameState['run'], 'fields' | 'workshop'> & { workshop: WorkshopV19 }
 type SaveV15 = { version: 15; savedAtMs: number; state: { meta: MetaV12; run: RunV15 } }
-type RunV16 = Omit<GameState['run'], 'fields'> & { fields: Omit<GameState['run']['fields'], 'machines'> }
+type RunV16 = Omit<GameState['run'], 'fields' | 'workshop'> & {
+  fields: Omit<GameState['run']['fields'], 'machines'>
+  workshop: WorkshopV19
+}
 type SaveV16 = { version: 16; savedAtMs: number; state: { meta: MetaV12; run: RunV16 } }
-type SaveV17 = { version: 17; savedAtMs: number; state: { meta: MetaV12; run: GameState['run'] } }
+type RunV17 = Omit<GameState['run'], 'workshop'> & { workshop: WorkshopV19 }
+type SaveV17 = { version: 17; savedAtMs: number; state: { meta: MetaV12; run: RunV17 } }
 /** v18's four crops; a v19 run's market / planted tables hold all eight keys */
 type V18CropId = 'radish' | 'chilli' | 'pumpkin' | 'lemon'
-type RunV18 = Omit<GameState['run'], 'market' | 'fields'> & {
+type RunV18 = Omit<GameState['run'], 'market' | 'fields' | 'workshop'> & {
   market: Record<V18CropId, number>
   fields: Omit<GameState['run']['fields'], 'planted'> & { planted: Record<V18CropId, number> }
+  workshop: WorkshopV19
 }
 type SaveV18 = { version: 18; savedAtMs: number; state: { meta: GameState['meta']; run: RunV18 } }
-type SaveV19 = { version: 19; savedAtMs: number; state: GameState }
-export type Save = SaveV19
+type SaveV19 = { version: 19; savedAtMs: number; state: { meta: GameState['meta']; run: RunV19 } }
+type SaveV20 = { version: 20; savedAtMs: number; state: GameState }
+export type Save = SaveV20
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -375,7 +383,8 @@ function migrateV13(save: SaveV13): SaveV14 {
 // v14 → v15: the workshop (batch 17). Not built, no machines, no valve — every workshop purchase is a new buy.
 function migrateV14(save: SaveV14): SaveV15 {
   const { meta, run } = save.state
-  return { version: 15, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, workshop: createWorkshop() } } }
+  // the v15-era shape: sprinklers as coal-burning machines, one hopper each (bed sockets only from v20)
+  return { version: 15, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, workshop: { built: false, hoppers: [], valve: false } } } }
 }
 
 // v15 → v16: the 🚜 Fields (batch 18). Not unlocked, no tiles, no pipes — every fields purchase is a new buy; the
@@ -417,21 +426,53 @@ function migrateV18(save: SaveV18): SaveV19 {
   }
 }
 
+// v19 → v20: sprinklers become permanent bed sockets (batch 26). One machine already kept all 24 tiles wet
+// (72 waterings/min against a need of 6/min), so any sprinkler owner gets all four beds. The hopper coal moves
+// into storage up to the bag's capacity and the overflow is sold at coal's sell price into cash — a refund of a
+// purchase the new sprinklers no longer need, not earnings: counters.sales and lifetime.cashEarned stay. The
+// valve is kept as is (it gets its job when Fields get pressure, batch 28).
+function migrateV19(save: SaveV19): SaveV20 {
+  const { meta, run } = save.state
+  const { hoppers, ...workshop } = run.workshop
+  void hoppers
+  const beds = hoppers.length >= 1 ? [true, true, true, true] : [false, false, false, false]
+  const coal = hoppers.reduce((a, b) => a + b, 0)
+  // the bag can sit above its cap (the v17 fixture: 61 of 60), so the room is clamped at 0
+  const bag = Object.values(run.inventory).reduce((a, b) => a + (b ?? 0), 0)
+  const moved = Math.max(0, Math.min(coal, run.bagCapacity - bag))
+  const refund = (coal - moved) * itemSellPrice('coal', meta, run.upgrades.sellPrice)
+  const inventory = moved > 0 || run.inventory.coal !== undefined ? { ...run.inventory, coal: (run.inventory.coal ?? 0) + moved } : run.inventory
+  return {
+    version: 20,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        cash: refund > 0 ? run.cash + refund : run.cash,
+        inventory,
+        workshop: { ...workshop, beds },
+      },
+    },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 19) return data as SaveV19
-  if (data.version === 18) return migrateV18(data as SaveV18)
-  if (data.version === 17) return migrateV18(migrateV17(data as SaveV17))
-  if (data.version === 16) return migrateV18(migrateV17(migrateV16(data as SaveV16)))
-  if (data.version === 15) return migrateV18(migrateV17(migrateV16(migrateV15(data as SaveV15))))
-  if (data.version === 14) return migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(data as SaveV14)))))
-  if (data.version === 13) return migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13))))))
+  if (data.version === 20) return data as SaveV20
+  if (data.version === 19) return migrateV19(data as SaveV19)
+  if (data.version === 18) return migrateV19(migrateV18(data as SaveV18))
+  if (data.version === 17) return migrateV19(migrateV18(migrateV17(data as SaveV17)))
+  if (data.version === 16) return migrateV19(migrateV18(migrateV17(migrateV16(data as SaveV16))))
+  if (data.version === 15) return migrateV19(migrateV18(migrateV17(migrateV16(migrateV15(data as SaveV15)))))
+  if (data.version === 14) return migrateV19(migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(data as SaveV14))))))
+  if (data.version === 13) return migrateV19(migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(data as SaveV13)))))))
   const v12 = toV12(data)
-  return v12 && migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12)))))))
+  return v12 && migrateV19(migrateV18(migrateV17(migrateV16(migrateV15(migrateV14(migrateV13(migrateV12(v12))))))))
 }
 
 /** v1 … v12 up to v12; null for anything else */
