@@ -348,8 +348,9 @@ button:disabled {
   grid-template-columns: 1fr;
   gap: var(--s4);
 }
-/* pairs from a 400 px container (batch 27: 480 left 24 tiles scrolling 210 px at 1024 × 768; paired at 54 px fits) */
-@container (min-width: 400px) {
+/* pairs from a 380 px container (batch 27: 480 left 24 tiles scrolling 210 px at 1024 × 768; with the Tractor the Home stop's
+   container is 396 px, so 400 still stacked it and scrolled 71 px; paired at 52–54 px fits with no scroll) */
+@container (min-width: 380px) {
   .beds {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     --cols: 6;

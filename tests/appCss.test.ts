@@ -50,9 +50,9 @@ describe('app.css shared columns (batch 24.1)', () => {
 })
 
 describe('app.css beds layout (batch 25, re-pinned batch 27)', () => {
-  it('.beds pairs the beds in a 400px container query and .bed is a 3-column grid', () => {
-    expect(css).toContain('@container (min-width: 400px)')
-    expect(css).toMatch(/@container \(min-width: 400px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
+  it('.beds pairs the beds in a 380px container query and .bed is a 3-column grid', () => {
+    expect(css).toContain('@container (min-width: 380px)')
+    expect(css).toMatch(/@container \(min-width: 380px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
     expect(css).toMatch(/\.bed\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s)
   })
 
