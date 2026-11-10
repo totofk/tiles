@@ -510,3 +510,52 @@ the big crafting round.
 - **Every batch adds its own line** at the top of `CHANGELOG` (`src/app/changelog.ts`); a test fails when a
   `## Batch N results` heading in `docs/PLAN.md` has no entry, so it cannot be forgotten. The tab choice is not
   persisted (opens on Planned) — cosmetic, no `tiles.ui` change.
+
+## Big farm: blocks, sockets, plots, one surface (batches 25–31, 2026-11-10, Toon "pick หมด")
+
+Full list and reasons: `docs/research/bigfarm-decisions.md`. Base = Design C (`docs/research/bigfarm-design-c.md`).
+Research and earlier rounds: `bigfarm-design.md` (A), `-b.md`, `-d.md`, `placement-scaleview.md`,
+`field-watering.md`, `incremental-community.md`.
+
+- **LOCKED by Toon (design around these):**
+  - L1: a sprinkler is placed, cannot move, and its tiles always have full water.
+  - L2: the Tractor unlock changes the MAIN UI (zoom out to an estate), not a side card.
+  - L3: systems may change but must not drift far; the test is "always something to do".
+  - L4: every object answers The Door Problem (Liz England 2014) questions.
+- **Block + socket rule.** Position only means something inside fixed-shape blocks. A block's shape is derived from
+  the index and flows with the viewport, never from rows. Everything placeable is built on a socket that the block
+  shows before purchase. A socket is paid on Build, is permanent, and has no placement mode. Why: free placement on
+  24 identical tiles has one right answer and only adds the power to be wrong forever (lossy placement is what
+  sprinkler players rage about). Real fixed irrigation is zoned plumbing with risers, so a socket is the real thing.
+  This replaces the `ceil(sqrt(n))` grid, the root of "no rows".
+- **Home lot = 4 beds of 3×2.** Bed k = tiles 6k…6k+5. A sprinkler is built on a bed's socket (max 4, recipe
+  unchanged) and its tiles never need water: no moisture bar, and the can, tool and worker skip them. No upkeep:
+  hoppers, the pump's coal and the loader's hopper branch are deleted. Why: coal was 32 of 372 coal/h and its only
+  effect was a stall. Any save with a sprinkler gets all 4 beds, because one machine already watered all 24 tiles
+  (iron moisture 4 × 60 ticks against 6 tiles per 5 s).
+- **Fields = plots and fields.**
+  - A plot is 10 tiles, the unit of land and of work. A field is 5 plots, the unit of water and of crop.
+  - Each field has one pivot, built on its socket. A dry field cannot be sown.
+  - Pump tiers (today's pipe recipes) cap wet fields at 2 / 6 / 12 / 20, and a field the pump cannot feed cannot
+    be started.
+  - Plots replace cohorts, with absolute ripening. The prefix coverage rule and `coalCarry` are deleted.
+  - Field 1 arrives with the Tractor, already plumbed.
+- **Coal = pressure, fields only.**
+  - A tank with coal → field growth ×2; empty → ×1. Fields never dry out and never stall.
+  - The tank holds 8 h at the pump's cap, and the fuel loader feeds it.
+  - The smart valve is kept and gets a new job: no idle burn. It is not refunded.
+  - Pressure ships together with plots, so there is never a release where ×2 is free.
+- **Who picks the crop:** chips by hand (marginal 💰/h shown) → 🧑‍💼 Manager worker (certificate, wage, pool slot).
+  Seeders and planters never decide. Why: today's seeder rule earns about half of the best plan (Design C S4), and
+  automation must be earned (manual → certificate worker → upgrade).
+- **Estate contracts are core.** After the Tractor, a crop order is sized by the estate. Off-crop orders pay ×1.1
+  with no glut. Only the player accepts them. This is the recurring "flip a field" decision.
+- **Renown** (own batch): home harvests deepen that crop's market. It resets on Sell the farm, and a deed row keeps
+  the reached tiers.
+- **One surface, two stops** (🚜 Estate / 🏡 Home, FLIP, wide screens show both). On phones the cards move to a 📋
+  sheet. A plot is always one cell, and the mini home lot is one tap target. A spike checks the feel before batch 27.
+- **Parked** (separate goes): irrigated-bed ×1.1 bonus, desktop free zoom, field traits, the valley + free posts,
+  rain-fed land, counted tractors, a Manager machine tier, a deed keep for the beds, a review of the 8 h offline cap.
+- **Renumbered:** mine QoL (was "batch 25 / save v20" above) → batch 32 / save v23. Furnace molds (was "26 / v21")
+  → batch 33 / save v24. Toon chose big farm first. The reserved Keep ↔ Sell column in the shared item grid now
+  waits for batch 32.

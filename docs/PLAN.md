@@ -3883,3 +3883,351 @@ Rule from now on (every batch brief): add one player-facing English line for the
   here — no animation in this batch); Hermes checks the modal on the live build at 375 and 1440 px as planned:
   tab row proportions, the selected-tab colours, changelist readability (13 px, nowrap batch + date) and the
   44 px tab hit areas.
+
+## Big farm roadmap — batches 25–31 (tasks 135–157)
+
+Why: Toon felt the game "shifts paradigm in a mixed way". The home sprinkler re-picks the 6 driest tiles every 5 s
+(`src/core/workshop.ts:75–85`), so it behaves like a worker, not a placed object. The 🚜 Fields are a side card
+watered by a different object (pipes). Design: `docs/research/bigfarm-decisions.md` (Toon: "pick หมด", 2026-11-10)
+is the single source. Base = Design C (`docs/research/bigfarm-design-c.md`), plus grafts from D, plus the
+r/incremental_games review (`docs/research/incremental-community.md`). Rules: `docs/DECISIONS.md` "Big farm: blocks,
+sockets, plots, one surface (batches 25–31)".
+
+LOCKED by Toon. Design around these and do not argue them away:
+- L1: a sprinkler is placed and cannot move; its tiles always have full water (no watering ever again).
+- L2: the Tractor unlock is a paradigm shift of the MAIN UI (tiles, zoom out/in), not a side card.
+- L3: existing systems may change but must not drift far. The test is "always something to do, never bored".
+- L4: every new or changed object answers The Door Problem questions (obtain/use, state, failure, 8 h offline,
+  prestige, migration, 375 px, two tabs, which systems touch it).
+
+Order (Toon, 2026-11-10): big farm first. The mine QoL batch (ore sorting, pickaxe rack, mastery, hit carry-over,
+gold pickaxe, sickle seed drop), first named "batch 25 / save v20" in DECISIONS "Minor-feedback layout pass", becomes
+**batch 32 (save v23)**. Furnace molds ("26 / save v21") becomes **batch 33 (save v24)**.
+
+| batch | name | save | worker |
+|---|---|---|---|
+| 25 (C1) | Beds layout + MiniLot | none | GLM ok |
+| 26 (C2) | Placed home sprinklers | v19 → v20 | GLM ok |
+| — | Spike + crop-mix calculator (Hermes, outside the repo) | — | — |
+| 27 (C3) | Estate surface on today's cohorts | none | GLM ok |
+| 28 (C4a) | Plots, pivots, pumps, pressure | v20 → v21 | GLM, expect a resume |
+| 29 (C4b) | Estate contracts + 🧑‍💼 Manager + crop chips | none (shape landed in v21) | GLM ok |
+| 30 (C5) | Estate map (field rows on the surface) | none | GLM ok |
+| 31 | Renown | v21 → v22 | GLM ok |
+
+Every batch: one commit per task. Add the batch's CHANGELOG line (given below) at the top of `src/app/changelog.ts`.
+Write `## Batch N results` + `### Deviations` at the TRUE END of this file. Gates: `pnpm test`, `pnpm lint`,
+`pnpm build`, `tsc -b --force`. The purity grep `Date.now|react` must be clean over `src/core` and `src/save` (the
+`src/save/storage.ts` clock seam is the known exception). Before you finish, grep `tests/` for every render of a
+component whose props changed (CI tsc TS2741). Do not ask questions; finish the batch. If the full suite hangs, rerun
+it once; record blockers under `### Deviations`.
+
+Batches 27–31 are written at task level. Hermes refines each into dispatch-ready detail just before it runs:
+- 27 after the spike verdict;
+- 28/29 after the crop-mix calculator fixes the numbers marked (est.);
+- 30 after 28/29 land.
+A worker never fills an (est.) number itself: the sim measures it and the plan pins it.
+
+---
+
+## Batch 25 — Beds layout + MiniLot (C1, tasks 135–137, UI only, no save bump)
+
+Scope: `src/app` + tests. No `src/core`, no `src/save`, no SAVE_VERSION, no sim change.
+
+- [ ] 135. **The home lot renders as 4 beds of 3×2.**
+    - `FarmGrid.tsx`: bed k = tiles 6k … 6k+5 (`Math.floor(i / 6)`), derived from the index. No new state.
+    - Render `<div className="beds">` holding one `<div className="bed" role="group" aria-label="Bed {k+1}">` per bed
+      that has ≥ 1 owned tile. Each bed is a 3-column grid of 2 rows. Inside a started bed, slots past the last owned
+      tile render as `<span className="cell-slot" aria-hidden="true" />`: a dashed outline, not a button, no label.
+      This keeps each bed's shape stable when a tile is bought.
+    - Delete the `Math.ceil(Math.sqrt(n))` columns (`FarmGrid.tsx:99`, the root of "no rows" in DECISIONS) and the
+      `--n` custom property.
+    - Bed layout uses a container query on `.farm-fit` (it already declares `container-type: size` ≥ 768 px; give
+      `.beds` its own wrapper with `container-type: inline-size` so phones get one too):
+      ```css
+      .beds-wrap { container-type: inline-size; }
+      .beds { display: grid; grid-template-columns: 1fr; gap: var(--s4); --cols: 3; --rows: var(--rows-stacked); }
+      @container (min-width: 480px) {
+        .beds { grid-template-columns: repeat(2, minmax(0, 1fr)); --cols: 6; --rows: var(--rows-paired); }
+      }
+      .bed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2);
+             padding: var(--s2); border: 2px solid #c8b99a; border-radius: 8px; position: relative; }
+      .cell-slot { aspect-ratio: 1; border: 2px dashed #d6ccb8; border-radius: 6px; }
+      ```
+      `FarmGrid` sets `--rows-stacked = 2 × beds shown` and `--rows-paired = 2 × ceil(beds shown / 2)`, as inline style
+      on `.beds`. The ≥ 768 px tile-size formula (`app.css` `.grid` block at line ~359) keeps working on `--cols` /
+      `--rows`. Move it from `.grid` to `.beds`, and count the bed gap and padding in the width/height terms, so 24
+      tiles still fit `.farm-fit` without scrolling at 1024 × 768.
+    - Keep every existing cell feature unchanged: rings, flash, 📋 badge, the 💧 badge (it goes in batch 26), bars,
+      and the tap → `onTap(i)` with the GLOBAL tile index.
+    - Tests (jsdom): 9 tiles → 2 `.bed` groups, the second has 3 cells + 3 `.cell-slot`; 24 tiles → 4 beds × 6 cells,
+      0 slots; tapping the 8th cell calls `onTap(7)`; no element carries `--n`. appCss test: `.beds` declares the
+      `@container (min-width: 480px)` rule and `.bed` uses a 3-column grid.
+- [ ] 136. **`MiniLot` component (built and tested now, mounted in batch 27).** New `src/app/MiniLot.tsx`:
+    `MiniLot({ state, onOpen }: { state: GameState; onOpen: () => void })`.
+    - One `<button className="mini-lot" aria-label="Home lot — {ripe} ripe, open">`. It is the ONLY tap target
+      (40 px tiles are under the 44 px minimum, so a tile never acts).
+    - Inside: the same 4-bed arrangement at ~40 px per tile (`.mini-lot .bed` reuses `.bed`, with gap `var(--s1)` and
+      padding 2 px). Each tile is a `<span>` with a class by state: `mini-empty` (untilled/tilled), `mini-growing`
+      (crop emoji at 60 % opacity), `mini-ready` (crop emoji + green ring), `mini-dry` (orange ring). No bars, no
+      labels.
+    - A ripe-count badge in the corner: `🧺 {ripe}`, hidden at 0 (🧺 is Unicode 11, allowed).
+    - Tests (jsdom): a seeded state with 3 mature tiles → badge `🧺 3` and aria-label contains "3 ripe"; one click
+      calls `onOpen` once; no descendant `<button>`.
+- [ ] 137. **Gates + CHANGELOG.** Top line of `CHANGELOG`:
+    `| 25 | <ship date> | Your home plot is laid out in four fixed beds of six, so it no longer reshuffles when you buy a tile |`
+
+Hermes verifies live at 375 / 1024 / 1440 / 2560 / 3440 with 9, 15 and 24 tiles. Checks: no overlap between beds and
+the tool rows, every tile visible without scrolling at ≥ 1024 × 768, a bought tile fills a slot with no reflow, rings
+visible on both green and soil.
+
+---
+
+## Batch 26 — Placed home sprinklers (C2, tasks 138–141, save v19 → v20)
+
+Scope: `src/core/workshop.ts`, `step.ts`, `workers.ts`, `fields.ts` (gate only), `actions.ts` (water), `tools.ts`
+(targets), `balance.ts`, `state.ts`, `data/milestones.ts`, `src/save/serialize.ts`, `src/app/*`, tests. Fields
+cohorts, pipes and the pipe coal are NOT touched in this batch.
+
+Before dispatch, Hermes commits the real `tests/fixtures/save-v19.json` + `code-v19.txt`, captured from the live
+build (skill pitfall: once 26 ships, the old live code is gone).
+
+- [ ] 138. **Save v20: the workshop's shape.**
+    - `Workshop = { built: boolean; beds: boolean[]; valve: boolean }`, with `beds.length === 4` (one socket per
+      bed, `SPRINKLER_MAX`). `hoppers` is deleted. `createWorkshop()` returns `beds: [false, false, false, false]`.
+    - `migrateV19` (SAVE_VERSION 20):
+      1. `hoppers.length ≥ 1` → `beds: [true, true, true, true]`. Why: one machine already kept all 24 tiles wet
+         (iron moisture 4 × 60 ticks = 240 s, and 6 tiles per 5 s = 72 waterings/min against a need of 6/min,
+         `balance.ts:35,167`). With 0 hoppers → all `false`.
+      2. Coal left in hoppers (sum) → `inventory.coal`, up to the storage capacity. The overflow is sold at coal's sell
+         price into `cash` (and `lifetime.cashEarned` stays unchanged: a refund is not earnings).
+      3. `valve` is kept as is (it gets its job in batch 28; it is not refunded).
+      4. Everything else is unchanged. No earned value goes down.
+    - Tests: every fixture v1…v19 migrates to v20; the v19 fixture keeps cash ≥ old, tiles, licenses and
+      certificates; a forged v19 with `hoppers: [5, 24]` → 4 beds and +29 coal; with storage nearly full → coal capped
+      and cash + overflow × coal price; with `hoppers: []` → no beds.
+- [ ] 139. **Core: build on a bed, irrigated tiles, the coal machinery deleted.**
+    - `buildSprinkler(state, bed)` replaces `buySprinkler`. Order: `NO_WORKSHOP`, `LOCKED` (bed index out of 0…3, or
+      the bed has no owned tile: `bed * 6 >= tiles.length`), `ALREADY_OWNED`, `NOT_ENOUGH_ITEMS`, `NO_CASH`. Price
+      `sprinklerCost` unchanged (4 Au + 8 Fe + 8 Cu + 💰8,000). Payment happens on build: there is no
+      bought-but-unplaced state.
+    - `isIrrigated(run, i) = run.workshop.beds[Math.floor(i / 6)] === true` (exported from `workshop.ts`). A tile
+      bought later into a built bed is irrigated at once.
+    - `step.ts`: the `held` flag becomes `irrigated`. An irrigated tile's moisture is set to `waterMoisture(2)` (the
+      iron fill) before growth and is never drained, so it always grows. Rot is unchanged.
+    - Delete `sprinklersAct`, `sprinklerTargets`, `sprinklerWatered`, `fillHopper`, and `SPRINKLER_TILES`,
+      `SPRINKLER_COAL_TICKS`, `SPRINKLER_HOPPER` with their accessors. Also delete the fuel loader's hopper branch
+      (`workers.ts:57–62`): the loader feeds the furnace only (batch 28 gives it the field tank).
+    - Watering skips irrigated tiles everywhere:
+      - `water(state, i)` on an irrigated tile → `fail('IRRIGATED')`, no energy (new `ActionError`; toast text
+        "This bed has a sprinkler — no watering needed");
+      - `toolTargets(state, 'water')` never returns one;
+      - the water worker's `jobTiles` never picks one (it idles unpaid when nothing is left, existing behaviour).
+    - The valve sits inert: `buyValve` returns `LOCKED` until batch 28. An owned valve stays owned.
+    - `fieldsGates(run).water = run.workshop.built && run.workshop.beds.some(Boolean)`. Milestone `firstSprinkler` =
+      `beds.some(Boolean)`.
+    - Tests: build on bed 0 with the recipe → `beds[0]`; bed 3 with 9 tiles → `LOCKED`; a second build on the same bed
+      → `ALREADY_OWNED`; an irrigated planted tile at moisture 0 grows and never drains over 600 steps; water on it →
+      `IRRIGATED` with energy unchanged; the water worker with 24 tiles all irrigated takes no action and pays no wage;
+      a tile bought into a built bed is irrigated.
+- [ ] 140. **UI: socket stub, confirm sheet, irrigated look, honest Workshop line.**
+    - New shared constant `SPRINKLER_EMOJI = '⛲'` (Unicode 5.2), used for every sprinkler glyph.
+    - The bed (`.bed` from batch 25) shows a socket at its top-right corner (`.bed-socket`, a small riser stub). It
+      shows only when the Workshop is built, the bed has ≥ 1 owned tile and the bed has no sprinkler. If the recipe
+      is in storage, the stub pulses (reduced-motion: steady); otherwise it is grey.
+    - Tapping the stub opens a confirm sheet (reuse `Modal`, `src/app/Modal.tsx`):
+      - title "Bed {k+1} sprinkler";
+      - line 1 "Waters these 6 tiles forever";
+      - line 2 "Permanent — cannot be moved or sold";
+      - the price (`priceText`);
+      - a **Build** button. When short, Build is disabled and the sheet lists what is missing (`shortOf`).
+      There is no placement mode and no cancel bar; closing the sheet is the cancel.
+    - A built bed has a blue frame (`.bed-irrigated`, border `#4a90d9`) and `⛲` on the frame where the stub was.
+      Irrigated cells render NO water bar and no "— dry!" label. The 💧 corner badge and the `watered` prop/state
+      chain (`useGame.ts:233`, `FarmGrid`) are removed.
+    - Workshop card: the gauges group becomes one line, `⛲ {n}/4 beds — the water worker retires at 4/4`. The Build
+      group drops the Sprinkler row; a hint line says "Build on a bed's socket ⛲ on the farm". The Smart valve row
+      shows "✓ Built — gets a job when Fields get pressure" if owned, and is hidden if not owned.
+    - Workers card, water row: when every owned tile is irrigated, the sub-line reads "nothing to water — reassign".
+    - `tips.ts` `workshop` text: "A shed for sprinklers. Build one on each bed's socket ⛲: that bed never needs water
+      again. Bought once; it needs the deepest vein." Update the Shop/Bank gate text "1 sprinkler" → "1 bed sprinkler".
+    - Tests (jsdom): the stub shows only under the 3 conditions; a click opens the sheet with both lines and the
+      price; Build calls `act` with the bed index; an irrigated bed has the class and its cells have no water `Bar`;
+      the Workshop line reads `2/4 beds`; the water row hint appears with 24 irrigated tiles.
+- [ ] 141. **Sim + CHANGELOG.**
+    - Re-pin every sim number the deleted coal burn moves. Record old → new in the results. RNG draws are unchanged.
+    - New pins:
+      - (a) A forged v19 save (1 sprinkler, 24 tiles planted, no water worker) has no dry tile after 8 h of `step`
+        post-migration.
+      - (b) The ladder bot reaches the Tractor unlock with no milestone gap over 60 game-minutes. Say
+        "game-minutes" in the test name.
+      - (c) `step(s, n)` equals n × `step(s, 1)` for a state with 2 built beds.
+      - (d) Reported, not asserted: workers freed at 4/4 beds, and coal/h saved against batch 24.2.
+    - Top line of `CHANGELOG`:
+      `| 26 | <ship date> | Sprinklers are built on a bed and water those six tiles forever — no coal, no refills |`
+
+Hermes verifies: the save migration on the live build (seed v19 → reload → 4 beds if any sprinkler, coal moved, valve
+kept), plus a stub → sheet → Build at 375 and 1440.
+
+---
+
+## Spike + calculator (Hermes, before batch 27, outside the repo)
+
+1. A throwaway static page, outside the repo. Start from `save-v19.json` hand-converted to 8 fields. Show both stops
+   with a 250 ms FLIP, field rows with chips, sockets and a ghost plot, and faked 20 and 60 fields. Toon opens it at
+   375 / 1440 / 3440 and answers:
+   (a) does the pull-back read as "my farm got big", or as a tab?
+   (b) is a 52 px plot row comfortable under a thumb?
+   (c) is ~1,160 px of rows acceptable?
+   A "tab" verdict changes only batches 27 and 30 (ALT-3: free zoom on desktop).
+2. The same day, a calculator on the real `balance.ts` functions re-derives Design C's S4 table: best plan / greedy
+   marginal / mono / today's seeder rule at 1, 5, 10 and 20 fields. That gives the Manager rule a go or no-go
+   (pin: Manager ≥ 0.9 × best fixed plan), and it fixes every (est.) number in batches 28–29.
+
+---
+
+## Batch 27 — Estate surface on today's cohorts (C3, tasks 142–144, UI only, no save bump)
+
+Refined after the spike. Scope `src/app`. Cohorts stay the model, so there are no plot cells yet.
+
+- [ ] 142. **One surface, two stops.** After the Tractor (`fields.unlocked`), the centre column has two stops:
+  - 🚜 Estate (default): capacity strip, `MiniLot`, today's Fields content as rows by crop, one ghost row;
+  - 🏡 Home: the full bed grid with today's tools, and the fields folded to one strip of crop counts.
+  The stop is kept in `tiles.ui` (cosmetic). After an offline return it opens on Estate. A 🏡/🚜 toggle, a tap on
+  `MiniLot` or the estate strip, and keys 1 / 2 / Esc switch stops. The same DOM node resizes with a 250 ms FLIP;
+  reduced motion cuts it. The first switch after the unlock plays a pull-back once per save (flag in `tiles.ui`).
+  Containers ≥ ~1,100 px show both stops open. The side-panel Fields card shrinks to one summary line that links to
+  the surface.
+- [ ] 143. **Capacity strip + by-crop ledger.**
+  - The strip shows: tiles watered vs the pipe cover, sow/reap rate vs need, and ONE bottleneck word with its fix and
+    time-to-afford.
+  - The 🌾 tab becomes a read-only ledger: per crop, tiles / 💰/h / ▲▼ trend / 🏡 n/50 gate, with the machine and pipe
+    recipes under it.
+- [ ] 144. **Phone + wide layouts.**
+  - At 375 px, the tool bar swaps per stop (Home = today's tools; Estate = Sow empty / Reap ready / ＋Plot, wired to
+    today's actions: plant batch / harvest is worker-only today, so Reap shows the count and a hint until batch 28).
+  - The Orders / Workers / Workshop cards (`App.tsx:162–170`) move into a 📋 sheet on phones. The accepted order and
+    its progress sit on the strip.
+  - Hermes checks live at 375 / 1024 / 1440 / 2560 / 3440. CHANGELOG line written at refinement.
+
+---
+
+## Batch 28 — Plots, pivots, pumps, pressure (C4a, tasks 145–148, save v20 → v21)
+
+Refined after the calculator. All save shape for batches 28 AND 29 lands here, so 29 needs no bump (decision 16:
+two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and expect a resume leg.
+
+- [ ] 145. **Model + migration v21.**
+  - `Plot = { crop: CropId | null; readyTick: number }` (crop null = empty).
+  - `Field = { pivot: boolean; crop: CropId | null; pinned: boolean; plots: Plot[] }`, with 1–5 plots.
+  - `Fields = { unlocked, list: Field[], pump: number, tank: number, machines }`. Delete `count`, `planted`,
+    `cohorts`, `pipes`, `plantCrop` and `coalCarry`; their values become derived helpers.
+  - Add the `manager` worker job key (`assigned.manager: 0`) and the new counter `contractsByHand: 0` (both used in
+    batch 29).
+  - `migrateV20`:
+    - plots = ceil(old count / 10), packed per crop from Field 1 in fields of 5 (the last field may be partial);
+    - cohorts → plots, 10 tiles each, rounded up; the earliest `readyTick` wins; remaining time
+      (`readyTick − tick`) halved once, rounded up (the old rule closed 2 per tick under cover);
+    - plantings that sat beyond the pipe cover (stalled) return their seeds to the pouch;
+    - pipes tier N → `pump` N;
+    - a pivot on every field holding a planted plot, up to the pump cap, and never fewer than old cover ÷ 50;
+    - each field's crop = the crop packed into it, else the old `plantCrop`, else null;
+    - `tank` = min(tank cap, storage coal), taken from storage (the old pump drew that same coal);
+    - `coalCarry` dropped; machines and their carries kept; `valve` kept.
+  - Pins:
+    - fixtures v14…v20 migrate;
+    - wet tiles ≥ old covered + ready;
+    - owned tiles ≥ old count;
+    - each fixture earns ≥ its pre-migration 8 h (run the old code's 8 h number from the committed fixture);
+    - Hermes commits the real `save-v20.json` fixture before dispatch.
+- [ ] 146. **Core: plots, fields, pivots, pumps, whole-plot work.**
+  - Plot purchase: price of plot p (from 0) = 💰10,000·p + 5,500, which is the sum of today's 10 tile prices,
+    `fieldTileCost`. A plot goes into any started field with room, or opens the next field. A new field can open
+    only if the pump has room.
+  - Pivot: one per field, built on the field's socket, permanent. Price for pivot n (n = 2…20):
+    3 Au + 6 Fe + 6 Cu + 💰50,000 × (n − 1) (est.). Field 1 comes with the Tractor, plot 1 and its pivot already
+    plumbed. A field without a pivot is dry and cannot be sown.
+  - Pump tiers = today's pipe recipes. Bars stay 8 Cu / 8 Fe / 8 Au. Cash is 💰150k / 450k / 900k (est., the 8-crop
+    re-price; owned tiers kept). Wet fields are capped at 2 / 6 / 12 / 20.
+  - Field crop chip: free to change, applies at the next sowing; standing plots finish.
+  - Sow a whole plot (free, all-or-nothing): seeds, auto-buy and dibber rolls per tile, as today. Reap a whole plot:
+    by hand costs 10 ⚡; the sickle's doubles roll per tile, as today.
+  - Planter/harvester workers and the machines take whole plots, home lot first: oldest ready plot, first empty wet
+    plot. They only sow what the field's chip says (no chip = the field waits).
+  - Delete the prefix coverage rule (`fields.ts:121,250`), `seederCrop` and `coalCarry`.
+  - Sim perf: 1,000 / 1,920 / 3,000 tiles × 8 h under 2,000 ms; step identity.
+- [ ] 147. **Pressure: the tank, the valve's new job, the loader.**
+  - Growth base is ×1 (`cropGrowTicks`); "pressure ×2" is a named, displayed constant (`FIELD_PRESSURE = 2`).
+  - Sowing sets `readyTick = tick + ceil(grow / FIELD_PRESSURE)`. On any tick the tank cannot pay this tick's burn,
+    every growing plot gets `readyTick += 1` on odd ticks, which nets ×1. Fields never stall and never die.
+  - Burn = 0.5 coal per plot per hour (today's `PIPE_COAL_PER_10_TILES`), as a float subtracted from `tank`.
+    - Without the valve, every plot in a pivoted field burns.
+    - With the valve, only plots that are growing burn ("no idle burn", the DECISIONS 235 pattern). `buyValve` is
+      unlocked again from here.
+  - Tank cap per pump tier = 8 h × the burn at that tier's field cap: 40 / 120 / 240 / 400 coal (base, t1–t3).
+  - Filling the tank:
+    - manual **Fill tank** (moves min(room, storage coal));
+    - the fuel loader: furnace first, then the tank, 1 coal per action.
+  - The surface shows "pressure off ×1" when the tank is empty.
+  - Pins: 8 h offline with a full top-tier tank keeps ×2; an empty tank still ripens everything at ×1.
+- [ ] 148. **Minimal Fields UI on the new model + sim + CHANGELOG.**
+  - The existing Fields card / batch-27 rows switch to fields → plots: + Plot, Pivot, Pump, Fill tank, crop picker,
+    and the pressure line. The map comes in batch 30.
+  - Sim:
+    - no gap over 60 game-minutes from the Tractor to Pump 2;
+    - something buyable at every pump cap;
+    - every price ≤ storage capacity;
+    - prices follow the rule;
+    - report best plan / old rule / mono.
+
+---
+
+## Batch 29 — Estate contracts + 🧑‍💼 Manager + crop chips (C4b, tasks 149–151, no save bump)
+
+- [ ] 149. **Estate contracts.**
+  - After the Tractor, a crop order's size = tier minutes × max(today's capacity for that crop, 15 % of wet field
+    tiles at that crop's pace) (`orders.ts` `orderPerMinute`/`orderCount`).
+  - An off-crop order pays base ×1.1 with no glut.
+  - The player accepts it with a button; the clerk delivers but never accepts a crop contract.
+  - A hand-reaped plot delivered into an order or contract pays the hand-picked ×1.25; otherwise ×1.
+  - Each contract the player delivers by hand: `counters.contractsByHand + 1`.
+- [ ] 150. **🧑‍💼 Manager worker (M1–M5).**
+  - New certificate job `manager`, unlocked after N = 3 hand-delivered contracts (sim may move N).
+  - Wage = a few % of estate net at unlock (est., sim pins; per-job wage support in `balance.ts`).
+  - On each worker round:
+    - accepted orders/contracts first: fields to flip = ceil(shortfall ÷ (50 tiles × yield per cycle));
+    - the rest go to the best marginal 💰/h crop;
+    - it never accepts an order and never touches a 📌 pinned field.
+  - Its row shows its plan, e.g. "🍓 ×3 fields → order #12 · 🍋 rest".
+  - The certificate resets on prestige like the others.
+  - Pool: 8 jobs / 6 slots.
+- [ ] 151. **Chips wiring + sim.** The crop sheet shows marginal 💰/h per crop for this field from Field 1, the price
+  factor and 🏡 n/50. With no Manager and no chip, the field waits and the strip says why. Sim: Manager ≥ 0.9 × best
+  fixed plan; report best / Manager / mono / old rule.
+
+---
+
+## Batch 30 — Estate map (C5, tasks 152–154, UI only)
+
+- [ ] 152. Field rows on the Estate stop:
+  - memoised plot cells: a chip of 64 px + five 52 px cells at 375 px;
+  - the ghost plot with payback hours;
+  - the ghost field, which names the pump tier and its bar price;
+  - fields past the pump cap collapse into one row: "Fields 21–60 · 🚱 beyond Pump 3".
+- [ ] 153. Crop chip + sheet on the row, the pivot socket (same stub → sheet → Build as the beds), the 🚜 marker on
+  the plot being worked, tap an empty plot to sow and a ready one to reap, 📌 pin. The old Fields card and the
+  batch-27 crop rows are removed.
+- [ ] 154. Keyboard, reduced motion, offline idle reasons in the welcome-back banner. Hermes checks live with 20 and 60
+  fields at 375 / 1440 / 3440.
+
+---
+
+## Batch 31 — Renown (tasks 155–157, save v21 → v22)
+
+- [ ] 155. `run.renown: Record<CropId, number>`: +1 per home harvest by a worker, +2 by hand. `migrateV21` starts
+  each crop at `lifetime.harvests[crop]`, so nothing is lost. New deed row `keepRenown` (keeps the reached tiers on
+  Sell the farm, `keepFirstCertificates` style); renown itself resets on Sell the farm.
+- [ ] 156. Tiers 250 / 1,000 / 4,000 → that crop's market depth ×1.25 / 1.5 / 2 (est., sim pins). The fields gate
+  (50 home harvests) is unchanged.
+- [ ] 157. Ledger shows renown per crop and the next tier. Sim: a worker-only route reaches the top tier in bounded
+  game-hours (reported + capped); prestige reset pinned.
