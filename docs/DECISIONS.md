@@ -499,3 +499,14 @@ the big crafting round.
   button, two presses once an order has progress.
 - **Worker activity is visible** (ring, per-job dot, "· N working"). This CSS pass is a stopgap: Toon will bring
   animation references for a proper pass later (Motion AI Kit reviewed and deferred — tiles has no Motion dependency).
+
+## 🗺 Roadmap Changelog tab (batch 24.2, 2026-11-10, Toon go)
+
+- **The 🗺 Roadmap modal has two tabs: Planned (parked ideas, unchanged) and Changelog** — one English line per
+  batch, newest first, with the ship date (from git). Why: Toon wants players to see what each update brought, next
+  to what is planned.
+- **Player-facing wording only**: no sim pins, save versions or task numbers. Lines are written by Hermes in the
+  plan and copied verbatim by the worker, so the worker makes no wording calls.
+- **Every batch adds its own line** at the top of `CHANGELOG` (`src/app/changelog.ts`); a test fails when a
+  `## Batch N results` heading in `docs/PLAN.md` has no entry, so it cannot be forgotten. The tab choice is not
+  persisted (opens on Planned) — cosmetic, no `tiles.ui` change.
