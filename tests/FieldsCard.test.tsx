@@ -2,76 +2,37 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Fields } from '../src/app/Fields'
-import type { Act } from '../src/app/useGame'
-import { ITEMS } from '../src/core/data/items'
+import { fieldsStats } from '../src/core/fields'
 import { createInitialState, createMachines, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
 
-/** a fields-unlocked run (both certificates by default, like the fields test helper) */
-function setup(run: Partial<GameState['run']>) {
+/** a fields-unlocked run (batch 27: the card is a summary line + Open Estate; the rows moved to the 🚜 Estate stop) */
+function unlocked(run: Partial<GameState['run']> = {}): GameState {
   const s = createInitialState()
-  let state: GameState = {
+  return {
     ...s,
     run: {
       ...s.run,
       fields: { ...s.run.fields, unlocked: true, count: 60, machines: createMachines() },
-      workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
       ...run,
     },
   }
-  const act: Act = (fn) => {
-    const r = fn(state)
-    if (r.ok) state = r.state
-  }
-  const ui = () => <Fields state={state} act={act} />
-  const view = render(ui())
-  return { get: () => state, rerender: () => view.rerender(ui()) }
 }
 
-const row = (label: RegExp) => screen.getByText(label).closest('.recipe-row, .gauge-row, .worker-row') as HTMLElement
-
-describe('the machine rows in the 🚜 Fields card (batch 19, task 98)', () => {
-  it('five rows with tier, throughput, upkeep and coal-free; greyed with the certificate reason before the ladder holds', () => {
-    setup({ workers: { ...createInitialState().run.workers, certificates: [] } })
-    const mk1 = row(/Harvester Mk1/)
-    expect(mk1.textContent).toContain('harvests 1800 tiles/h')
-    expect(mk1.textContent).toContain('💰60/h upkeep · coal-free')
-    expect(mk1.textContent).toContain('uses your best sickle') // batch 20.1: the machine inherits the sickle
-    expect(mk1.textContent).toContain('needs the harvest certificate')
-    expect(mk1.querySelector('button')!.disabled).toBe(true)
-    const seeder = row(/Seeder Mk2/)
-    expect(seeder.textContent).toContain('plants 3600 tiles/h')
-    expect(seeder.textContent).toContain('needs the plant certificate')
-    expect(row(/Harvester Mk3/).textContent).toContain('harvests 7200 tiles/h')
+describe('the 🚜 Fields summary card (batch 27, task 143e)', () => {
+  it('renders nothing before the Tractor', () => {
+    const { container } = render(<Fields state={createInitialState()} onOpen={() => {}} />)
+    expect(container.querySelector('.fields-summary')).toBeNull()
   })
 
-  it('with the certificate the reason line becomes the missing-materials line, and a buy lands as ✓ with the rate', () => {
-    setup({ cash: 999999 })
-    expect(row(/Harvester Mk1/).textContent).toContain(`needs ${ITEMS.ironBar.emoji}⁠12 more`) // cash is there, the bar is not
-    cleanup()
-    const t = setup({ inventory: { ironBar: 12 }, cash: 999999 })
-    const mk1 = row(/Harvester Mk1/)
-    expect(mk1.textContent).not.toContain('certificate')
-    fireEvent.click(mk1.querySelector('button')!)
-    t.rerender()
-    expect(t.get().run.fields.machines.harvester).toEqual([1])
-    expect(row(/Harvester Mk1/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
-    expect(row(/Harvester Mk1/).textContent).toContain('1800 tiles/h')
-  })
-})
-
-describe('batch 24.1: the 🚜 Fields card groups', () => {
-  it('gauges group first, then one recipe grid with Plant / Expand / Machines in order', () => {
-    setup({ licenses: ['radish', 'pumpkin'] })
-    const card = document.querySelector('details.workers')!
-    const top = [...card.children].filter((c) => c.tagName === 'DIV')
-    expect(top.map((g) => g.className)).toEqual(['group gauge-grid', 'recipe-wrap'])
-    expect([...card.querySelectorAll('.gauge-row')].map((r) => r.children[0].textContent)).toEqual(['To plant', 'Growing', 'Ready'])
-    const groups = [...card.querySelectorAll('.recipe-grid > .group')]
-    expect(groups.map((g) => g.querySelector('h3')!.textContent)).toEqual(['Plant', 'Expand', 'Machines'])
-    expect([...groups[0].querySelectorAll('.recipe-row')].map((r) => r.children[0].textContent)).toMatchObject([expect.stringContaining('Carrot'), expect.stringContaining('Pumpkin')])
-    expect([...groups[1].querySelectorAll('.recipe-row button')].map((b) => b.firstChild!.textContent)).toEqual(['+1 Field', 'Build'])
-    expect([...groups[2].querySelectorAll('.recipe-row')].length).toBe(5)
+  it('one line — tiles, ready, stalled — and an Open Estate button that calls onOpen', () => {
+    let opened = 0
+    const state = unlocked()
+    render(<Fields state={state} onOpen={() => { opened++ }} />)
+    const { ready, stalled } = fieldsStats(state.run)
+    expect(screen.getByText(`🚜 Fields · 60 tiles · 🌾 ${ready} ready · ⏳ ${stalled} stalled`)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Open Estate' }))
+    expect(opened).toBe(1)
   })
 })

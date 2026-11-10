@@ -606,6 +606,83 @@ button:disabled {
     animation: none;
   }
 }
+/* the 🚜 Estate stop's content (batch 27, task 143) */
+/* capacity strip: one wrapping line of chips, each ≥ 44 px tall to the touch */
+.capacity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1);
+}
+.estate-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--s1) var(--s2);
+  border: 1px solid #c8b99a;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.estate-chip-warn {
+  border-color: #ef6c00;
+  color: #8f4100;
+}
+/* crop rows: as many columns as fit, each row a label + a 96 px action */
+.estate-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  column-gap: 40px;
+  row-gap: var(--s2);
+}
+.estate-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: var(--s2);
+  align-items: center;
+  min-height: 52px;
+}
+.estate-row > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+/* the ghost row's Buy button: dashed like a +1 Field slot */
+.ghost-row button {
+  border-style: dashed;
+}
+/* the machines group, closed until opened (the chevron comes from the details marker) */
+.estate-machines > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 44px;
+  padding: 0 var(--s2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: revert;
+}
+.estate-machines[open] > summary {
+  margin-bottom: var(--s1);
+}
+/* the Fields card's summary line after the Tractor (task 143e) */
+.fields-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 44px;
+}
+.fields-summary > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 @media (min-width: 768px) {
   /* the surface takes over the farm column's grid: content left, the tool bar's vertical column right */
   .farm:has(> .surface) {

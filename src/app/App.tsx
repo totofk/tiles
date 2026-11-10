@@ -34,6 +34,11 @@ export default function App() {
   const setTab = (t: PanelTabId) => setUi((u) => ({ ...u, tab: t }))
   const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
   const toggleTools = () => setUi((u) => ({ ...u, toolsOpen: !u.toolsOpen }))
+  // task 143e: the Fields card's Open Estate lands on the 🚜 stop (and the farm view on phones)
+  const openEstate = () => {
+    setUi((u) => ({ ...u, stop: 'estate' }))
+    if (!tabletUp) setView('farm')
+  }
   // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
   const [slideOpen, setSlideOpen] = useState(false)
   // the 📊 Stats tab's feedback draft and cooldown, here so a tab switch keeps them (not saved)
@@ -114,7 +119,7 @@ export default function App() {
   // task 132: off-farm worker flashes — the furnace Smelt group (ore/fuel loaders) and the order row the clerk touched
   const smeltActed = worked.some((w) => w.job === 'ore' || w.job === 'fuel')
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport, openEstate }
   const grid = <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
   const Panel = shown.Panel
   const mobileTabs = [
@@ -181,7 +186,7 @@ export default function App() {
                   <Orders state={state} act={act} card flashSlot={clerkSlot} />
                   <Workers state={state} act={act} worked={worked} />
                   <Workshop state={state} act={act} />
-                  <Fields state={state} act={act} />
+                  <Fields state={state} onOpen={openEstate} />
                 </>
               )
             }
@@ -204,7 +209,7 @@ export default function App() {
                 <Orders state={state} act={act} card flashSlot={clerkSlot} />
                 <Workers state={state} act={act} worked={worked} />
                 <Workshop state={state} act={act} />
-                <Fields state={state} act={act} />
+                <Fields state={state} onOpen={openEstate} />
               </>
             )}
           </>

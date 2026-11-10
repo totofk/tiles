@@ -24,6 +24,8 @@ export type PanelProps = {
   farmTab: boolean
   ui: UiState
   toggleTools: () => void
+  /** task 143e: the Fields card's Open Estate — land on the 🚜 stop (and the farm view on phones) */
+  openEstate: () => void
   /** task 132: the jobs that acted in the last work round (worker dots, clerk flash) */
   worked: WorkTouch[]
   reset: () => void

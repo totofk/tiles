@@ -74,6 +74,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
       farmTab={false}
       ui={{ view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: false, seen: { shop: [], upgrades: [] }, priceShown: {} }}
       toggleTools={noop}
+      openEstate={noop}
       worked={[]}
       reset={noop}
       sell={noop}

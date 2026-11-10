@@ -79,7 +79,7 @@ export function DigSeeds({ act }: { act: Act }) {
 }
 
 /** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked }: PanelProps) {
+export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked, openEstate }: PanelProps) {
   const { run } = state
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
   return (
@@ -100,7 +100,7 @@ export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked
       <DigSeeds act={act} />
       <Workers state={state} act={act} worked={worked} />
       <Workshop state={state} act={act} />
-      <Fields state={state} act={act} />
+      <Fields state={state} onOpen={openEstate} />
     </section>
   )
 }
