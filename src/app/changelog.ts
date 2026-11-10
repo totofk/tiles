@@ -1,0 +1,42 @@
+// One player-facing English line per shipped batch, newest first. The plan's batch briefs carry the line; it is
+// copied verbatim (docs/DECISIONS.md "🗺 Roadmap Changelog tab"). tests/changelog.test.ts fails when a
+// `## Batch N results` heading in docs/PLAN.md has no entry here.
+export type ChangelogEntry = { batch: string; date: string; line: string }
+
+export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '24.2', date: '2026-11-10', line: 'A Changelog tab in 🗺 Roadmap: every update so far, newest first' },
+  { batch: '24.1', date: '2026-11-10', line: 'Lists line up in shared columns, tidier Workshop and Fields cards, orders show New / Accepted / Ready, and you can see which workers are busy' },
+  { batch: '24', date: '2026-11-09', line: 'Roomier layout, grouped cards, a collapsible 🧰 Tools card, and bars can be sold' },
+  { batch: '23.1', date: '2026-11-09', line: 'Save import fixed; feedback now carries your save so a reported bug can be reproduced exactly' },
+  { batch: '23', date: '2026-11-09', line: 'Save codes to move your game between devices; 📊 Stats tools open as 💾 Data / 🗺 Roadmap / 💬 Feedback' },
+  { batch: '22', date: '2026-11-09', line: 'Four new crops: tomato, corn, grape and strawberry' },
+  { batch: '21', date: '2026-11-09', line: 'Calmer market prices with ▲▼ trend arrows, easier furnace switching, prestige moved to the 🏦 Bank, storage up to Lv10' },
+  { batch: '20.1', date: '2026-11-08', line: 'The harvester machine now inherits your sickle' },
+  { batch: '20', date: '2026-11-08', line: 'Prestige: sell the farm and start again with 🏆 Legacy upgrades' },
+  { batch: '19', date: '2026-11-08', line: 'Fields machines for more throughput' },
+  { batch: '18', date: '2026-11-08', line: '🚜 Fields: farmland beyond the home plot, worked by your planters and harvesters' },
+  { batch: '17', date: '2026-11-08', line: 'The Workshop and sprinklers' },
+  { batch: '16', date: '2026-11-08', line: 'Economy retune and the gold tier' },
+  { batch: '15', date: '2026-11-08', line: 'Iron farm tools' },
+  { batch: '14', date: '2026-11-08', line: '📋 Noticeboard orders that pay ⭐' },
+  { batch: '13', date: '2026-11-08', line: 'Faster early game, hand-picked crops sell for ×1.25, iron opens sooner' },
+  { batch: '12', date: '2026-11-08', line: 'Crop market (prices dip when you flood it), milestone timeline, save export and the deed meter' },
+  { batch: '11.1', date: '2026-11-08', line: 'In-game feedback form and a safer reset' },
+  { batch: '11', date: '2026-11-08', line: 'Iron ore, the iron pickaxe and the mine worker' },
+  { batch: '10', date: '2026-11-08', line: 'The planter worker' },
+  { batch: '9', date: '2026-11-08', line: 'The furnace burns fuel; furnace workers and the smart furnace; feedback form polish' },
+  { batch: '8.1', date: '2026-11-08', line: 'Floating info tips and stacked farm tool rows' },
+  { batch: '8', date: '2026-11-07', line: 'Workers that water and harvest for you, and auto-smelting' },
+  { batch: '7.2', date: '2026-11-07', line: 'A 🌾 Farm tab in the side panel' },
+  { batch: '7.1', date: '2026-11-07', line: 'Tool bar fixes and copper farm tools' },
+  { batch: '7', date: '2026-11-07', line: 'The furnace, copper ore and the copper pickaxe' },
+  { batch: '6.2', date: '2026-11-07', line: 'Shop and Upgrades reorganised, ⓘ info tips, tool bar moved' },
+  { batch: '6.1', date: '2026-11-07', line: 'Stone prices now fit your storage; tidier Mine panel' },
+  { batch: '6', date: '2026-11-07', line: 'Mining progress upgrades and two new crops' },
+  { batch: '5', date: '2026-11-07', line: 'Farm tools, a seed pouch with stock, and digging soil for free seeds' },
+  { batch: '4.5', date: '2026-11-07', line: 'The 🏦 Bank: take a loan when you are stuck' },
+  { batch: '4', date: '2026-11-07', line: 'Desktop layout with Mine, Farm and a side panel side by side; your open tab is remembered' },
+  { batch: '3', date: '2026-11-07', line: 'Planted tiles show their crop, harvests show what you earned, a bigger starting plot, and the first Mine' },
+  { batch: '2', date: '2026-11-07', line: 'The game goes live in the browser: farm grid, shop, autosave and up to 8 h of offline progress' },
+  { batch: '1', date: '2026-11-07', line: 'First playable core: plant, water, harvest and sell; crops grow only while the soil is moist' },
+]
