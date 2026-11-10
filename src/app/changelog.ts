@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '26', date: '2026-11-10', line: 'Sprinklers are built on a bed and water those six tiles forever — no coal, no refills' },
   { batch: '25', date: '2026-11-10', line: 'Your home plot is laid out in four fixed beds of six, so it no longer reshuffles when you buy a tile' },
   { batch: '24.2', date: '2026-11-10', line: 'A Changelog tab in 🗺 Roadmap: every update so far, newest first' },
   { batch: '24.1', date: '2026-11-10', line: 'Lists line up in shared columns, tidier Workshop and Fields cards, orders show New / Accepted / Ready, and you can see which workers are busy' },

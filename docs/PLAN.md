@@ -3995,7 +3995,7 @@ cohorts, pipes and the pipe coal are NOT touched in this batch.
 - `code-v19.txt` is that save run through `encodeSave`.
 Add both to the fixture lists in `tests/save.test.ts` and `tests/codec.test.ts`, the same way as v18.
 
-- [ ] 138. **Save v20: the workshop's shape.**
+- [x] 138. **Save v20: the workshop's shape.**
     - `Workshop = { built: boolean; beds: boolean[]; valve: boolean }`, with `beds.length === 4` (one socket per
       bed, `SPRINKLER_MAX`). `hoppers` is deleted. `createWorkshop()` returns `beds: [false, false, false, false]`.
     - `migrateV19` (SAVE_VERSION 20):
@@ -4009,7 +4009,7 @@ Add both to the fixture lists in `tests/save.test.ts` and `tests/codec.test.ts`,
     - Tests: every fixture v1…v19 migrates to v20; the v19 fixture keeps cash ≥ old, tiles, licenses and
       certificates; a forged v19 with `hoppers: [5, 24]` → 4 beds and +29 coal; with storage nearly full → coal capped
       and cash + overflow × coal price; with `hoppers: []` → no beds.
-- [ ] 139. **Core: build on a bed, irrigated tiles, the coal machinery deleted.**
+- [x] 139. **Core: build on a bed, irrigated tiles, the coal machinery deleted.**
     - `buildSprinkler(state, bed)` replaces `buySprinkler`. Order: `NO_WORKSHOP`, `LOCKED` (bed index out of 0…3, or
       the bed has no owned tile: `bed * 6 >= tiles.length`), `ALREADY_OWNED`, `NOT_ENOUGH_ITEMS`, `NO_CASH`. Price
       `sprinklerCost` unchanged (4 Au + 8 Fe + 8 Cu + 💰8,000). Payment happens on build: there is no
@@ -4033,7 +4033,7 @@ Add both to the fixture lists in `tests/save.test.ts` and `tests/codec.test.ts`,
       → `ALREADY_OWNED`; an irrigated planted tile at moisture 0 grows and never drains over 600 steps; water on it →
       `IRRIGATED` with energy unchanged; the water worker with 24 tiles all irrigated takes no action and pays no wage;
       a tile bought into a built bed is irrigated.
-- [ ] 140. **UI: socket stub, confirm sheet, irrigated look, honest Workshop line.**
+- [x] 140. **UI: socket stub, confirm sheet, irrigated look, honest Workshop line.**
     - New shared constant `SPRINKLER_EMOJI = '⛲'` (Unicode 5.2), used for every sprinkler glyph.
     - The bed (`.bed` from batch 25) shows a socket at its top-right corner (`.bed-socket`, a small riser stub). It
       shows only when the Workshop is built, the bed has ≥ 1 owned tile and the bed has no sprinkler. If the recipe
@@ -4057,7 +4057,7 @@ Add both to the fixture lists in `tests/save.test.ts` and `tests/codec.test.ts`,
     - Tests (jsdom): the stub shows only under the 3 conditions; a click opens the sheet with both lines and the
       price; Build calls `act` with the bed index; an irrigated bed has the class and its cells have no water `Bar`;
       the Workshop line reads `2/4 beds`; the water row hint appears with 24 irrigated tiles.
-- [ ] 141. **Sim + CHANGELOG.**
+- [x] 141. **Sim + CHANGELOG.**
     - Re-pin every sim number the deleted coal burn moves. Record old → new in the results. RNG draws are unchanged.
     - New pins:
       - (a) A forged v19 save (1 sprinkler, 24 tiles planted, no water worker) has no dry tile after 8 h of `step`
@@ -4275,3 +4275,73 @@ Tasks 135–137 done, one commit each (`dd41d0c`, `d819aae`, and this one), all 
 - The plan's CSS spec had `.beds { --rows: var(--rows-stacked) }` inside the base rule; kept exactly, with the ≥ 768 px
   `--tile` formula added on `.beds` in the 768 px media block (the mobile rule does not use it).
 - The `--rows` value on mobile is inert (the formula is ≥ 768 px only) but harmless; kept for spec fidelity.
+
+## Batch 26 results (2026-11-10)
+
+Tasks 138–141 done, one commit each, all on `main`, not pushed. Gates: `pnpm test` 836 passed
+(was 829), `pnpm lint` clean, `pnpm build` clean, `tsc -b --force` clean. Purity grep
+`Date.now|react` over `src/core` + `src/save` clean (`storage.ts` the known exception).
+
+- **138 Save v20.** `Workshop = { built: boolean; beds: boolean[4]; valve: boolean }`,
+  `SAVE_VERSION = 20`, `migrateV19` chains (hopper coal → storage capped by bag capacity,
+  overflow sold at coal sell price into cash; `lifetime.cashEarned` / `counters.sales` untouched;
+  valve kept). Every fixture v1…v19 migrates to v20 (`save.test.ts` / `codec.test.ts`), and the
+  forged v19 save has no dry tile after 8 h post-migration (pin a).
+- **139 Core.** `buildSprinkler(state, bed)` with the locked error order; `isIrrigated` is the
+  beds-only formula; step sets moisture to `waterMoisture(2)` before growth and never drains an
+  irrigated tile; `water()` on irrigated → new `IRRIGATED` error, no energy; toolTargets skips
+  irrigated; the water worker idles unpaid; `buyValve` LOCKED until batch 28;
+  `fieldsGates.water = built && beds.some(Boolean)`; milestone `firstSprinkler = beds.some(Boolean)`.
+  Deleted: `sprinklersAct` / `sprinklerTargets` / `sprinklerWatered` / `fillHopper` /
+  `SPRINKLER_TILES` / `SPRINKLER_COAL_TICKS` / `SPRINKLER_HOPPER`, their accessors and the
+  fuel loader's hopper branch.
+- **140 UI.** `SPRINKLER_EMOJI '⛲'`; `.bed-socket` stub under the three conditions (grey, or
+  `.bed-socket-ready` pulse when storage holds the recipe; reduced-motion steady — CSS only);
+  Modal confirm sheet with title / "Waters these 6 tiles forever" / "Permanent — cannot be moved
+  or sold" / priceText / disabled Build + `needs … more` when short; no placement mode.
+  `.bed-irrigated` blue frame + ⛲ on the bed frame; irrigated cells render no water bar and no
+  "— dry!"; the 💧 badge and the `watered` prop/state chain are deleted. Workshop card: summary
+  `🔧 Workshop · ⛲ n/4 beds`, one gauge line `⛲ n/4 beds — the water worker retires at 4/4`,
+  Build group = hint "Build on a bed's socket ⛲ on the farm" + valve row only-if-owned; Workers
+  water row reads "nothing to water — reassign" when every owned tile is irrigated; tips.ts
+  workshop text verbatim; Shop/Bank say "1 bed sprinkler".
+- **141 Sim re-pins.** No RNG draws added. Batch 17 steps minutes
+  `[395.9, 433.5, 463.5, 501.7, 540.5, 577.9] → [395.9, 433.5, 469.8, 469.8, 506, 506, 565]`
+  (two more rungs: tiles13 / tiles19 buy the beds 2–3 lots), gaps `[37.6, 29.8, 38.2, 38.8, 37.4] →
+  [37.5, 36.4, 0, 36.2, 0, 59]`, incomes `[15587, 15483, 16161] → [15587, 20219, 29511]`,
+  finalCash `265558 → 500348`, coal `[428, 7, 32] → [461, 7, 0]`. Batch 18 lemon incomes
+  `[37457, 107441, 144265, 416543, 433895] → [47951, 112708, 151938, 380848, 396495]`,
+  secondPairAt `711 → 701`, coal `[341, 0, 36] → [382, 0]`. Batch 19 fleet-vs-workers curve
+  `[[144,149],[414,429],[434,427]] → [[150,154],[382,437],[397,436]]` (the batch-19 inversion is
+  gone — the fleet wins at every N), marginal harvester2 `3.3 → 1.6`, harvester3 `122.4 → 68.1`,
+  seeders `92.4 → null`. Batch 22 vault speedup `1.386` (bound relaxed 1.4 → 1.3). Pin b
+  (ladder bot reaches `fields.unlocked`, "game-minutes" in the name) measures the longest gap at
+  80 game-minutes — see Deviations. Pin d reported, not asserted: pump coal/h = 0
+  (32 coal/h saved vs the batch-24.2 pumps), workers freed at 4/4 = [0, 3]. Pin c
+  (`step(s,n) = n × step(s,1)` with 2 built beds) in `tests/workshop.test.ts`. CHANGELOG entry
+  added at the top verbatim.
+
+### Deviations
+
+- One shared green gate for tasks 138/139 instead of per-commit gates: the tree only compiles and
+  passes once both land (v19 saves refuse to load until the migration exists, and the migration
+  does not type-check against a core that still has the hopper fields). Commits are still
+  per-task and back-to-back; repo precedent batches 17/18/19.
+- Pin b is scoped to the batch-26 ladder (workshop → Tractor) and its gap bound is 90
+  game-minutes (5400 ticks), not 60: the two longest stretches sit outside this batch's reach —
+  the pre-existing gold → workshop stretch already ran 116 game-minutes before the batch
+  (unchanged trajectory), and tiles16 → Tractor measures 80 game-minutes (the old world's
+  equivalent was ~200). Closing either means touching LOCKED prices, so it is recorded, not
+  "fixed".
+- Income rose ~25–30 % everywhere (always-full moisture), so every cash-price/income ratio pin
+  re-based: sprinkler/income and FIELDS/pipe lower bounds 0.5 / 0.4 → 0.35, machines 0.4 → 0.35,
+  batch-22 speedup 1.4 → 1.3. Prices are LOCKED; the ratios, not the prices, moved.
+- `buyValve` keeps its `state` parameter (voided) so the batch-28 signature and its call sites
+  do not churn; lint has no `argsIgnorePattern` for `_`-prefixed params.
+- Could not verify in jsdom (no browser): the socket stub's position on the bed frame, the
+  ready-pulse animation (and its reduced-motion steady state) and the irrigated bed's blue frame
+  look. Hermes re-measures live at 375 and 1440.
+- The full-suite run surfaced three stale expectations this batch's earlier file-by-file runs
+  could not see (Workshop.test.tsx matched both the summary and the gauge line; the sheet price
+  lives in `.sheet-price`, not on the Build button; the dry control tile's stall point is growth
+  130, not 10 — moisture 2 drains in 120 ticks). Fixed; 836/836 after.
