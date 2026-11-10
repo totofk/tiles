@@ -95,19 +95,29 @@ function Cell({ tile, state, onTap, ring, flash, ordered, watered }: CellProps) 
  * every few ticks), so the flash class and the pop are removed between two actions and each one replays its animation.
  */
 export function FarmGrid({ state, onTap, acted = [], watered = [] }: { state: GameState; onTap: (i: number) => void; acted?: WorkerTarget[]; watered?: number[] }) {
-  // a near-square grid on wider screens (9 → 3, 16 → 4, 24 → 5 columns); mobile CSS keeps 3
-  const cols = Math.ceil(Math.sqrt(state.run.tiles.length))
-  const rows = Math.ceil(state.run.tiles.length / cols)
+  // beds of 3×2 (DECISIONS "Home lot = 4 beds of 3×2"): bed k = tiles 6k…6k+5, so a bed's shape never shifts when a
+  // tile is bought — the last started bed pads its unowned slots with .cell-slot
+  const beds = Math.ceil(state.run.tiles.length / 6)
   const rings = workerTargets(state)
   const jobOn = (list: WorkerTarget[], i: number) => list.find((t) => t.tile === i)?.job
   const orderedCrops = state.run.orders.offers.flatMap((s) => (isOffer(s) && s.accepted ? [s.good] : []))
-  // .farm-fit is the box the grid must fit (width and height, ≥ 768 px), so tiles size by the smaller side
+  // rows of tiles for the ≥ 768 px size formula: stacked = one bed per row, paired = two beds per row
+  const style = { '--rows-paired': 2 * Math.ceil(beds / 2), '--rows-stacked': 2 * beds } as CSSProperties
   return (
     <div className="farm-fit">
-      <div className="grid" style={{ '--n': cols, '--rows': rows } as CSSProperties}>
-        {state.run.tiles.map((tile, i) => (
-          <Cell key={i} tile={tile} state={state} onTap={() => onTap(i)} ring={jobOn(rings, i)} flash={jobOn(acted, i)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} watered={watered.includes(i)} />
-        ))}
+      <div className="beds-wrap">
+        <div className="beds" style={style}>
+          {Array.from({ length: beds }, (_, k) => (
+            <div className="bed" role="group" aria-label={`Bed ${k + 1}`} key={k}>
+              {state.run.tiles.slice(k * 6, k * 6 + 6).map((tile, j) => (
+                <Cell key={k * 6 + j} tile={tile} state={state} onTap={() => onTap(k * 6 + j)} ring={jobOn(rings, k * 6 + j)} flash={jobOn(acted, k * 6 + j)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} watered={watered.includes(k * 6 + j)} />
+              ))}
+              {Array.from({ length: (k + 1) * 6 - state.run.tiles.length }, (_, j) => (
+                <span className="cell-slot" aria-hidden="true" key={`slot${j}`} />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

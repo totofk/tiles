@@ -329,17 +329,44 @@ button:disabled {
   background: #ffe0b2;
 }
 
-/* --n (columns for the tile count) comes from FarmGrid; mobile keeps 3 so tiles stay tappable */
-.grid {
+/* ---- home lot: fixed beds of 3×2 (batch 25) — bed k = tiles 6k…6k+5 ---- */
+/* the wrapper gives phones a container too (.farm-fit's container-type is ≥ 768 px only) */
+.beds-wrap {
+  container-type: inline-size;
+}
+.beds {
   --cols: 3;
   --gap: var(--s2);
-  container-type: inline-size;
+  --rows: var(--rows-stacked);
   width: 100%;
-  max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) - 1) * var(--gap));
+  max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) / 3) * (2 * var(--gap) + 20px));
   margin-inline: auto;
   display: grid;
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  gap: var(--gap);
+  grid-template-columns: 1fr;
+  gap: var(--s4);
+}
+@container (min-width: 480px) {
+  .beds {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    --cols: 6;
+    --rows: var(--rows-paired);
+  }
+}
+/* a bed's own chrome = 2 px border × 2 + s2 padding × 2 = 20 px per axis */
+.bed {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+  padding: var(--s2);
+  border: 2px solid #c8b99a;
+  border-radius: 8px;
+  position: relative;
+}
+/* the unowned slots of a started bed: a dashed outline keeps the 3×2 shape stable while tiles are bought */
+.cell-slot {
+  aspect-ratio: 1;
+  border: 2px dashed #d6ccb8;
+  border-radius: 6px;
 }
 /* square, but a tile may grow taller rather than clip its text on a narrow screen */
 .cell {
@@ -355,18 +382,18 @@ button:disabled {
   text-align: center;
 }
 @media (min-width: 768px) {
-  /* tile = the smaller of width per column and height per row (of .farm-fit), so a wide but short screen shows every row */
-  .grid {
-    --cols: var(--n, 3);
+  /* tile = the smaller of width per column and height per row (of .farm-fit); each term counts the tile gaps inside
+     the beds, each bed's 20 px chrome and the --s4 gap between beds. Beds across = --cols / 3, beds down = --rows / 2 */
+  .beds {
     --tile: max(
       72px,
       min(
         var(--tile-max),
-        (100cqw - (var(--cols) - 1) * var(--gap)) / var(--cols),
-        (100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows)
+        (100cqw - (var(--cols) / 3 - 1) * var(--s4) - (var(--cols) / 3) * (2 * var(--gap) + 20px)) / var(--cols),
+        (100cqh - (var(--rows) / 2 - 1) * var(--s4) - (var(--rows) / 2) * (var(--gap) + 20px)) / var(--rows)
       )
     );
-    width: calc(var(--cols) * var(--tile) + (var(--cols) - 1) * var(--gap));
+    width: calc(var(--cols) * var(--tile) + (var(--cols) / 3) * (2 * var(--gap) + 20px) + (var(--cols) / 3 - 1) * var(--s4));
     max-width: none;
   }
   .cell {

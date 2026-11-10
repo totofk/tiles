@@ -48,3 +48,18 @@ describe('app.css shared columns (batch 24.1)', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^{}]*\.cell-target[^{}]*\.job-dot-on/s)
   })
 })
+
+describe('app.css beds layout (batch 25)', () => {
+  it('.beds pairs the beds in a 480px container query and .bed is a 3-column grid', () => {
+    expect(css).toContain('@container (min-width: 480px)')
+    expect(css).toMatch(/@container \(min-width: 480px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
+    expect(css).toMatch(/\.bed\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s)
+  })
+
+  it('the sqrt .grid rules and the --n custom property are gone; .beds owns the tile-size formula', () => {
+    expect(css).not.toContain('.grid')
+    expect(css).not.toContain('--n')
+    expect(css).toMatch(/\.beds\s*{[^}]*--tile:/s)
+    expect(css).toContain('.cell-slot')
+  })
+})
