@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { PARKED_IDEAS, PARKED_LABEL, PARKED_ORDER, RoadmapList } from '../src/app/Roadmap'
+import { CHANGELOG } from '../src/app/changelog'
 import { Stats, StatsTab, Timeline } from '../src/app/Stats'
 import type { PanelProps } from '../src/app/panelTabs'
 import { EMPTY_FEEDBACK } from '../src/app/feedback'
@@ -73,6 +74,32 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     expect(screen.getByRole('dialog', { name: '🗺 Roadmap' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens on Planned; Changelog shows every CHANGELOG entry, Planned comes back, reopen lands on Planned (task 134)', () => {
+    render(<StatsTab {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: '🗺 Roadmap' }))
+    const dialog = screen.getByRole('dialog', { name: '🗺 Roadmap' })
+    expect(within(dialog).getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(dialog).getByText(PARKED_LABEL)).toBeTruthy()
+    expect(within(dialog).queryByText('Every update so far, newest first.')).toBeNull()
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'Changelog' }))
+    expect(within(dialog).getByRole('tab', { name: 'Changelog' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(dialog).queryByText(PARKED_LABEL)).toBeNull()
+    const items = within(dialog).getAllByRole('listitem')
+    expect(items).toHaveLength(CHANGELOG.length)
+    expect(items[0].textContent).toContain(`Batch ${CHANGELOG[0].batch}`)
+    expect(items[0].textContent).toContain(CHANGELOG[0].line)
+
+    fireEvent.click(within(dialog).getByRole('tab', { name: 'Planned' }))
+    expect(within(dialog).getByText(PARKED_LABEL)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: '🗺 Roadmap' }))
+    const reopened = screen.getByRole('dialog', { name: '🗺 Roadmap' })
+    expect(within(reopened).getByRole('tab', { name: 'Planned' }).getAttribute('aria-selected')).toBe('true')
+    expect(within(reopened).getByText(PARKED_LABEL)).toBeTruthy()
   })
 
   it('💬 Feedback opens as a modal with the unchanged 4 fields (task 120)', () => {

@@ -1505,6 +1505,40 @@ details > summary:focus-visible {
   color: #555;
 }
 
+/* 🗺 Roadmap tabs (batch 24.2): Planned (parked ideas) / Changelog (one line per shipped batch) */
+.roadmap-tabs {
+  display: flex;
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+.roadmap-tabs button {
+  flex: 1;
+  min-height: 44px;
+}
+.roadmap-tabs [aria-selected='true'] {
+  font-weight: 600;
+  background: #c8e6c9;
+  border-color: #2e7d32;
+}
+.changelog-list {
+  margin: var(--s2) 0 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.changelog-list li + li {
+  margin-top: var(--s1);
+}
+.changelog-batch {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.changelog-list time {
+  color: #555;
+  white-space: nowrap;
+}
+
 /* 📊 Stats "Danger zone" (inside 💾 Data since batch 23): small until armed, then a full-width red button */
 .danger {
   display: flex;
