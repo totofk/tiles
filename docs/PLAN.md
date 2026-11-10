@@ -3934,7 +3934,7 @@ A worker never fills an (est.) number itself: the sim measures it and the plan p
 
 Scope: `src/app` + tests. No `src/core`, no `src/save`, no SAVE_VERSION, no sim change.
 
-- [ ] 135. **The home lot renders as 4 beds of 3×2.**
+- [x] 135. **The home lot renders as 4 beds of 3×2.**
     - `FarmGrid.tsx`: bed k = tiles 6k … 6k+5 (`Math.floor(i / 6)`), derived from the index. No new state.
     - Render `<div className="beds">` holding one `<div className="bed" role="group" aria-label="Bed {k+1}">` per bed
       that has ≥ 1 owned tile. Each bed is a 3-column grid of 2 rows. Inside a started bed, slots past the last owned
@@ -3963,7 +3963,7 @@ Scope: `src/app` + tests. No `src/core`, no `src/save`, no SAVE_VERSION, no sim 
     - Tests (jsdom): 9 tiles → 2 `.bed` groups, the second has 3 cells + 3 `.cell-slot`; 24 tiles → 4 beds × 6 cells,
       0 slots; tapping the 8th cell calls `onTap(7)`; no element carries `--n`. appCss test: `.beds` declares the
       `@container (min-width: 480px)` rule and `.bed` uses a 3-column grid.
-- [ ] 136. **`MiniLot` component (built and tested now, mounted in batch 27).** New `src/app/MiniLot.tsx`:
+- [x] 136. **`MiniLot` component (built and tested now, mounted in batch 27).** New `src/app/MiniLot.tsx`:
     `MiniLot({ state, onOpen }: { state: GameState; onOpen: () => void })`.
     - One `<button className="mini-lot" aria-label="Home lot — {ripe} ripe, open">`. It is the ONLY tap target
       (40 px tiles are under the 44 px minimum, so a tile never acts).
@@ -3974,7 +3974,7 @@ Scope: `src/app` + tests. No `src/core`, no `src/save`, no SAVE_VERSION, no sim 
     - A ripe-count badge in the corner: `🧺 {ripe}`, hidden at 0 (🧺 is Unicode 11, allowed).
     - Tests (jsdom): a seeded state with 3 mature tiles → badge `🧺 3` and aria-label contains "3 ripe"; one click
       calls `onOpen` once; no descendant `<button>`.
-- [ ] 137. **Gates + CHANGELOG.** Top line of `CHANGELOG`:
+- [x] 137. **Gates + CHANGELOG.** Top line of `CHANGELOG`:
     `| 25 | <ship date> | Your home plot is laid out in four fixed beds of six, so it no longer reshuffles when you buy a tile |`
 
 Hermes verifies live at 375 / 1024 / 1440 / 2560 / 3440 with 9, 15 and 24 tiles. Checks: no overlap between beds and
@@ -4231,3 +4231,35 @@ two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and ex
   (50 home harvests) is unchanged.
 - [ ] 157. Ledger shows renown per crop and the next tier. Sim: a worker-only route reaches the top tier in bounded
   game-hours (reported + capped); prestige reset pinned.
+
+---
+
+## Batch 25 results (2026-11-10)
+
+Tasks 135–137 done, one commit each (`dd41d0c`, `d819aae`, and this one), all on `main`, not pushed.
+
+- **135 Beds layout.** `FarmGrid` now derives bed k = tiles 6k…6k+5 and renders `.farm-fit > .beds-wrap > .beds > .bed`
+  (role=group, aria-label "Bed k+1") with `.cell-slot` dashed spans padding the unowned slots of the last started bed.
+  The `ceil(sqrt(n))` columns and the `--n` custom property are deleted; `.beds-wrap` is an inline-size container so
+  phones get the `@container (min-width: 480px)` pairing too. The ≥ 768 px tile-size formula moved from `.grid` onto
+  `.beds` and now counts each bed's 20 px chrome (2 px border × 2 + s2 padding × 2), the tile gaps inside beds and the
+  s4 gap between beds (`app.css` `.beds` block). `--rows-stacked = 2 × beds`, `--rows-paired = 2 × ceil(beds / 2)` are
+  inline on `.beds`. Rings, flash, 📋 badge, 💧 badge, bars and the global-index `onTap(i)` are unchanged.
+- **136 MiniLot.** New `src/app/MiniLot.tsx`, exported, not mounted anywhere yet (batch 27 mounts it). One
+  `<button.mini-lot>` with aria-label "Home lot — {ripe} ripe, open"; beds reuse `.bed` at 40 px tiles (`.mini-lot
+  .bed`: gap `--s1`, padding 2 px); tile spans class `mini-empty` / `mini-growing` (60 % opacity) / `mini-ready`
+  (green inset ring) / `mini-dry` (orange inset ring); `🧺 {ripe}` badge top-right, not rendered at 0 ripe.
+- **137 Gates + CHANGELOG.** Entry added at the top of `CHANGELOG` verbatim. Gates: `pnpm test` 829 passed (48 files,
+  was 821/47), `pnpm lint` clean, `pnpm build` clean, `tsc -b --force` clean. FarmGrid props did not change, so no
+  existing test needed a prop update; the three existing FarmGrid test sites (Workers/Workshop/Orders) pass as-is.
+  Purity grep over `src/core` / `src/save` untouched — no files there were modified. New tests: `tests/Beds.test.tsx`
+  (4), `tests/MiniLot.test.tsx` (2), `tests/appCss.test.ts` +1 describe (2 checks).
+
+### Deviations
+
+- Could not verify in jsdom (no browser): actual layout, container-query pairing at 480 px, tile sizing at 1024 × 768,
+  ring visibility on green/soil, and the 40 px MiniLot look. Hermes re-measures live at 375 / 1024 / 1440 / 2560 /
+  3440 with 9, 15 and 24 tiles.
+- The plan's CSS spec had `.beds { --rows: var(--rows-stacked) }` inside the base rule; kept exactly, with the ≥ 768 px
+  `--tile` formula added on `.beds` in the 768 px media block (the mobile rule does not use it).
+- The `--rows` value on mobile is inert (the formula is ≥ 768 px only) but harmless; kept for spec fidelity.
