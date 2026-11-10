@@ -559,3 +559,17 @@ Research and earlier rounds: `bigfarm-design.md` (A), `-b.md`, `-d.md`, `placeme
 - **Renumbered:** mine QoL (was "batch 25 / save v20" above) → batch 32 / save v23. Furnace molds (was "26 / v21")
   → batch 33 / save v24. Toon chose big farm first. The reserved Keep ↔ Sell column in the shared item grid now
   waits for batch 32.
+
+## Batch 27 refined: Estate surface details (2026-11-11, Hermes after the spike verdict)
+
+- **Spike verdict (Toon):** the pull-back reads as "my farm got bigger" → two stops kept, desktop free zoom dropped;
+  52 px rows fine; long lists get a bottom bar (the "⬇ next" button waits for batch 30, when there are 20 field rows —
+  today's Estate has at most 8 crop rows).
+- **1024 fit:** beds pair from a 400 px container (was 480) and the tile floor is 52 px (was 72), with cells that hide
+  their text label below 80 px and the "rots in" text below 64 px. Why: measured live at 1024 × 768, no layout fits
+  24 tiles at 72 px; paired at 54 px fits with no scroll and no overflow, and the wider screens keep their tile size.
+- **Where the Fields content lives:** the Estate stop holds the crop rows (the by-crop ledger with Plant / Stop), the
+  ghost row and the machines; the side Fields card shrinks to one summary line with "Open Estate". Why: one place to
+  act on the fields, and the ledger is the rows themselves rather than a second read-only copy.
+- **Phones:** the 📋 sheet and the Estate bar apply only after the Tractor; before it phones are unchanged. Reap on the
+  bar is a disabled count with a hint until batch 28 adds hand reaping.

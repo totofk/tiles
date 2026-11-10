@@ -4091,36 +4091,166 @@ kept), plus a stub → sheet → Build at 375 and 1440.
 
 ## Batch 27 — Estate surface on today's cohorts (C3, tasks 142–144, UI only, no save bump)
 
-Refined after the spike. Scope `src/app`. Cohorts stay the model, so there are no plot cells yet.
+Refined 2026-11-11 after the spike verdict (two stops kept, ALT-3 dropped; 52 px rows ok; long lists get a bottom bar)
+and a live measurement at 1024 × 768. Scope `src/app` and `tests/` only — no `src/core`, no `src/save`, no save bump.
+Cohorts stay the model, so the Estate shows today's Fields (rows per crop), not plots. Worker: GLM, `--max-turns 300`.
 
-Carried in from batch 25 (Hermes live check, 2026-11-10). It goes in as the first part of task 142.
-- At 1024 × 768 the centre column is 404 px wide, which is under the 480 px pairing threshold. The beds stack in one
-  column, and 24 tiles scroll: content 747 px against 620 px.
-- At the 72 px tile floor, the mature tile's "rots in" line overflows the cell.
-- The batch-25 plan claimed 24 tiles fit at 1024 without scrolling. That arithmetic was wrong: at a 72 px floor, no
-  arrangement fits 24 tiles in that space.
-- Task 142 resizes the centre column anyway, so the fix belongs there. Hermes picks the fix when refining this batch:
-  a wider centre column at ≥ 1024, a smaller floor with a compact cell, or both.
+LOCKED (Toon) — design around these, do not argue them away:
+- L1 sprinklers are placed and never move; L2 the Tractor opens a big farm as the MAIN view (two stops: 🚜 Estate and
+  🏡 Home, one surface, the home lot shrinks into the Estate); L3 built systems change but do not drift far.
+- Spike verdict: the pull-back reads as "my farm got bigger" → keep it; 52 px rows are fine.
 
-- [ ] 142. **One surface, two stops.** After the Tractor (`fields.unlocked`), the centre column has two stops:
-  - 🚜 Estate (default): capacity strip, `MiniLot`, today's Fields content as rows by crop, one ghost row;
-  - 🏡 Home: the full bed grid with today's tools, and the fields folded to one strip of crop counts.
-  The stop is kept in `tiles.ui` (cosmetic). After an offline return it opens on Estate. A 🏡/🚜 toggle, a tap on
-  `MiniLot` or the estate strip, and keys 1 / 2 / Esc switch stops. The same DOM node resizes with a 250 ms FLIP;
-  reduced motion cuts it. The first switch after the unlock plays a pull-back once per save (flag in `tiles.ui`).
-  Containers ≥ ~1,100 px show both stops open. The side-panel Fields card shrinks to one summary line that links to
-  the surface.
-- [ ] 143. **Capacity strip + by-crop ledger.**
-  - The strip shows: tiles watered vs the pipe cover, sow/reap rate vs need, and ONE bottleneck word with its fix and
-    time-to-afford.
-  - The 🌾 tab becomes a read-only ledger: per crop, tiles / 💰/h / ▲▼ trend / 🏡 n/50 gate, with the machine and pipe
-    recipes under it.
-- [ ] 144. **Phone + wide layouts.**
-  - At 375 px, the tool bar swaps per stop (Home = today's tools; Estate = Sow empty / Reap ready / ＋Plot, wired to
-    today's actions: plant batch / harvest is worker-only today, so Reap shows the count and a hint until batch 28).
-  - The Orders / Workers / Workshop cards (`App.tsx:162–170`) move into a 📋 sheet on phones. The accepted order and
-    its progress sit on the strip.
-  - Hermes checks live at 375 / 1024 / 1440 / 2560 / 3440. CHANGELOG line written at refinement.
+Rules (every task):
+- UI state lives in `tiles.ui` (`src/app/uiState.ts`), never in the save. Every new `UiState` field gets a default in
+  `DEFAULT_UI` and a field-by-field fallback in `parseUi`, with a `tests/uiState.test.ts` case for a missing/broken value.
+- Emoji only from shared constants (`CROP_EMOJI`, `ITEMS.*.emoji`, the constants at the top of `Fields.tsx`); every
+  glyph Unicode ≤ 11. New glyphs used here: 🚜 🏡 🌱 🌾 💧 📋 ⚠ ✓ — all ≤ 11.
+- Players before the Tractor (`run.fields.unlocked === false`) see NO change except the task-142a tile fix.
+- No case-only file-name clashes: after 142.0, `git ls-files | sed -E 's/\.(tsx?|jsx?)$//' | sort -f | uniq -di`
+  prints nothing. New test files: `tests/Estate.test.tsx`, `tests/estateText.test.ts` (no `estate.test.ts` exists — keep it that way).
+- Never run `git push`. Commit per task. `pnpm test`, `pnpm lint`, `pnpm build` green before each commit.
+
+- [ ] 142. **1024 home-lot fit (carried in from batch 25) + one surface, two stops.**
+  0) First, before any code: rename the five jsdom test files whose names clash with a `.test.ts` file once the
+     extension is stripped (macOS tsc can skip one of a pair while Linux CI fails — batch 26's `Workshop` clash):
+     `git mv` `tests/Bank.test.tsx` → `tests/BankTab.test.tsx`, `tests/Fields.test.tsx` → `tests/FieldsCard.test.tsx`,
+     `tests/Orders.test.tsx` → `tests/OrdersCard.test.tsx`, `tests/Tools.test.tsx` → `tests/ToolsBar.test.tsx`,
+     `tests/Workers.test.tsx` → `tests/WorkersCard.test.tsx`. Afterwards
+     `git ls-files | sed -E 's/\.(tsx?|jsx?)$//' | sort -f | uniq -di` prints NOTHING. Own commit.
+  a) Home lot fit — measured live at 1024 × 768 with the 24-tile v19 save (Hermes, 2026-11-11): centre column 419 px,
+     beds stacked (threshold 480), 72 px tiles, `.farm-fit` scrolls 210 px, 21 of 24 cells overflow their text. The fix
+     below was injected on the live build and re-measured: 1024 pairs the beds at 54 px tiles, no scroll, no cell
+     overflow; 1280 82 px, 1440 95 px, 2560 194 px, 375 100 px all unchanged and no overflow. In `src/app/app.css`:
+     - `@container (min-width: 480px)` on `.beds` (pairing) → `@container (min-width: 400px)`;
+     - the `--tile` floor `max(72px, …)` in the `@media (min-width: 768px)` `.beds` rule → `max(52px, …)`;
+     - compact cells by their own width — add:
+       ```css
+       .cell { container-type: inline-size; }
+       /* < 80 px: the text label goes screen-reader-only (the emoji + bars carry the state) */
+       @container (max-width: 79px) {
+         .cell-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+         .cell-rot { font-size: 10px; }
+       }
+       /* < 64 px: the "rots in" text goes too (the red rot bar stays), tighter padding */
+       @container (max-width: 63px) {
+         .cell-rot { display: none; }
+         .cell { padding: 4px 2px; gap: 2px; }
+         .cell-emoji { font-size: 20px; line-height: 1; }
+       }
+       ```
+     - update the comments that name 480 / 72 and `tests/appCss.test.ts` assertions that pin them.
+     Known and left alone: a 768 × 1024 portrait tablet keeps stacked beds (its `.beds-wrap` is 321 px) and scrolls
+     105 px.
+  b) Stops (only when `run.fields.unlocked`): new `UiState` fields `stop: 'estate' | 'home'` (default `'estate'`) and
+     `pulledBack: boolean` (default `false`). The centre `.farm` section renders a `<Surface>` (new
+     `src/app/Surface.tsx`) instead of the bare `FarmGrid`:
+     - a stop switch at the top: two buttons `🚜 Estate` / `🏡 Home`, `aria-pressed`, 44 px tall;
+     - 🚜 Estate stop: `<Estate>` (task 143) — capacity strip, then `MiniLot` (`src/app/MiniLot.tsx`, built in batch
+       25; `onOpen` → Home stop), then the crop rows;
+     - 🏡 Home stop: today's content exactly (Tools where they render today, `FarmGrid`, and on phones/tablets the cards
+       below it), plus ONE fold strip above the grid: a button `🚜 Fields · 🍋 120 · 🌶️ 40 · 🌾 30 ready` (licensed
+       crops with standing tiles, `CROP_EMOJI` + `run.fields.planted`, ready from `fieldsStats`) whose tap → Estate.
+     - switching: the two buttons, a tap on `MiniLot` (→ Home) or the fold strip (→ Estate), and keys `1` = Home,
+       `2` = Estate, `Escape` = Estate. Keys are ignored when the event target is an `input`, `textarea` or `select`,
+       or when any `[role="dialog"]` is in the document (the Modal, the tool popover), so Esc still closes those first.
+     - opening: when the app loads with the welcome-back banner showing (`banner !== null` from `useGame`), the stop
+       starts on Estate whatever was saved; otherwise the saved stop.
+     - FLIP: the home-lot block (one wrapper `div.home-block` around `MiniLot` / `FarmGrid`) animates from its old rect
+       to its new one when the stop changes: in `useLayoutEffect` keyed on the stop, read the rect stored on the last
+       layout, apply `transform: translate(dx, dy) scale(sx, sy)` with `transition: none`, force a reflow, then
+       `transition: transform 250ms cubic-bezier(.2,.7,.2,1)` and clear the transform. Skip when
+       `prefers-reduced-motion: reduce` matches or either rect has zero width (jsdom).
+     - pull-back, once: when `fields.unlocked && !ui.pulledBack` (a fresh Tractor, or an existing save that already
+       owns it), set `pulledBack: true` immediately (a reload mid-animation does not replay), show the Home stop, after
+       700 ms show a caption `🚜 Your farm got bigger` (`.pullcap`, centred over the surface, fades in/out) and switch
+       to Estate with a 700 ms FLIP; the caption fades out at 2.6 s. Reduced motion: switch at once, caption 2 s.
+     - both stops at once: a `ResizeObserver` on the `.farm` section sets `both = width >= 1100` (guard: no
+       `ResizeObserver` → `false`). In `both` mode the surface is a two-column grid
+       `grid-template-columns: minmax(0, 1fr) minmax(0, 1fr)` — Estate left, Home (full `FarmGrid`) right — the stop
+       switch and the fold strip hide, `MiniLot` hides, keys do nothing. Measured centre widths: 1440 → 669 (one stop),
+       2560 → 1560 and 3440 → both.
+  Tests: `uiState` defaults + fallbacks for `stop` / `pulledBack`; `tests/App.test.tsx`: no switch before the Tractor;
+  with the v19 fixture state the switch renders, `2`/`Escape`/`1` change `aria-pressed`, Esc does nothing while a
+  `Modal` is open, the fold strip and `MiniLot` switch stops, a banner at load forces Estate, `pulledBack` flips to
+  true on first render; `appCss` asserts the 400 px container rule, the 52 px floor and both `.cell` container rules.
+
+- [ ] 143. **Estate content: capacity strip + crop rows + ghost row + machines.** New `src/app/Estate.tsx` and pure
+  display helpers in `src/app/estateText.ts` (no React, unit-tested). All numbers come from today's core exports
+  (`fieldsStats`, `fieldsPlantable`, `pipeCover`, `pipeCost`, `machineTilesPerHour`, `machineCost`, `fieldTileCost`,
+  `fieldsPaybackHours`, `cropGrowTicks`, `cropSellPrice`, `cropSeedCost`, `marketFactor`, `plantBatch`,
+  `harvestBatch`) and `priceText` / `shortOf` from `Mine.tsx`.
+  a) Crop rows (the by-crop ledger), one per licensed crop, in `CROP_IDS` order, each one line ≥ 52 px:
+     `🍋 Lemon · 120 tiles (30 ready, next in 3m) · ≈💰4,100/h · <priceTag> | [Plant 10] or [Stop]`.
+     - tiles = `run.fields.planted[c]`; ready = sum of that crop's cohorts with `readyTick <= tick`; next = smallest
+       `readyTick - tick` among its growing cohorts, shown as `m`/`h` (hide when none);
+     - `estateCropIncomePerHour(state, c)` = `planted × 3600 / cropGrowTicks(c, meta, run.upgrades.fertilizer) ×
+       (cropSellPrice(c, meta, run.upgrades.sellPrice) × marketFactor(c, run.market[c]) − cropSeedCost(c, meta))`,
+       rounded, shown with `≈` (an estimate: it ignores stalls, orders, sickle doubles);
+     - trend = `priceTag(state, c, ui.priceShown[c])` (the ▲▼ arrows already used in the Farm tab), and the
+       `priceShown` recorder in `App.tsx:72–89` also runs while the Estate stop is on screen;
+     - a crop not yet plantable shows `🏡 n/50 home harvests` (`run.lifetime.harvests[c]`, `fieldsCropHarvests()`)
+       in place of the income, and its Plant button is disabled — same rule as `Fields.tsx:62–76` today;
+     - Plant / Stop buttons = today's `plantFields` / `stopFieldsPlant` calls and price line, moved from `Fields.tsx`.
+     - layout: the rows sit in `.estate-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px,
+       1fr)); column-gap: 40px; row-gap: var(--s2); }` (spike: rows flow into columns on wide panes); each row is a
+       grid `minmax(0, 1fr) 96px` (text | button), the text truncates with ellipsis, never wraps the button under it.
+  b) Ghost row, after the crop rows (dashed border, like `.cell-slot`): `＋ 10 tiles 💰X · ~N h payback` where X = the
+     sum of `fieldTileCost(count + i, meta)` for i = 0..9 and N = `fieldsPaybackHours(state)`; the button buys up to 10
+     tiles by applying `buyField` repeatedly inside ONE `act` (stops at the first failure; disabled when the first
+     buy fails). Below it, when `pipeCost(run.fields.pipes, meta)` is not null: today's Pipes Lv row from
+     `Fields.tsx:92–103`, unchanged.
+  c) Capacity strip, at the top of the Estate (and at the top of the Estate column in `both` mode), one wrapping line of
+     chips, ≥ 44 px tall in total:
+     - `💧 {covered}/{pipeCover(pipes)} watered` (from `fieldsStats`);
+     - `🌱 {seeder fleet tiles/h}/h · {free} empty` and `🌾 {harvester fleet tiles/h}/h · {ready} ready` (fleet =
+       sum of `machineTilesPerHour(kind, tier)` over `run.fields.machines[kind]`; `0/h` when none);
+     - the first accepted, unfinished order (`run.orders.offers`, `isOffer`, `accepted && done < count`) as
+       `📋 🍋 12/30`; hidden when none;
+     - ONE bottleneck chip from `estateBottleneck(state)` (pure, in `estateText.ts`), first match wins:
+       1. `growing > 0 && (run.inventory.coal ?? 0) < 1` → `⚠ Coal — the pump is dry, growth paused` (fix text: `mine
+          or buy coal`);
+       2. `stalled > 0` → `⚠ Pipes — {stalled} tiles wait` + the next Pipes price via `priceText`, or `max pipes`;
+       3. `free >= plantBatch()` and no seeder and `run.fields.plantCrop === null` → `⚠ Sowing — {free} tiles empty`
+          + `pick a crop to Plant`; with no seeder owned but a crop picked → `⚠ Sowing` + the cheapest Seeder Mk not
+          owned (its `priceText`, or its certificate reason);
+       4. `ready >= harvestBatch()` and no harvester → `⚠ Reaping — {ready} ready` + the cheapest Harvester Mk not owned;
+       5. otherwise `✓ Land — next 10 tiles` + the ghost-row price.
+       Each fix shows time-to-afford: `now` when affordable; else the cash gap ÷ the sum of the rows' `≈💰/h`, as
+       `~N min` / `~N h` (marked `≈`); bar shortfalls via `shortOf` (`needs 8🥉 more`) instead of a time.
+  d) Machines: today's Machines group (`Fields.tsx:105–129`, `RecipeRow`s) moves under the ghost rows inside a
+     `<details className="estate-machines">` default closed, with a visible ▸/▾ chevron and a header styled like a
+     button (the `.tools-head` pattern).
+  e) The side-panel / below-grid Fields card (`Fields.tsx`) shrinks to one summary line: `🚜 Fields · {count} tiles ·
+     🌾 {ready} ready · ⏳ {stalled} stalled` + a `Open Estate` button that sets `stop: 'estate'` and, on phones,
+     `view: 'farm'`. The 3-bar gauge block and the Plant / Expand / Machines groups leave `Fields.tsx` (they now live
+     in the Estate). Before the Tractor the card renders nothing, as today.
+  Tests: `tests/estateText.test.ts` — `estateCropIncomePerHour` against hand arithmetic for one crop; each bottleneck
+  branch with a forged state, and the first-match order (dry pump beats stalled); time-to-afford text for now / cash
+  gap / bar gap. `tests/Estate.test.tsx` (v19 fixture state, migrated): a row per licensed crop with tiles and ready
+  counts that match `fieldsStats`; Plant then Stop call through `act`; the ghost row buys 10 tiles when cash allows
+  and fewer when it does not; the machines `details` is closed by default. Update `tests/FieldsCard.test.tsx` (renamed in
+  142.0) for the summary card.
+
+- [ ] 144. **Phone bar + 📋 sheet + CHANGELOG.**
+  - At < 768 px with the Tractor owned, the farm view's tool bar swaps per stop: Home = today's `Tools` bar; Estate =
+    three `flex: 1` buttons: `🌱 Sow 10 <crop emoji>` (calls `plantFields(state, run.fields.plantCrop)`, disabled when
+    no crop is picked, with a `pick a crop below` title), `🌾 Reap · {ready}` (disabled; its title and a one-line hint
+    under the bar read `Harvesters reap the Fields — hand reaping comes next update`), `＋10 tiles` (the ghost-row
+    action). Same position, gap and height rules as today's mobile `.tools` bar.
+  - At < 768 px with the Tractor owned, the Orders / Workers / Workshop cards that render below the grid today
+    (`App.tsx:162–170`) move into one `📋 Orders · Workers · Workshop` button that opens them in the shared `Modal`
+    (`src/app/Modal.tsx`). The accepted order stays visible on the capacity strip (143c). Before the Tractor, phones
+    are unchanged. `DigSeeds` and the Fields summary card stay where they are.
+  - CHANGELOG (top of `src/app/changelog.ts`, batch `'27'`):
+    `The Tractor opens your Estate: the whole farm at a glance, the home lot one tap away — and smaller screens now fit
+    the whole home lot without scrolling`.
+  - Tests: App at a 375 px `matchMedia` stub with the v19 state: the Estate bar shows three buttons and Sow calls
+    `plantFields`; the 📋 button opens a dialog holding the three cards; without the Tractor no 📋 button and today's
+    cards render.
+  - Hermes checks live after the push at 375 / 1024 / 1440 / 2560 / 3440 with the v20 live save from the v19 fixture
+    (Fields unlocked, 400 tiles, pipes 2, Harvester Mk1+2, Seeder Mk1): no x-scroll, no overlap of strip / rows /
+    switch, both stops at ≥ 2560, pull-back plays once, keys, FLIP, phone bar and sheet. Plus the 1024 × 768 home lot
+    with 24 tiles: paired beds, no scroll, no cell overflow.
 
 ---
 
