@@ -4525,3 +4525,14 @@ tasks; lint and build green at every commit.
   itself fails (seeds/cash/land), not only when no crop is picked.
 - The Fields summary always shows the `⏳ N stalled` segment (the brief's one line, verbatim),
   where the old card only showed it when non-zero.
+
+### Hermes live check (2026-11-11)
+Measured on the live build with the v19 fixture at 375 / 1024 / 1440 / 2560 / 3440. Two fixes shipped after the worker:
+`41acb81` (the bottleneck chip was 421 px wide and pushed past the 344 / 419 px centre at 375 / 1024 → it wraps;
+crop rows cut 7–59 px of their price line → both lines wrap, rows ~68 px; the phone hint got the page background and
+reserved room) and `deb84d6` (with the Tractor the Home stop's container is 396 px, so the 400 px pairing never fired
+and the 24-tile lot scrolled 71 px at 1024 × 768 → pairing from 380 px). After both: no x-scroll and nothing past the
+centre column at any width; both stops side by side at 2560 / 3440 (774 / 1214 px each); keys 1 / Esc / 2 switch;
+pulledBack set on first load; the 📋 sheet opens Orders / Workers / Workshop at 375; 1024 Home stop and pre-Tractor
+1024 pair at 52–53 px with no scroll and no cell overflow; 1440 pre-Tractor unchanged at 95 px, 375 at 104 px.
+Not seen by eye: the FLIP and pull-back motion (the state flips; the animation was not filmed).
