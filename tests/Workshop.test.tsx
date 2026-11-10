@@ -1,16 +1,16 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import App from '../src/app/App'
 import { FarmGrid } from '../src/app/FarmGrid'
+import { Workers } from '../src/app/Workers'
 import { Shop } from '../src/app/Shop'
 import { Workshop } from '../src/app/Workshop'
 import type { Act } from '../src/app/useGame'
 import { priceText } from '../src/app/Mine'
-import { sprinklerCost, sprinklerHopper, sprinklerMax, sprinklerTiles, valveCost, workshopCost } from '../src/core/balance'
-import { ITEMS } from '../src/core/data/items'
-import { createInitialState, type GameState, type Tile } from '../src/core/state'
-import { sprinklerWatered } from '../src/core/workshop'
+import { sprinklerCost, sprinklerMax, workshopCost } from '../src/core/balance'
+import { SPRINKLER_EMOJI } from '../src/core/workshop'
+import { createInitialState, createTile, type GameState, type Tile } from '../src/core/state'
 import { serialize } from '../src/save/serialize'
 import { SAVE_KEY } from '../src/save/storage'
 
@@ -35,6 +35,7 @@ const row = (label: RegExp) => screen.getByText(label).closest('.recipe-row, .ga
 /** growing lemon tiles with the given moistures (far from done, so nothing matures during a test) */
 const growingTiles = (moistures: number[]): Tile[] =>
   moistures.map((moisture) => ({ status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture, ticksSinceMature: 0 }))
+const NO_BEDS: GameState['run']['workshop']['beds'] = [false, false, false, false]
 
 describe('the Shop sells the workshop like the furnace (task 91)', () => {
   function setupShop(run: Partial<GameState['run']>) {
@@ -68,80 +69,39 @@ describe('the Shop sells the workshop like the furnace (task 91)', () => {
   })
 })
 
-describe('🔧 Workshop card', () => {
-  it('is hidden until the workshop is built; the summary counts machines and the tiles they water', () => {
-    setup({ workshop: { built: false, hoppers: [], valve: false } })
+describe('🔧 Workshop card (batch 26)', () => {
+  it('is hidden until the workshop is built; the summary and its one line count beds', () => {
+    setup({ workshop: { built: false, beds: NO_BEDS, valve: false } })
     expect(screen.queryByText(/🔧 Workshop/)).toBeNull()
     cleanup()
-    setup({ workshop: { built: true, hoppers: [10, 24], valve: false } })
-    expect(summary()).toBe(`🔧 Workshop · 💧 Sprinklers 2/4 — waters ${2 * sprinklerTiles()} tiles`)
+    setup({ workshop: { built: true, beds: [true, true, false, false], valve: false } })
+    expect(summary()).toBe(`🔧 Workshop · ${SPRINKLER_EMOJI} 2/${sprinklerMax()} beds`)
+    expect(row(new RegExp(`${SPRINKLER_EMOJI} 2/4 beds —`)).textContent).toBe(`${SPRINKLER_EMOJI} 2/4 beds — the water worker retires at 4/4`)
   })
 
-  it('one row per machine with its own coal gauge; an empty hopper says stalled on the row and the summary', () => {
-    setup({ workshop: { built: true, hoppers: [10, 0], valve: false } })
-    const first = row(/Machine 1/)
-    expect(first.querySelector('.bar-fire')).toBeTruthy()
-    expect(first.textContent).toContain(`${ITEMS.coal.emoji} 10/${sprinklerHopper()}`)
-    expect(row(/Machine 2/).textContent).toContain(`— stalled`)
-    expect(summary()).toContain('stalled')
-  })
-
-  it('the sprinkler recipe row: greyed with one token per missing material, builds when affordable, ✓ at 4 machines', () => {
-    setup({ workshop: { built: true, hoppers: [], valve: false }, inventory: { goldBar: 2, ironBar: 5, copperBar: 8 }, cash: 3000 })
-    const build = btn(/Build/)
-    expect(build.disabled).toBe(true)
-    const line = row(/^💧 Sprinkler/).textContent!
-    expect(line).toContain(`needs ${ITEMS.ironBar.emoji}⁠3 ${ITEMS.goldBar.emoji}⁠2 💰⁠5000 more`)
-    expect(line).toContain(`${ITEMS.copperBar.emoji}⁠8`)
-    expect(line).toContain(`waters ${sprinklerTiles()} tiles`)
-  })
-
-  it('the sprinkler recipe row builds a machine when affordable, and the max is a solid owned card', () => {
-    const t = setup({ workshop: { built: true, hoppers: [], valve: false }, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 })
-    expect(btn(/Build/).disabled).toBe(false)
-    fireEvent.click(btn(/Build/))
-    t.rerender()
-    expect(t.get().run.workshop.hoppers).toEqual([0])
-    expect(row(/Machine 1/).textContent).toContain(`${ITEMS.coal.emoji} 0/${sprinklerHopper()}`)
-    cleanup()
-    setup({ workshop: { built: true, hoppers: [24, 24, 24, 24], valve: false }, inventory: { goldBar: 9, ironBar: 9, copperBar: 9 }, cash: 99999 })
-    // owned renders NO button: a ✓ Built badge in the button column, the effect line stays under the name
-    expect(screen.queryByRole('button', { name: /Build/ })).toBeNull()
-    expect(row(/^💧 Sprinkler/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
-    expect(row(/^💧 Sprinkler/).textContent).toContain(`${sprinklerMax()} machines`)
-  })
-
-  it('the valve recipe row pays 2 gold bars and cash, then shows ✓; short bars give a needs line', () => {
-    setup({ workshop: { built: true, hoppers: [24], valve: false }, cash: 99999 })
-    expect(row(/Smart valve/).textContent).toContain(`needs ${ITEMS.goldBar.emoji}⁠2`)
-    expect(btn(/^Buy/).disabled).toBe(true)
-    cleanup()
-    const t = setup({ workshop: { built: true, hoppers: [24], valve: false }, inventory: { goldBar: 2 }, cash: 99999 })
-    fireEvent.click(btn(/^Buy/))
-    t.rerender()
-    expect(t.get().run.workshop.valve).toBe(true)
-    expect(t.get().run.inventory.goldBar).toBe(0)
-    expect(screen.queryByRole('button', { name: /^Buy/ })).toBeNull()
-    expect(row(/Smart valve/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
-  })
-
-  it('batch 24.1: two groups — gauges then one Build recipe grid with an h3; the button holds verb + price, never the effect', () => {
-    const t = setup({ workshop: { built: true, hoppers: [10], valve: false }, cash: 99999, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 } })
+  it('two groups — the one-line gauge group, then one Build grid with an h3, a hint and no buy buttons', () => {
+    setup({ workshop: { built: true, beds: [true], valve: false } as GameState['run']['workshop'] })
     const card = document.querySelector('details.workers')!
     const groups = [...card.children].filter((c) => c.tagName === 'DIV')
     expect(groups.map((g) => g.className)).toEqual(['group gauge-grid', 'recipe-wrap'])
     const build = card.querySelector('.recipe-grid')!
     expect([...build.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Build'])
-    expect([...build.querySelectorAll('.group > .recipe-row button')].map((b) => b.textContent)).toEqual([
-      `Build${priceText(sprinklerCost(t.get().meta))}`,
-      `Buy${priceText(valveCost(t.get().meta))}`,
-    ])
-    expect(priceText({ ironBar: 12, cash: 50000 })).toContain('⁠')
+    expect(build.querySelector('.hint')!.textContent).toBe(`Build on a bed's socket ${SPRINKLER_EMOJI} on the farm`)
+    expect(build.querySelectorAll('button')).toHaveLength(0)
+  })
+
+  it('the Smart valve row shows ✓ Built with its batch-28 note only when owned', () => {
+    setup({ workshop: { built: true, beds: NO_BEDS, valve: false } })
+    expect(screen.queryByText(/Smart valve/)).toBeNull()
+    cleanup()
+    setup({ workshop: { built: true, beds: NO_BEDS, valve: true } })
+    expect(row(/Smart valve/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
+    expect(row(/Smart valve/).textContent).toContain('gets a job when Fields get pressure')
   })
 
   it('sits below 👷 Workers in the mobile farm column', () => {
     const s = createInitialState()
-    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, workshop: { built: true, hoppers: [24], valve: false } } }, Date.now()))
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, workshop: { built: true, beds: NO_BEDS, valve: false } } }, Date.now()))
     render(<App />)
     const farm = document.querySelector<HTMLElement>('.farm')!
     expect(within(farm).getByText(/🔧 Workshop/)).toBeTruthy()
@@ -149,40 +109,98 @@ describe('🔧 Workshop card', () => {
   })
 })
 
-describe('the 💧 grid badge on sprinkler-watered tiles (task 91)', () => {
-  const moistures = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6]
-  const built = () => {
+describe('the bed socket stub and the confirm sheet (batch 26)', () => {
+  /** 19 tiles → beds 1–4 exist; sprinkler on bed 0 */
+  const at = (workshop: GameState['run']['workshop'], tiles = 19): GameState => {
     const s = createInitialState()
-    return { ...s, run: { ...s.run, tiles: growingTiles(moistures), workshop: { built: true, hoppers: [24], valve: false } } }
+    return { ...s, run: { ...s.run, tiles: Array.from({ length: tiles }, createTile), workshop } }
   }
-  const cells = () => [...document.querySelectorAll('.cell')]
-  const waterBadges = () => cells().flatMap((c, i) => (c.querySelector('.cell-order')?.textContent === '💧' ? [i] : []))
 
-  afterEach(() => {
-    vi.useRealTimers()
-    localStorage.clear()
+  it('the stub shows only when the workshop is built, the bed has an owned tile and the bed has no sprinkler', () => {
+    const built = at({ built: true, beds: NO_BEDS, valve: false })
+    render(<FarmGrid state={built} onTap={() => {}} />)
+    // 19 tiles = 4 beds (the last with 1 owned tile), each with its socket stub
+    expect(document.querySelectorAll('.bed-socket')).toHaveLength(4)
+    cleanup()
+    render(<FarmGrid state={at({ built: false, beds: NO_BEDS, valve: false })} onTap={() => {}} />)
+    expect(document.querySelectorAll('.bed-socket')).toHaveLength(0)
+    cleanup()
+    // bed 1 has the sprinkler: a fountain on the frame, no stub on that bed
+    render(<FarmGrid state={at({ built: true, beds: [false, true, false, false], valve: false })} onTap={() => {}} />)
+    const beds = [...document.querySelectorAll('.bed')]
+    expect(beds.filter((b) => b.querySelector('.bed-socket'))).toHaveLength(3)
+    expect(beds[1].querySelector('.bed-fountain')!.textContent).toBe(SPRINKLER_EMOJI)
   })
 
-  it('a corner 💧 (top-left, like the 📋 order badge) on the tiles the machines water, not the worker pop', () => {
-    const state = built()
-    expect(sprinklerWatered(state)).toEqual([0, 1, 2, 3, 4, 5])
-    const { rerender } = render(<FarmGrid state={state} onTap={() => {}} watered={[0, 1, 2, 3, 4, 5]} />)
-    expect(waterBadges()).toEqual([0, 1, 2, 3, 4, 5])
-    expect(document.querySelector('.cell-pop')).toBeNull()
-    expect(cells()[6].querySelector('.cell-order')).toBeNull()
-    rerender(<FarmGrid state={state} onTap={() => {}} />)
-    expect(waterBadges()).toEqual([])
+  it('the stub is grey when the recipe is short and pulses (bed-socket-ready) when storage holds it', () => {
+    const short = at({ built: true, beds: NO_BEDS, valve: false })
+    render(<FarmGrid state={short} onTap={() => {}} />)
+    expect(document.querySelector('.bed-socket')!.className).toBe('bed-socket')
+    cleanup()
+    const ready = { ...short, run: { ...short.run, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 } }
+    render(<FarmGrid state={ready} onTap={() => {}} />)
+    expect(document.querySelector('.bed-socket')!.className).toBe('bed-socket bed-socket-ready')
   })
 
-  it('in the app the badge shows on the tick the machines water, and clears a tick later', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] })
-    localStorage.setItem(SAVE_KEY, serialize(built(), Date.now()))
-    render(<App />)
-    expect(waterBadges()).toEqual([])
-    // tick 0 is a worker clock tick: the first step waters the 6 driest tiles
-    act(() => void vi.advanceTimersByTime(1000))
-    expect(waterBadges()).toEqual([0, 1, 2, 3, 4, 5])
-    act(() => void vi.advanceTimersByTime(1000))
-    expect(waterBadges()).toEqual([])
+  it('a tap opens the sheet: title, both lines and the price; a short recipe disables Build and lists what is missing', () => {
+    const s = at({ built: true, beds: NO_BEDS, valve: false })
+    render(<FarmGrid state={s} onTap={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Bed 3 sprinkler socket' }))
+    expect(screen.getByText('Bed 3 sprinkler')).toBeTruthy()
+    expect(screen.getByText('Waters these 6 tiles forever')).toBeTruthy()
+    expect(screen.getByText('Permanent — cannot be moved or sold')).toBeTruthy()
+    const build = btn(/^Build$/)
+    expect(document.querySelector('.sheet-price')!.textContent).toContain(priceText(sprinklerCost(s.meta)))
+    expect(build.disabled).toBe(true)
+    expect(screen.getByText(/needs /).textContent).toContain(sprinklerCost(s.meta).goldBar! + '')
+  })
+
+  it('Build pays and lights the bed; closing the sheet is the cancel (no placement mode)', () => {
+    const s = at({ built: true, beds: [true, false, false, false], valve: false }, 19)
+    const paid = { ...s, run: { ...s.run, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 } }
+    let state = paid
+    const act: Act = (fn) => {
+      const r = fn(state)
+      if (r.ok) state = r.state
+    }
+    const { rerender } = render(<FarmGrid state={paid} onTap={() => {}} act={act} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Bed 2 sprinkler socket' }))
+    fireEvent.click(btn(/^Build$/))
+    expect(state.run.workshop.beds[1]).toBe(true)
+    expect(state.run.inventory.goldBar).toBe(0)
+    expect(screen.queryByText('Bed 2 sprinkler')).toBeNull()
+    rerender(<FarmGrid state={state} onTap={() => {}} act={act} />)
+    expect(document.querySelectorAll('.bed-fountain')).toHaveLength(2)
+  })
+
+  it('a built bed has the blue frame class and its cells render no water bar', () => {
+    const s = at({ built: true, beds: [false, true, false, false], valve: false })
+    const planted = { ...s, run: { ...s.run, tiles: growingTiles(Array.from({ length: 19 }, (_, i) => (i < 12 ? 2 : 1))) } }
+    render(<FarmGrid state={planted} onTap={() => {}} />)
+    const beds = [...document.querySelectorAll('.bed')]
+    expect(beds[1].className).toBe('bed bed-irrigated')
+    expect(beds[0].className).toBe('bed')
+    expect(beds[1].querySelectorAll('.bar-water')).toHaveLength(0)
+    expect(beds[0].querySelectorAll('.bar-water').length).toBeGreaterThan(0)
+  })
+})
+
+describe('the Workers card water row (batch 26)', () => {
+  it('says "nothing to water — reassign" when every owned tile sits in a sprinklered bed', () => {
+    const s = createInitialState()
+    const allBeds: GameState['run']['workshop']['beds'] = [true, true, true, true]
+    const run = {
+      ...s.run,
+      tiles: growingTiles(Array(24).fill(1)),
+      workshop: { built: true, beds: allBeds, valve: false },
+      workers: { ...s.run.workers, certificates: ['water'] },
+    }
+    const act: Act = () => {}
+    render(<Workers state={{ ...s, run }} act={act} />)
+    expect(row(/💧 Water/).textContent).toContain('nothing to water — reassign')
+    cleanup()
+    const oneDry = { ...run, workshop: { built: true, beds: [true, true, true, false], valve: false } }
+    render(<Workers state={{ ...s, run: oneDry }} act={act} />)
+    expect(row(/💧 Water/).textContent).not.toContain('nothing to water')
   })
 })

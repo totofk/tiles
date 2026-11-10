@@ -5,6 +5,7 @@ import { TOOLS, type ToolJob } from '../core/data/tools'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
+import { isIrrigated } from '../core/workshop'
 import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
@@ -67,10 +68,13 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
     )
   }
   const name = WORKER_JOB_LABEL[job].split(' ')[1]
+  // batch 26: with every owned tile under a sprinkler there is nothing left to water — the row says so
+  const nothingToWater = job === 'water' && run.tiles.length > 0 && run.tiles.every((_, i) => isIrrigated(run, i))
   return (
     <div className="worker-row">
       <span>
         {dot} {WORKER_JOB_LABEL[job]}
+        {nothingToWater && <small>nothing to water — reassign</small>}
       </span>
       <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
         −

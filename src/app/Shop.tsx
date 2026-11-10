@@ -182,7 +182,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
                   : `needs ${[
                       !run.workers.certificates.includes('plant') && 'planter certificate',
                       !run.workers.certificates.includes('harvest') && 'harvester certificate',
-                      run.workshop.hoppers.length < 1 && '1 sprinkler',
+                      !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
                     ]
                       .filter(Boolean)
                       .join(' + ')}`}

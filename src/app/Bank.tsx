@@ -76,7 +76,7 @@ function gateShort(state: GameState): string {
   return [
     !run.workers.certificates.includes('plant') && 'planter certificate',
     !run.workers.certificates.includes('harvest') && 'harvester certificate',
-    run.workshop.hoppers.length < 1 && '1 sprinkler',
+    !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
     deeds < PRESTIGE_GATE_DEEDS && `${PRESTIGE_GATE_DEEDS - deeds} more deeds`,
   ]
     .filter(Boolean)

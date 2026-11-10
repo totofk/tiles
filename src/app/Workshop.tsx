@@ -1,13 +1,11 @@
 import type { ActionResult } from '../core/actions'
-import { sprinklerCost, sprinklerHopper, sprinklerMax, sprinklerTiles, valveCost, type Price } from '../core/balance'
+import { sprinklerMax, type Price } from '../core/balance'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
 import type { GameState } from '../core/state'
-import { buySprinkler, buyValve } from '../core/workshop'
-import { Bar } from './Bar'
+import { SPRINKLER_EMOJI } from '../core/workshop'
 import { priceText } from './Mine'
 import type { Act } from './useGame'
 
-const SPRINKLER_EMOJI = '💧' // Unicode 6, like every glyph in the UI
 const VALVE_EMOJI = '🎛️' // Unicode 7
 
 /** one token per material the recipe is short of, the TierTool "needs 🟨2 💰2500 more" pattern */
@@ -54,58 +52,32 @@ export function RecipeRow({ state, act, emoji, name, verb, cost, effect, owned, 
   )
 }
 
-/** the 🔧 Workshop card: per-machine coal gauges (a stalled machine is the one the valve covers; an aggregate would hide it) */
-export function Workshop({ state, act }: { state: GameState; act: Act }) {
-  const { run, meta } = state
-  const { workshop } = run
+/** the 🔧 Workshop card: sprinklers are built on the farm, on each bed's socket (batch 26); nothing is bought here */
+export function Workshop({ state }: { state: GameState; act: Act }) {
+  const { workshop } = state.run
   if (!workshop.built) return null
-  const n = workshop.hoppers.length
+  const n = workshop.beds.filter(Boolean).length
   return (
     <details className="workers">
-      <summary>
-        {`🔧 Workshop · ${SPRINKLER_EMOJI} Sprinklers ${n}/${sprinklerMax()} — waters ${n * sprinklerTiles()} tiles`}
-        {workshop.hoppers.some((h) => h < 1) && <span className="unpaid">stalled</span>}
-      </summary>
+      <summary>{`🔧 Workshop · ${SPRINKLER_EMOJI} ${n}/${sprinklerMax()} beds`}</summary>
       <div className="group gauge-grid">
-        {workshop.hoppers.map((h, i) => (
-          <div className="gauge-row" key={i}>
-            <span>
-              {`${SPRINKLER_EMOJI} Machine ${i + 1}`}
-              {h < 1 && ' — stalled'}
-            </span>
-            <Bar value={h / sprinklerHopper()} kind="fire" />
-            <small>{`${ITEMS.coal.emoji} ${h}/${sprinklerHopper()}`}</small>
-          </div>
-        ))}
+        <div className="gauge-row">
+          <span>{`${SPRINKLER_EMOJI} ${n}/${sprinklerMax()} beds — the water worker retires at 4/4`}</span>
+        </div>
       </div>
       <div className="recipe-wrap">
         <div className="recipe-grid">
           <div className="group">
             <h3>Build</h3>
-            <RecipeRow
-              state={state}
-              act={act}
-              emoji={SPRINKLER_EMOJI}
-              name="Sprinkler"
-              verb="Build"
-              cost={sprinklerCost(meta)}
-              effect={`waters ${sprinklerTiles()} tiles`}
-              owned={n >= sprinklerMax()}
-              ownedText={`${sprinklerMax()} machines`}
-              buy={buySprinkler}
-            />
-            <RecipeRow
-              state={state}
-              act={act}
-              emoji={VALVE_EMOJI}
-              name="Smart valve"
-              verb="Buy"
-              cost={valveCost(meta)}
-              effect="holds moisture during a coal stall"
-              owned={workshop.valve}
-              ownedText="holds moisture during a coal stall"
-              buy={buyValve}
-            />
+            <p className="hint">Build on a bed's socket {SPRINKLER_EMOJI} on the farm</p>
+            {workshop.valve && (
+              <div className="recipe-row">
+                <span>
+                  {VALVE_EMOJI} Smart valve<small>gets a job when Fields get pressure</small>
+                </span>
+                <span className="owned-badge">✓ Built</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

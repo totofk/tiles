@@ -368,6 +368,56 @@ button:disabled {
   border: 2px dashed #d6ccb8;
   border-radius: 6px;
 }
+/* a bed's sprinkler socket (batch 26): a small riser stub at the bed's top-right while the bed has no sprinkler */
+.bed-socket {
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid #c8b99a;
+  border-radius: 8px;
+  background: #fff;
+  color: #9a8f78;
+  font-size: 15px;
+  line-height: 1;
+}
+/* the recipe is in storage: the stub pulses (steady under reduced motion) */
+.bed-socket-ready {
+  border-color: #4a90d9;
+  color: #4a90d9;
+  animation: socket-pulse 1.6s ease-in-out infinite;
+}
+@keyframes socket-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+/* a built bed: a blue frame and the sprinkler glyph where the stub was */
+.bed-irrigated {
+  border-color: #4a90d9;
+}
+.bed-fountain {
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #4a90d9;
+  border-radius: 8px;
+  background: #fff;
+  color: #4a90d9;
+  font-size: 15px;
+  line-height: 26px;
+  text-align: center;
+}
 /* square, but a tile may grow taller rather than clip its text on a narrow screen */
 .cell {
   position: relative;
@@ -553,13 +603,14 @@ button:disabled {
     box-shadow: inset 0 0 0 999px rgba(255, 179, 0, 0);
   }
 }
-/* reduced motion: no flash, the pop shows still until the next tick; the worker ring and dot stay steady */
+/* reduced motion: no flash, the pop shows still until the next tick; the worker ring, dot and socket stay steady */
 @media (prefers-reduced-motion: reduce) {
   .cell-flash,
   .mine-flash,
   .cell-pop,
   .cell-target,
-  .job-dot-on {
+  .job-dot-on,
+  .bed-socket-ready {
     animation: none;
   }
 }
@@ -1503,6 +1554,34 @@ details > summary:focus-visible {
   font: inherit;
   /* 16 px so iOS Safari does not zoom on focus */
   font-size: 16px;
+}
+
+/* ⛲ the bed-sprinkler confirm sheet (batch 26): two lines, the price, what is missing, Build */
+.sheet-line {
+  margin: var(--s2) 0 0;
+  font-size: 14px;
+}
+.sheet-price {
+  margin: var(--s2) 0 0;
+  font-weight: 600;
+}
+.sheet-short {
+  margin: var(--s2) 0 0;
+  font-size: 13px;
+  color: #a05a2c;
+}
+.sheet-build {
+  margin-top: var(--s3);
+  padding: var(--s2) var(--s3);
+  border-radius: 8px;
+  border: 2px solid #4a90d9;
+  background: #4a90d9;
+  color: #fff;
+  font: inherit;
+}
+.sheet-build:disabled {
+  border-color: #c8b99a;
+  background: #c8b99a;
 }
 
 /* 💾 Data: the export code wraps instead of overflowing; Copy / Download sit beside each other */
