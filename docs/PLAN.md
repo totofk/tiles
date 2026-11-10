@@ -3989,8 +3989,11 @@ Scope: `src/core/workshop.ts`, `step.ts`, `workers.ts`, `fields.ts` (gate only),
 (targets), `balance.ts`, `state.ts`, `data/milestones.ts`, `src/save/serialize.ts`, `src/app/*`, tests. Fields
 cohorts, pipes and the pipe coal are NOT touched in this batch.
 
-Before dispatch, Hermes commits the real `tests/fixtures/save-v19.json` + `code-v19.txt`, captured from the live
-build (skill pitfall: once 26 ships, the old live code is gone).
+`tests/fixtures/save-v19.json` and `code-v19.txt` are committed. They are real saves, captured on 2026-11-10:
+- Hermes seeded `save-v18.json` on the live v19 build and let the shipped code migrate and re-save it, which gives
+  `save-v19.json` (it holds `hoppers: [18, 14]`, `valve: true`, 400 field tiles and pipes 2).
+- `code-v19.txt` is that save run through `encodeSave`.
+Add both to the fixture lists in `tests/save.test.ts` and `tests/codec.test.ts`, the same way as v18.
 
 - [ ] 138. **Save v20: the workshop's shape.**
     - `Workshop = { built: boolean; beds: boolean[]; valve: boolean }`, with `beds.length === 4` (one socket per
@@ -4089,6 +4092,15 @@ kept), plus a stub → sheet → Build at 375 and 1440.
 ## Batch 27 — Estate surface on today's cohorts (C3, tasks 142–144, UI only, no save bump)
 
 Refined after the spike. Scope `src/app`. Cohorts stay the model, so there are no plot cells yet.
+
+Carried in from batch 25 (Hermes live check, 2026-11-10). It goes in as the first part of task 142.
+- At 1024 × 768 the centre column is 404 px wide, which is under the 480 px pairing threshold. The beds stack in one
+  column, and 24 tiles scroll: content 747 px against 620 px.
+- At the 72 px tile floor, the mature tile's "rots in" line overflows the cell.
+- The batch-25 plan claimed 24 tiles fit at 1024 without scrolling. That arithmetic was wrong: at a 72 px floor, no
+  arrangement fits 24 tiles in that space.
+- Task 142 resizes the centre column anyway, so the fix belongs there. Hermes picks the fix when refining this batch:
+  a wider centre column at ≥ 1024, a smaller floor with a compact cell, or both.
 
 - [ ] 142. **One surface, two stops.** After the Tractor (`fields.unlocked`), the centre column has two stops:
   - 🚜 Estate (default): capacity strip, `MiniLot`, today's Fields content as rows by crop, one ghost row;
