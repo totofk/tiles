@@ -3777,7 +3777,7 @@ Why: Toon wants players to see what every batch shipped, in English, next to the
 modal (`src/app/Roadmap.tsx`, opened from `src/app/Stats.tsx` lines 88–90) shows only `PARKED_IDEAS` today.
 Scope: `src/app` + tests only. No `src/core`, no `src/save`, no SAVE_VERSION bump, no sim change.
 
-- [ ] 133. **Changelog data + guard test.** New `src/app/changelog.ts`:
+- [x] 133. **Changelog data + guard test.** New `src/app/changelog.ts`:
     `export type ChangelogEntry = { batch: string; date: string; line: string }` and
     `export const CHANGELOG: ChangelogEntry[]`, newest first, copied VERBATIM from the table below (do not reword,
     do not add or drop entries, keep the emoji exactly). New `tests/changelog.test.ts`:
@@ -3788,7 +3788,7 @@ Scope: `src/app` + tests only. No `src/core`, no `src/save`, no SAVE_VERSION bum
       `src/app/app.css`, collect every heading matching `/^## Batch ([0-9.]+) results/m`, and assert each captured
       number is a `CHANGELOG` batch. (Only `results` headings count — a plan heading is committed before its batch
       ships.) This is what makes every future batch add its own line.
-- [ ] 134. **Two tabs in the 🗺 Roadmap modal.** `RoadmapList` renders a tab row above the body:
+- [x] 134. **Two tabs in the 🗺 Roadmap modal.** `RoadmapList` renders a tab row above the body:
     `<div className="roadmap-tabs" role="tablist" aria-label="Roadmap">` with two `role="tab"` buttons
     **Planned** and **Changelog** (`aria-selected`, `aria-controls`), and one `role="tabpanel"` below
     (`aria-labelledby` the active tab). Default tab = **Planned** every time the modal opens (local `useState`, not
@@ -3854,3 +3854,32 @@ Changelog text (newest first — copy into `CHANGELOG` exactly):
 
 Rule from now on (every batch brief): add one player-facing English line for the batch at the TOP of `CHANGELOG`
 (date = the day the batch ships). The guard test in task 133 fails until the batch's `results` heading has an entry.
+
+## Batch 24.2 results
+
+- Task 133 (commit 9ba8c4c): `src/app/changelog.ts` — `ChangelogEntry` type + `CHANGELOG` (36 entries, batch 1 →
+  24.2) copied verbatim from the plan table, emoji included. `tests/changelog.test.ts`: uniqueness, ISO date shape,
+  non-increasing dates, strictly decreasing batch tuples (`"24.1"` → [24, 1], `"24"` → [24, 0]), non-empty lines
+  ≤ 160 chars, and the guard — every `^## Batch ([0-9.]+) results` heading in `docs/PLAN.md` (read the same way
+  `tests/appCss.test.ts` reads `app.css`) must be a `CHANGELOG` batch. 31 results headings today (batches 2 and 4
+  have no separate results heading in PLAN.md; both are still in `CHANGELOG`, which the guard allows — it is
+  one-directional).
+- Task 134 (commit 9918418): `RoadmapList` renders a `role="tablist"` row (`.roadmap-tabs`, aria-label "Roadmap")
+  with **Planned** / **Changelog** tabs (`aria-selected`, `aria-controls="roadmap-panel"`) above one
+  `role="tabpanel"` (`aria-labelledby` the active tab). Tab choice is local `useState`, default Planned, not
+  persisted — no `tiles.ui` change. Planned panel = the old content unchanged; Changelog panel =
+  "Every update so far, newest first." + `ol.changelog-list`, one `li` per entry:
+  `Batch {batch}` span + `<time dateTime>` + line. CSS added next to the `.roadmap` rules exactly as specified;
+  the selected look reuses `.panel-tabs` colours (#c8e6c9 bg, #2e7d32 border) instead of inventing new ones.
+  `tests/StatsPanel.test.tsx` Roadmap describe gained the task-134 test (opens on Planned, Changelog selects /
+  hides the parked list / renders `CHANGELOG.length` items with `Batch 24.2` + its line first, Planned restores,
+  close + reopen lands on Planned); the existing data-driven and open/close tests stay green unmodified.
+- Gates after each task: `pnpm test` 820 then 821 passed (46 files), `pnpm lint` clean, `pnpm build` OK. No
+  `src/core`, `src/save`, `SAVE_VERSION` or sim change; sim pins untouched.
+
+### Deviations
+
+- Nothing functional. jsdom cannot verify visual layout or the `prefers-reduced-motion` behaviour (not applicable
+  here — no animation in this batch); Hermes checks the modal on the live build at 375 and 1440 px as planned:
+  tab row proportions, the selected-tab colours, changelist readability (13 px, nowrap batch + date) and the
+  44 px tab hit areas.
