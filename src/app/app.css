@@ -400,6 +400,46 @@ button:disabled {
     min-height: 0;
   }
 }
+
+/* ---- mini home lot (batch 25, mounted in batch 27): fixed ~40 px tiles, one tap target for the whole lot ---- */
+.mini-lot {
+  position: relative;
+  display: grid;
+  gap: var(--s1);
+  padding: var(--s1);
+}
+.mini-lot .bed {
+  grid-template-columns: repeat(3, 40px);
+  gap: var(--s1);
+  padding: 2px;
+}
+.mini-tile {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: #d9cdb4;
+  font-size: 20px;
+}
+.mini-growing {
+  opacity: 0.6;
+}
+.mini-ready {
+  box-shadow: inset 0 0 0 3px #2e7d32;
+}
+.mini-dry {
+  box-shadow: inset 0 0 0 3px #ef6c00;
+}
+.mini-badge {
+  position: absolute;
+  top: var(--s1);
+  right: var(--s1);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #fff;
+  font-weight: 600;
+}
 .cell-emoji {
   font-size: clamp(28px, calc(30cqi / var(--cols)), 64px);
   line-height: 1;
