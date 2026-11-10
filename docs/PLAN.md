@@ -4110,7 +4110,7 @@ Rules (every task):
   prints nothing. New test files: `tests/Estate.test.tsx`, `tests/estateText.test.ts` (no `estate.test.ts` exists — keep it that way).
 - Never run `git push`. Commit per task. `pnpm test`, `pnpm lint`, `pnpm build` green before each commit.
 
-- [ ] 142. **1024 home-lot fit (carried in from batch 25) + one surface, two stops.**
+- [x] 142. **1024 home-lot fit (carried in from batch 25) + one surface, two stops.**
   0) First, before any code: rename the five jsdom test files whose names clash with a `.test.ts` file once the
      extension is stripped (macOS tsc can skip one of a pair while Linux CI fails — batch 26's `Workshop` clash):
      `git mv` `tests/Bank.test.tsx` → `tests/BankTab.test.tsx`, `tests/Fields.test.tsx` → `tests/FieldsCard.test.tsx`,
@@ -4174,7 +4174,7 @@ Rules (every task):
   `Modal` is open, the fold strip and `MiniLot` switch stops, a banner at load forces Estate, `pulledBack` flips to
   true on first render; `appCss` asserts the 400 px container rule, the 52 px floor and both `.cell` container rules.
 
-- [ ] 143. **Estate content: capacity strip + crop rows + ghost row + machines.** New `src/app/Estate.tsx` and pure
+- [x] 143. **Estate content: capacity strip + crop rows + ghost row + machines.** New `src/app/Estate.tsx` and pure
   display helpers in `src/app/estateText.ts` (no React, unit-tested). All numbers come from today's core exports
   (`fieldsStats`, `fieldsPlantable`, `pipeCover`, `pipeCost`, `machineTilesPerHour`, `machineCost`, `fieldTileCost`,
   `fieldsPaybackHours`, `cropGrowTicks`, `cropSellPrice`, `cropSeedCost`, `marketFactor`, `plantBatch`,
@@ -4231,7 +4231,7 @@ Rules (every task):
   and fewer when it does not; the machines `details` is closed by default. Update `tests/FieldsCard.test.tsx` (renamed in
   142.0) for the summary card.
 
-- [ ] 144. **Phone bar + 📋 sheet + CHANGELOG.**
+- [x] 144. **Phone bar + 📋 sheet + CHANGELOG.**
   - At < 768 px with the Tractor owned, the farm view's tool bar swaps per stop: Home = today's `Tools` bar; Estate =
     three `flex: 1` buttons: `🌱 Sow 10 <crop emoji>` (calls `plantFields(state, run.fields.plantCrop)`, disabled when
     no crop is picked, with a `pick a crop below` title), `🌾 Reap · {ready}` (disabled; its title and a one-line hint
@@ -4475,3 +4475,53 @@ Tasks 138–141 done, one commit each, all on `main`, not pushed. Gates: `pnpm t
   could not see (Workshop.test.tsx matched both the summary and the gauge line; the sheet price
   lives in `.sheet-price`, not on the Build button; the dry control tile's stall point is growth
   130, not 10 — moisture 2 drains in 120 ticks). Fixed; 836/836 after.
+
+## Batch 27 results
+
+Commits: `999a687` (task 142.0 — renames the five jsdom test files whose stripped names clash with
+a `.test.ts` sibling, so macOS `tsc` stops hiding one of each pair), `e1236d6` (task 142),
+`09ff5de` (task 143), and this commit (task 144). Suite 845 → 857 → **861/861** across the three
+tasks; lint and build green at every commit.
+
+- **142 (two stops):** `tiles.ui` gains `stop` (default `estate`) and `pulledBack`, both with
+  `parseUi` fallbacks — no save-shape change (`tiles.ui` is cosmetic and versionless, so no bump,
+  per the batch header). `Surface.tsx` owns the stop switch (aria-pressed, keys 1 / 2 / Escape
+  ignored in inputs and while any `[role=dialog]` is open), the fold strip above the grid, the
+  MiniLot on the Estate stop, the ≥ 1100 px `both` mode via ResizeObserver (absent in jsdom, so
+  `both` stays false there), the one-time pull-back (banner at load forces Estate; a reload
+  mid-animation does not replay) and the FLIP on `.home-block`. App renders the old farm column
+  verbatim before the Tractor. The 1024 fit: `.beds` pairs from a 400 px container, a 52 px tile
+  floor, `.cell` compacts by its own inline-size (label screen-reader-only < 80 px, rot text gone
+  < 64 px).
+- **143 (Estate content):** `estateText.ts` holds the pure helpers — `estateCropIncomePerHour`
+  (planted × 3600 ÷ grow × (market-priced sale − seed), rounded), `estateBottleneck` (dry pump →
+  stalled pipes → sowing → reaping → next land; every priced fix carries its time-to-afford:
+  `now`, a `shortOf` bar shortfall, or the cash gap ÷ the rows' ≈💰/h as `≈~N min` / `≈~N h`),
+  `ghostRowPrice`, `nextReadyText`, `fleetTilesPerHour`. `Estate.tsx` renders the capacity strip
+  (💧 watered, 🌱/🌾 fleet rates + free/ready, first accepted 📋 order, the one bottleneck chip),
+  one row per licensed crop, the ghost row (`buyTenFields` buys up to ten tiles in ONE act, a
+  partial buy still lands), the Pipes row and the Machines group behind a closed
+  `details.estate-machines`. `Fields.tsx` shrinks to one summary line + `Open Estate`
+  (`ui.stop → 'estate'`, phones also `view → 'farm'`; new `openEstate` on `PanelProps`); the
+  machine-row tests moved Fields → Estate; `estateText.test.ts` pins each bottleneck branch and
+  the first-match order.
+- **144 (phone bar + sheet):** phones (< 768 px) on the Estate stop swap the 🧰 Tools bar for
+  `tools estate-tools`: `🌱 Sow 10 <crop>` (disabled with a `pick a crop below` title until a crop
+  is picked), `🌾 Reap · {ready}` (disabled; the hint under the bar reads "Harvesters reap the
+  Fields — hand reaping comes next update"), `＋10 tiles` (the shared `buyTenFields`). The Orders /
+  Workers / Workshop cards fold into one `📋 Orders · Workers · Workshop` button opening the shared
+  `Modal` (`sheetOpen`, a transient overlay); DigSeeds and the Fields summary stay; before the
+  Tractor phones are byte-identical. CHANGELOG batch 27 entry added verbatim.
+
+### Deviations
+
+- Could not verify in jsdom (no layout, no ResizeObserver): the FLIP animation and its 700 ms
+  pull-back timing, the container-query compaction sizes (the 400 px bed pairing, the 80/64 px
+  cell thresholds), the ≥ 1100 px `both` two-column layout, the estate-hint-under-bar position and
+  the phone bar's fixed placement. Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440
+  after the push, per the batch brief.
+- The bottleneck chip renders as `label — fix` in one chip (the brief's fix text is shown in full,
+  including the price and the time-to-afford); the Sow button also disables when `plantFields`
+  itself fails (seeds/cash/land), not only when no crop is picked.
+- The Fields summary always shows the `⏳ N stalled` segment (the brief's one line, verbatim),
+  where the old card only showed it when non-zero.

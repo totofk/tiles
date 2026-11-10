@@ -36,6 +36,35 @@ export function buyTenFields(s: GameState): ActionResult {
 }
 
 /**
+ * The phone Estate stop's tool bar (batch 27, task 144): Sow / Reap / ＋10 tiles where the 🧰 Tools bar sits on the
+ * Home stop. Reap stays disabled — harvesters reap the Fields, hand reaping comes next update.
+ */
+export function EstateBar({ state, act }: { state: GameState; act: Act }) {
+  const picked = state.run.fields.plantCrop
+  const ready = fieldsStats(state.run).ready
+  return (
+    <>
+      <div className="tools estate-tools">
+        <button
+          disabled={picked === null || !plantFields(state, picked).ok}
+          title={picked === null ? 'pick a crop below' : undefined}
+          onClick={() => picked !== null && act((s) => plantFields(s, picked))}
+        >
+          {`🌱 Sow 10${picked ? ` ${CROP_EMOJI[picked]}` : ''}`}
+        </button>
+        <button disabled title="Harvesters reap the Fields — hand reaping comes next update">
+          {`🌾 Reap · ${ready}`}
+        </button>
+        <button disabled={!buyField(state).ok} onClick={() => act(buyTenFields)}>
+          ＋10 tiles
+        </button>
+      </div>
+      <p className="estate-hint">Harvesters reap the Fields — hand reaping comes next update</p>
+    </>
+  )
+}
+
+/**
  * The 🚜 Estate stop's content (batch 27, task 143): a capacity strip, the MiniLot, one row per licensed crop,
  * the ghost row (the next ten tiles), the next pipe tier and the machines behind a closed details.
  */

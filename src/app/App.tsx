@@ -9,6 +9,7 @@ import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { Hud } from './Hud'
 import { HAND_PICKED, cropFactor } from './marketText'
 import { Mine } from './Mine'
+import { Modal } from './Modal'
 import { Orders } from './Orders'
 import { availableKeys, isBadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
@@ -43,12 +44,15 @@ export default function App() {
   const [slideOpen, setSlideOpen] = useState(false)
   // the 📊 Stats tab's feedback draft and cooldown, here so a tab switch keeps them (not saved)
   const [feedback, setFeedback] = useState(EMPTY_FEEDBACK)
+  // task 144: phones after the Tractor fold Orders / Workers / Workshop into one 📋 sheet (a transient overlay)
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css);
   // App re-renders every tick, so a resize is picked up within a second
   const media = (q: string) => window.matchMedia?.(q).matches ?? false
   const desktop = media('(min-width: 1024px)')
   const tabletUp = media('(min-width: 768px)')
+  const phone = !tabletUp
   // batch 27: after the Tractor the farm column becomes the two-stop Estate surface
   const estate = state.run.fields.unlocked
   const farmRef = useRef<HTMLElement>(null)
@@ -169,6 +173,7 @@ export default function App() {
             setUi={setUi}
             banner={banner}
             farmRef={farmRef}
+            phone={phone}
             planting={
               !farmTab && (
                 <p className="planting">
@@ -183,10 +188,22 @@ export default function App() {
               !farmTab && (
                 <>
                   <DigSeeds act={act} />
-                  <Orders state={state} act={act} card flashSlot={clerkSlot} />
-                  <Workers state={state} act={act} worked={worked} />
-                  <Workshop state={state} act={act} />
-                  <Fields state={state} onOpen={openEstate} />
+                  {phone ? (
+                    /* task 144: the three cards fold into the 📋 sheet; DigSeeds and the Fields summary stay */
+                    <>
+                      <button className="sheet-open" onClick={() => setSheetOpen(true)}>
+                        📋 Orders · Workers · Workshop
+                      </button>
+                      <Fields state={state} onOpen={openEstate} />
+                    </>
+                  ) : (
+                    <>
+                      <Orders state={state} act={act} card flashSlot={clerkSlot} />
+                      <Workers state={state} act={act} worked={worked} />
+                      <Workshop state={state} act={act} />
+                      <Fields state={state} onOpen={openEstate} />
+                    </>
+                  )}
                 </>
               )
             }
@@ -257,6 +274,13 @@ export default function App() {
         <div className="toast" role="status">
           {toast}
         </div>
+      )}
+      {sheetOpen && (
+        <Modal title="📋 Orders · Workers · Workshop" close={() => setSheetOpen(false)}>
+          <Orders state={state} act={act} card flashSlot={clerkSlot} />
+          <Workers state={state} act={act} worked={worked} />
+          <Workshop state={state} act={act} />
+        </Modal>
       )}
     </main>
   )

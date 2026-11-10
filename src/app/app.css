@@ -683,6 +683,23 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* the phone Estate stop's bar (task 144): the .tools bar's position and height, three even buttons; the Reap hint
+   sits just above it */
+.estate-hint {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--tabbar-h) + var(--s2) + env(safe-area-inset-bottom) + var(--toolbar-h) + var(--s1));
+  padding: 0 var(--s2);
+  color: #5c4f38;
+  font-size: 13px;
+  text-align: center;
+}
+/* the phone 📋 sheet opener (task 144): a full-width card-height button */
+.sheet-open {
+  width: 100%;
+  min-height: 44px;
+}
 @media (min-width: 768px) {
   /* the surface takes over the farm column's grid: content left, the tool bar's vertical column right */
   .farm:has(> .surface) {

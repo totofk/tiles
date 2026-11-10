@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
 import { fieldsStats } from '../core/fields'
 import type { GameState } from '../core/state'
-import { Estate } from './Estate'
+import { Estate, EstateBar } from './Estate'
 import { CROP_EMOJI } from './FarmGrid'
 import { MiniLot } from './MiniLot'
 import type { Act } from './useGame'
@@ -21,7 +21,7 @@ const PULLBACK_CAPTION = `${ESTATE_EMOJI} Your farm got bigger`
  * farm column) shows the two side by side with no switch. The home lot shrinks into the Estate: the `.home-block`
  * wrapper FLIP-animates between the full grid and the MiniLot on every stop change.
  */
-export function Surface({ state, act, ui, setUi, banner, farmRef, planting, tools, grid, below }: {
+export function Surface({ state, act, ui, setUi, banner, farmRef, phone, planting, tools, grid, below }: {
   state: GameState
   act: Act
   ui: UiState
@@ -29,6 +29,8 @@ export function Surface({ state, act, ui, setUi, banner, farmRef, planting, tool
   /** the welcome-back banner at load: it forces the Estate stop whatever was saved */
   banner: string | null
   farmRef: RefObject<HTMLElement | null>
+  /** phones (< 768 px): the Estate stop swaps the 🧰 Tools bar for the Sow / Reap / ＋10 tiles bar (task 144) */
+  phone?: boolean
   /** the Home stop's header line (the Planting paragraph, phones and tablets) */
   planting?: ReactNode
   /** the Home stop's tool bar / stacked rows, placed beside the grid at ≥ 768 px as today */
@@ -172,6 +174,7 @@ export function Surface({ state, act, ui, setUi, banner, farmRef, planting, tool
         )}
       </div>
       {stop === 'home' && tools}
+      {phone && stop === 'estate' && <EstateBar state={state} act={act} />}
       <div className="surface-main">
         {stop === 'estate' ? (
           <Estate state={state} act={act} ui={ui} lot={lot} />

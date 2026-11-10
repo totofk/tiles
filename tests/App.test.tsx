@@ -458,3 +458,53 @@ describe('the Estate surface, two stops (batch 27, task 142; the migrated v19 fi
     expect(JSON.parse(localStorage.getItem(UI_KEY)!).pulledBack).toBe(true)
   })
 })
+
+describe('the phone Estate bar + 📋 sheet (batch 27, task 144; jsdom = a 375 px matchMedia stub, all queries false)', () => {
+  const load = (ui: Record<string, unknown> = {}) => {
+    localStorage.setItem(SAVE_KEY, serialize(deserialize(v19)!.state, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, ...ui }))
+  }
+
+  it('the Estate stop swaps the Tools bar for three buttons; Sow plants the picked crop (lemon 100 → 110)', async () => {
+    load({ stop: 'estate' })
+    render(<App />)
+    const sow = screen.getByRole('button', { name: /🌱 Sow 10 🍋/ }) as HTMLButtonElement
+    expect(sow.disabled).toBe(false)
+    const reap = screen.getByRole('button', { name: /🌾 Reap · \d+/ }) as HTMLButtonElement
+    expect(reap.disabled).toBe(true) // harvesters reap the Fields; hand reaping comes next update
+    expect(screen.getByRole('button', { name: '＋10 tiles' })).toBeTruthy()
+    fireEvent.click(sow)
+    await waitFor(() => expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.fields.planted.lemon).toBe(110))
+  })
+
+  it('Sow is disabled with a pick-a-crop title until a crop is picked', () => {
+    const s = deserialize(v19)!.state
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, fields: { ...s.run.fields, plantCrop: null } } }, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, stop: 'estate' }))
+    render(<App />)
+    const sow = screen.getByRole('button', { name: '🌱 Sow 10' }) as HTMLButtonElement
+    expect(sow.disabled).toBe(true)
+    expect(sow.title).toBe('pick a crop below')
+  })
+
+  it('the 📋 button opens the Orders / Workers / Workshop sheet in the shared Modal; ✕ closes it', () => {
+    load({ stop: 'home' })
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: '📋 Orders · Workers · Workshop' }))
+    const sheet = screen.getByRole('dialog', { name: '📋 Orders · Workers · Workshop' })
+    for (const card of /Orders|Workers|Workshop/.source.split('|'))
+      expect(sheet.textContent).toContain(card)
+    // DigSeeds and the Fields summary card stay below the grid, outside the sheet
+    expect(sheet.textContent).not.toContain('Dig for seeds')
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('before the Tractor, phones are unchanged: no 📋 button, no Estate bar, today’s cards still render below the grid', () => {
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /📋 Orders/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Sow 10/ })).toBeNull()
+    expect(screen.getByText(/Dig for seeds/)).toBeTruthy() // fresh run: DigSeeds + the Workers card are today’s visible cards
+    expect(screen.getAllByText(/Workers/).length).toBeGreaterThan(0)
+  })
+})
