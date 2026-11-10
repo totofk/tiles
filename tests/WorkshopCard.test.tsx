@@ -157,7 +157,7 @@ describe('the bed socket stub and the confirm sheet (batch 26)', () => {
 
   it('Build pays and lights the bed; closing the sheet is the cancel (no placement mode)', () => {
     const s = at({ built: true, beds: [true, false, false, false], valve: false }, 19)
-    const paid = { ...s, run: { ...s.run, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 } }
+    const paid: GameState = { ...s, run: { ...s.run, inventory: { goldBar: 4, ironBar: 8, copperBar: 8 }, cash: 8000 } }
     let state = paid
     const act: Act = (fn) => {
       const r = fn(state)
@@ -189,7 +189,7 @@ describe('the Workers card water row (batch 26)', () => {
   it('says "nothing to water — reassign" when every owned tile sits in a sprinklered bed', () => {
     const s = createInitialState()
     const allBeds: GameState['run']['workshop']['beds'] = [true, true, true, true]
-    const run = {
+    const run: GameState['run'] = {
       ...s.run,
       tiles: growingTiles(Array(24).fill(1)),
       workshop: { built: true, beds: allBeds, valve: false },
