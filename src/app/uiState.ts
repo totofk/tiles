@@ -9,6 +9,10 @@ export const UI_KEY = 'tiles.ui'
 export type View = 'farm' | 'mine' | 'panel'
 const VIEWS: readonly View[] = ['farm', 'mine', 'panel']
 
+/** the Estate surface's two stops (batch 27, only read once the Tractor is owned) */
+export type Stop = 'estate' | 'home'
+const STOPS: readonly Stop[] = ['estate', 'home']
+
 export type UiState = {
   view: View
   tab: PanelTabId
@@ -16,6 +20,10 @@ export type UiState = {
   collapsed: boolean
   /** the 🌾 Farm tab's 🧰 Tools card (batch 24); a tiles.ui from before batch 24 reads as open */
   toolsOpen: boolean
+  /** the Estate surface's stop (batch 27); the pull-back and a welcome-back banner override it at load */
+  stop: Stop
+  /** the pull-back animation has played (batch 27): it plays once per browser, never again */
+  pulledBack: boolean
   /** badge keys (badges.ts) the player has seen on each tab; a key not in here is news */
   seen: Record<BadgeTab, string[]>
   /** the market factor each licensed crop's price tag last showed on screen (▲▼ trend arrows, batch 21) */
@@ -27,6 +35,8 @@ export const DEFAULT_UI: UiState = {
   tab: 'farm',
   collapsed: false,
   toolsOpen: true,
+  stop: 'estate',
+  pulledBack: false,
   seen: { shop: [], upgrades: [] },
   priceShown: {},
 }
@@ -49,6 +59,8 @@ export function parseUi(raw: string | null): UiState {
     tab: PANEL_TABS.find((t) => t.id === o.tab)?.id ?? DEFAULT_UI.tab,
     collapsed: typeof o.collapsed === 'boolean' ? o.collapsed : DEFAULT_UI.collapsed,
     toolsOpen: typeof o.toolsOpen === 'boolean' ? o.toolsOpen : DEFAULT_UI.toolsOpen,
+    stop: STOPS.find((x) => x === o.stop) ?? DEFAULT_UI.stop,
+    pulledBack: typeof o.pulledBack === 'boolean' ? o.pulledBack : DEFAULT_UI.pulledBack,
     seen: Object.fromEntries(
       BADGE_TABS.map((t) => {
         const v = (o.seen as Record<string, unknown> | null | undefined)?.[t]

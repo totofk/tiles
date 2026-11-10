@@ -30,9 +30,20 @@ describe('parseUi', () => {
       tab: 'upgrades',
       collapsed: true,
       toolsOpen: true,
+      stop: 'estate',
+      pulledBack: false,
       seen: { shop: [], upgrades: [] },
       priceShown: {},
     })
+  })
+
+  it('stop defaults to estate and pulledBack to false; a broken value falls back (batch 27)', () => {
+    expect(parseUi(JSON.stringify({})).stop).toBe('estate')
+    expect(parseUi(JSON.stringify({ stop: 'home' })).stop).toBe('home')
+    expect(parseUi(JSON.stringify({ stop: 'attic' })).stop).toBe('estate')
+    expect(parseUi(JSON.stringify({})).pulledBack).toBe(false)
+    expect(parseUi(JSON.stringify({ pulledBack: true })).pulledBack).toBe(true)
+    expect(parseUi(JSON.stringify({ pulledBack: 'yes' })).pulledBack).toBe(false)
   })
 
   it('toolsOpen (batch 24): defaults to open when missing, keeps a stored boolean', () => {
@@ -62,7 +73,7 @@ describe('parseUi', () => {
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
+    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, stop: 'home', pulledBack: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)

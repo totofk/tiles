@@ -50,7 +50,7 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     onSelectCrop: () => {},
     farmTab: false,
     worked: [],
-    ui: { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, seen: { shop: [], upgrades: [] }, priceShown: {} },
+    ui: { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: false, seen: { shop: [], upgrades: [] }, priceShown: {} },
     toggleTools: () => {},
     reset: () => {},
     sell: () => {},

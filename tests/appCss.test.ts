@@ -49,10 +49,10 @@ describe('app.css shared columns (batch 24.1)', () => {
   })
 })
 
-describe('app.css beds layout (batch 25)', () => {
-  it('.beds pairs the beds in a 480px container query and .bed is a 3-column grid', () => {
-    expect(css).toContain('@container (min-width: 480px)')
-    expect(css).toMatch(/@container \(min-width: 480px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
+describe('app.css beds layout (batch 25, re-pinned batch 27)', () => {
+  it('.beds pairs the beds in a 400px container query and .bed is a 3-column grid', () => {
+    expect(css).toContain('@container (min-width: 400px)')
+    expect(css).toMatch(/@container \(min-width: 400px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
     expect(css).toMatch(/\.bed\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s)
   })
 
@@ -61,5 +61,16 @@ describe('app.css beds layout (batch 25)', () => {
     expect(css).not.toContain('--n')
     expect(css).toMatch(/\.beds\s*{[^}]*--tile:/s)
     expect(css).toContain('.cell-slot')
+  })
+
+  it('the ≥ 768 px tile floor is 52 px (batch 27: 24 tiles fit 1024 × 768 paired at 54 px, no scroll)', () => {
+    expect(css).toMatch(/\.beds\s*{[^}]*--tile: max\(\s*52px,/s)
+    expect(css).not.toContain('max(72px')
+  })
+
+  it('a cell compacts by its own width (batch 27): the label hides < 80 px, the "rots in" text < 64 px', () => {
+    expect(css).toMatch(/\.cell\s*{[^}]*container-type: inline-size/s)
+    expect(css).toMatch(/@container \(max-width: 79px\)\s*\{[^}]*\.cell-label\s*{[^}]*clip-path: inset\(50%\)/s)
+    expect(css).toMatch(/@container \(max-width: 63px\)\s*\{[^}]*\.cell-rot\s*{[^}]*display: none/s)
   })
 })

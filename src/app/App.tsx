@@ -12,6 +12,7 @@ import { Mine } from './Mine'
 import { Orders } from './Orders'
 import { availableKeys, isBadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
+import { Surface } from './Surface'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
@@ -42,6 +43,10 @@ export default function App() {
   // App re-renders every tick, so a resize is picked up within a second
   const media = (q: string) => window.matchMedia?.(q).matches ?? false
   const desktop = media('(min-width: 1024px)')
+  const tabletUp = media('(min-width: 768px)')
+  // batch 27: after the Tractor the farm column becomes the two-stop Estate surface
+  const estate = state.run.fields.unlocked
+  const farmRef = useRef<HTMLElement>(null)
   // batch 24: at ≥ 1440 the panel is always open with no toggle; a saved `collapsed` is ignored there (not
   // overwritten — it still applies at 1024–1439, which keeps the toggle)
   const wide = media('(min-width: 1440px)')
@@ -68,9 +73,10 @@ export default function App() {
 
   // batch 21: while price tags are on screen, remember the factor each showed, so the next render trends ▲▼ against
   // it; deferred past paint (in a timer callback), so this render's arrow is what the player sees, and
-  // equality-guarded, so a quiet tick re-renders nothing
+  // equality-guarded, so a quiet tick re-renders nothing. Batch 27: the Estate stop's row tags count too.
+  const estateOn = estate && ui.stop === 'estate' && (tabletUp || view === 'farm')
   useEffect(() => {
-    if (!panelOnScreen || (shown.id !== 'shop' && shown.id !== 'farm')) return
+    if (!estateOn && (!panelOnScreen || (shown.id !== 'shop' && shown.id !== 'farm'))) return
     const record = setTimeout(() => {
       setUi((u) => {
         const priceShown = { ...u.priceShown }
@@ -86,7 +92,7 @@ export default function App() {
       })
     }, 0)
     return () => clearTimeout(record)
-  }, [panelOnScreen, shown.id, state, setUi])
+  }, [estateOn, panelOnScreen, shown.id, state, setUi])
 
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
   const guardUntil = useRef<Record<number, number>>({})
@@ -109,6 +115,7 @@ export default function App() {
   const smeltActed = worked.some((w) => w.job === 'ore' || w.job === 'fuel')
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
   const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport }
+  const grid = <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
@@ -148,24 +155,58 @@ export default function App() {
         )}
       </div>
       <Mine state={state} act={act} minerActed={minerActed} smeltActed={smeltActed} />
-      <section className="farm">
-        {!farmTab && (
+      <section className="farm" ref={farmRef}>
+        {estate ? (
+          <Surface
+            state={state}
+            act={act}
+            ui={ui}
+            setUi={setUi}
+            banner={banner}
+            farmRef={farmRef}
+            planting={
+              !farmTab && (
+                <p className="planting">
+                  Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
+                </p>
+              )
+            }
+            /* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */
+            tools={!farmTab && <Tools state={state} act={act} cropId={cropId} stacked={desktop} />}
+            grid={grid}
+            below={
+              !farmTab && (
+                <>
+                  <DigSeeds act={act} />
+                  <Orders state={state} act={act} card flashSlot={clerkSlot} />
+                  <Workers state={state} act={act} worked={worked} />
+                  <Workshop state={state} act={act} />
+                  <Fields state={state} act={act} />
+                </>
+              )
+            }
+          />
+        ) : (
           <>
-            <p className="planting">
-              Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
-            </p>
-            {/* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */}
-            <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
-          </>
-        )}
-        <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
-        {!farmTab && (
-          <>
-            <DigSeeds act={act} />
-            <Orders state={state} act={act} card flashSlot={clerkSlot} />
-            <Workers state={state} act={act} worked={worked} />
-            <Workshop state={state} act={act} />
-            <Fields state={state} act={act} />
+            {!farmTab && (
+              <>
+                <p className="planting">
+                  Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
+                </p>
+                {/* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */}
+                <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
+              </>
+            )}
+            {grid}
+            {!farmTab && (
+              <>
+                <DigSeeds act={act} />
+                <Orders state={state} act={act} card flashSlot={clerkSlot} />
+                <Workers state={state} act={act} worked={worked} />
+                <Workshop state={state} act={act} />
+                <Fields state={state} act={act} />
+              </>
+            )}
           </>
         )}
       </section>

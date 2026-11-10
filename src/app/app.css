@@ -348,7 +348,8 @@ button:disabled {
   grid-template-columns: 1fr;
   gap: var(--s4);
 }
-@container (min-width: 480px) {
+/* pairs from a 400 px container (batch 27: 480 left 24 tiles scrolling 210 px at 1024 × 768; paired at 54 px fits) */
+@container (min-width: 400px) {
   .beds {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     --cols: 6;
@@ -421,7 +422,8 @@ button:disabled {
   line-height: 26px;
   text-align: center;
 }
-/* square, but a tile may grow taller rather than clip its text on a narrow screen */
+/* square, but a tile may grow taller rather than clip its text on a narrow screen; a cell compacts by its own
+   width (batch 27): the label hides below 80 px, the "rots in" text below 64 px — the emoji + bars carry the state */
 .cell {
   position: relative;
   aspect-ratio: 1;
@@ -433,6 +435,35 @@ button:disabled {
   align-items: stretch;
   gap: 3px;
   text-align: center;
+  container-type: inline-size;
+}
+/* < 80 px: the text label goes screen-reader-only (the emoji + bars carry the state) */
+@container (max-width: 79px) {
+  .cell-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .cell-rot {
+    font-size: 10px;
+  }
+}
+/* < 64 px: the "rots in" text goes too (the red rot bar stays), tighter padding */
+@container (max-width: 63px) {
+  .cell-rot {
+    display: none;
+  }
+  .cell {
+    padding: 4px 2px;
+    gap: 2px;
+  }
+  .cell-emoji {
+    font-size: 20px;
+    line-height: 1;
+  }
 }
 @media (min-width: 768px) {
   /* tile = the smaller of width per column and height per row (of .farm-fit); each term counts the tile gaps inside
@@ -440,7 +471,7 @@ button:disabled {
      top). Beds across = --cols / 3, beds down = --rows / 2 */
   .beds {
     --tile: max(
-      72px,
+      52px,
       min(
         var(--tile-max),
         (100cqw - 10px - (var(--cols) / 3 - 1) * var(--s4) - (var(--cols) / 3) * (2 * var(--gap) + 20px)) / var(--cols),
@@ -495,6 +526,139 @@ button:disabled {
   border-radius: 999px;
   background: #fff;
   font-weight: 600;
+}
+
+/* ---- the Estate surface (batch 27): 🚜 Estate / 🏡 Home, two stops on one farm column ---- */
+.surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  min-width: 0;
+}
+.surface-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2);
+}
+.stop-switch {
+  display: flex;
+  gap: var(--s2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.stop-switch button {
+  flex: 1;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.stop-switch button[aria-pressed='true'] {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  font-weight: 600;
+}
+/* the Home stop's one fold strip: the fields at a glance, one tap from the lot to the Estate */
+.fold-strip {
+  flex: 2 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+/* the home lot in both sizes: the FLIP block that animates between the full grid and the MiniLot */
+.home-block {
+  min-width: 0;
+}
+/* the pull-back's one-time caption, centred over the surface and fading in/out */
+.pullcap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--s2);
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #2e4d2e;
+  background: rgba(244, 239, 228, 0.8);
+  border-radius: 8px;
+  pointer-events: none;
+  animation: pullcap-fade 1.9s ease-in-out;
+}
+@keyframes pullcap-fade {
+  0% {
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pullcap {
+    animation: none;
+  }
+}
+@media (min-width: 768px) {
+  /* the surface takes over the farm column's grid: content left, the tool bar's vertical column right */
+  .farm:has(> .surface) {
+    display: block;
+  }
+  .surface {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .surface-head {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .surface > .tools {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: start;
+  }
+  .surface-main {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2);
+  }
+  .surface-main > .home-block {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .home-block > .farm-fit {
+    flex: 1;
+    min-height: 0;
+  }
+  /* both stops at once on a wide farm column: Estate left, the full grid right */
+  .surface-both {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: var(--s3);
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+  }
+  .surface-both > .home-block {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 .cell-emoji {
   font-size: clamp(28px, calc(30cqi / var(--cols)), 64px);
@@ -569,7 +733,7 @@ button:disabled {
   animation: cell-pop 0.5s ease-out forwards;
 }
 /* task 80: a ready tile an accepted order takes; top-left, opposite the worker pop, no layout space. 14 px + 6 px
-   inset = 20 px ≤ the 22 px gutter beside a 28 px emoji in the smallest (72 px) tile, so it never covers the crop */
+   inset = 20 px ≤ the 22 px gutter beside a 28 px emoji in the smallest (52 px) tile, so it never covers the crop */
 .cell-order {
   position: absolute;
   top: 4px;
@@ -1133,7 +1297,8 @@ details > summary:focus-visible {
   text-align: center;
   font-weight: 600;
 }
-.farm:has(> .tools) {
+/* descendant since batch 27: with the Tractor the tool bar renders inside the Surface */
+.farm:has(.tools) {
   padding-bottom: calc(var(--toolbar-h) + var(--s2));
 }
 .app[data-view='farm']:has(.tools) > .toast {
@@ -1154,7 +1319,7 @@ details > summary:focus-visible {
   .farm > .farm-fit {
     grid-row: 2;
   }
-  .farm:has(> .tools) {
+  .farm:has(.tools) {
     padding-bottom: 0;
   }
   .tools {

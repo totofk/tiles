@@ -8,6 +8,7 @@ import { deserialize, serialize } from '../src/save/serialize'
 import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
 import { encodeSave } from '../src/save/codec'
 import codeV15 from './fixtures/code-v15.txt?raw'
+import v19 from './fixtures/save-v19.json?raw'
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -132,6 +133,8 @@ describe('persisted UI state (tiles.ui)', () => {
       tab: 'upgrades',
       collapsed: true,
       toolsOpen: true,
+      stop: 'estate',
+      pulledBack: false,
       seen: { shop: [], upgrades: [] },
       priceShown: {},
     })
@@ -387,5 +390,71 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(20)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)
+  })
+})
+
+describe('the Estate surface, two stops (batch 27, task 142; the migrated v19 fixture is the Tractor state)', () => {
+  // pulledBack pre-set so the one-time pull-back does not race these assertions
+  const load = (ui: Record<string, unknown> = {}, awayMs = 0) => {
+    localStorage.setItem(SAVE_KEY, serialize(deserialize(v19)!.state, Date.now() - awayMs))
+    localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, ...ui }))
+  }
+  const switchBtn = (name: RegExp) => screen.getByRole('button', { name })
+
+  it('before the Tractor there is no stop switch and no fold strip', () => {
+    render(<App />)
+    expect(screen.queryByRole('button', { name: '🚜 Estate' })).toBeNull()
+    expect(screen.queryByRole('button', { name: '🏡 Home' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /🚜 Fields ·/ })).toBeNull()
+  })
+
+  it('the switch renders with the v19 state; keys 1 / Escape / 2 flip aria-pressed', () => {
+    load({ stop: 'estate' })
+    render(<App />)
+    expect(switchBtn(/🚜 Estate/)).toBeTruthy()
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+    fireEvent.keyDown(document, { key: '1' })
+    expect(pressed(switchBtn(/🏡 Home/))).toBe(true)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+    fireEvent.keyDown(document, { key: '2' })
+    expect(pressed(switchBtn(/🏡 Home/))).toBe(false)
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+  })
+
+  it('keys are ignored while a dialog is open, so Esc still closes the dialog first', () => {
+    load({ stop: 'home' })
+    render(<App />)
+    fireEvent.click(mobileTab(/Stats/))
+    fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull() // the Modal's own Esc
+    expect(pressed(switchBtn(/🏡 Home/))).toBe(true) // the stop never moved
+  })
+
+  it('the fold strip (Home) and the MiniLot (Estate) switch stops', () => {
+    load({ stop: 'home' })
+    render(<App />)
+    // v19 plants lemon 100, pumpkin 40, chilli 30, nothing ready yet
+    expect(switchBtn(/🚜 Fields ·/).textContent).toBe('🚜 Fields · 🌶️ 30 · 🎃 40 · 🍋 100 · 🌾 0 ready')
+    fireEvent.click(switchBtn(/🚜 Fields ·/))
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: /Home lot —/ }))
+    expect(pressed(switchBtn(/🏡 Home/))).toBe(true)
+  })
+
+  it('a welcome-back banner at load forces the Estate stop over the saved Home', () => {
+    load({ stop: 'home' }, 150_000)
+    render(<App />)
+    expect(document.querySelector('.banner')).toBeTruthy()
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+  })
+
+  it('the pull-back plays once: pulledBack flips to true on first render and the stop starts on Home', () => {
+    localStorage.setItem(SAVE_KEY, serialize(deserialize(v19)!.state, Date.now()))
+    render(<App />)
+    expect(pressed(switchBtn(/🏡 Home/))).toBe(true)
+    expect(JSON.parse(localStorage.getItem(UI_KEY)!).pulledBack).toBe(true)
   })
 })
