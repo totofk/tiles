@@ -339,7 +339,10 @@ button:disabled {
   --gap: var(--s2);
   --rows: var(--rows-stacked);
   width: 100%;
-  max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) / 3) * (2 * var(--gap) + 20px));
+  /* room for the socket/⛲ stub that sits 12 px above and 10 px right of each bed (.bed-socket, .bed-fountain);
+     without it the stub pokes past .farm-fit, gets clipped and adds horizontal scroll */
+  padding: 12px 10px 0 0;
+  max-width: calc(var(--cols) * var(--tile-max) + (var(--cols) / 3) * (2 * var(--gap) + 20px) + 10px);
   margin-inline: auto;
   display: grid;
   grid-template-columns: 1fr;
@@ -433,17 +436,20 @@ button:disabled {
 }
 @media (min-width: 768px) {
   /* tile = the smaller of width per column and height per row (of .farm-fit); each term counts the tile gaps inside
-     the beds, each bed's 20 px chrome and the --s4 gap between beds. Beds across = --cols / 3, beds down = --rows / 2 */
+     the beds, each bed's 20 px chrome, the --s4 gap between beds and the .beds socket padding (10 px right, 12 px
+     top). Beds across = --cols / 3, beds down = --rows / 2 */
   .beds {
     --tile: max(
       72px,
       min(
         var(--tile-max),
-        (100cqw - (var(--cols) / 3 - 1) * var(--s4) - (var(--cols) / 3) * (2 * var(--gap) + 20px)) / var(--cols),
-        (100cqh - (var(--rows) / 2 - 1) * var(--s4) - (var(--rows) / 2) * (var(--gap) + 20px)) / var(--rows)
+        (100cqw - 10px - (var(--cols) / 3 - 1) * var(--s4) - (var(--cols) / 3) * (2 * var(--gap) + 20px)) / var(--cols),
+        (100cqh - 12px - (var(--rows) / 2 - 1) * var(--s4) - (var(--rows) / 2) * (var(--gap) + 20px)) / var(--rows)
       )
     );
-    width: calc(var(--cols) * var(--tile) + (var(--cols) / 3) * (2 * var(--gap) + 20px) + (var(--cols) / 3 - 1) * var(--s4));
+    width: calc(
+      var(--cols) * var(--tile) + (var(--cols) / 3) * (2 * var(--gap) + 20px) + (var(--cols) / 3 - 1) * var(--s4) + 10px
+    );
     max-width: none;
   }
   .cell {
