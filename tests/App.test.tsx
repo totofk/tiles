@@ -434,6 +434,20 @@ describe('the Estate surface, two stops (batch 27, task 142; the migrated v19 fi
     expect(pressed(switchBtn(/🏡 Home/))).toBe(true) // the stop never moved
   })
 
+  it('batch 30: keys 1 / 2 / Esc do not switch stops while the field sheet is open; Esc closes the sheet', () => {
+    load({ stop: 'estate' })
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /^Field 1 · .+ — open$/ }))
+    expect(screen.getByRole('dialog', { name: /^Field 1 · / })).toBeTruthy()
+    fireEvent.keyDown(document, { key: '1' })
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+    fireEvent.keyDown(document, { key: '2' })
+    expect(screen.getByRole('dialog')).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
+  })
+
   it('the fold strip (Home) and the MiniLot (Estate) switch stops', () => {
     load({ stop: 'home' })
     render(<App />)

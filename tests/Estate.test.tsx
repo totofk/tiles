@@ -2,14 +2,16 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TANK_UNITS_PER_COAL, pumpCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
+import { TANK_UNITS_PER_COAL, pivotCost, pumpCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
 import { CROPS } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
-import { fieldsOverview, nextReapTarget, nextSowTarget } from '../src/core/fields'
+import { fieldsOverview, fieldsPlantable, nextReapTarget, nextSowTarget, pivotsOwned } from '../src/core/fields'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { Estate, EstateBar } from '../src/app/Estate'
 import { EstateMap } from '../src/app/EstateMap'
-import { fleetTilesPerHour } from '../src/app/estateText'
+import { CROP_EMOJI } from '../src/app/FarmGrid'
+import { cropOptionText, estateCropIncomePerHour, fleetTilesPerHour } from '../src/app/estateText'
+import { priceTag } from '../src/app/marketText'
 import { priceText } from '../src/app/Mine'
 import type { UiState } from '../src/app/uiState'
 import { ERROR_TEXT, type Act } from '../src/app/useGame'
@@ -217,6 +219,123 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
     expect(details!.open).toBe(false)
   })
 })
+
+describe('task 153: the field chip and its sheet', () => {
+  const chip = (name: string | RegExp) => screen.getByRole('button', { name })
+  const sheet = () => screen.getByRole('dialog')
+
+  it('chip label, emoji and badge: pivot + crop, pinned, no crop, no pivot', () => {
+    const pinned = { ...field([plot(null)]), pinned: true }
+    setup(withFields([field([plot(null)]), pinned, field([plot(null)], true, null), field([plot(null)], false, null)]))
+    const c1 = chip(`Field 1 · ${CROPS.radish.name} — open`)
+    expect([c1.className, c1.textContent]).toEqual(['map-chip', `${CROP_EMOJI.radish}F1⛲`])
+    expect(c1.querySelector('.map-badge-pivot')!.getAttribute('aria-hidden')).toBe('true')
+    expect(chip(`Field 2 · ${CROPS.radish.name} · pinned — open`).textContent).toBe(`${CROP_EMOJI.radish}📌F2⛲`)
+    expect(chip('Field 3 · no crop — open').textContent).toBe('—F3⛲')
+    const dry = chip('Field 4 · no crop · no pivot — open')
+    expect(dry.textContent).toBe('🚱F4＋')
+    expect(dry.querySelector('.map-badge-none')).toBeTruthy()
+  })
+
+  it('the sheet Build path: builds the pivot and closes; short shows the shortfall; at the pump cap it is disabled with the pump line', () => {
+    const dryFirst = [field([plot(null)], false, null), field([plot(null)])]
+    const rich = setup(withFields(dryFirst, { cash: 1e9, inventory: { ...base.run.inventory, copperBar: 999, ironBar: 999, goldBar: 999 } }))
+    fireEvent.click(chip(/^Field 1 · no crop · no pivot/))
+    expect(sheet().getAttribute('aria-label')).toBe('Field 1 · 1/5 plots · 10 tiles')
+    expect(within(sheet()).getByText("⛲ Pivot — waters this field's plots forever · Permanent").className).toBe('sheet-line')
+    expect(within(sheet()).getByText(priceText(pivotCost(pivotsOwned(rich.cur.run.fields) + 1, base.meta))).className).toBe('sheet-price')
+    fireEvent.click(within(sheet()).getByRole('button', { name: 'Build' }))
+    expect(rich.cur.run.fields.list[0].pivot).toBe(true)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    cleanup()
+    const poor = withFields(dryFirst, { cash: 0 })
+    setup(poor)
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(sheet()).getByText(/^needs .+ more$/).className).toBe('sheet-short')
+    expect((within(sheet()).getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+    // pump 0 waters 2 fields and its 2 pivots are in Fields 2 and 3: Field 1 cannot get one
+    setup(withFields([field([plot(null)], false, null), field([plot(null)]), field([plot(null)])], { cash: 1e9, fields: { ...base.run.fields, pump: 0 } }))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(sheet()).getByText('Pump 0 waters 2 fields — build Pump 1').className).toBe('sheet-short')
+    expect((within(sheet()).getByRole('button', { name: 'Build' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('with a pivot the sheet shows the crop income line; every licensed crop is a button with cropOptionText, disabled under the 🏡 gate', () => {
+    const s: GameState = { ...base, run: { ...base.run, licenses: [...new Set([...base.run.licenses, 'grape' as const])], lifetime: { ...base.run.lifetime, harvests: { ...base.run.lifetime.harvests, grape: 3 } } } }
+    setup(s)
+    fireEvent.click(chip(/^Field 1 ·/))
+    const crop = s.run.fields.list[0].crop!
+    expect(within(sheet()).getByText(`≈💰${estateCropIncomePerHour(s, 0)}/h · ${priceTag(s, crop, undefined)}`)).toBeTruthy()
+    expect(within(sheet()).getByText('Crop — applies at the next sowing; standing plots finish as they are')).toBeTruthy()
+    const buttons = [...sheet().querySelectorAll<HTMLButtonElement>('.map-crops > button')]
+    expect(buttons.map((b) => [b.textContent, b.disabled, b.getAttribute('aria-pressed')])).toEqual([
+      ...s.run.licenses.map((c) => [cropOptionText(s, 0, c), !fieldsPlantable(s.run, c), String(c === crop)]),
+      ['No crop', false, 'false'],
+    ])
+    expect(buttons.find((b) => b.textContent!.includes(CROPS.grape.name))!.textContent).toMatch(/· 🏡 3\/50$/)
+  })
+
+  it('a crop pick goes through setFieldCrop, toasts and closes; it pins the field while a Manager is assigned', () => {
+    for (const assigned of [1, 0]) {
+      const t = setup(withManager(assigned))
+      fireEvent.click(chip(/^Field 1 ·/))
+      const other = [...sheet().querySelectorAll<HTMLButtonElement>('.map-crops > button')].find((b) => !b.disabled && b.getAttribute('aria-pressed') === 'false' && b.textContent !== 'No crop')!
+      const picked = base.run.licenses.find((c) => other.textContent === cropOptionText(t.cur, 0, c))!
+      fireEvent.click(other)
+      expect([t.cur.run.fields.list[0].crop, t.cur.run.fields.list[0].pinned]).toEqual([picked, assigned === 1])
+      expect(t.toasts.at(-1)).toBe(`Field 1 → ${CROPS[picked].name} at the next sowing`)
+      expect(screen.queryByRole('dialog')).toBeNull()
+      cleanup()
+    }
+    const t = setup(base)
+    fireEvent.click(chip(/^Field 1 ·/))
+    fireEvent.click(within(sheet()).getByRole('button', { name: 'No crop' }))
+    expect([t.cur.run.fields.list[0].crop, t.toasts.at(-1)]).toEqual([null, 'Field 1 → no crop at the next sowing'])
+  })
+
+  it('the 📌 row only with the Manager certificate; it toggles the pin and the sheet stays open', () => {
+    setup(base)
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(sheet()).queryByRole('button', { name: /📌/ })).toBeNull()
+    cleanup()
+    const t = setup(withManager(0))
+    fireEvent.click(chip(/^Field 1 ·/))
+    const pin = within(sheet()).getByRole('button', { name: '📌 Pinned — the 💼 Manager skips this field' })
+    expect(pin.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(pin)
+    expect(t.cur.run.fields.list[0].pinned).toBe(true)
+    expect(within(sheet()).getByRole('button', { name: /^📌 Pinned/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(chip(/^Field 1 · .+ · pinned — open$/)).toBeTruthy()
+  })
+
+  it('Esc and the backdrop close the sheet (Modal)', () => {
+    const { container } = render(<Estate state={base} act={() => {}} ui={ui} />)
+    fireEvent.click(chip(/^Field 1 ·/))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(chip(/^Field 1 ·/))
+    fireEvent.click(container.ownerDocument.querySelector('.modal-backdrop')!)
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('the old row controls are gone: no select, no row Sow / Build pivot / Reap / Pin buttons', () => {
+    render(<Estate state={withManager(0)} act={() => {}} ui={ui} />)
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(screen.queryByRole('button', { name: /^(Sow|Build pivot|Reap ⚡10|Pin Field 1)$/ })).toBeNull()
+  })
+})
+
+/** the base state with the 💼 Manager certificate and `assigned` Managers at work (batch 29) */
+function withManager(assigned: number): GameState {
+  return {
+    ...base,
+    run: {
+      ...base.run,
+      workers: { ...base.run.workers, pool: Math.max(base.run.workers.pool, 1), assigned: { ...base.run.workers.assigned, manager: assigned }, certificates: [...base.run.workers.certificates, 'manager'] },
+    },
+  }
+}
 
 /** a fresh fields-unlocked run (the old Fields-card machine tests moved here, batch 27 task 143) */
 function machineSetup(run: Partial<GameState['run']>) {
