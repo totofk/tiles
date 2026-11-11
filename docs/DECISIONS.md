@@ -655,3 +655,18 @@ the `manager` job. Calls made while refining (sent to Toon as a reject-list):
 - The Manager's emoji is 💼 (as in the code); 🧑‍💼 is Emoji 12.1 and shows as tofu on Toon's device.
 - **Renumbered:** renown = batch 31 / save v22 → v23 (batch 28.2 took v22); mine QoL = batch 32 / save v24; furnace
   molds = batch 33 / save v25.
+
+## Batch 30 refined: Estate map (2026-11-11, Hermes against `b30892a`)
+
+Spec: PLAN.md "Batch 30" (tasks 152–154). UI only, no save bump. Calls made while refining (Toon may reject any):
+- Row = 56 px chip + five 52 px cells, gap 5 = 341 px (the spike's 354 px overflows today's 344 px column at 375).
+- A legend line "1 square = 1 plot of 10 tiles · a field = 5 plots under one ⛲ pivot" (Toon read a cell as a tile).
+- One field sheet per chip holds the pivot Build, the crop list (today's option texts) and the 📌 toggle; the pivot
+  badge on the chip is decorative, because a 20 px badge is under the 44 px tap minimum.
+- The 🚜 marker sits on the plot the machine fleet works next (harvester: oldest ready; seeder: next sowable), only
+  with that machine owned. Workers get no marker.
+- A growing cell's tap answers "Not ready yet"; its label carries the % and "ripe in".
+- The ghost field is text, not a button; the Expand "＋ Plot" row goes (the ghost cell replaces it).
+- The spike's "⬇ next" bottom bar is dropped: the phone bar's Sow / Reap already act on the next plot.
+- The strip keeps today's text (the spike's "sow 3.2/min · need 2.8" wording is not adopted).
+- Keyboard = native Tab order + focus ring, no roving tab index. The side-panel Fields summary line stays.

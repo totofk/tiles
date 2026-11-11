@@ -4668,18 +4668,111 @@ Model: Opus (core judgment + sim re-pins). Estimate $25–45 / 1.5–2.5 h, `--m
 
 ---
 
-## Batch 30 — Estate map (C5, tasks 152–154, UI only)
+## Batch 30 — Estate map (C5, tasks 152–154, UI only, no save bump)
 
-- [ ] 152. Field rows on the Estate stop:
-  - memoised plot cells: a chip of 64 px + five 52 px cells at 375 px;
-  - the ghost plot with payback hours;
-  - the ghost field, which names the pump tier and its bar price;
-  - fields past the pump cap collapse into one row: "Fields 21–60 · 🚱 beyond Pump 3".
-- [ ] 153. Crop chip + sheet on the row, the pivot socket (same stub → sheet → Build as the beds), the 🚜 marker on
-  the plot being worked, tap an empty plot to sow and a ready one to reap, 📌 pin. The old Fields card and the
-  batch-27 crop rows are removed.
-- [ ] 154. Keyboard, reduced motion, offline idle reasons in the welcome-back banner. Hermes checks live with 20 and 60
-  fields at 375 / 1440 / 3440.
+Refined 2026-11-11 against `b30892a` (DECISIONS "Batch 30 refined"), from the spike (`tiles-drafts/spike/index.html`,
+Toon's verdict: "my farm got bigger", 52 px rows fine) and a live measurement of today's Estate. Scope `src/app` and
+`tests/`; in `src/core` only two existing private helpers become exports (152c) — no logic change, no balance change,
+no save change (SAVE_VERSION stays 22, every fixture loads unchanged), no sim change. Players before the Tractor see
+no change. Emoji only from existing constants (`CROP_EMOJI`, `SPRINKLER_EMOJI`, the constants at the top of
+`Estate.tsx`), all Unicode ≤ 11. No two file names that differ only in case or extension.
+
+Words used below: **row** = one field on the map: a chip then five plot cells. **cell** = one plot (10 tiles).
+**ghost cell** = the slot `buyPlot` fills next. **field sheet** = the `Modal` a chip opens.
+
+- [ ] 152. **Field rows** (`src/app/Estate.tsx`, new `src/app/EstateMap.tsx`, `src/app/estateText.ts`, `app.css`).
+  - a. Replace the text rows (`Estate.tsx:135–192`: the `estate-row` title span, 📌, `<select>`, Sow / Build pivot /
+    Reap buttons) with `<EstateMap state act ui />` in `EstateMap.tsx`. One `.map-row` per field in
+    `run.fields.list.slice(0, pumpFieldCap(pump))`, the existing collapsed row after it unchanged ("Fields k–n ·
+    🚱 beyond Pump p"). Grid sizes (measured live 2026-11-11: today's `.estate-rows` is 344 px wide at 375, so the
+    spike's 64 + 5 × 52 + 5 × 6 = 354 px overflows by 10): `.map-row { display: grid; grid-template-columns: 56px
+    repeat(5, 52px); gap: 5px; }` = 341 px; `.map-rows { display: grid; grid-template-columns: repeat(auto-fill, 341px);
+    column-gap: 40px; row-gap: 8px; }` (1 column at 375–1440, more on wide panes, like the spike). Every cell and the
+    chip are `<button>`s of 52 px height (56 × 52 for the chip), so every tap target is ≥ 44 px.
+  - b. Legend line above the rows, `<p className="map-legend">`: "1 square = 1 plot of 10 tiles · a field = 5 plots
+    under one ⛲ pivot". Why: Toon read a plot cell as one tile (a home tile and a plot cell look the same size).
+  - c. Cell states (pure helper `plotCellView(state, k, j)` in `estateText.ts` → `{ kind: 'empty' | 'dry' | 'growing' |
+    'ready' | 'ghost' | 'none'; emoji: string; pct: number; label: string; marker: boolean; ordered: boolean }`,
+    unit-tested):
+    - `empty` (pivoted field, `plot.crop === null`): soil colour, no emoji; label `Field ${k+1} plot ${j+1} · empty —
+      sow`; tap → `act((s) => sowPlot(s, k, j), () => \`🌱 Sowed 10 tiles of ${name}\`)`.
+    - `dry` (field without a pivot, plot empty): dashed, faded; label `… · no pivot`; tap → opens the field sheet.
+    - `growing`: green, crop emoji, a 4 px progress bar at the bottom (`--pct`), `pct` = clamp(1 − (readyTick − tick)
+      ÷ `pressuredCycle(state, crop)`, 0, 1); label `… · ${name} ${round(pct × 100)} % · ripe in ${nextReadyText(…)}`;
+      tap → `reapPlot` (its NOT_MATURE toast "Not ready yet" is the answer; no new text).
+    - `ready`: yellow with the green border (the home `cell-mature` look), crop emoji; label `… · ${name} ready —
+      reap ⚡10`; tap → `act((s) => reapPlot(s, k, j), () => \`🌾 Reaped ${name}\`)`. A 📋 corner badge when an
+      accepted unfinished order wants that crop (`ordered`, same rule as `FarmGrid` `orderedCrops`).
+    - `ghost`: in field `list.findIndex(f => f.plots.length < fieldPlots())`, slot `plots.length`: dashed, three short
+      lines "＋ plot" / `💰${compactCash(ghostRowPrice)}` / `~${fieldsPaybackHours} h` (last line omitted at 0); label
+      `Buy plot ${j+1} of Field ${k+1} · 💰${ghostRowPrice} · 10 tiles`; tap → `act(buyPlot)`; when `!buyPlot.ok` the
+      cell keeps its look, the tap shows the error toast (NO_CASH / PUMP_FULL texts already exist).
+    - `none`: the slots after the ghost: an empty `<span aria-hidden>` keeping the grid.
+    - `marker` (🚜 corner badge, `aria-hidden`; the label gains " · 🚜 next"): on the plot the harvester fleet reaps
+      next (`oldestReady`) while `machines.harvester.length > 0`, and on the plot the seeder fleet sows next
+      (`sowTarget`) while `machines.seeder.length > 0`. Export both from `src/core/fields.ts` as
+      `nextReapTarget(run)` and `nextSowTarget(fields)` (rename + export only; `machinesAct`, `sowNext`, `reapNext`
+      call them unchanged).
+    - `compactCash(n)` in `estateText.ts`: < 10,000 → `n` as is; < 1,000,000 → `${round(n / 1000)}k`; else
+      `${(n / 1e6).toFixed(1)}M` ("385k", "1.2M"). Unit-tested at 9,999 / 10,000 / 385,500 / 1,234,567.
+  - d. Ghost field: after the rows, while every field is full (`opens` in `Estate.tsx:116`) a full-width dashed row
+    `＋ Field ${n + 1} · opens with the next plot`; when the list is already at `pumpFieldCap` it reads
+    `＋ Field ${n + 1} · needs Pump Lv${pump + 1} · ${priceText(pumpCost(pump))}` (no pump left: omitted). Not a button
+    (the ghost cell and the Pump recipe below are the actions). The Expand group's "＋ Plot" ghost row
+    (`Estate.tsx:197–204`) is removed — the ghost cell replaces it; the Pump, Fill tank and Smart valve rows stay.
+  - e. Memo: `PlotCell = React.memo(…)` with primitive props (kind, emoji, pct rounded to whole %, label, marker,
+    ordered, k, j) plus one stable `onTap(k, j)` from a `useCallback`, so a quiet tick re-renders only cells whose view
+    changed. Test: a render-count spy over 2 ticks that change one plot re-renders exactly that cell.
+  - Tests (`tests/Estate.test.tsx` rewritten for the map, `tests/estateText.test.ts`): 8 fields render 8 `.map-row`s of
+    6 buttons-or-spans; each `plotCellView` kind from a forged state; tap on an empty cell sows, a ready cell reaps by
+    hand (⚡ −10, `contractsByHand` path untouched), the ghost cell buys a plot; the marker sits on `nextReapTarget` /
+    `nextSowTarget` only with that machine owned; the ghost field's two texts; the collapsed row past the cap; the v20
+    fixture renders rows. Keep every existing strip / tank / valve / machines / phone-bar test passing.
+
+- [ ] 153. **Chip + field sheet** (`EstateMap.tsx`, `estateText.ts`, `app.css`).
+  - a. Chip (`.map-chip`, 56 × 52): the crop emoji (`—` with no crop; 🚱 `BEYOND_EMOJI` with no pivot), a small
+    `F${k+1}` line prefixed with 📌 when pinned, and a corner badge: ⛲ (`SPRINKLER_EMOJI`, solid blue frame) with a
+    pivot, a dashed "＋" without (`aria-hidden`, decorative). `aria-label`: `Field ${k+1} · ${crop name | 'no crop'}
+    ${pinned ? ' · pinned' : ''}${pivot ? '' : ' · no pivot'} — open`. Tap opens the field sheet.
+  - b. Field sheet = `<Modal title={\`Field ${k+1} · ${plots.length}/5 plots · ${plots.length * 10} tiles\`}>`:
+    1. No pivot: `⛲ Pivot — waters this field's plots forever · Permanent`, `priceText(pivotCost(pivotsOwned + 1))`,
+       the `shortOf` line, a `Build` button (`buildPivot`; closes the sheet on success). Pivots at the pump cap: the
+       button is disabled and the line reads `Pump ${pump} waters ${cap} fields — build Pump ${pump + 1}`. Same
+       classes as the bed sprinkler sheet (`sheet-line`, `sheet-price`, `sheet-short`, `sheet-build`).
+    2. With a pivot: `≈💰${estateCropIncomePerHour}/h · ${priceTag(…)}` for the current crop (today's row line).
+    3. "Crop — applies at the next sowing; standing plots finish as they are", then one 44 px button per licensed crop
+       (`run.licenses` order) with `cropOptionText(state, k, c)` as its text, disabled under the 🏡 gate,
+       `aria-pressed` on the current crop, plus a "No crop" button. A pick runs today's select handler unchanged (a
+       hand pick while a Manager works pins the field) and closes the sheet with the toast
+       `Field ${k+1} → ${name} at the next sowing` ("→ no crop" for none).
+    4. Manager certificate owned: a 📌 toggle row "📌 Pinned — the 💼 Manager skips this field" (`pinField`,
+       `aria-pressed`), sheet stays open.
+  - c. Removed: the per-row `<select>`, the row 📌 button, the row Sow / Build pivot / Reap buttons and their CSS
+    (`.estate-row` rules used only by the field rows; keep any the collapsed row still uses). The side-panel Fields
+    summary line + Open Estate (`Fields.tsx`) stays. The phone `EstateBar` (Sow / Reap · n / ＋ Plot) stays.
+  - Tests: chip label + badge for pivot / no pivot / pinned; the sheet's Build path (ok, short, pump cap disabled
+    text); a crop pick through the sheet calls `setFieldCrop` and pins when a Manager is assigned (move today's batch
+    29 tests from the select to the sheet); the 📌 row only with the certificate; Esc and the backdrop close the sheet
+    (Modal); the keys 1 / 2 / Esc do not switch stops while the sheet is open (Surface already skips on
+    `[role="dialog"]` — assert it).
+
+- [ ] 154. **Keyboard, reduced motion, offline reasons, changelog.**
+  - a. Keyboard: cells and chips are native buttons in row order (Tab reaches every action), with a 3 px
+    `:focus-visible` outline (the spike's `.minibtn` style). No roving tab index.
+  - b. Reduced motion (`@media (prefers-reduced-motion: reduce)`): the progress bar has no width transition and the
+    🚜 badge has no animation (the FLIP already respects it).
+  - c. Welcome-back banner (`bannerText`, `useGame.ts:72`): after the Tractor, append the Estate's idle reasons,
+    each only when true at the end of the catch-up, in this order: `⛽ tank ran dry` (growing plots and
+    `!fieldsPressure(after.run)`); `🌱 seeder waiting — no seeds or cash` (seeder owned, `nextSowTarget` not null and
+    `carry.plant >= plotTiles()`); `🚜 machines paused — upkeep unpaid` (`carry.maint >= 1`); `🌾 ${ready} plots
+    ready` (ready > 0 and no harvester). Test each from a forged before/after pair; nothing is added before the
+    Tractor.
+  - d. CHANGELOG (copy verbatim): `{ batch: '30', date: '<today>', line: 'Estate map: each field is now a row of plot squares (1 square = 10 tiles). Tap an empty plot to sow, a ready one to reap; tap the field to pick its crop or build its pivot' }`
+  - Results: `## Batch 30 results` at the true end of PLAN.md: the row width measured in jsdom CSS terms (341 px), the
+    memo render-count test, every removed test → its replacement, and `### Deviations` (no browser: Hermes measures
+    375 / 1024 / 1440 / 2560 / 3440 with 8, 20 and 60 fields).
+
+Model: Opus (UI rewrite with a memo test). Estimate $15–30 / 1–2 h, `--max-turns 160`.
 
 ---
 
