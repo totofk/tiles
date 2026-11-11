@@ -104,6 +104,21 @@ Open questions:
 - Permanent collection buffs vs prestige ("Sell the farm", batch 20): survive prestige or reset?
 - Stacking caps so collection % buffs don't break the farming/mining hierarchy the sim pins.
 
+## 8. Worker rework — unique hires (Toon, 2026-11-12)
+
+Idea: a hire is a person, not a counter. Each candidate rolls stats, quirks and traits — good at some jobs, bad at
+others — so who goes on which job becomes a real decision.
+
+Open questions:
+- How the hiring pool works: a few candidates to choose from per hire? Reroll the pool, maybe with ⭐?
+- Can traits be improved (training), and what does it cost?
+- Prestige: do workers reset on "Sell the farm", or can one favourite be kept (a deed or ⭐ keep row)?
+- Migration: today's workers are interchangeable counts; old saves need a neutral-trait default.
+- 375 px: a roster of distinct people needs a compact card; check against the tab bar and the worker pool UI.
+- The Manager's assignment logic must read traits (or ignore them deliberately).
+- Every trait names the one axis it owns (DECISIONS layer rule) and is priced against the sim.
+- Ties into ⭐ Favours (reroll / train / keep) and the prestige-variety research (per-run hire pools).
+
 ---
 
 ## Suggested research order (proposal, not decided)

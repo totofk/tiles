@@ -5623,3 +5623,80 @@ Tasks 155–157 done, one commit each (`e33f836`, `f336d4b`, and this one), all 
 - Not verified (no browser, jsdom only): the Stats renown rows' wrapping at 375 px, the Legacy `Kept renown` row and
   the Sell card's Renown line on the live build, and loading the real v22 save on the live URL. Hermes re-measures at
   375 / 1024 / 1440 / 2560 / 3440.
+
+## Batch 31.1 — Manager unlock fix + readable numbers + discoverability (tasks 163–166, no save bump)
+
+Runs on save v23 (batch 31). No save shape change: `contractsByHand` keeps its key, new `tiles.ui` fields only.
+Sources: DECISIONS "Batch 31.1 refined" (end of file), `docs/research/number-notation.md`. Two scenarios (rule 0a):
+(A) fresh player from tick 0, incl. hand-heavy players who avoid workers; (B) veteran with a rich migrated save —
+`tests/fixtures/save-v22.json` (a real live save: 💰441,579, ⭐39, contractsByHand 0, harvesters [1, 2], seeder [1]).
+Toon's own save held 💰15M, so the 💰 part of a late certificate must be sized in hours of income, not as a token.
+
+- [ ] 163. **Manager unlock: contracts delivered, by anyone** (core, sim)
+  - a. `fillOrder` (`src/core/orders.ts:112–133`): every completed contract (`isContract(run, offer.good)`) adds 1 to
+    `run.counters.contractsByHand`, whoever reaped the last units (hand, worker, harvester). The ×1.25 hand bonus is
+    unchanged (`fields.ts:308–309`, `actions.ts:215`). Keep the save key; its meaning becomes "contracts delivered".
+    The existing value carries as-is (Toon's 0 stays 0 — the save holds no history).
+  - b. Labels: `Workers.tsx:39` → `contracts delivered`; `stats.ts:44` → "Contracts delivered". Tip `tips.ts:85`
+    unchanged.
+  - c. `CERTIFICATES.manager` (`balance.ts:216`): unlock at **10**; price `{ goldBar: 4, stars: 40, cash: 1500000 }`
+    (⭐ and 💰 est. — 163d pins them).
+  - d. Sim (scenario B): start from the v22 fixture migrated to v23 (it owns harvesters); harvesters reap the
+    contracts; the bot accepts every contract. Report game-minutes until the counter reaches 10, and ⭐ and 💰 held at
+    that moment. Pin: counter reaches 10 ≤ 240 game-minutes; ⭐ held ≥ 40 and 💰 held ≥ 1,500,000 at that moment.
+    Scenario A: the batch-29 ladder bot reaches the Manager certificate (report the game-minute; no new cap).
+    If ⭐ held < 40 or 💰 held < 1.5M in scenario B, do NOT change the price: write the measured numbers under
+    `### Deviations`, leave the price as written and stop after 166 — Hermes picks the number.
+  - e. Tests: a harvester-reaped contract counts; a hand-reaped one counts once (not twice); the certificate
+    unlocks at 10.
+- [ ] 164. **`src/app/fmt.ts`: one number formatter for the whole game** (src/app + 2 core stat rows)
+  - a. Hand-rolled, en-US, no `Intl` / `toLocaleString`. Functions:
+    `held(n)` (HUD balance; < 1,000,000 grouped digits `15,266`; ≥ 1e6 three decimals ROUNDED DOWN `15.266M`),
+    `price(n)` (costs; < 1e6 grouped `500,000`; ≥ 1e6 ROUNDED UP, trailing zeros trimmed `1.5M`, `3M`),
+    `gain(n)` (toasts; like `held`), `approx(n)` (≈ rates; 3 significant digits, `k` from 10,000: `386k`, `1.2M`),
+    `cell(n)` (replaces `compactCash`, `estateText.ts:97`), `count(n)` (⭐, bars, counters: grouped, never
+    abbreviated), `duration(ticks)` (moved from `core/stats.ts:58`, same output). Suffixes M 1e6, B 1e9, T 1e12,
+    Qa 1e15. A value that rounds up to the next unit carries (999,999,500 → `price` `1B`).
+  - b. `compactCash` bugs this fixes (verified in node): 999,600 → "1000k", 1e9 → "1000.0M", 385,400 → "385k"
+    (understated).
+  - c. Apply to every 💰 display site (~38 sites in 17 src/app files: grep `💰` in src/app), `Hud.tsx:12`, toasts, and
+    `core/stats.ts:80,98` (Stats rows: core returns numbers or calls a pure formatter moved to `src/core/fmt.ts`
+    if `src/app` imports are not allowed from core — keep src/core pure). The Feedback body and the save export
+    stay raw.
+  - d. Tests: `tests/fmt.test.ts` table: 999 / 1,000, 999,999 / 1e6, 999,999,500 carry, 500,000, 1.5M price, 15.266M
+    held, negatives, 0, NaN → `0`. Invariant: for every n in the table, held(cash) shown ≥ price(cost) shown implies
+    cash ≥ cost. Fixture render: HUD `💰 15.266M` (save-v22 with cash set to 15,266,531, rounded down), Manager card `🥇4 ⭐40 💰1.5M`.
+    Update the ~23 test literals ≥ 1,000 that change format. Guard test: a vitest source scan fails on `💰${` or
+    `💰{` outside fmt.ts, on `💰` followed by 5+ bare digits in a .tsx string, and on `toLocaleString` anywhere.
+- [ ] 165. **HUD: readable time + income and wages per hour** (src/app)
+  - a. `⏱` shows `duration(run.tick)` instead of raw ticks (`Hud.tsx:28`).
+  - b. Rates from a trailing window in `useGame` (a ref, not state, not the save): every tick push
+    `{ tick, cashEarned: lifetime.cashEarned, wagesPaid: lifetime.wagesPaid }`, keep the last 600 ticks (10
+    game-minutes). Clear the window on load, import and offline catch-up. Hidden until it spans ≥ 60 ticks.
+  - c. HUD shows after the balance `+≈💰{approx(income/h)}/h` (income = Δ cashEarned scaled to an hour) with title
+    "Harvest and sale income, last 10 game-minutes", and next to 👷 `−≈💰{approx(wages/h)}/h` with title
+    "Wages paid, last 10 game-minutes". Only while workers are hired. At 375 px the HUD must stay one line: if it
+    does not fit in the jsdom width test, the rates move into the 👷 title and `### Deviations` says so.
+  - d. Tests: window math on a synthetic sample list; HUD render at 375 with a fixture.
+- [ ] 166. **Discoverability: Farm/Mine dots, unlock toasts, seed buy switches the crop** (src/app)
+  - a. `badges.ts`: `BADGE_TABS = ['shop', 'upgrades', 'farm', 'mine']`. New key groups in `availableKeys`:
+    `farm` — for jobs plant, water, harvest, clerk, manager: `cert:${job}` when `certificateUnlocked(run, job)` and not
+    owned, `cert:${job}:buy` when `buyCertificate(state, job).ok`; `orders` once `run.orders.unlocked`.
+    `mine` — the same certificate keys for jobs ore, fuel, mine; `pick:${tier}` when `craftPickaxe(state, tier).ok`
+    for a tier above the one held. `uiState.ts:40` `seen` gains `farm: []`, `mine: []`; `parseUi` falls back to `[]`
+    for each missing list (old `tiles.ui` saves).
+  - b. The phone nav items 🌱 Farm and ⛏️ Mine (`App.tsx:130–131`, today `dot: false`) use `badge('farm')` /
+    `badge('mine')`; opening that view marks its keys seen (same rule as the panel tabs, `App.tsx:69–80`). On tablet
+    and desktop (no nav item) those keys are marked seen while the card is on screen. 🏦 Bank and 📊 Stats get no
+    keys (never news).
+  - c. Unlock toasts: the `commit` transition check (`useGame.ts:147–156`) also toasts a certificate that becomes
+    unlocked: `New worker: {WORKER_JOB_EMOJI[job]} {name}` (one toast, names joined, as upgrades do).
+  - d. Seed buy (`Farm.tsx:40`): a manual Buy ×1 / ×10 of crop X while `run.plantCrop !== X` also runs
+    `selectCrop(s, X)` in the same `act`, and toasts `Now planting {CROP_EMOJI[X]} {name}`. Auto-buy
+    (`autoBuySeeds`) and workers never switch the crop.
+  - e. Tests: a cert reaching its unlock lights the 🌱 Farm dot and toasts once; opening Farm clears it; an old
+    `tiles.ui` without `farm`/`mine` loads; buying carrot seeds while pumpkin is selected switches to carrot; auto-buy
+    does not.
+- CHANGELOG (top of `src/app/changelog.ts`, verbatim):
+  "Money reads easier (💰1.5M), the HUD shows income and wages per hour, new workers light up 🌱 Farm and ⛏️ Mine, and
+  the 💼 Manager unlocks after 10 contracts — harvesters count" (173 code points; join the two lines with one space)

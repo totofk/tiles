@@ -685,3 +685,33 @@ Spec: PLAN.md "Batch 31" (tasks 155–157, save v22 → v23). Toon: "ร่า�
   milestone on reaching a tier.
 - Worker-only top tier is capped at 48 game-hours (est. 44 h at base grow time with 24 strawberry tiles).
 - Carried in: the batch-30 flaky Manager offline test gets a 20 s timeout.
+
+## Batch 31.1 refined + the ⭐ / deeds direction so far (2026-11-12, Toon delegated the batch order to Hermes)
+
+Spec: PLAN.md "Batch 31.1" (tasks 163–166), no save bump. Calls made while refining (Toon may reject any):
+- The 💼 Manager counts contracts delivered by anyone (harvesters too), unlock at 10, price 🥇4 + ⭐40 + 💰1.5M (est.;
+  the sim on the real v22 save pins it, and the worker stops rather than pick another number). Why: on old saves the
+  harvesters reap every contract, so "by hand" stayed at 0, and 💰500k was ~3 % of a late save's cash.
+- One formatter: exact grouped digits below 1M, then M / B / T / Qa; the balance rounds down, prices round up, so
+  the screen never shows a price as affordable when it is not. ⭐, bars and counters are never abbreviated. No
+  rescaling of money, no price snapping in balance.ts, no notation setting yet. All rates stay per hour.
+- HUD income and wages per hour come from a 10-game-minute window kept in the app (not the save).
+- 🌱 Farm and ⛏️ Mine nav items get badge dots (certificates, orders, pickaxe tiers) and a certificate unlock toasts
+  once; 🏦 Bank and 📊 Stats never badge. A manual seed buy switches "Crop to plant" to that crop (auto-buy does not).
+- **Batch order:** 31.1 → 32 mine QoL (save v24; first task: pickaxe info under Dig + the Keep/Sell table) → 33
+  furnace molds (v25) → 34 ⭐ Favours + bar prices (v26) → 35 crops: potato, eggplant, re-ladder (v27) → prestige
+  variety after crops. Why: the no-bump fixes first; mine and furnace before the ⭐ rows that extend them; crops last
+  because they re-pin the whole sim ladder.
+- **⭐ / deeds so far** (reports: docs/research/star-currency.md, star-toys.md, prestige-variety.md; design continues
+  in its own session): ⭐ is a second currency from orders, not a prestige currency. Deeds stay the permanent
+  buffs. ⭐ purchases belong to the run and reset on Sell the farm; the ⭐ balance carries. A ⭐ row extends a cash
+  ladder past its max (fresh and veteran players both meet it new), never re-sells something that exists and never
+  duplicates a deed row. Accepted so far (prices est.): 🏠 Bunkhouse (pool cap past 6), 💧 Fine mist (fertilizer
+  past Lv5), a ⭐ sell-price multiplier (past Lv5), ⭐ furnace speed + batch (past Lv2), ⛏ Seam survey, 🔥 Stoker,
+  ⭐ co-price on the Clerk and Manager certificates. Rejected: Whetstone, ⭐ storage, order-only rows, Work bell,
+  pump past tier 4 (parked: Estate map risk), a fixed "pick your next land" menu. Bars: Toon wants 🥉100 🥈500 🥇1000
+  (today 2 / 3 / 5); the copper price waits for the calculator (research warns a miner out-earns the farm from vein
+  Lv2 at 🥉100). Toon intends many prestiges, each changing how the run plays.
+- The sold-run sim pin shipped as ≥ 1.4× faster to the fields unlock (`tests/sim.test.ts:3977–3999`); the 1.8× in
+  the batch 20 prestige entry above is superseded.
+- Worker rework (unique hires with traits) recorded as docs/IDEAS.md §8.
