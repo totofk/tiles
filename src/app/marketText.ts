@@ -3,6 +3,7 @@ import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { cropFloor, marketCropPrice } from '../core/market'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
+import { gain } from './fmt'
 
 // Display-only thresholds of the Shop depth bar and the away banner; they colour and filter text, never game state.
 const DEPTH_GREEN = 0.85
@@ -21,7 +22,7 @@ export function priceTag(state: GameState, crop: CropId, last?: number): string 
   const p = percent(factor)
   const trend = last === undefined || factor === last ? '' : factor > last ? ' ▲' : ' ▼'
   const floor = factor <= cropFloor(state.run, crop) ? ' floor' : ''
-  return `${CROP_EMOJI[crop]} 💰${marketCropPrice(state, crop, state.run.market[crop])} (${p} %${trend}${floor})`
+  return `${CROP_EMOJI[crop]} 💰${gain(marketCropPrice(state, crop, state.run.market[crop]))} (${p} %${trend}${floor})`
 }
 
 /** the Shop depth bar's colour band */

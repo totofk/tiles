@@ -9,7 +9,8 @@ import { Workers } from '../src/app/Workers'
 import { workerHireCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, createMachines, type Counters, type GameState } from '../src/core/state'
-import { serialize } from '../src/save/serialize'
+import { deserialize, serialize } from '../src/save/serialize'
+import v22 from './fixtures/save-v22.json?raw'
 import { SAVE_KEY } from '../src/save/storage'
 
 afterEach(cleanup)
@@ -41,6 +42,15 @@ describe('batch 29: the 💼 Manager row', () => {
   it('locked: the gate reads "contracts delivered 1/10"', () => {
     setup({}, { contractsByHand: 1 })
     expect(managerRow().textContent).toContain('contracts delivered 1/10')
+  })
+
+  it('batch 31.1: the certificate price reads 🥇4 ⭐40 💰1.5M; the v22 save at 💰15,266,531 shows 💰 15.266M in the HUD', () => {
+    setup({}, { contractsByHand: 10 })
+    expect(managerRow().textContent!.replace(/⁠/g, '')).toContain('🥇4 ⭐40 💰1.5M')
+    cleanup()
+    const loaded = deserialize(v22)!.state
+    render(<Hud state={{ ...loaded, run: { ...loaded.run, cash: 15_266_531 } }} />)
+    expect(document.querySelector('.hud')!.textContent).toContain('💰 15.266M')
   })
 
   it('owned, assigned and the fields unlocked: the plan line; with no wet field "no wet fields to manage"', () => {

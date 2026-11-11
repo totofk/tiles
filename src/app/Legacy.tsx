@@ -11,6 +11,7 @@ import {
 import { buyMetaUpgrade, deedsClaimable, saleDeeds, starDeeds } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
+import { count } from './fmt'
 import { Item } from './Info'
 import type { Act } from './useGame'
 
@@ -108,7 +109,7 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
     <section className="shop">
       <h2>🏆 Sell the farm</h2>
       <p className="deeds">
-        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{fromCash} + {fromStars} from ⭐)
+        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{count(fromCash)} + {fromStars} from ⭐)
       </p>
       <h3>Resets</h3>
       <ul className="sell-list">

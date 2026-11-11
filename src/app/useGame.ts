@@ -13,6 +13,7 @@ import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame
 import { encodeSave } from '../save/codec'
 import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { onForeignSaveEvent } from './crossTab'
+import { gain } from './fmt'
 import { marketMoves } from './marketText'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
@@ -88,7 +89,7 @@ export function bannerText(awayMs: number, before: GameState, after: GameState):
     smelted > 0 && `${ITEMS.copperBar.emoji} ${smelted} smelted`,
     ironSmelted > 0 && `${ITEMS.ironBar.emoji} ${ironSmelted} smelted`,
     ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,
-    wages > 0 && `wages paid 💰${wages}`,
+    wages > 0 && `wages paid 💰${gain(wages)}`,
     marketMoves(before, after),
     ...(after.run.fields.unlocked ? estateIdleReasons(after) : []),
   ]

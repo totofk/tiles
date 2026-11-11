@@ -5,6 +5,7 @@ import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
 import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
+import { price } from '../src/app/fmt'
 import { createFurnace, createInitialState, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -71,7 +72,7 @@ describe('Mine panel', () => {
     const lv3 = { cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
     setup({ ...lv3, pickaxe: { tier: 'copper', durability: 100 } })
     expect(screen.getByText(/^Lv4: /).textContent).toBe(
-      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}⁠45 ${IRON_BAR}⁠8 💰⁠7500`,
+      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}⁠45 ${IRON_BAR}⁠8 💰⁠7,500`,
     )
     expect(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }).textContent).toBe('Upgrade vein to Lv4 — Needs the iron pickaxe')
     cleanup()
@@ -401,7 +402,7 @@ describe('batch 28.2: 🧺 ore sorting', () => {
     expect(group()).toBeNull()
     cleanup()
     const t = setup({ vein: vein(3) })
-    const cash = oreSortUnlockCost('stone', t.get().meta).cash
+    const cash = price(oreSortUnlockCost('stone', t.get().meta).cash)
     expect(unlockRows()).toEqual([
       `Sell ${STONE} Stone on dig — ${STONE}⁠30 💰⁠${cash}`,
       `Sell ⚫ Coal on dig — ⚫⁠15 💰⁠${cash}`,

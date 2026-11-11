@@ -37,6 +37,7 @@ import { managerPlan } from '../core/manager'
 import { workerUnpaid } from '../core/workers'
 import type { GameState, Machines } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
+import { approx, price } from './fmt'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
 
@@ -64,8 +65,8 @@ export function cropOptionText(state: GameState, k: number, crop: CropId): strin
   if (list[k].crop === crop) return name
   const others = list.reduce((n, f, i) => (i !== k && f.pivot && f.crop === crop ? n + f.plots.length * plotTiles() : n), 0)
   const income = fieldsCropIncomeCurve(state, crop)
-  const m = Math.round(income(others + list[k].plots.length * plotTiles()) - income(others))
-  return `${name} · ≈💰${m}/h · ×${cropFactor(state, crop).toFixed(2)}`
+  const m = income(others + list[k].plots.length * plotTiles()) - income(others)
+  return `${name} · ≈💰${approx(m)}/h · ×${cropFactor(state, crop).toFixed(2)}`
 }
 
 /** the 💼 Manager row's plan line: "🍓 ×3 fields → order 2 · 🍋 rest" */
@@ -93,13 +94,6 @@ export function nextReadyText(ticks: number): string {
   return ticks < 3600 ? `${Math.max(1, Math.round(ticks / 60))}m` : `${Math.round(ticks / 3600)}h`
 }
 
-/** a short cash figure for a 52 px cell: 9999 · 386k · 1.2M */
-export function compactCash(n: number): string {
-  if (n < 10_000) return `${n}`
-  if (n < 1_000_000) return `${Math.round(n / 1000)}k`
-  return `${(n / 1e6).toFixed(1)}M`
-}
-
 export type PlotCellKind = 'empty' | 'dry' | 'growing' | 'ready' | 'ghost' | 'none'
 export type PlotCellView = { kind: PlotCellKind; emoji: string; pct: number; label: string; marker: boolean; ordered: boolean }
 
@@ -117,7 +111,7 @@ export function plotCellView(state: GameState, k: number, j: number): PlotCellVi
   if (!plot) {
     const ghostField = run.fields.list.findIndex((f) => f.plots.length < fieldPlots())
     if (ghostField !== k || j !== field.plots.length) return { kind: 'none', emoji: '', pct: 0, label: '', marker: false, ordered: false }
-    return { kind: 'ghost', emoji: '', pct: 0, label: `Buy plot ${j + 1} of Field ${k + 1} · 💰${ghostRowPrice(state)} · ${plotTiles()} tiles`, marker: false, ordered: false }
+    return { kind: 'ghost', emoji: '', pct: 0, label: `Buy plot ${j + 1} of Field ${k + 1} · 💰${price(ghostRowPrice(state))} · ${plotTiles()} tiles`, marker: false, ordered: false }
   }
   const m = run.fields.machines
   const sowNextHere = m.seeder.length > 0 && same(nextSowTarget(run.fields), k, j)
@@ -189,7 +183,7 @@ export function estateBottleneck(state: GameState): EstateChip {
       fix: run.workers.certificates.includes('manager') ? 'pick a crop or assign the 💼 Manager' : 'pick a crop',
     }
   const unpaid = managed && workerUnpaid(state, 'manager') ? f.list.findIndex((field) => waits(field) && !field.pinned) : -1
-  if (unpaid >= 0) return { label: `⚠ Manager unpaid — Field ${unpaid + 1} waits`, fix: `needs 💰${workerWage(meta, 'manager')} per change` }
+  if (unpaid >= 0) return { label: `⚠ Manager unpaid — Field ${unpaid + 1} waits`, fix: `needs 💰${price(workerWage(meta, 'manager'))} per change` }
   // 4. sowable plots, no seeder: nothing is being sown
   if (emptyWet >= 1 && run.fields.machines.seeder.length === 0) {
     const tier = cheapestMissingTier(run.fields.machines.seeder, machineMaxTiers('seeder'))
@@ -216,5 +210,5 @@ export function estateBottleneck(state: GameState): EstateChip {
   }
   // 7. nothing blocks: the next land is the move
   const ghost = { cash: ghostRowPrice(state) }
-  return { label: '✓ Land — next plot', fix: `＋ Plot 💰${ghost.cash} · ${afford(ghost)}` }
+  return { label: '✓ Land — next plot', fix: `＋ Plot 💰${price(ghost.cash)} · ${afford(ghost)}` }
 }

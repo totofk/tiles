@@ -87,7 +87,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
 
   it('deed meter: ⌊√(lifetime cash ÷ 10 000)⌋ deeds, a meter only', () => {
     render(<Deeds state={withRun({ lifetime: { ...createInitialState().run.lifetime, cashEarned: 1_040_000 } })} />)
-    expect(screen.getByText('Lifetime cash 💰1,040,000 → 10 deeds when "Sell the farm" opens')).toBeTruthy()
+    expect(screen.getByText('Lifetime cash 💰1.040M → 10 deeds when "Sell the farm" opens')).toBeTruthy()
   })
 
   it('pre-gate: the loan, the meter and a locked teaser row naming what is missing', () => {

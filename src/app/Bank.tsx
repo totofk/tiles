@@ -2,6 +2,7 @@ import { PRESTIGE_GATE_DEEDS, deedsFor, loanDebtCap, loanPrincipal, loanRepaySte
 import { debtDue, loanTicksToCap, repay, repayAll, takeLoan } from '../core/bank'
 import { sellFarmUnlocked } from '../core/prestige'
 import type { GameState } from '../core/state'
+import { gain, held, price } from './fmt'
 import { Legacy, SellCard } from './Legacy'
 import type { PanelProps } from './panelTabs'
 import { ERROR_TEXT, type Act } from './useGame'
@@ -25,23 +26,23 @@ export function Bank({ state, act }: { state: GameState; act: Act }) {
     <section className="shop bank">
       <h2>Bank</h2>
       <p className="bank-terms">
-        {`Borrow 💰${principal} · repay 💰${due(loanStartDebt(principal))} now, grows to at most 💰${cap}`}
+        {`Borrow 💰${gain(principal)} · repay 💰${price(due(loanStartDebt(principal)))} now, grows to at most 💰${price(cap)}`}
       </p>
       {loan ? (
         <>
           <p className="bank-debt">
-            Debt 💰{debtDue(loan)} / 💰{cap} cap
+            Debt 💰{price(debtDue(loan))} / 💰{price(cap)} cap
             <small>
               {loanTicksToCap(loan) > 0 ? `reaches the cap in ${duration(loanTicksToCap(loan))}` : 'at the cap, no longer growing'}
             </small>
           </p>
           <div className="shop-row">
             <button disabled={!part.ok} onClick={() => act((s) => repay(s, repayStep))}>
-              Repay 💰{Math.min(repayStep, debtDue(loan))}
+              Repay 💰{price(Math.min(repayStep, debtDue(loan)))}
               <small>{part.ok ? 'pay part' : ERROR_TEXT[part.error]}</small>
             </button>
             <button disabled={!all.ok} onClick={() => act(repayAll)}>
-              Repay all 💰{debtDue(loan)}
+              Repay all 💰{price(debtDue(loan))}
               <small>{all.ok ? 'clear the loan' : ERROR_TEXT[all.error]}</small>
             </button>
           </div>
@@ -49,8 +50,8 @@ export function Bank({ state, act }: { state: GameState; act: Act }) {
       ) : (
         <div className="shop-row">
           <button disabled={!borrow.ok} onClick={() => act(takeLoan)}>
-            🏦 Borrow 💰{principal}
-            <small>{borrow.ok ? `+💰${principal} cash now` : ERROR_TEXT[borrow.error]}</small>
+            🏦 Borrow 💰{gain(principal)}
+            <small>{borrow.ok ? `+💰${gain(principal)} cash now` : ERROR_TEXT[borrow.error]}</small>
           </button>
         </div>
       )}
@@ -64,7 +65,7 @@ export function Deeds({ state }: { state: GameState }) {
   const deeds = deedsFor(cash)
   return (
     <p className="deeds">
-      Lifetime cash 💰{cash.toLocaleString('en-US')} → {deeds} deed{deeds === 1 ? '' : 's'} when "Sell the farm" opens
+      Lifetime cash 💰{held(cash)} → {deeds} deed{deeds === 1 ? '' : 's'} when "Sell the farm" opens
     </p>
   )
 }

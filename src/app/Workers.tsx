@@ -7,6 +7,7 @@ import type { CounterId, GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { isIrrigated } from '../core/workshop'
 import { managerPlanText } from './estateText'
+import { price } from './fmt'
 import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
@@ -118,7 +119,7 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
         <div className="group">
           <div className="worker-row">
             <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
-              👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${workerHireCost(pool, meta)}`}</small>
+              👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${price(workerHireCost(pool, meta))}`}</small>
             </button>
             <Info text={TIPS.hire} />
           </div>

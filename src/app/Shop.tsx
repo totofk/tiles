@@ -27,6 +27,7 @@ import { fieldsUnlockable, unlockFields } from '../core/fields'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
+import { price } from './fmt'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
@@ -70,7 +71,7 @@ function TierTool({ state, act, job }: { state: GameState; act: Act; job: ToolJo
   const cost = toolTierCost(tier, meta)
   const short = [
     ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}${cost[id]! - (run.inventory[id] ?? 0)}`),
-    ...(cost.cash > run.cash ? [`💰${cost.cash - run.cash}`] : []),
+    ...(cost.cash > run.cash ? [`💰${price(cost.cash - run.cash)}`] : []),
   ]
   const status = owned
     ? `✓ ${TIER_EFFECT[job](tier)}${job === 'water' ? ' · Iron is the last watering can' : ''}`
@@ -114,19 +115,19 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
               {run.licenses.includes(id) && farmTab ? (
                 <button className="owned" disabled>
                   {CROP_EMOJI[id]} {CROPS[id].name}
-                  <small>seed 💰{cropSeedCost(id, meta)}</small>
+                  <small>seed 💰{price(cropSeedCost(id, meta))}</small>
                   {market}
                 </button>
               ) : run.licenses.includes(id) ? (
                 <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
                   {CROP_EMOJI[id]} {CROPS[id].name}
-                  <small>seed 💰{cropSeedCost(id, meta)}</small>
+                  <small>seed 💰{price(cropSeedCost(id, meta))}</small>
                   {market}
                 </button>
               ) : (
                 <button className="locked" disabled={run.cash < cost} onClick={() => act((s) => buyLicense(s, id))}>
                   🔒 {CROPS[id].name}
-                  <small>license 💰{cost}</small>
+                  <small>license 💰{price(cost)}</small>
                 </button>
               )}
             </Item>
@@ -142,14 +143,14 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
           <Item tip={TIPS.wood}>
             <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
               {ITEMS.wood.emoji} Wood
-              <small>💰{woodCost(meta)}</small>
+              <small>💰{price(woodCost(meta))}</small>
             </button>
           </Item>
         ) : (
           <Item tip={TIPS.mineLicense}>
             <button disabled={run.cash < mineLicenseCost(meta)} onClick={() => act(buyMineLicense)}>
               ⛏️ Mine license
-              <small>💰{mineLicenseCost(meta)}</small>
+              <small>💰{price(mineLicenseCost(meta))}</small>
             </button>
           </Item>
         )}
@@ -201,7 +202,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
         <Item tip={TIPS.tile}>
           <button disabled={tiles >= TILE_CAP || run.cash < nextTile} onClick={() => act(buyTile)}>
             Buy tile ({tiles}/{TILE_CAP})
-            <small>{tiles >= TILE_CAP ? 'max tiles' : `💰${nextTile}`}</small>
+            <small>{tiles >= TILE_CAP ? 'max tiles' : `💰${price(nextTile)}`}</small>
           </button>
         </Item>
       </div>
@@ -220,7 +221,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
                   ? progress
                   : owned < level - 1
                     ? `needs ${TOOLS[job].names[level - 2]}`
-                    : `${TOOL_EFFECT[level - 1](tiles)} · 💰${toolCost(job, level, meta)}`
+                    : `${TOOL_EFFECT[level - 1](tiles)} · 💰${price(toolCost(job, level, meta))}`
             const next = owned === level - 1
             return (
               <Item key={`${job}${level}`} tip={TOOL_TIPS[job][level - 1]}>

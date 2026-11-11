@@ -3,6 +3,7 @@ import { sprinklerMax, type Price } from '../core/balance'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
 import type { GameState } from '../core/state'
 import { SPRINKLER_EMOJI } from '../core/workshop'
+import { price } from './fmt'
 import { priceText } from './Mine'
 import type { Act } from './useGame'
 
@@ -12,7 +13,7 @@ export const VALVE_EMOJI = '🎛️' // Unicode 7
 export function shortOf(cost: Price, run: GameState['run']): string[] {
   return [
     ...ITEM_IDS.filter((id) => (cost[id] ?? 0) > (run.inventory[id] ?? 0)).map((id) => `${ITEMS[id].emoji}⁠${cost[id]! - (run.inventory[id] ?? 0)}`),
-    ...(cost.cash > run.cash ? [`💰⁠${cost.cash - run.cash}`] : []),
+    ...(cost.cash > run.cash ? [`💰⁠${price(cost.cash - run.cash)}`] : []),
   ]
 }
 

@@ -15,6 +15,7 @@ import { isOffer } from '../core/orders'
 import type { GameState, Offer } from '../core/state'
 import { buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPressure, fillTank, reapNext, sowNext } from '../core/fields'
 import { EstateMap, ORDER_EMOJI } from './EstateMap'
+import { price } from './fmt'
 import { goodEmoji } from './Orders'
 import { priceText } from './Mine'
 import type { UiState } from './uiState'
@@ -148,7 +149,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                       name={`${MACHINE_NAMES[kind]} Mk${tier}`}
                       verb="Build"
                       cost={machineCost(kind, tier, meta)}
-                      effect={`${MACHINE_VERBS[kind]} ${rate} tiles/h · 💰${machineMaintPerHour(tier)}/h upkeep · coal-free${kind === 'harvester' ? ' · uses your best sickle' : ''}`}
+                      effect={`${MACHINE_VERBS[kind]} ${rate} tiles/h · 💰${price(machineMaintPerHour(tier))}/h upkeep · coal-free${kind === 'harvester' ? ' · uses your best sickle' : ''}`}
                       owned={run.fields.machines[kind].includes(tier)}
                       ownedText={`${rate} tiles/h`}
                       reason={run.workers.certificates.includes(cert) ? null : `needs the ${cert} certificate (manual → worker → machine)`}

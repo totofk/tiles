@@ -36,10 +36,10 @@ describe('Shop seeds', () => {
       '🔒 Chillilicense 💰50',
       `🎃 Pumpkinseed 💰10${priceTag(get(), 'pumpkin')}`,
       '🔒 Lemonlicense 💰400',
-      '🔒 Tomatolicense 💰7000',
-      '🔒 Cornlicense 💰10000',
-      '🔒 Grapelicense 💰15000',
-      '🔒 Strawberrylicense 💰22000',
+      '🔒 Tomatolicense 💰7,000',
+      '🔒 Cornlicense 💰10,000',
+      '🔒 Grapelicense 💰15,000',
+      '🔒 Strawberrylicense 💰22,000',
     ])
     expect(btn(/Chilli/).disabled).toBe(false)
     expect(btn(/Lemon/).disabled).toBe(true)
@@ -142,7 +142,7 @@ describe('Farm tools in the Shop', () => {
     t.rerender()
     expect(t.get().run.toolTier.water).toBe(1)
     const iron = tool(`${IRON} Iron Can`)
-    expect(iron.textContent).toContain(`moisture 4 · ${IRON}⁠4 💰⁠10000`)
+    expect(iron.textContent).toContain(`moisture 4 · ${IRON}⁠4 💰⁠10,000`)
     expect(iron.textContent).toContain(`needs ${IRON}4 more`) // cash in hand, bars not
     expect(iron.disabled).toBe(true)
 
@@ -162,7 +162,7 @@ describe('Farm tools in the Shop', () => {
     const t = setup({ cash: 10000, inventory: { goldBar: 4 }, tools: { water: 1, harvest: 1, plant: 1 }, toolTier: { water: 2, harvest: 2, plant: 2 } })
     expect(tool(`${IRON} Iron Can`).textContent).toContain('Iron is the last watering can')
     const gold = tool(`${GOLD} Gold Sickle`)
-    expect(gold.textContent).toContain(`30 % double · ${GOLD}⁠4 💰⁠10000`)
+    expect(gold.textContent).toContain(`30 % double · ${GOLD}⁠4 💰⁠10,000`)
     fireEvent.click(gold)
     t.rerender()
     expect(t.get().run.toolTier.harvest).toBe(3)

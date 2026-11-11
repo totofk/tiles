@@ -3,16 +3,17 @@ import { debtDue } from '../core/bank'
 import { STAR_EMOJI } from '../core/data/orders'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
+import { count, held, price } from './fmt'
 
 export function Hud({ state }: { state: GameState }) {
   const { run, meta } = state
   const max = energyMax(run.upgrades.energyMax, meta)
   return (
     <header className="hud">
-      <span>💰 {run.cash}</span>
+      <span>💰 {held(run.cash)}</span>
       {run.orders.unlocked && (
         <span title="Stars, from orders">
-          {STAR_EMOJI} {run.stars}
+          {STAR_EMOJI} {count(run.stars)}
         </span>
       )}
       <span className="hud-energy">
@@ -21,7 +22,7 @@ export function Hud({ state }: { state: GameState }) {
       </span>
       {run.loan && (
         <span className="hud-debt" title="Bank debt">
-          🏦 −💰{debtDue(run.loan)}
+          🏦 −💰{price(debtDue(run.loan))}
         </span>
       )}
       {run.workers.pool > 0 && <span title="Workers hired">👷 {run.workers.pool}</span>}

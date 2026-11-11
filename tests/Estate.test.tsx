@@ -11,6 +11,7 @@ import { Estate, EstateBar } from '../src/app/Estate'
 import { EstateMap } from '../src/app/EstateMap'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { cropOptionText, estateCropIncomePerHour, fleetTilesPerHour } from '../src/app/estateText'
+import { approx } from '../src/app/fmt'
 import { priceTag } from '../src/app/marketText'
 import { priceText } from '../src/app/Mine'
 import type { UiState } from '../src/app/uiState'
@@ -126,7 +127,7 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
   it('the ghost cell buys a plot; without the cash it keeps its look and the tap toasts the error', () => {
     const list = [field([plot(null), plot(null), plot(null)])]
     const rich = setup(withFields(list, { cash: 1e9 }))
-    const ghost = cell(/^Buy plot 4 of Field 1 · 💰\d+ · 10 tiles$/)
+    const ghost = cell(/^Buy plot 4 of Field 1 · 💰[\d,]+ · 10 tiles$/)
     expect(ghost.className).toBe('map-cell map-ghost')
     expect(ghost.textContent).toMatch(/^＋ plot💰\d+(k|M)?/)
     fireEvent.click(ghost)
@@ -277,7 +278,7 @@ describe('task 153: the field chip and its sheet', () => {
     setup(s)
     fireEvent.click(chip(/^Field 1 ·/))
     const crop = s.run.fields.list[0].crop!
-    expect(within(sheet()).getByText(`≈💰${estateCropIncomePerHour(s, 0)}/h · ${priceTag(s, crop, undefined)}`)).toBeTruthy()
+    expect(within(sheet()).getByText(`≈💰${approx(estateCropIncomePerHour(s, 0))}/h · ${priceTag(s, crop, undefined)}`)).toBeTruthy()
     expect(within(sheet()).getByText('Crop — applies at the next sowing; standing plots finish as they are')).toBeTruthy()
     const buttons = [...sheet().querySelectorAll<HTMLButtonElement>('.map-crops > button')]
     expect(buttons.map((b) => [b.textContent, b.disabled, b.getAttribute('aria-pressed')])).toEqual([

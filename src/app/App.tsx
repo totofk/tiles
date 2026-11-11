@@ -6,6 +6,7 @@ import { DigSeeds } from './Farm'
 import { EMPTY_FEEDBACK } from './feedback'
 import { Fields } from './Fields'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
+import { gain } from './fmt'
 import { Hud } from './Hud'
 import { HAND_PICKED, cropFactor } from './marketText'
 import { Mine } from './Mine'
@@ -115,7 +116,7 @@ export default function App() {
         const tile = prev.run.tiles[i]
         if (!isMature(tile, prev)) return null
         guardUntil.current[i] = now + TAP_GUARD_MS
-        return `+💰${next.run.cash - prev.run.cash} ${CROPS[tile.cropId!].name} ${HAND_PICKED}`
+        return `+💰${gain(next.run.cash - prev.run.cash)} ${CROPS[tile.cropId!].name} ${HAND_PICKED}`
       },
     )
   }

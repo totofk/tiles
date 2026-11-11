@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, tankCapCoal } from '../src/core/balance'
 import { CROPS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
-import { compactCash, cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText, plotCellView } from '../src/app/estateText'
+import { approx, price } from '../src/app/fmt'
+import { cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText, plotCellView } from '../src/app/estateText'
 import { fieldsCropIncomePerHour, nextReapTarget, nextSowTarget, pressuredCycle } from '../src/core/fields'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { priceText } from '../src/app/Mine'
@@ -114,7 +115,7 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     expect(cropOptionText(s, 0, 'radish')).toBe(R)
     expect(cropOptionText(s, 0, 'lemon')).toBe(`${CROP_EMOJI.lemon} ${CROPS.lemon.name} · 🏡 7/50`)
     // field 2 (two plots) on radish while field 1 already shows radish: the marginal over field 1's 10 tiles
-    const m = Math.round(fieldsCropIncomePerHour(s, 'radish', 30) - fieldsCropIncomePerHour(s, 'radish', 10))
+    const m = approx(fieldsCropIncomePerHour(s, 'radish', 30) - fieldsCropIncomePerHour(s, 'radish', 10))
     expect(cropOptionText(s, 1, 'radish')).toBe(`${R} · ≈💰${m}/h · ×${marketFactor('radish', s.run.market.radish).toFixed(2)}`)
   })
 
@@ -123,7 +124,7 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     const run = { ...s0.run, licenses: ['radish' as const], lifetime: { ...s0.run.lifetime, harvests: { radish: 50 } }, market: { ...s0.run.market, radish: 1e9 } }
     expect(cropOptionText({ ...s0, run }, 1, 'radish')).toMatch(/×0\.50$/)
     const famed: GameState = { ...s0, run: { ...run, renown: { radish: 4000 } } }
-    const m = Math.round(fieldsCropIncomePerHour(famed, 'radish', 30) - fieldsCropIncomePerHour(famed, 'radish', 10))
+    const m = approx(fieldsCropIncomePerHour(famed, 'radish', 30) - fieldsCropIncomePerHour(famed, 'radish', 10))
     expect(cropOptionText(famed, 1, 'radish')).toBe(`${CROP_EMOJI.radish} ${CROPS.radish.name} · ≈💰${m}/h · ×0.70`)
   })
 
@@ -154,9 +155,9 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     const clear = at({ fields: [field([growing()])], machines })
     const chip = estateBottleneck(clear)
     expect(chip.label).toBe('✓ Land — next plot')
-    expect(chip.fix).toBe(`＋ Plot 💰${ghostRowPrice(clear)} · now`)
+    expect(chip.fix).toBe(`＋ Plot 💰${price(ghostRowPrice(clear))} · now`)
     const gap = { ...clear, run: { ...clear.run, cash: 1 } }
-    expect(estateBottleneck(gap).fix).toMatch(new RegExp(`^＋ Plot 💰${ghostRowPrice(clear)} · ≈~\\d+ (min|h)$`))
+    expect(estateBottleneck(gap).fix).toMatch(new RegExp(`^＋ Plot 💰${price(ghostRowPrice(clear))} · ≈~\\d+ (min|h)$`))
   })
 })
 
@@ -175,13 +176,9 @@ describe('batch 29: managerPlanText', () => {
   })
 })
 
-describe('batch 30: the Estate map cells (plotCellView) and compactCash', () => {
+describe('batch 30: the Estate map cells (plotCellView)', () => {
   const plot = (crop: CropId | null, readyTick = 0): Plot => ({ crop, readyTick })
   const field = (plots: Plot[], pivot = true, crop: CropId | null = 'radish'): Field => ({ pivot, crop, pinned: false, plots })
-
-  it('compactCash: 9,999 as is, 10,000 → 10k, 385,500 → 386k (round), 1,234,567 → 1.2M', () => {
-    expect([9_999, 10_000, 385_500, 1_234_567].map(compactCash)).toEqual(['9999', '10k', '386k', '1.2M'])
-  })
 
   it('every kind from a forged state: empty, dry, growing (pct + ripe in), ready, ghost, none', () => {
     const base = at({ fields: [] })
@@ -196,7 +193,7 @@ describe('batch 30: the Estate map cells (plotCellView) and compactCash', () => 
     const far = at({ fields: [field([plot('radish', tick + 10 * cycle)])] })
     expect(plotCellView(far, 0, 0).pct).toBe(0) // clamped
     expect(plotCellView(s, 0, 2)).toEqual({ kind: 'ready', emoji: CROP_EMOJI.radish, pct: 1, label: `Field 1 plot 3 · ${CROPS.radish.name} ready — reap ⚡10`, marker: false, ordered: false })
-    expect(plotCellView(s, 0, 3)).toEqual({ kind: 'ghost', emoji: '', pct: 0, label: `Buy plot 4 of Field 1 · 💰${ghostRowPrice(s)} · 10 tiles`, marker: false, ordered: false })
+    expect(plotCellView(s, 0, 3)).toEqual({ kind: 'ghost', emoji: '', pct: 0, label: `Buy plot 4 of Field 1 · 💰${price(ghostRowPrice(s))} · 10 tiles`, marker: false, ordered: false })
     expect(plotCellView(s, 0, 4).kind).toBe('none')
     expect(plotCellView(s, 1, 0)).toMatchObject({ kind: 'dry', label: 'Field 2 plot 1 · no pivot' })
     expect(plotCellView(s, 1, 1).kind).toBe('none') // the ghost slot is in Field 1, not here

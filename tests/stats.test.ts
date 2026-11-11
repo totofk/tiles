@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { harvest } from '../src/core/actions'
+import { held } from '../src/core/fmt'
 import { STARTING_CASH, cropGrowTicks, cropSellPrice, energyMax, handPickedBonus, energyRegenPerTick, fireUnitTicks } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
@@ -121,7 +122,7 @@ describe('stats(state)', () => {
     state = r.state
     const { totals, multipliers } = stats(state)
     expect(row(totals, 'Time played')).toEqual({ label: 'Time played', value: '1h 02m 05s' })
-    expect(row(totals, 'Cash earned')!).toMatchObject({ value: `💰${1234 + Math.round(cropSellPrice('pumpkin', s.meta, 5) * handPickedBonus())}` })
+    expect(row(totals, 'Cash earned')!).toMatchObject({ value: `💰${held(1234 + Math.round(cropSellPrice('pumpkin', s.meta, 5) * handPickedBonus()))}` })
     expect(row(totals, 'Pumpkin harvests')).toMatchObject({ value: '1' })
     expect(row(totals, 'Carrot harvests')).toMatchObject({ value: '40' })
     expect(row(totals, 'Copper bars smelted')).toMatchObject({ value: '6' })

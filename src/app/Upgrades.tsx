@@ -17,7 +17,8 @@ import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
 import { buyStorage, dropText, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
 import { Item } from './Info'
-import { priceText as price } from './Mine'
+import { price } from './fmt'
+import { priceText } from './Mine'
 import { TIPS, UPGRADE_TIPS } from './tips'
 import type { Act } from './useGame'
 
@@ -61,14 +62,14 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
             <small>
               {storageMaxed
                 ? `Storage ${cap} slots · max`
-                : `Storage ${cap} → ${cap + storageSlotsPerLevel()} slots · ${price(storageCost(run.storageLevel, meta))}`}
+                : `Storage ${cap} → ${cap + storageSlotsPerLevel()} slots · ${priceText(storageCost(run.storageLevel, meta))}`}
             </small>
           </button>
         </Item>
         <Item tip={TIPS.vein}>
           <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
             ⛏️ Vein Lv {vein}/{veinMaxLevel()}
-            <small>{veinCost ? `${dropText(vein)} → ${dropText(vein + 1)} · ${price(veinCost)}` : `${dropText(vein)} · max`}</small>
+            <small>{veinCost ? `${dropText(vein)} → ${dropText(vein + 1)} · ${priceText(veinCost)}` : `${dropText(vein)} · max`}</small>
           </button>
         </Item>
       </div>
@@ -96,7 +97,7 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
                   <Item key={id} tip={UPGRADE_TIPS[id]}>
                     <button disabled={maxed || run.cash < cost} onClick={() => act((s) => buyUpgrade(s, id))}>
                       {UPGRADES[id].name} Lv {level}/{max}
-                      <small>{`${effect(id, level, meta, maxed)} · ${maxed ? 'max' : `💰${cost}`}`}</small>
+                      <small>{`${effect(id, level, meta, maxed)} · ${maxed ? 'max' : `💰${price(cost)}`}`}</small>
                     </button>
                   </Item>
                 )

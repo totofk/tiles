@@ -5,6 +5,7 @@ import type { CropId } from '../core/data/crops'
 import { TOOL_JOBS, tierName, type ToolJob } from '../core/data/tools'
 import type { GameState } from '../core/state'
 import { pressTool, setToolN, toolCount, type ToolPress } from '../core/tools'
+import { gain } from './fmt'
 import { HAND_PICKED } from './marketText'
 import { ERROR_TEXT, type Act } from './useGame'
 
@@ -34,7 +35,7 @@ const BONUS_TEXT: Partial<Record<ToolJob, (n: number) => string>> = {
  */
 export function pressText(job: ToolJob, { done, wanted, stoppedBy, bonus }: Extract<ToolPress, { ok: true }>, earned = 0): string {
   const extra = bonus > 0 ? (BONUS_TEXT[job]?.(bonus) ?? '') : ''
-  const cash = job === 'harvest' && earned > 0 ? ` +💰${earned} ${HAND_PICKED}` : ''
+  const cash = job === 'harvest' && earned > 0 ? ` +💰${gain(earned)} ${HAND_PICKED}` : ''
   const why = stoppedBy ? ` — ${STOP_TEXT[stoppedBy] ?? ERROR_TEXT[stoppedBy]}` : ''
   return `${VERB[job].past} ${done}/${wanted}${extra}${cash}${why}`
 }

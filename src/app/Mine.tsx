@@ -58,6 +58,7 @@ import {
 } from '../core/mining'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
+import { count, gain, price } from './fmt'
 import { Info, Item } from './Info'
 import { FURNACE_TIPS } from './tips'
 import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
@@ -82,9 +83,9 @@ const SMELT_SHORT: Partial<Record<ActionError, string>> = {
 }
 
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free; ⁠ joins each emoji to its number so a line never breaks between them */
-export function priceText(price: Price): string {
-  const items = ITEM_IDS.filter((id) => price[id]).map((id) => `${ITEMS[id].emoji}⁠${price[id]}`)
-  return [...items, ...(price.stars ? [`${STAR_EMOJI}⁠${price.stars}`] : []), ...(price.cash ? [`💰⁠${price.cash}`] : [])].join(' ')
+export function priceText(p: Price): string {
+  const items = ITEM_IDS.filter((id) => p[id]).map((id) => `${ITEMS[id].emoji}⁠${p[id]}`)
+  return [...items, ...(p.stars ? [`${STAR_EMOJI}⁠${count(p.stars)}`] : []), ...(p.cash ? [`💰⁠${price(p.cash)}`] : [])].join(' ')
 }
 
 function sellAll(s: GameState): ActionResult {
@@ -289,7 +290,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
         <h2>🔒 Mine</h2>
         <p>Spend idle energy digging stone to sell.</p>
         <button disabled={run.cash < cost} onClick={() => act(buyMineLicense)}>
-          ⛏️ Mine license 💰{cost}
+          ⛏️ Mine license 💰{price(cost)}
         </button>
       </section>
     )
@@ -358,7 +359,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       {!digCheck.ok && digCheck.error === 'BAG_FULL' && fullValue > 0 && (
         <button onClick={() => act(sellAll)}>
           Sell all {SELL_WHEN_FULL.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => ITEMS[id].emoji).join(' ')} 💰
-          {fullValue}
+          {gain(fullValue)}
         </button>
       )}
       <div className="mine-vein">
@@ -436,7 +437,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
         </div>
       )}
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
-        Buy wood 💰{woodCost(meta)}
+        Buy wood 💰{price(woodCost(meta))}
       </button>
       {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all | sort; the columns
           live on the container, rows are subgrids; the wrap is the container the two-line mode queries. An unlocked
@@ -454,7 +455,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
                   </span>
                 </span>
                 <span className="item-count">×{n}</span>
-                <span className="item-extra">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
+                <span className="item-extra">{isSellable(id) ? `💰${gain(itemSellPrice(id, meta, run.upgrades.sellPrice))}` : ''}</span>
                 {isSellable(id) ? (
                   <>
                     <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>

@@ -14,6 +14,7 @@ import {
   waterMoisture,
 } from './balance'
 import { CROPS, CROP_IDS } from './data/crops'
+import { duration, held } from './fmt'
 import { PICKAXE_NAMES } from './data/items'
 import { MILESTONES, earlierMilestones } from './data/milestones'
 import { STAR_EMOJI } from './data/orders'
@@ -54,15 +55,6 @@ const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
   plant: (t) => `${pct(seedKeepChance(t))} seed kept`,
 }
 
-/** "1h 02m 05s" */
-function duration(ticks: number): string {
-  const h = Math.floor(ticks / 3600)
-  const m = Math.floor((ticks % 3600) / 60)
-  const s = ticks % 60
-  const two = (n: number) => String(n).padStart(2, '0')
-  return h > 0 ? `${h}h ${two(m)}m ${two(s)}s` : `${m}m ${two(s)}s`
-}
-
 /**
  * Everything the 📊 Stats tab shows, computed by the same balance functions the game uses, so the tab can never
  * disagree with play. (a) lifetime totals, (b) current values with their source.
@@ -77,7 +69,7 @@ export function stats(state: GameState): Stats {
 
   const totals: StatRow[] = [
     { label: 'Time played', value: duration(run.tick) },
-    { label: 'Cash earned', value: `💰${Math.round(lifetime.cashEarned)}` },
+    { label: 'Cash earned', value: `💰${held(lifetime.cashEarned)}` },
     { label: 'Energy spent', value: `⚡${lifetime.energySpent}` },
     ...(Object.keys(COUNTER_LABELS) as (keyof typeof COUNTER_LABELS)[]).map((id) => ({ label: COUNTER_LABELS[id], value: `${run.counters[id]}` })),
     ...CROP_IDS.filter((id) => run.licenses.includes(id)).flatMap((id) => {
@@ -95,7 +87,7 @@ export function stats(state: GameState): Stats {
     { label: 'Gold bars collected', value: `${lifetime.goldBars}` },
     // fire units burnt with no cycle progressing (a plain furnace lit with no ore or a full tray)
     { label: 'Fire wasted', value: `${Math.ceil(lifetime.fireWasted / fireUnitTicks())} units` },
-    { label: 'Wages paid', value: `💰${lifetime.wagesPaid}` },
+    { label: 'Wages paid', value: `💰${held(lifetime.wagesPaid)}` },
     { label: 'Plants by workers', value: `${lifetime.workerPlants}` },
     { label: 'Mines by workers', value: `${lifetime.workerMines}` },
     { label: `${STAR_EMOJI} earned`, value: `${lifetime.starsEarned}` },

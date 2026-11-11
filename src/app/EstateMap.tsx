@@ -21,7 +21,8 @@ import { Modal } from './Modal'
 import type { UiState } from './uiState'
 import type { Act } from './useGame'
 import { shortOf } from './Workshop'
-import { compactCash, cropOptionText, estateCropIncomePerHour, ghostRowPrice, plotCellView, type PlotCellKind } from './estateText'
+import { cropOptionText, estateCropIncomePerHour, ghostRowPrice, plotCellView, type PlotCellKind } from './estateText'
+import { approx, cell } from './fmt'
 
 export const ORDER_EMOJI = '📋' // Unicode 6
 export const BEYOND_EMOJI = '🚱' // Unicode 6
@@ -38,8 +39,8 @@ type CellProps = {
   ordered: boolean
   k: number
   j: number
-  /** the ghost cell's price and payback lines ('' / 0 on every other cell) */
-  price: string
+  /** the ghost cell's price and payback lines (0 on every other cell) */
+  price: number
   payback: number
   onTap: (k: number, j: number, kind: PlotCellKind) => void
 }
@@ -52,7 +53,7 @@ export const PlotCell = memo(function PlotCell({ kind, emoji, pct, label, marker
       {kind === 'ghost' ? (
         <>
           <small>＋ plot</small>
-          <small>{`💰${price}`}</small>
+          <small>{`💰${cell(price)}`}</small>
           {payback > 0 && <small>{`~${payback} h`}</small>}
         </>
       ) : (
@@ -84,7 +85,7 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
     },
     [act, setSheet],
   )
-  const price = compactCash(ghostRowPrice(state))
+  const price = ghostRowPrice(state)
   const payback = fieldsPaybackHours(state)
   const n = list.length
   const nextPump = n >= cap ? pumpCost(pump, meta) : null
@@ -123,7 +124,7 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
                   ordered={v.ordered}
                   k={k}
                   j={j}
-                  price={v.kind === 'ghost' ? price : ''}
+                  price={v.kind === 'ghost' ? price : 0}
                   payback={v.kind === 'ghost' ? payback : 0}
                   onTap={onTap}
                 />
@@ -190,7 +191,7 @@ function FieldSheet({ state, act, ui, k, close }: { state: GameState; act: Act; 
           </button>
         </>
       ) : (
-        field.crop && <p className="sheet-line">{`≈💰${estateCropIncomePerHour(state, k)}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</p>
+        field.crop && <p className="sheet-line">{`≈💰${approx(estateCropIncomePerHour(state, k))}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</p>
       )}
       <p className="sheet-line">Crop — applies at the next sowing; standing plots finish as they are</p>
       <div className="map-crops">
