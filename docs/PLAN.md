@@ -4784,7 +4784,7 @@ on Sell the farm, and a deed row keeps the reached tiers") and 581–582 ("Renow
 `fieldsCropHarvests`) is unchanged. Emoji only from existing constants; Unicode ≤ 11. No two file names that differ
 only in case or extension.
 
-- [ ] 155. **Renown state, gain and save v23** (`src/core/state.ts`, `src/core/actions.ts`, `src/core/balance.ts`,
+- [x] 155. **Renown state, gain and save v23** (`src/core/state.ts`, `src/core/actions.ts`, `src/core/balance.ts`,
   `src/core/prestige.ts`, `src/save/serialize.ts`).
   - a. `RunState.renown: Partial<Record<CropId, number>>` (absent key = 0), `createFreshRun` → `{}` unless the carry
     says otherwise (155d). Integer points.
@@ -4816,7 +4816,7 @@ only in case or extension.
     249 / 250 / 999 / 1000 / 3999 / 4000 / 10000; Sell the farm with and without `keepRenown` (lemon 2413 → 1000,
     radish 150 dropped); buying `keepRenown` costs 3 deeds once.
 
-- [ ] 156. **The floor in every price** (`balance.ts`, `market.ts`, `fields.ts`, `src/app/marketText.ts`,
+- [x] 156. **The floor in every price** (`balance.ts`, `market.ts`, `fields.ts`, `src/app/marketText.ts`,
   `src/app/estateText.ts`).
   - a. `marketFactor(cropId, glut, floor = MARKET_FLOOR)` → `Math.max(floor, 1 − 0.5 × glut / depth)`; add
     `cropFloor(run, crop) = renownFloor(run.renown[crop] ?? 0)` (market.ts). Pass it at EVERY game call site:
@@ -4836,7 +4836,7 @@ only in case or extension.
     pays `round(sell × 0.6)` per unit; `priceTag` shows " floor" at 60 % with lemon tier 2 and not at 55 %;
     `fieldsCropIncomePerHour` rises with renown on a glutted crop; `cropOptionText` uses the floor.
 
-- [ ] 157. **Showing it, sims, carry-ins, changelog.**
+- [x] 157. **Showing it, sims, carry-ins, changelog.**
   - a. 📊 Stats (`src/core/stats.ts:185`): after each licensed crop's harvests row, a row `{ label: \`${name} renown\`,
     value: \`${points} · floor ${percent} % · next ${next}\` }` (`· top tier` instead of the next at 4,000+; percent =
     `round(renownFloor × 100)`). Before the first point the row reads `0 · floor 50 % · next 250`.
@@ -5555,3 +5555,71 @@ rename + export of `sowTarget` → `nextSowTarget(fields)` and `oldestReady` →
   "1.2M" price, the focus ring rendering, the marker animation and the reduced-motion switch, the sheet's crop buttons
   with long option texts, and 8 / 20 / 60 fields. Hermes measures 375 / 1024 / 1440 / 2560 / 3440 with 8, 20 and 60
   fields.
+
+## Batch 31 results (2026-11-12)
+
+Tasks 155–157 done, one commit each (`e33f836`, `f336d4b`, and this one), all on `main`, not pushed. SAVE_VERSION
+22 → 23; no fixture edited; no existing balance number changed (new: `RENOWN_BY_HAND = 2`, `RENOWN_BY_WORKER = 1`,
+`RENOWN_TIERS = [250, 1000, 4000]`, `RENOWN_FLOORS = [0.55, 0.6, 0.7]`, `keepRenown` max 1 / one-time 3 deeds).
+
+- **155.** `RunState.renown` (absent = 0), `addRenown` / `renownTier` / `renownFloor` / `nextRenownTier` in
+  `balance.ts`; `harvest()` adds 2 by hand (`energy > 0`) or 1 (worker); Estate reaps and machines add none. Sell the
+  farm resets to `{}`, or with `keepRenown` keeps each crop's reached tier threshold (`RunCarry.renown`).
+  `migrateV22` seeds `renown` from `lifetime.harvests` (> 0) and `meta.upgrades.keepRenown = 0`; v18–v22 meta frozen
+  as `MetaV22` in `serialize.ts`. The real v22 fixture loads as v23 with
+  `{ radish: 150, chilli: 95, pumpkin: 300, lemon: 2413 }` (lemon floor 0.6, pumpkin 0.55), everything else
+  unchanged; every fixture v1–v22 migrates to v23 with renown = its lifetime harvests. New `tests/renown.test.ts`.
+- **156.** `marketFactor(crop, glut, floor = MARKET_FLOOR)`; `cropFloor(run, crop)` in `market.ts`, passed at
+  `marketCropPrice`, `marketSteadyFactor` (new `floor` param, only test callers), `fieldsCropIncomeCurve`,
+  `fieldsMarginalIncomePerHour`, `cropFactor` (marketText); `estateText.ts` now reads `cropFactor` for both the row
+  income and the option text. `priceTag`'s " floor" compares against `cropFloor`. `grep "marketFactor("` over `src`
+  and `tests`: every game call passes a floor; the calls without one are bare-curve tests (`market.test.ts`, the
+  glut-0 / no-renown `estateText.test.ts` lines) — the one forged-state call, the batch-22 `factorsAt` log, now passes
+  `cropFloor` (157 commit). The sim market switch passes the third argument through.
+- **157.** Stats row per licensed crop after its harvests row (`Carrot renown` = `0 · floor 50 % · next 250` on a
+  fresh run, `· top tier` at 4,000+). Legacy row `Kept renown` (strings per spec) and the Sell card's
+  `Renown{ — tiers kept}` line. `tests/manager.test.ts` offline test renamed "8 h offline with a Manager on 20
+  fields", timeout 20,000 ms. CHANGELOG entry at the top, verbatim.
+- **Worker-only route** (`PIN31worker`, `at(true, [])` + sprinklers on all 4 beds + 1 planter + 1 harvester, cash
+  💰100,000, no hand act, measured in 0.1 h steps): strawberry renown 250 at **1.5 h**, 1,000 at **5.7 h**, 4,000 at
+  **22.6 h** (≤ 48 h: pass; 4,008 worker harvests ≈ 177/h — Fertilizer 5 shortens the grow time, so faster than the
+  90/h estimate).
+- **Prestige reset** pinned: strawberry 4,000 sold without `keepRenown` → `{}`; with it → `{ strawberry: 4000 }`, and
+  the next run's first glutted strawberry sale pays `round(sell × 0.7)`.
+- **Manager model with floors** (`PIN31model`): manager / exhaustive best = **1.0000** at 2 / 6 / 10 / 20 fields, base
+  and stage, for renown 250 / 1,000 / 4,000 on every crop (floors 0.55 / 0.6 / 0.7) — all 24 rows.
+- **Re-pins (old → new, cause):**
+  - batch 22 "run 1 and the vault run climb to harvester3": vault run 36.3 → **37.9 h** — the bot's breadth-first deed
+    spend (`DEED_ROW_IDS`) now also buys Kept renown (3 deeds), so fewer deeds go to the level rows (155 commit).
+  - batch 18 income vs N, all-lemon `[48936, 111499, 151085, 349608, 393965]` → `[48729, 113199, 210788, 492685,
+    550358]`; mix `[192255, 264135]` → `[194754, 287402]` — renown floor (the forged state carries the source bot's
+    renown; at 300 / 1,000 tiles the lemon income rose ×1.41 / ×1.40 ≈ 0.7 / 0.5, i.e. its glutted lemon market now
+    floors at the top tier — inferred from the ratio, the bot's renown values were not printed).
+  - batch 18 payback crossing plot 5 → **8** — renown floor (the floored lemon price raises each plot's marginal).
+  - batch 18 coal budget `[371, 11]` → `[367, 12]` — renown floor (the richer bot moves through the pivot2 → plots10
+    window differently).
+  - batch 19 machines curve `[149,152] [349,431] [393,1286]` → `[212,215] [492,602] [550,1803]`; marginal paybacks
+    harvester1 0.8 → 0.5, harvester2 18.5 → 12.9, harvester3 null → 534.8, seeders 134.7 → null — renown floor.
+  - batch 20 sold runs reach harvester3 52.7 / 50.6 → **40.2 / 36.2 h** — renown floor.
+  - No pre-Tractor pin moved: every moved pin is in the Fields / machines / sold-run era.
+- Gates before the 157 commit: `pnpm test` 52 files, 979 passed + 3 expected fail (970 at 155, 974 at 156), `pnpm
+  lint` clean, `pnpm build` clean, `rm` tsbuildinfo + `tsc -b --force` clean. Purity grep `Date.now|react` over
+  `src/core` and `src/save`: only the known `src/save/storage.ts:26`. Case/extension collision check prints nothing.
+
+### Deviations
+
+- The Legacy `NAMES` / `TIPS` / `effect` entries for `keepRenown` (157b) landed in the 155 commit: `DeedRowId` gains
+  the row there and those maps are exhaustive `Record`s, so 155 would not compile without them. The Sell card line
+  is in 157.
+- The plan's fixture note says "carrot 150"; the v22 fixture's key is `radish` (displayed as "Carrot"), and the test
+  pins `radish: 150` as the plan's own expected object does.
+- The worker-only route seeds 💰100,000 so wages and auto-bought seeds never stall the two workers; it measures the
+  renown pace, not the early economy.
+- Stats `next` prints the bare number (`next 4000`), as the spec's template `next ${next}` gives; the changelog line
+  writes "4,000".
+- The test-side half of the 156 grep check landed in the 157 commit: the batch-22 `factorsAt` log (forged state, not
+  asserted) now passes `cropFloor`.
+- The 155 commit re-pinned the batch-22 vault run (cause: the new deed row in the bot's spend), not a renown-floor move.
+- Not verified (no browser, jsdom only): the Stats renown rows' wrapping at 375 px, the Legacy `Kept renown` row and
+  the Sell card's Renown line on the live build, and loading the real v22 save on the live URL. Hermes re-measures at
+  375 / 1024 / 1440 / 2560 / 3440.

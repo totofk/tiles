@@ -25,6 +25,7 @@ describe('stats(state)', () => {
       { label: 'Orders completed', value: '0' },
       { label: 'Contracts delivered by hand', value: '0' },
       { label: 'Carrot harvests', value: '0' },
+      { label: 'Carrot renown', value: '0 · floor 50 % · next 250' },
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Iron bars smelted', value: '0' },
       { label: 'Iron bars collected', value: '0' },
@@ -69,6 +70,15 @@ describe('stats(state)', () => {
     expect(row(multipliers, 'Water tier')).toEqual({ label: 'Water tier', value: 'waters to 4 (×4 moist time)', source: 'Iron Can' })
     expect(row(multipliers, 'Harvest tier')).toEqual({ label: 'Harvest tier', value: '30 % double harvest', source: 'Gold Sickle' })
     expect(row(multipliers, 'Plant tier')).toEqual({ label: 'Plant tier', value: '50 % seed kept', source: 'Gold Dibber' })
+  })
+
+  it('batch 31: a renown row per licensed crop — points, floor, next tier or the top', () => {
+    const s = createInitialState()
+    const at = (renown: GameState['run']['renown']) => stats({ ...s, run: { ...s.run, licenses: ['radish', 'lemon'], renown } }).totals
+    expect(row(at({ radish: 1000, lemon: 4000 }), 'Carrot renown')).toMatchObject({ value: '1000 · floor 60 % · next 4000' })
+    expect(row(at({ radish: 1000, lemon: 4000 }), 'Lemon renown')).toMatchObject({ value: '4000 · floor 70 % · top tier' })
+    expect(row(at({ lemon: 250 }), 'Lemon renown')).toMatchObject({ value: '250 · floor 55 % · next 1000' })
+    expect(at({}).map((r) => r.label).slice(12, 16)).toEqual(['Carrot harvests', 'Carrot renown', 'Lemon harvests', 'Lemon renown'])
   })
 
   it('per-crop harvests say "since v6" when a migrated save has harvests no crop was credited with', () => {

@@ -89,7 +89,8 @@ describe('🏆 Sell the farm card', () => {
       'Tiles, cash, market, storage, tools' +
         'Mine, furnace, workshop, fields, machines' +
         'Licenses, workers and certificates' +
-        "⭐ balance (it converts above) and this run's timeline",
+        "⭐ balance (it converts above) and this run's timeline" +
+        'Renown',
       '🏆 deeds and every Legacy row bought' + 'The ⭐-bought order slots (4)' + 'Lifetime totals — the deed meter keeps counting',
     ])
     // two presses: the first arms, the second sells exactly once
@@ -107,5 +108,11 @@ describe('🏆 Sell the farm card', () => {
     expect(screen.getByText('Sell now: +0 deeds (💰0 + 0 from ⭐)')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
+  })
+
+  it('batch 31: with Kept renown the Resets list says the tiers are kept', () => {
+    const s = atGate()
+    render(<SellCard state={{ ...s, meta: { ...s.meta, upgrades: { ...s.meta.upgrades, keepRenown: 1 } } }} sell={() => {}} />)
+    expect(screen.getByText('Renown — tiers kept')).toBeTruthy()
   })
 })

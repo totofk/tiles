@@ -119,6 +119,7 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
           {meta.upgrades.keepFirstCertificates > 0 ? ' — the 3 farm ones kept' : ''}
         </li>
         <li>⭐ balance (it converts above) and this run's timeline</li>
+        <li>Renown{meta.upgrades.keepRenown > 0 ? ' — tiers kept' : ''}</li>
       </ul>
       <h3>Carries</h3>
       <ul className="sell-list">

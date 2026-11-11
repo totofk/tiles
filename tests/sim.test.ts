@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buyLicense, buyTile, digForSeeds, harvest, plant, selectCrop, till, water, type ActionResult } from '../src/core/actions'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
-import { marketSteadyFactor } from '../src/core/market'
+import { cropFloor, cropSale, marketSteadyFactor } from '../src/core/market'
 import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyToolTier, buyTool, pressTool, toolTargets } from '../src/core/tools'
@@ -20,6 +20,8 @@ import {
   FURNACE_UPGRADE_IDS,
   cropSellPrice,
   DEED_ROW_IDS,
+  RENOWN_TIERS,
+  renownFloor,
   deedsFor,
   isSellable,
   itemSellPrice,
@@ -4175,7 +4177,7 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
   const eight = { 400: incomeAt(400, CROP_IDS), 1000: incomeAt(1000, CROP_IDS) }
   const factorsAt = (n: number, crops: readonly CropId[]) => {
     const s = step(forge(n, crops), 3 * HOUR_TICKS)
-    return Object.fromEntries(crops.map((c) => [c, Math.round(marketFactor(c, s.run.market[c]) * 100) / 100]))
+    return Object.fromEntries(crops.map((c) => [c, Math.round(marketFactor(c, s.run.market[c], cropFloor(s.run, c)) * 100) / 100]))
   }
 
   it('diversification pays: licensed for 8 crops the seeder\'s glut-driven mix out-earns the 4-crop world at 400 and 1,000 tiles (depth 240 per crop)', () => {
@@ -4442,4 +4444,72 @@ describe('batch 29: manager', () => {
     })()), 4).gain / 4
     console.log('PIN29cert', JSON.stringify({ price, stage6PerHour: Math.round(perHour), hours: Math.round((price.cash / perHour) * 10) / 10 }))
   }, 120_000)
+
+  // nested here to reuse the batch-29 stage (`at`) and the exhaustive enumeration
+  describe('batch 31: renown', () => {
+    it('worker-only route: 24 home strawberry tiles, sprinklers, a planter and a harvester reach the top tier ≤ 48 h', () => {
+      const s0 = at(true, [])
+      let s: GameState = {
+        ...s0,
+        run: {
+          ...s0.run,
+          cash: 100_000,
+          plantCrop: 'strawberry',
+          workshop: { built: true, beds: [true, true, true, true], valve: false },
+          workers: { pool: 2, assigned: { ...init.run.workers.assigned, plant: 1, harvest: 1 }, certificates: ['plant', 'harvest'] },
+        },
+      }
+      const STEP = HOUR_TICKS / 10
+      const reached: (number | null)[] = RENOWN_TIERS.map(() => null)
+      for (let t = STEP; t <= 60 * HOUR_TICKS && reached[2] === null; t += STEP) {
+        s = step(s, STEP)
+        RENOWN_TIERS.forEach((tier, i) => {
+          if (reached[i] === null && (s.run.renown.strawberry ?? 0) >= tier) reached[i] = Math.round((t / HOUR_TICKS) * 10) / 10
+        })
+      }
+      console.log('PIN31worker', JSON.stringify({ hoursTo: Object.fromEntries(RENOWN_TIERS.map((tier, i) => [tier, reached[i]])), workerHarvests: s.run.counters.harvests }))
+      expect(reached[2]).not.toBeNull()
+      expect(reached[2]!).toBeLessThanOrEqual(48)
+    }, 120_000)
+
+    it('prestige reset: strawberry 4,000 sold without Kept renown → {}; with it 4,000 kept, and the next run sells on the 0.7 floor', () => {
+      const gate = (keepRenown: number): GameState => ({
+        meta: { ...init.meta, upgrades: { ...init.meta.upgrades, keepRenown } },
+        run: {
+          ...init.run,
+          lifetime: { ...init.run.lifetime, cashEarned: 640_000 },
+          workers: { ...init.run.workers, certificates: ['plant', 'harvest'] },
+          workshop: { built: true, beds: [true, false, false, false], valve: false },
+          renown: { strawberry: 4000 },
+        },
+      })
+      const sold = (k: number) => {
+        const r = sellFarm(gate(k))
+        if (!r.ok) throw new Error(r.error)
+        return r.state
+      }
+      expect(sold(0).run.renown).toEqual({})
+      const next = sold(1)
+      expect(next.run.renown).toEqual({ strawberry: 4000 })
+      const glut = 1e9
+      const sale = cropSale({ ...next, run: { ...next.run, market: { ...next.run.market, strawberry: glut } } }, 'strawberry', 1)
+      expect(sale.cash).toBe(Math.round(cropSellPrice('strawberry', next.meta, 0) * 0.7))
+    })
+
+    it('model: the Manager rest plan ≥ 0.99 × the exhaustive best with renown 250 / 1,000 / 4,000 on every crop', () => {
+      const rows = [250, 1000, 4000].flatMap((points) =>
+        [false, true].flatMap((stage) =>
+          [2, 6, 10, 20].map((n) => {
+            const base = at(stage, Array.from({ length: n }, () => emptyField()))
+            const s: GameState = { ...base, run: { ...base.run, renown: Object.fromEntries(CROP_IDS.map((c) => [c, points])) } }
+            const { value, best } = enumerate(s, n)
+            const manager = managerPlan(s).rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop)]![r.fields.length]!, 0)
+            return { renown: points, floor: renownFloor(points), at: stage ? 'stage' : 'base', n, ratio: Math.round((manager / best) * 10000) / 10000 }
+          }),
+        ),
+      )
+      console.log('PIN31model', JSON.stringify(rows))
+      for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
+    })
+  })
 })

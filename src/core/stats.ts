@@ -7,6 +7,8 @@ import {
   masteredPreserveBonus,
   masteryLevel,
   multiplier,
+  nextRenownTier,
+  renownFloor,
   seedKeepChance,
   sellPriceFactor,
   waterMoisture,
@@ -78,10 +80,14 @@ export function stats(state: GameState): Stats {
     { label: 'Cash earned', value: `💰${Math.round(lifetime.cashEarned)}` },
     { label: 'Energy spent', value: `⚡${lifetime.energySpent}` },
     ...(Object.keys(COUNTER_LABELS) as (keyof typeof COUNTER_LABELS)[]).map((id) => ({ label: COUNTER_LABELS[id], value: `${run.counters[id]}` })),
-    ...CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => ({
-      label: `${CROPS[id].name} harvests${since}`,
-      value: `${lifetime.harvests[id] ?? 0}`,
-    })),
+    ...CROP_IDS.filter((id) => run.licenses.includes(id)).flatMap((id) => {
+      const points = run.renown[id] ?? 0
+      const next = nextRenownTier(points)
+      return [
+        { label: `${CROPS[id].name} harvests${since}`, value: `${lifetime.harvests[id] ?? 0}` },
+        { label: `${CROPS[id].name} renown`, value: `${points} · floor ${Math.round(renownFloor(points) * 100)} % · ${next === null ? 'top tier' : `next ${next}`}` },
+      ]
+    }),
     { label: 'Copper bars smelted', value: `${lifetime.barsSmelted}` },
     { label: 'Iron bars smelted', value: `${lifetime.ironBarsSmelted}` },
     { label: 'Iron bars collected', value: `${lifetime.ironBars}` },
