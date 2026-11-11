@@ -256,7 +256,7 @@ export function sowPlot(state: GameState, field: number, plot: number): ActionRe
 }
 
 /** the first empty plot in a field with a pivot and a chip (fields in order, plots in order); null = nothing to sow */
-function sowTarget(f: Fields): [number, number] | null {
+export function nextSowTarget(f: Fields): [number, number] | null {
   for (let i = 0; i < f.list.length; i++) {
     const field = f.list[i]
     if (!field.pivot || field.crop === null) continue
@@ -269,12 +269,12 @@ function sowTarget(f: Fields): [number, number] | null {
 // Order: LOCKED, NOTHING_TO_DO (no sowable plot), then sowPlot's errors for the first one.
 export function sowNext(state: GameState): ActionResult {
   if (!state.run.fields.unlocked) return fail('LOCKED')
-  const at = sowTarget(state.run.fields)
+  const at = nextSowTarget(state.run.fields)
   return at ? sowPlot(state, at[0], at[1]) : fail('NOTHING_TO_DO')
 }
 
 /** the oldest ready plot: smallest readyTick, ties → field order, plot order; null = nothing ready */
-function oldestReady(run: RunState): [number, number] | null {
+export function nextReapTarget(run: RunState): [number, number] | null {
   let best: [number, number] | null = null
   let date = Infinity
   const { list } = run.fields
@@ -330,7 +330,7 @@ export function reapPlot(state: GameState, field: number, plot: number): ActionR
 // Reap the oldest ready plot by hand. Order: LOCKED, NOTHING_TO_DO (nothing ready), NO_ENERGY.
 export function reapNext(state: GameState): ActionResult {
   if (!state.run.fields.unlocked) return fail('LOCKED')
-  const at = oldestReady(state.run)
+  const at = nextReapTarget(state.run)
   return at ? reapPlot(state, at[0], at[1]) : fail('NOTHING_TO_DO')
 }
 
@@ -352,7 +352,7 @@ export function buyMachine(state: GameState, kind: MachineKind, tier: number): A
  */
 export function fieldsHarvest(state: GameState): ActionResult | null {
   if (!state.run.fields.unlocked) return null
-  const at = oldestReady(state.run)
+  const at = nextReapTarget(state.run)
   return at && withRun(state, reapAt(state, at[0], at[1], 0))
 }
 
@@ -361,7 +361,7 @@ export function fieldsHarvest(state: GameState): ActionResult | null {
  * nothing to sow; NO_SEEDS / NO_CASH pass through to the worker loop (idle unpaid).
  */
 export function fieldsPlantAction(state: GameState): ActionResult | null {
-  if (!state.run.fields.unlocked || !sowTarget(state.run.fields)) return null
+  if (!state.run.fields.unlocked || !nextSowTarget(state.run.fields)) return null
   return sowNext(state)
 }
 
@@ -451,7 +451,7 @@ export function machinesAct(state: GameState): GameState {
   const size = plotTiles()
   let s = state
   const ready = m.harvester.length > 0 ? fieldsOverview(run).ready : 0
-  const sowing = m.seeder.length > 0 && sowTarget(f) !== null
+  const sowing = m.seeder.length > 0 && nextSowTarget(f) !== null
   // maintenance first: the working machines accrue, whole cash is paid as it comes due
   const maint = (ready > 0 ? fleetMaintPerTick(m, 'harvester') : 0) + (sowing ? fleetMaintPerTick(m, 'seeder') : 0)
   let working = true
@@ -470,7 +470,7 @@ export function machinesAct(state: GameState): GameState {
   if (working && ready > 0) {
     carry.harvest += fleetTilesPerTick(m, 'harvester')
     for (let n = Math.min(Math.floor(carry.harvest / size), ready); n > 0; n--) {
-      const at = oldestReady(s.run)!
+      const at = nextReapTarget(s.run)!
       s = { ...s, run: reapAt(s, at[0], at[1], 0) }
       carry.harvest -= size
     }

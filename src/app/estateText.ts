@@ -5,6 +5,7 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  fieldPlots,
   fieldsCropHarvests,
   machineCost,
   machineMaxTiers,
@@ -19,7 +20,19 @@ import {
   type Price,
 } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
-import { buyPlot, fieldsCropIncomeCurve, fieldsOverview, fieldsPlantable, fieldsPressure, pivotsOwned } from '../core/fields'
+import {
+  buyPlot,
+  fieldsCropIncomeCurve,
+  fieldsOverview,
+  fieldsPlantable,
+  fieldsPressure,
+  nextReapTarget,
+  nextSowTarget,
+  pivotsOwned,
+  plotState,
+  pressuredCycle,
+} from '../core/fields'
+import { isOffer } from '../core/orders'
 import { managerPlan } from '../core/manager'
 import { workerUnpaid } from '../core/workers'
 import type { GameState, Machines } from '../core/state'
@@ -78,6 +91,53 @@ export function ghostRowPrice(state: GameState): number {
 /** "next in 3m" / "next in 2h": the nearest ripening, as text (ticks are seconds) */
 export function nextReadyText(ticks: number): string {
   return ticks < 3600 ? `${Math.max(1, Math.round(ticks / 60))}m` : `${Math.round(ticks / 3600)}h`
+}
+
+/** a short cash figure for a 52 px cell: 9999 · 386k · 1.2M */
+export function compactCash(n: number): string {
+  if (n < 10_000) return `${n}`
+  if (n < 1_000_000) return `${Math.round(n / 1000)}k`
+  return `${(n / 1e6).toFixed(1)}M`
+}
+
+export type PlotCellKind = 'empty' | 'dry' | 'growing' | 'ready' | 'ghost' | 'none'
+export type PlotCellView = { kind: PlotCellKind; emoji: string; pct: number; label: string; marker: boolean; ordered: boolean }
+
+const same = (at: [number, number] | null, k: number, j: number) => at !== null && at[0] === k && at[1] === j
+
+/**
+ * The Estate map's cell j of field k (batch 30, task 152c): an owned plot (empty / dry / growing / ready), the ghost
+ * slot buyPlot fills next, or a blank slot after it. `marker` = the machine fleet works this plot next.
+ */
+export function plotCellView(state: GameState, k: number, j: number): PlotCellView {
+  const { run } = state
+  const field = run.fields.list[k]
+  const plot = field.plots[j]
+  const at = `Field ${k + 1} plot ${j + 1}`
+  if (!plot) {
+    const ghostField = run.fields.list.findIndex((f) => f.plots.length < fieldPlots())
+    if (ghostField !== k || j !== field.plots.length) return { kind: 'none', emoji: '', pct: 0, label: '', marker: false, ordered: false }
+    return { kind: 'ghost', emoji: '', pct: 0, label: `Buy plot ${j + 1} of Field ${k + 1} · 💰${ghostRowPrice(state)} · ${plotTiles()} tiles`, marker: false, ordered: false }
+  }
+  const m = run.fields.machines
+  const sowNextHere = m.seeder.length > 0 && same(nextSowTarget(run.fields), k, j)
+  const reapNextHere = m.harvester.length > 0 && same(nextReapTarget(run), k, j)
+  const marker = sowNextHere || reapNextHere
+  const tail = marker ? ' · 🚜 next' : ''
+  if (plot.crop === null) {
+    if (!field.pivot) return { kind: 'dry', emoji: '', pct: 0, label: `${at} · no pivot${tail}`, marker, ordered: false }
+    return { kind: 'empty', emoji: '', pct: 0, label: `${at} · empty — sow${tail}`, marker, ordered: false }
+  }
+  const crop = plot.crop
+  const name = CROPS[crop].name
+  const emoji = CROP_EMOJI[crop]
+  if (plotState(plot, run.tick) === 'ready') {
+    const ordered = run.orders.offers.some((s) => isOffer(s) && s.accepted && s.done < s.count && s.good === crop)
+    return { kind: 'ready', emoji, pct: 1, label: `${at} · ${name} ready — reap ⚡10${tail}`, marker, ordered }
+  }
+  const left = plot.readyTick - run.tick
+  const pct = Math.min(1, Math.max(0, 1 - left / pressuredCycle(state, crop)))
+  return { kind: 'growing', emoji, pct, label: `${at} · ${name} ${Math.round(pct * 100)} % · ripe in ${nextReadyText(left)}${tail}`, marker, ordered: false }
 }
 
 /** the fleet's whole tiles per hour over the owned tiers (0 with no machine) */

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, tankCapCoal } from '../src/core/balance'
 import { CROPS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
-import { cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText } from '../src/app/estateText'
-import { fieldsCropIncomePerHour } from '../src/core/fields'
+import { compactCash, cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText, plotCellView } from '../src/app/estateText'
+import { fieldsCropIncomePerHour, nextReapTarget, nextSowTarget, pressuredCycle } from '../src/core/fields'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { priceText } from '../src/app/Mine'
 
@@ -163,5 +163,57 @@ describe('batch 29: managerPlanText', () => {
     const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true }]
     const withOrder = { ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } }
     expect(managerPlanText(withOrder)).toBe(`${R} ×1 field → order 2 · ${R} rest`)
+  })
+})
+
+describe('batch 30: the Estate map cells (plotCellView) and compactCash', () => {
+  const plot = (crop: CropId | null, readyTick = 0): Plot => ({ crop, readyTick })
+  const field = (plots: Plot[], pivot = true, crop: CropId | null = 'radish'): Field => ({ pivot, crop, pinned: false, plots })
+
+  it('compactCash: 9,999 as is, 10,000 → 10k, 385,500 → 386k (round), 1,234,567 → 1.2M', () => {
+    expect([9_999, 10_000, 385_500, 1_234_567].map(compactCash)).toEqual(['9999', '10k', '386k', '1.2M'])
+  })
+
+  it('every kind from a forged state: empty, dry, growing (pct + ripe in), ready, ghost, none', () => {
+    const base = at({ fields: [] })
+    const cycle = pressuredCycle(base, 'radish')
+    const half = Math.round(cycle / 2)
+    const tick = base.run.tick
+    const s = at({ fields: [field([plot(null), plot('radish', tick + half), plot('radish', tick)]), field([plot(null)], false, null)] })
+    expect(plotCellView(s, 0, 0)).toEqual({ kind: 'empty', emoji: '', pct: 0, label: 'Field 1 plot 1 · empty — sow', marker: false, ordered: false })
+    const g = plotCellView(s, 0, 1)
+    expect([g.kind, g.emoji, g.pct]).toEqual(['growing', CROP_EMOJI.radish, 1 - half / cycle])
+    expect(g.label).toBe(`Field 1 plot 2 · ${CROPS.radish.name} ${Math.round((1 - half / cycle) * 100)} % · ripe in ${nextReadyText(half)}`)
+    const far = at({ fields: [field([plot('radish', tick + 10 * cycle)])] })
+    expect(plotCellView(far, 0, 0).pct).toBe(0) // clamped
+    expect(plotCellView(s, 0, 2)).toEqual({ kind: 'ready', emoji: CROP_EMOJI.radish, pct: 1, label: `Field 1 plot 3 · ${CROPS.radish.name} ready — reap ⚡10`, marker: false, ordered: false })
+    expect(plotCellView(s, 0, 3)).toEqual({ kind: 'ghost', emoji: '', pct: 0, label: `Buy plot 4 of Field 1 · 💰${ghostRowPrice(s)} · 10 tiles`, marker: false, ordered: false })
+    expect(plotCellView(s, 0, 4).kind).toBe('none')
+    expect(plotCellView(s, 1, 0)).toMatchObject({ kind: 'dry', label: 'Field 2 plot 1 · no pivot' })
+    expect(plotCellView(s, 1, 1).kind).toBe('none') // the ghost slot is in Field 1, not here
+  })
+
+  it('📋 on a ready plot only while an accepted unfinished order wants that crop', () => {
+    const s = at({ fields: [field([plot('radish', 0)])] })
+    const order = (accepted: boolean, done: number): GameState => ({
+      ...s,
+      run: { ...s.run, orders: { ...s.run.orders, unlocked: true, slots: 1, offers: [{ good: 'radish', count: 5, done, tier: 1, accepted }] } },
+    })
+    expect(plotCellView(order(true, 0), 0, 0).ordered).toBe(true)
+    expect(plotCellView(order(false, 0), 0, 0).ordered).toBe(false)
+    expect(plotCellView(order(true, 5), 0, 0).ordered).toBe(false)
+  })
+
+  it('🚜 marker: on nextReapTarget with a harvester, on nextSowTarget with a seeder, never without the machine', () => {
+    const fields = [field([plot('radish', 5), plot(null), plot('radish', 2)]), field([plot(null)])]
+    const ticked = (s: GameState): GameState => ({ ...s, run: { ...s.run, tick: 10 } })
+    const none = ticked(at({ fields }))
+    expect(nextReapTarget(none.run)).toEqual([0, 2])
+    expect(nextSowTarget(none.run.fields)).toEqual([0, 1])
+    const marked = (s: GameState) => s.run.fields.list.flatMap((f, k) => f.plots.map((_, j) => (plotCellView(s, k, j).marker ? `${k},${j}` : ''))).filter(Boolean)
+    expect(marked(none)).toEqual([])
+    expect(marked(ticked(at({ fields, machines: { harvester: [1] } })))).toEqual(['0,2'])
+    expect(marked(ticked(at({ fields, machines: { seeder: [1] } })))).toEqual(['0,1'])
+    expect(plotCellView(ticked(at({ fields, machines: { harvester: [1] } })), 0, 2).label).toMatch(/ · 🚜 next$/)
   })
 })

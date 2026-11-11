@@ -1,43 +1,80 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, describe, expect, it } from 'vitest'
-import { TANK_UNITS_PER_COAL, plotCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
+import type { ReactNode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { TANK_UNITS_PER_COAL, pumpCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
+import { CROPS } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
-import { fieldsOverview, fieldsPlantable } from '../src/core/fields'
-import { createInitialState, createMachines, type GameState } from '../src/core/state'
+import { fieldsOverview, nextReapTarget, nextSowTarget } from '../src/core/fields'
+import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { Estate, EstateBar } from '../src/app/Estate'
-import { cropOptionText, fleetTilesPerHour } from '../src/app/estateText'
+import { EstateMap } from '../src/app/EstateMap'
+import { fleetTilesPerHour } from '../src/app/estateText'
+import { priceText } from '../src/app/Mine'
 import type { UiState } from '../src/app/uiState'
-import type { Act } from '../src/app/useGame'
+import { ERROR_TEXT, type Act } from '../src/app/useGame'
 import { deserialize } from '../src/save/serialize'
 import v19 from './fixtures/save-v19.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
 
+// every React.memo component records which plot cell (k,j) rendered: the memo render-count spy (task 152e)
+const renders = vi.hoisted(() => [] as string[])
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>()
+  type Cell = { k: number; j: number }
+  const memo = (C: (p: Cell) => ReactNode, eq?: (a: Cell, b: Cell) => boolean) =>
+    actual.memo((p: Cell) => {
+      renders.push(`${p.k},${p.j}`)
+      return C(p)
+    }, eq)
+  return { ...actual, memo, default: { ...actual, memo } }
+})
+
 afterEach(cleanup)
 
-/** the Tractor state: the v19 fixture migrated through the save code (Fields unlocked, 40 plots, pump 2) */
+/** the Tractor state: the v19 fixture migrated through the save code (Fields unlocked, 40 plots in 8 fields, pump 2) */
 const base = deserialize(v19)!.state
 const ui: UiState = { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: true, seen: { shop: [], upgrades: [] }, priceShown: {} }
 
-/** renders against a mutable `cur` so an act is visible on the next render (the App loop, miniaturised) */
+/** renders against a mutable `cur` so an act is visible on the next render (the App loop, miniaturised); toasts as useGame */
 function setup(state: GameState) {
   let cur = state
-  const act: Act = (fn) => {
+  const toasts: string[] = []
+  const act: Act = (fn, okToast) => {
     const r = fn(cur)
-    if (r.ok) cur = r.state
+    if (!r.ok) toasts.push(ERROR_TEXT[r.error])
+    else {
+      const text = okToast?.(cur, r.state)
+      if (text) toasts.push(text)
+      cur = r.state
+    }
     rerender(<Estate state={cur} act={act} ui={ui} />)
   }
   const { rerender } = render(<Estate state={cur} act={act} ui={ui} />)
-  return { get cur() { return cur } }
+  return { get cur() { return cur }, toasts }
 }
 
 const plots = (s: GameState) => s.run.fields.list.reduce((n, f) => n + f.plots.length, 0)
+const plot = (crop: Plot['crop'], readyTick = 0): Plot => ({ crop, readyTick })
+const field = (ps: Plot[], pivot = true, crop: Field['crop'] = 'radish'): Field => ({ pivot, crop, pinned: false, plots: ps })
+const withFields = (list: Field[], run: Partial<GameState['run']> = {}): GameState => ({
+  ...base,
+  run: { ...base.run, ...run, fields: { ...base.run.fields, machines: createMachines(), ...run.fields, list } },
+})
+const cell = (name: string | RegExp) => screen.getByRole('button', { name })
 
-describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 148)', () => {
-  it('one row per field with its plots and chip; the strip chips from fieldsOverview', () => {
+describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', () => {
+  it('8 fields render 8 map rows of a chip + 5 cells (buttons or spans); the strip chips from fieldsOverview', () => {
     const { container } = render(<Estate state={base} act={() => {}} ui={ui} />)
-    expect(container.querySelectorAll('.estate-row')).toHaveLength(base.run.fields.list.length)
-    expect(screen.getByText(/^Field 1 · .+ · 5\/5 plots/)).toBeTruthy()
+    expect(base.run.fields.list).toHaveLength(8)
+    const rows = container.querySelectorAll('.map-row')
+    expect(rows).toHaveLength(8)
+    rows.forEach((row) => {
+      expect(row.children).toHaveLength(6)
+      expect([...row.children].every((c) => c.tagName === 'BUTTON' || c.tagName === 'SPAN')).toBe(true)
+      expect(row.children[0].className).toBe('map-chip')
+    })
+    expect(screen.getByText('1 square = 1 plot of 10 tiles · a field = 5 plots under one ⛲ pivot').className).toBe('map-legend')
     const { emptyWet, ready, wetFields } = fieldsOverview(base.run)
     expect(screen.getByText(`💧 ${wetFields}/${pumpFieldCap(base.run.fields.pump)} fields wet`)).toBeTruthy()
     expect(screen.getByText(`🌱 ${fleetTilesPerHour(base.run.fields.machines, 'seeder')}/h · ${emptyWet} plots to sow`)).toBeTruthy()
@@ -59,30 +96,58 @@ describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 1
     expect(screen.getByText(`🌱 ${fleetTilesPerHour(s.run.fields.machines, 'seeder')}/h · ${label}`)).toBeTruthy()
   })
 
-  it('the crop chip goes through setFieldCrop, Sow through sowPlot; a dry field shows Build pivot instead of Sow', () => {
-    const list = base.run.fields.list.map((f, i) => (i === 0 ? { ...f, crop: null, plots: f.plots.map(() => ({ crop: null, readyTick: 0 })) } : f))
-    const t = setup({ ...base, run: { ...base.run, fields: { ...base.run.fields, list } } })
-    const chip = screen.getByRole('combobox', { name: 'Field 1 crop' }) as HTMLSelectElement
-    const crop = chip.options[1]!.value // the first fields-plantable crop
-    fireEvent.change(chip, { target: { value: crop } })
-    expect(t.cur.run.fields.list[0].crop).toBe(crop)
-    const row = screen.getByText(/^Field 1 ·/).closest('.estate-row')!
-    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Sow' }))
-    expect(t.cur.run.fields.list[0].plots[0].crop).toBe(crop)
-    const dry = t.cur.run.fields.list.findIndex((f) => !f.pivot)
-    const dryRow = screen.getByText(new RegExp(`^Field ${dry + 1} ·`)).closest('.estate-row') as HTMLElement
-    expect(within(dryRow).getByRole('button', { name: /^Build pivot/ })).toBeTruthy()
-    expect(dryRow.textContent).toContain('no pivot — cannot sow')
+  it('tap an empty cell sows it (sowPlot), a ready one reaps it by hand for ⚡10, a growing one answers Not ready yet', () => {
+    const t = tick(withFields([field([plot(null), plot('radish', 5), plot('radish', 1e9)])], { cash: 1e9, autoBuySeeds: true, energy: 50 }))
+    fireEvent.click(cell('Field 1 plot 1 · empty — sow'))
+    expect(t.cur.run.fields.list[0].plots[0].crop).toBe('radish')
+    expect(t.toasts.at(-1)).toBe(`🌱 Sowed 10 tiles of ${CROPS.radish.name}`)
+    fireEvent.click(cell(`Field 1 plot 2 · ${CROPS.radish.name} ready — reap ⚡10`))
+    expect([t.cur.run.fields.list[0].plots[1].crop, t.cur.run.energy]).toEqual([null, 40])
+    expect(t.toasts.at(-1)).toBe(`🌾 Reaped ${CROPS.radish.name}`)
+    const before = t.cur
+    fireEvent.click(cell(/^Field 1 plot 3 · .+ % · ripe in /))
+    expect(t.cur).toBe(before)
+    expect(t.toasts.at(-1)).toBe('Not ready yet')
   })
 
-  it('the ghost row buys one plot when cash allows', () => {
-    const rich = setup({ ...base, run: { ...base.run, cash: 1_000_000_000 } })
-    fireEvent.click(screen.getByRole('button', { name: 'Buy' }))
-    expect(plots(rich.cur)).toBe(plots(base) + 1)
+  it('the ghost cell buys a plot; without the cash it keeps its look and the tap toasts the error', () => {
+    const list = [field([plot(null), plot(null), plot(null)])]
+    const rich = setup(withFields(list, { cash: 1e9 }))
+    const ghost = cell(/^Buy plot 4 of Field 1 · 💰\d+ · 10 tiles$/)
+    expect(ghost.className).toBe('map-cell map-ghost')
+    expect(ghost.textContent).toMatch(/^＋ plot💰\d+(k|M)?/)
+    fireEvent.click(ghost)
+    expect(plots(rich.cur)).toBe(4)
     cleanup()
-    const poor = setup({ ...base, run: { ...base.run, cash: plotCost(plots(base), base.meta) - 1 } })
-    expect((screen.getByRole('button', { name: /^Buy/ }) as HTMLButtonElement).disabled).toBe(true)
-    expect(plots(poor.cur)).toBe(plots(base))
+    const poor = setup(withFields(list, { cash: 0 }))
+    fireEvent.click(cell(/^Buy plot 4 of Field 1/))
+    expect(plots(poor.cur)).toBe(3)
+    expect(poor.toasts).toEqual([ERROR_TEXT.NO_CASH])
+  })
+
+  it('a dry cell (no pivot) is dashed and opens the field sheet', () => {
+    setup(withFields([field([plot(null)]), field([plot(null)], false, null)]))
+    const dry = cell('Field 2 plot 1 · no pivot')
+    expect(dry.className).toBe('map-cell map-dry')
+    fireEvent.click(dry)
+    expect(screen.getByRole('dialog', { name: 'Field 2 · 1/5 plots · 10 tiles' })).toBeTruthy()
+  })
+
+  it('the 🚜 marker sits on nextReapTarget / nextSowTarget only while that machine is owned', () => {
+    const list = [field([plot('radish', 5), plot(null), plot('radish', 2)])]
+    const marked = (s: GameState) => {
+      const { container } = render(<Estate state={s} act={() => {}} ui={ui} />)
+      const out = [...container.querySelectorAll('.map-marker')].map((m) => m.closest('button')!.getAttribute('aria-label'))
+      cleanup()
+      return out
+    }
+    const none = tick(withFields(list)).cur
+    expect([nextReapTarget(none.run), nextSowTarget(none.run.fields)]).toEqual([[0, 2], [0, 1]])
+    cleanup()
+    expect(marked(none)).toEqual([])
+    const machines = (harvester: number[], seeder: number[]) => ({ ...none, run: { ...none.run, fields: { ...none.run.fields, machines: { ...createMachines(), harvester, seeder } } } })
+    expect(marked(machines([1], []))).toEqual([`Field 1 plot 3 · ${CROPS.radish.name} ready — reap ⚡10 · 🚜 next`])
+    expect(marked(machines([], [1]))).toEqual(['Field 1 plot 2 · empty — sow · 🚜 next'])
   })
 
   it('the strip tank chip: ⛽ coal/cap · ×2 while the tank pays, ⛽ empty · ×1 (warn) when it cannot', () => {
@@ -94,14 +159,25 @@ describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 1
     expect(screen.getByText('⛽ empty · ×1').className).toContain('estate-chip-warn')
   })
 
-  it('fields past the pump cap collapse into one row; the ghost row says when the next plot opens a field', () => {
-    const full = { pivot: true, crop: 'radish' as const, pinned: false, plots: Array.from({ length: 5 }, () => ({ crop: null, readyTick: 0 })) }
-    const s = { ...base, run: { ...base.run, fields: { ...base.run.fields, pump: 0, list: [full, full, full] } } }
+  it('fields past the pump cap collapse into one row; the ghost field says what opens the next field', () => {
+    const full = field(Array.from({ length: 5 }, () => plot(null)))
+    const s = withFields([full, full, full], { fields: { ...base.run.fields, pump: 0 } })
     const { container } = render(<Estate state={s} act={() => {}} ui={ui} />)
-    expect(container.querySelectorAll('.estate-row')).toHaveLength(3)
+    expect(container.querySelectorAll('.map-row')).toHaveLength(2)
     expect(screen.getByText('Fields 3–3 · 🚱 beyond Pump 0')).toBeTruthy()
-    expect(screen.queryByText(/^Field 3 ·/)).toBeNull()
-    expect(screen.getByText(new RegExp(`^＋ Plot 💰${plotCost(15, base.meta)} · opens Field 4`))).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Field 3 ·/ })).toBeNull()
+    expect(screen.getByText(`＋ Field 4 · needs Pump Lv1 · ${priceText(pumpCost(0, base.meta)!)}`).tagName).toBe('P')
+    cleanup()
+    render(<Estate state={withFields([full, full])} act={() => {}} ui={ui} />)
+    expect(screen.getByText('＋ Field 3 · opens with the next plot')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Buy plot/ })).toBeNull() // every field full: no ghost cell
+    expect(screen.queryByText(/^＋ Plot/)).toBeNull() // the Expand ghost row is gone
+    cleanup()
+    // no pump left to build: the ghost field is omitted
+    const maxed = withFields([full, full], { fields: { ...base.run.fields, pump: 99 } })
+    const many = { ...maxed, run: { ...maxed.run, fields: { ...maxed.run.fields, list: Array.from({ length: pumpFieldCap(99) }, () => full) } } }
+    render(<Estate state={many} act={() => {}} ui={ui} />)
+    expect(screen.queryByText(/^＋ Field/)).toBeNull()
   })
 
   it('Fill tank moves storage coal into the tank; the smart valve row builds the valve', () => {
@@ -117,8 +193,8 @@ describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 1
   })
 
   it('the phone bar reaps the oldest ready plot by hand for 10 ⚡', () => {
-    const field = { pivot: true, crop: 'radish' as const, pinned: false, plots: [{ crop: 'radish' as const, readyTick: 0 }, { crop: 'radish' as const, readyTick: 1e9 }] }
-    let cur: GameState = { ...base, run: { ...base.run, energy: 50, fields: { ...base.run.fields, list: [field] } } }
+    const f = { pivot: true, crop: 'radish' as const, pinned: false, plots: [{ crop: 'radish' as const, readyTick: 0 }, { crop: 'radish' as const, readyTick: 1e9 }] }
+    let cur: GameState = { ...base, run: { ...base.run, energy: 50, fields: { ...base.run.fields, list: [f] } } }
     render(<EstateBar state={cur} act={(fn) => { const r = fn(cur); if (r.ok) cur = r.state }} />)
     const reap = screen.getByRole('button', { name: '🌾 Reap · 1' }) as HTMLButtonElement
     expect(reap.disabled).toBe(false)
@@ -126,10 +202,11 @@ describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 1
     expect([fieldsOverview(cur.run).ready, cur.run.energy, cur.run.fields.list[0].plots[0].crop]).toEqual([0, 40, null])
   })
 
-  it('the real v20 fixture renders Field rows after the migration and no Pipes text', () => {
+  it('the real v20 fixture renders map rows after the migration and no Pipes text', () => {
     const s = deserialize(v20)!.state
     const { container } = render(<Estate state={s} act={() => {}} ui={ui} />)
-    expect(screen.getByText(/^Field 1 · /)).toBeTruthy()
+    expect(container.querySelectorAll('.map-row').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /^Field 1 · / })).toBeTruthy()
     expect(container.textContent).not.toMatch(/pipe/i)
   })
 
@@ -186,47 +263,32 @@ describe('the machine rows behind the Estate closed details (moved from the 🚜
   })
 })
 
-describe('batch 29: 📌 pins and the 💼 Manager on the Estate rows', () => {
-  const withManager = (assigned: number): GameState => ({
-    ...base,
-    run: {
-      ...base.run,
-      workers: { ...base.run.workers, pool: Math.max(base.run.workers.pool, 1), assigned: { ...base.run.workers.assigned, manager: assigned }, certificates: [...base.run.workers.certificates, 'manager'] },
-    },
+/** the forged state at tick 10, so readyTick 5 / 2 plots are ready */
+function tick(s: GameState) {
+  return setup({ ...s, run: { ...s.run, tick: 10 } })
+}
+
+describe('task 152e: PlotCell is memo\'d — a tick re-renders only the cells whose view changed', () => {
+  beforeEach(() => {
+    renders.length = 0
   })
 
-  it('151a: every licensed crop is an option, its text from cropOptionText, disabled under the 🏡 gate', () => {
-    const s: GameState = { ...base, run: { ...base.run, licenses: [...new Set([...base.run.licenses, 'grape' as const])], lifetime: { ...base.run.lifetime, harvests: { ...base.run.lifetime.harvests, grape: 3 } } } }
-    render(<Estate state={s} act={() => {}} ui={ui} />)
-    const select = screen.getByRole('combobox', { name: 'Field 1 crop' }) as HTMLSelectElement
-    const options = [...select.options].slice(1)
-    expect(options.map((o) => [o.value, o.textContent, o.disabled])).toEqual(s.run.licenses.map((c) => [c, cropOptionText(s, 0, c), !fieldsPlantable(s.run, c)]))
-    expect(options.find((o) => o.value === 'grape')!.textContent).toMatch(/· 🏡 3\/50$/)
-  })
-
-  it('no 📌 button before the Manager certificate', () => {
-    render(<Estate state={base} act={() => {}} ui={ui} />)
-    expect(screen.queryByRole('button', { name: /^Pin Field/ })).toBeNull()
-  })
-
-  it('once owned each row has a 📌 toggle inside its title span, aria-pressed follows the pin', () => {
-    const t = setup(withManager(0))
-    const pin = screen.getByRole('button', { name: 'Pin Field 1' })
-    expect(pin.closest('.estate-row > span')).toBeTruthy()
-    expect(pin.getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(pin)
-    expect(t.cur.run.fields.list[0].pinned).toBe(true)
-    expect(screen.getByRole('button', { name: 'Pin Field 1' }).getAttribute('aria-pressed')).toBe('true')
-  })
-
-  it('a hand pick while a Manager is assigned pins the field; with none assigned it does not', () => {
-    for (const assigned of [1, 0]) {
-      const t = setup(withManager(assigned))
-      const select = screen.getByRole('combobox', { name: 'Field 1 crop' }) as HTMLSelectElement
-      const other = [...select.options].find((o) => !o.disabled && o.value !== '' && o.value !== select.value)!
-      fireEvent.change(select, { target: { value: other.value } })
-      expect([t.cur.run.fields.list[0].crop, t.cur.run.fields.list[0].pinned]).toEqual([other.value, assigned === 1])
-      cleanup()
+  it('two ticks that each change one plot re-render exactly that cell', () => {
+    // two full fields, no machines, nothing growing: a quiet tick changes no other cell's props
+    const s0 = withFields([field([plot('radish', 0), plot(null), plot(null), plot(null), plot(null)]), field(Array.from({ length: 5 }, () => plot(null)))], { tick: 10 })
+    const act: Act = () => {}
+    const { rerender } = render(<EstateMap state={s0} act={act} ui={ui} />)
+    expect(renders).toHaveLength(10)
+    renders.length = 0
+    const at = (prev: GameState, j: number, p: Plot): GameState => {
+      const list = prev.run.fields.list.map((f, k) => (k === 0 ? { ...f, plots: f.plots.map((q, i) => (i === j ? p : q)) } : f))
+      return { ...prev, run: { ...prev.run, tick: prev.run.tick + 1, fields: { ...prev.run.fields, list } } }
     }
+    const s1 = at(s0, 1, plot('radish', 1e9))
+    rerender(<EstateMap state={s1} act={act} ui={ui} />)
+    expect(renders).toEqual(['0,1'])
+    renders.length = 0
+    rerender(<EstateMap state={at(s1, 0, plot(null))} act={act} ui={ui} />)
+    expect(renders).toEqual(['0,0'])
   })
 })

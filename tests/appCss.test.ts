@@ -77,3 +77,13 @@ describe('app.css beds layout (batch 25, re-pinned batch 27)', () => {
     expect(css).toMatch(/@container \(max-width: 63px\)\s*\{[^}]*\.cell-rot\s*{[^}]*display: none/s)
   })
 })
+
+describe('app.css Estate map (batch 30)', () => {
+  it('a row is a 56 px chip + five 52 px cells with 5 px gaps = 341 px, and the rows grid columns are 341 px', () => {
+    expect(css).toMatch(/\.map-row\s*{[^}]*grid-template-columns: 56px repeat\(5, 52px\);[^}]*gap: 5px;/s)
+    expect(56 + 5 * 52 + 5 * 5).toBe(341)
+    expect(css).toMatch(/\.map-rows\s*{[^}]*grid-template-columns: repeat\(auto-fill, 341px\);[^}]*column-gap: 40px;[^}]*row-gap: 8px;/s)
+    // every cell and the chip are 52 px tall (≥ 44 px tap targets) with no padding pushing past the column
+    expect(css).toMatch(/\.map-chip,\s*\.map-cell\s*{[^}]*height: 52px;[^}]*min-width: 0;[^}]*padding: 0;/s)
+  })
+})

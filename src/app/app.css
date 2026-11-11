@@ -650,13 +650,7 @@ button:disabled {
   max-width: 100%;
   border-radius: 12px;
 }
-/* crop rows: as many columns as fit, each row a label + a 96 px action */
-.estate-rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  column-gap: 40px;
-  row-gap: var(--s2);
-}
+/* the collapsed "Fields k–n · beyond Pump p" row */
 .estate-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 96px;
@@ -668,25 +662,144 @@ button:disabled {
   min-width: 0;
   display: block;
 }
-/* the income + price line under the crop name: measured live, a one-line row cut 7–59 px of the price at 375 /
-   1024 / 2560, so both lines wrap (rows grow to ~68 px) and the button keeps its 96 px column */
-.estate-row > span > small {
-  display: block;
+/* the Estate map (batch 30): one row = a 56 px chip + five 52 px plot cells, gap 5 = 341 px (fits the 344 px
+   column at 375); more row columns on wide panes */
+.map-legend {
+  margin: 0;
+  color: #5c4f38;
+  font-size: 13px;
 }
-/* the 📌 pin toggle after the field title (batch 29): a 44 px square, faded while off */
-.estate-row .pin {
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
+.map-rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 341px);
+  column-gap: 40px;
+  row-gap: 8px;
+}
+.map-row {
+  display: grid;
+  grid-template-columns: 56px repeat(5, 52px);
+  gap: 5px;
+}
+.map-chip,
+.map-cell {
+  position: relative;
+  height: 52px;
+  min-width: 0;
   padding: 0;
-  margin-left: var(--s1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  line-height: 1;
+  overflow: hidden;
 }
-.estate-row .pin[aria-pressed='false'] {
-  opacity: 0.45;
+.map-chip:focus-visible,
+.map-cell:focus-visible {
+  outline: 3px solid #1565c0;
+  outline-offset: 2px;
 }
-/* the ghost row's Buy button: dashed like a +1 Field slot */
-.ghost-row button {
+.map-chip > small,
+.map-cell > small {
+  font-size: 11px;
+  line-height: 1.2;
+}
+.map-empty {
+  background: #d7c4a3;
+}
+.map-dry,
+.map-dry:disabled {
+  background: #f3eee4;
   border-style: dashed;
+  opacity: 0.6;
+}
+.map-growing {
+  background: #c8e6c9;
+}
+/* the home cell-mature yellow, with a green frame */
+.map-ready {
+  background: #fff59d;
+  border: 2px solid #2e7d32;
+}
+.map-ghost {
+  border-style: dashed;
+  background: transparent;
+}
+.map-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: var(--pct);
+  background: #2e7d32;
+  transition: width 1s linear;
+}
+.map-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 12px;
+  line-height: 1;
+}
+.map-badge-order {
+  left: 1px;
+  right: auto;
+}
+.map-badge-pivot {
+  border: 1px solid #1565c0;
+  border-radius: 4px;
+}
+.map-badge-none {
+  border: 1px dashed #8a7a5c;
+  border-radius: 4px;
+  padding: 0 2px;
+}
+.map-marker {
+  top: auto;
+  bottom: 5px;
+  animation: map-marker 1.2s ease-in-out infinite alternate;
+}
+@keyframes map-marker {
+  to {
+    transform: translateY(-3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-bar {
+    transition: none;
+  }
+  .map-marker {
+    animation: none;
+  }
+}
+/* the next field, not yet bought: text, not a button */
+.map-ghost-field {
+  grid-column: 1 / -1;
+  margin: 0;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s2);
+  border: 1px dashed #8a7a5c;
+  border-radius: 8px;
+  color: #5c4f38;
+}
+/* the field sheet's crop list and pin toggle: 44 px rows */
+.map-crops {
+  display: grid;
+  gap: var(--s1);
+  margin-bottom: var(--s2);
+}
+.map-crops > button[aria-pressed='true'],
+.map-pin[aria-pressed='true'] {
+  border: 2px solid #2e7d32;
+  font-weight: 600;
+}
+.map-pin {
+  width: 100%;
+}
+.map-pin[aria-pressed='false'] {
+  opacity: 0.6;
 }
 /* the machines group, closed until opened (the chevron comes from the details marker) */
 .estate-machines > summary {
