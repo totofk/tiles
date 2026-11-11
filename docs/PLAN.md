@@ -4506,39 +4506,165 @@ Rules (every task):
 
 ---
 
-## Batch 29 — Estate contracts + 🧑‍💼 Manager + crop chips (C4b, tasks 149–151, no save bump)
+## Batch 29 — Estate contracts + 💼 Manager + crop chips (C4b, tasks 149–151, no save bump)
 
-- [ ] 149. **Estate contracts.**
-  - After the Tractor, a crop order's size = tier minutes × max(today's capacity for that crop, 15 % of wet field
-    tiles at that crop's pace) (`orders.ts` `orderPerMinute`/`orderCount`).
-  - An off-crop order pays base ×1.1 with no glut.
-  - The player accepts it with a button; the clerk delivers but never accepts a crop contract.
-  - A hand-reaped plot delivered into an order or contract pays the hand-picked ×1.25; otherwise ×1.
-  - Each contract the player delivers by hand: `counters.contractsByHand + 1`.
-- [ ] 150. **🧑‍💼 Manager worker (M1–M5).**
-  - New certificate job `manager`, unlocked after N = 3 hand-delivered contracts (sim may move N).
-  - Wage = 💰28 per worker action ≈ 💰20,000/h (calculator 2026-11-11: 2 % of net at 2 fields, 0.2 % at 20; sim may
-    move it; per-job wage support in `balance.ts`).
-  - On each worker round:
-    - accepted orders/contracts first: fields to flip = ceil(shortfall ÷ (50 tiles × yield per cycle));
-    - the rest: the EXACT best plan over the fields it may flip (DP over crops × fields, ≈ 3,200 ops per round), not
-      greedy — the price floor makes per-crop income non-concave and greedy-per-field drops to 0.83 × best at base
-      levels and 0.73 × with deeper markets (calculator 2026-11-11);
-    - it never accepts an order and never touches a 📌 pinned field.
-  - Its row shows its plan, e.g. "🍓 ×3 fields → order #12 · 🍋 rest".
-  - The certificate resets on prestige like the others.
-  - Pool: 8 jobs / 6 slots.
-- [ ] 151. **Chips wiring + sim.** The crop sheet shows marginal 💰/h per crop for this field from Field 1, the price
-  factor and 🏡 n/50. With no Manager and no chip, the field waits and the strip says why. Sim: Manager ≥ 0.99 × best
-  fixed plan at base levels, at sell 5 + fert 5, and with renown floors; report best / Manager / mono / old rule.
-  - Carried in from the batch 28 verification (Toon "ok", 2026-11-11): PIN28a ("no milestone gap over 60
-    game-minutes from the Tractor to Pump 2") also counts every plot, pivot, pump and machine purchase as a mark — it
-    counted only milestones and ladder rungs, so pump1 → plots30 read as a 1,188-min gap while the bot bought a plot or
-    pivot every 47–58 min (Hermes probe, cash bound every purchase, gold never did). Re-measure and re-title the
-    `it.fails` with the new longest gap (expected ≈ 228–233 min: saving for pump1 / pump2). Pivot recipe unchanged.
-  - Sim bot gap from batch 28.1 deviation 3: add `plots10` (the pivot rung) to `smeltsFor` and the furnace-kind
-    chooser so the bot smelts the gold ore it holds into the pivot's 3 Au; re-run the batch 20 / 22 "reach
-    harvester3" `it.fails` pins and re-pin batch 18 / 19 if they move (old → new).
+Refined 2026-11-11 against `c4a83d4` (DECISIONS "Batch 29 refined"). No save bump: `counters.contractsByHand`,
+`Field.pinned` and `workers.assigned.manager` already exist since v21 (`state.ts:104`, `:135`, `:251`); SAVE_VERSION
+stays 22 and every fixture must still load unchanged. The Manager's emoji is 💼 (`Workers.tsx:24`); the 🧑‍💼 ZWJ
+sequence is Emoji 12.1 and renders as tofu on Toon's device — never use it.
+
+Words used below: **contract** = a crop offer while `run.fields.unlocked` (the Tractor is bought). **wet tiles** =
+Σ over fields with a pivot of `plots.length × plotTiles()`. **pressured cycle** of a crop =
+`Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)`. **yield** = expected units per tile
+reaped = `1 + doubleHarvestChance(run.toolTier.harvest)`. **managed field** = a field with a pivot and `pinned === false`.
+
+- [ ] 149. **Estate contracts** (`src/core/orders.ts`, `src/core/fields.ts`, `src/core/actions.ts`, `balance.ts`,
+  `src/app/Orders.tsx`, `src/core/stats.ts`).
+  - a. Size. `orderPerMinute` crop branch (`orders.ts:57–60`): keep today's value as `home`; when
+    `run.fields.unlocked && fieldsPlantable(run, good)` return `Math.max(home, contractWetShare() × wetTiles ÷
+    pressuredCycle × 60)`. New constant `CONTRACT_WET_SHARE = 0.15` + accessor `contractWetShare()` in `balance.ts`
+    next to `ORDER_TIERS` (`balance.ts:448`). A crop below the 🏡 50-harvest gate keeps today's value (it cannot be
+    sown in the fields, so a field-sized order could never be filled). Before the Tractor nothing changes. Rolls stay two
+    per offer (`rollOffer`, `orders.ts:75`), so the RNG sequence is unchanged; only counts move. Offers already on the
+    board keep their count.
+  - b. `export const isContract = (run: RunState, good: OrderGood): boolean => isCropGood(good) && run.fields.unlocked`
+    in `orders.ts`.
+  - c. Price: unchanged. `cropOrderPrice` (`orders.ts:97`) already pays base × (1 + `orderBonus()` 0.1) with no glut —
+    that IS the design's "off-crop ×1.1, no glut" (≈ ×2.2 against the 0.5 floor). No new constant.
+  - d. Clerk: `clerkTakes` (`orders.ts:256–259`) returns `false` for a crop good once `run.fields.unlocked`. Item orders
+    and the pre-Tractor clerk are unchanged. (Crop orders have no deliver step — harvests fill them — so "the clerk
+    delivers but never accepts a contract" needs nothing else.)
+  - e. Hand bonus into contracts only. `harvestSale(state, crop, units, bonus = 1, marketBonus = bonus, byHand = false)`
+    (`orders.ts:134`): order units pay `cropOrderPrice(s, crop, bonus)`, market units `cropSale(s, crop, left,
+    marketBonus)`. `reapAt` (`fields.ts:255–273`): `energy > 0` (the player's `reapPlot`) → `harvestSale(…, units,
+    handPickedBonus(), 1, true)`; workers and machines (`energy 0`) → `harvestSale(…, units)`. The home-plot harvest
+    (`actions.ts:214`) keeps paying ×1.25 on both parts as today and passes `byHand = energy > 0`.
+  - f. `fillOrder(state, slot, n, byHand = false)` (`orders.ts:105`): when the fill COMPLETES the order and
+    `isContract(run, offer.good) && byHand`, also `counters.contractsByHand + 1`. Only the completing action counts
+    (earlier worker units are fine); a worker/machine completion does not count; a pre-Tractor crop order never counts.
+  - g. UI. `OrderRow` (`Orders.tsx:25`): a contract shows an `order-badge` "🚜 Contract" (beside "New"); an accepted
+    contract's `<small>` (`Orders.tsx:57`) reads "filling from harvests · your own reaps pay ×1.25". After the Tractor
+    the card intro (`Orders.tsx:86`) adds: "After the Tractor, crop orders are 🚜 contracts sized by your wet fields;
+    only you accept them." Stats: `COUNTER_LABELS` (`stats.ts:33`) drops the `Exclude` and adds
+    `contractsByHand: 'Contracts delivered by hand'`.
+  - Tests (`tests/orders.test.ts`, `tests/fields.test.ts`): (1) after the Tractor `orderPerMinute` = the max formula,
+    recomputed in the test from `contractWetShare`, `plotTiles`, `cropGrowTicks`, `FIELD_PRESSURE`; before the Tractor
+    and for a crop under the 50 gate it equals today's value; (2) the clerk accepts no crop offer after the Tractor,
+    still accepts an item offer, and accepts a crop offer before the Tractor; (3) a hand `reapPlot` into an accepted
+    contract pays `round(base × 1.1 × 1.25)` per order unit and ×1 per market unit; a `fieldsHarvest` reap pays ×1 on
+    both; (4) `contractsByHand` +1 only when a hand reap or hand home harvest completes a contract; not for a worker
+    completion, not before the Tractor; (5) `rollOffer` consumes exactly two rolls before and after the Tractor.
+
+- [ ] 150. **💼 Manager worker (M1–M5)** (`balance.ts`, new `src/core/manager.ts`, `workers.ts`, `fields.ts`,
+  `data/workers.ts`, `Workers.tsx`, `Estate.tsx`, `tips.ts`).
+  - a. Per-job wage. Replace `WORKER_WAGE = 1` (`balance.ts:199`) with `WORKER_WAGES: Record<WorkerJob, number>` = 1
+    for every job and **28 for `manager`** (calculator 2026-11-11: ≈ 💰20,000/h if it changed a chip every round);
+    `workerWage(meta, job)` (`balance.ts:957`) = `Math.round(WORKER_WAGES[job] × multiplier(meta, 'cost'))`. Update every
+    caller: `workers.ts:103`, `:113`, `:215`, `tests/workers.test.ts` (6 sites), `tests/orders.test.ts`. `workRound`
+    (`workers.ts:112–137`) reads the wage per job; `cash < that job's wage` → `break` (this job idles, the round goes
+    on); `lifetime.wagesPaid` adds that job's wage. With every other wage at 1 the existing jobs behave exactly as today.
+  - b. Certificate: keep `CERTIFICATES.manager` (`balance.ts:214–215`): 4 🥇 gold bars + 💰500,000, gate
+    `contractsByHand` ≥ 3. Update the comment (batch 29 pins it). `HIDDEN_JOBS` (`data/workers.ts:7`) becomes `[]` —
+    the Workers card row, the Stats job rows and the "Manager certificate" milestone (`milestones.ts:76`) appear. The
+    locked row's gate line (`Workers.tsx:53` `missing`) prints counter ids raw; add a label map so this one reads
+    "contracts by hand 1/3" (other counters keep their current text). Resets on Sell the farm like every certificate
+    (`prestige.ts:74` keeps only plant/water/harvest). Pool cap stays 6 (`WORKER_POOL_CAP`), 8 jobs.
+  - c. Plan model, shared with the chips: `fieldsCropIncomePerHour(state, crop, tiles)` exported from `fields.ts` =
+    steady net 💰/h of `tiles` field tiles of `crop` on its pressured cycle, counting the home lot's tiles of that crop
+    in the same market and subtracting the home-only income:
+    `glut = marketSteadyGlut(tiles, fc) + marketSteadyGlut(home, hc)`, `price = cropSellPrice × marketFactor(crop,
+    glut)`, `income(T) = (T/fc + home/hc) × 3600 × (price − cropSeedCost)`, result = `income(tiles) − income(0)`, where
+    `fc` = pressured cycle, `hc` = unpressured `cropGrowTicks`, `home` = home tiles with `cropId === crop`. Unrounded
+    (round only for display). No live glut: the plan must not chase its own sales. Same model as the calculator
+    (`tiles-drafts/calc/calc.test.ts` `cropIncome`).
+  - d. `managerPlan(state)` in `src/core/manager.ts` → `{ contracts: { slot: number; crop: CropId; fields: number[] }[];
+    rest: { crop: CropId; fields: number[] }[]; target: (CropId | null)[] }` (`target[k]` = the chip the Manager wants
+    on field k; `null` for unmanaged fields). Pure, deterministic:
+    1. Fixed tiles per crop = pinned pivoted fields with a chip (their `plots.length × plotTiles()`).
+    2. Contracts first, accepted unfinished crop offers in slot order, crop `fieldsPlantable`: `shortfall = count − done
+       − plantedTiles(fields, crop) × yield`; `need = max(0, ceil(shortfall ÷ (fieldPlots() × plotTiles() × yield)))`,
+       capped by the managed fields left. Take fields already showing that chip first, then the lowest free index.
+    3. The rest: exact DP over the `fieldsPlantable` crops (`CROP_IDS` order) × the number of remaining managed fields,
+       each counted as a full field (`fieldPlots() × plotTiles()` = 50 tiles, so a partial field's plan holds as plots
+       are bought). Value of j fields of crop c = `fieldsCropIncomePerHour(c, fixed_c + 50j) −
+       fieldsCropIncomePerHour(c, fixed_c)`, where `fixed_c` includes fields reserved for contracts in step 2. j = 0
+       allowed; ties keep the earlier crop (strict `>`). Not greedy: the floor makes income non-concave (calculator:
+       greedy 0.83 × best at base, 0.73 × with deeper markets). ≈ 8 crops × 20² ≈ 3,200 steps per call.
+    4. Assignment: a remaining field whose chip is already in the rest plan keeps it (count −1); the others get the
+       remaining crops in `CROP_IDS` order, fields in index order. No fields unlocked or no managed field → empty plan.
+  - e. Action: `NO_TILE_WORK.manager` (`workers.ts:63`): fields locked → `null`; else the first managed field (index
+    order) whose `crop !== target[k]` → `setFieldCrop(state, k, target[k])`; none → `null` (idle unpaid). One chip per
+    action, 💰28 per change; a second Manager flips the next differing field. It never calls `acceptOrder`/
+    `discardOrder` and never writes a pinned field. Manager is last in `WORKER_JOBS`, so a flip lands after this round's
+    sowing; standing plots finish as they are (`setFieldCrop` already leaves plots alone).
+  - f. 📌 Pin: new `pinField(state, field)` in `fields.ts`, free, toggles `pinned`. Order: LOCKED (fields locked),
+    BAD_TILE. UI: once the Manager certificate is owned, each Estate row (`Estate.tsx:137–169`) gets a `📌` button
+    (44 × 44 px, `aria-pressed`, `aria-label="Pin Field k"`) inside the row's first `<span>` after the title text.
+    Picking a crop by hand on a field while a Manager is assigned pins it in the same act
+    (`setFieldCrop` then `pinField` when `assigned.manager > 0 && !pinned`), so the Manager does not flip it back.
+  - g. UI. The Manager `JobRow` (`Workers.tsx:42–92`), when owned, assigned ≥ 1 and fields unlocked, adds a `<small>`
+    from `managerPlanText(state)` (new, `estateText.ts`): contract parts `${CROP_EMOJI} ×${n} field${n===1?'':'s'} →
+    order ${slot + 1}`, then the rest: one crop → `${CROP_EMOJI} rest`, several → `${CROP_EMOJI} ×${n}` each; joined
+    with " · ", e.g. "🍓 ×3 fields → order 2 · 🍋 rest". Empty plan → "no wet fields to manage". Tip (`tips.ts:85`):
+    "Sets each field's crop chip: fields an accepted contract needs first, the rest to the best 💰/h plan. Never
+    accepts orders and never touches a 📌 pinned field. 💰28 per chip it changes."
+  - Tests (`tests/manager.test.ts` new, `tests/workers.test.ts`, `tests/fields.test.ts`, `tests/prestige.test.ts`):
+    (1) `workerWage(meta, 'manager')` = 28, every other job 1; (2) a round with a Manager charges 28 per chip changed
+    and nothing once `target` is applied; cash < 28 → the Manager idles, earlier jobs still act; (3) pinned fields and
+    their chips never change across 100 rounds; (4) a contract with shortfall S reserves `ceil(S ÷ (50 × yield))` fields
+    (S recomputed in the test), standing plots of that crop counted; (5) `managerPlan` rest income ≥ 0.999 × an
+    exhaustive enumeration written in the test (not importing the DP) at 1–6 fields; (6) offers are identical before
+    and after 100 Manager rounds (never accepts/discards); (7) `pinField` errors; (8) Sell the farm drops the Manager
+    certificate and assignment; (9) the 8 h offline catch-up with a Manager on 20 fields stays under the default test
+    timeout.
+
+- [ ] 151. **Chips wiring + strip + sim.**
+  - a. Crop picker (`Estate.tsx:146–155`, still the `<select>`; batch 30 replaces it with the sheet). Every licensed
+    crop gets an option from Field 1 on. Plantable crop, not the field's current chip: `${emoji} ${name} · ≈💰${m}/h ·
+    ×${f}` where `m` = marginal for THIS field = `fieldsCropIncomePerHour(c, others_c + tiles_k) −
+    fieldsCropIncomePerHour(c, others_c)` rounded (`others_c` = tiles of the OTHER pivoted fields whose chip is c;
+    `tiles_k` = field k's `plots.length × plotTiles()`), `f` = `marketFactor(c, run.market[c]).toFixed(2)`. The
+    current chip's option stays short (`${emoji} ${name}`) so the closed select fits its 96 px column; its numbers are
+    the row's `<small>`. Licensed but under the gate: disabled option `${emoji} ${name} · 🏡 ${n}/50`
+    (`fieldsCropHarvests()`). Helper `cropOptionText(state, k, crop)` in `estateText.ts`, unit-tested.
+  - b. Strip (`estateBottleneck`, `estateText.ts:90–92`, step 3): an unpicked field = pivot, `crop === null`, an empty
+    plot, AND (`pinned` OR no Manager assigned). Label `⚠ Sowing — Field ${k + 1} waits for a crop`; fix "pick a crop",
+    or "pick a crop or assign the 💼 Manager" when the Manager certificate is owned. A Manager assigned but unpaid
+    (`workerUnpaid(state, 'manager')`) with an unpicked managed field → `⚠ Manager unpaid — Field ${k + 1} waits`,
+    fix "needs 💰28 per change". First-match order otherwise unchanged.
+  - c. Sim — new `describe('batch 29: manager')` in `tests/sim.test.ts`:
+    - Model pin: N = 2 / 6 / 10 / 20 managed fields, every crop licensed and past the gate, at **base** (sell 0, fert
+      0, no home crop) and at **stage** (sell 5, fert 5, home 24 strawberry): Manager rest income ≥ 0.99 × the best
+      allocation found by exhaustive enumeration in the test (cache value per crop × j, then enumerate compositions).
+      Report best / Manager / mono strawberry / greedy-by-marginal (M2's original rule, which the DP replaced) as a
+      table under "Batch 29 results". The "with renown floors" case moves to batch 31 (renown floors do not exist yet).
+    - Time sim: a forged stage save (6 pivoted full fields, pump at cap, harvester + seeder machines, 2 planter + 2
+      harvester workers, coal for the tank, chips null) runs 4 game-hours twice: with a Manager, and with no Manager
+      and the chips set to the enumerated best. Pin: Manager run cash ≥ 0.99 × fixed-best run. Report flips and wages.
+    - Contract run: the same save with chips on lemon and an accepted strawberry contract (tier 2 count from
+      `orderCount`): pin the contract completes within 60 game-minutes; report minutes, flips, and the field split.
+    - Unlock path: accept 3 contracts and complete each with a hand `reapPlot` → `contractsByHand` 3 → the Manager
+      certificate buys (with 4 🥇 + 💰500,000 granted). Report the 💰500,000 as hours of the stage-6 income.
+    - The ladder bot never accepts contracts by hand, so it never unlocks the Manager. Contract sizing (149a) and the
+      clerk rule (149d) may move pins after the Tractor: re-pin those as old → new with the cause; never touch a pin
+      before the Tractor (if one moves, the change leaked — fix the code).
+  - d. Carried in from the batch 28 verification (Toon "ok", 2026-11-11): PIN28a (`sim.test.ts:3698`, "no milestone gap
+    over 60 game-minutes from the Tractor to Pump 2") also counts every plot, pivot, pump and machine purchase as a
+    mark — it counted only milestones and ladder rungs, so pump1 → plots30 read as a 1,188-min gap while the bot bought
+    a plot or pivot every 47–58 min (Hermes probe, cash bound every purchase, gold never did). Re-measure and re-title
+    the `it.fails` with the new longest gap (expected ≈ 228–233 min: saving for pump1 / pump2). Pivot recipe unchanged.
+  - e. Sim bot gap from batch 28.1 deviation 3: add `plots10` (the pivot rung, `sim.test.ts:506`) to `smeltsFor`
+    (`sim.test.ts:542–552`) and to the furnace-kind chooser (`sim.test.ts:897–902`, the `GOLD_ON_GOALS` check) so the
+    bot smelts the gold ore it holds into the pivot's 3 Au; re-run the batch 20 / 22 "reach harvester3" `it.fails`
+    (`sim.test.ts:3987`, `:4116`) — if one now passes, turn it into a plain `it` pinned at the measured value — and
+    re-pin batch 18 / 19 if they move (old → new).
+  - f. CHANGELOG (copy verbatim, 180 chars): `{ batch: '29', date: '<today>', line: 'Estate contracts: crop orders
+    now scale with your wet fields, and plots you reap by hand pay ×1.25 into them. Deliver 3 by hand to unlock the
+    💼 Manager, who picks each field\'s crop' }`
+  - Results: `## Batch 29 results` at the true end of PLAN.md: the model table, both time-sim runs, the contract run,
+    the certificate hours, every re-pin old → new with cause, the PIN28a re-title, and `### Deviations`.
+
+Model: Opus (core judgment + sim re-pins). Estimate $25–45 / 1.5–2.5 h, `--max-turns 160`, expect one resume leg.
 
 ---
 
@@ -4557,9 +4683,9 @@ Rules (every task):
 
 ---
 
-## Batch 31 — Renown (tasks 155–157, save v21 → v22)
+## Batch 31 — Renown (tasks 155–157, save v22 → v23; renumbered 2026-11-11, batch 28.2 took v22)
 
-- [ ] 155. `run.renown: Record<CropId, number>`: +1 per home harvest by a worker, +2 by hand. `migrateV21` starts
+- [ ] 155. `run.renown: Record<CropId, number>`: +1 per home harvest by a worker, +2 by hand. `migrateV22` (v22 → v23, the `serialize.ts` naming) starts
   each crop at `lifetime.harvests[crop]`, so nothing is lost. New deed row `keepRenown` (keeps the reached tiers on
   Sell the farm, `keepFirstCertificates` style); renown itself resets on Sell the farm.
 - [ ] 156. Tiers 250 / 1,000 / 4,000 → that crop's price FLOOR 0.5 → 0.55 / 0.6 / 0.7 (Toon 2026-11-11, sim pins).
@@ -4568,6 +4694,7 @@ Rules (every task):
   (50 home harvests) is unchanged.
 - [ ] 157. Ledger shows renown per crop and the next tier. Sim: a worker-only route reaches the top tier in bounded
   game-hours (reported + capped); prestige reset pinned.
+  Carried from batch 29: the Manager model pin (≥ 0.99 × exhaustive best) re-run with the renown floors 0.55 / 0.6 / 0.7.
 
 ---
 

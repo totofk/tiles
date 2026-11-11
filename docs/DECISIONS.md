@@ -635,3 +635,23 @@ A Sell kind never fails BAG_FULL and sells exactly like `sellItem` at drop time.
 leaves "Sell all when full" (it is fuel now). "Keep N" stays in batch 32. Folded in: three batch 28 UI nits
 ("1 plots", the Workshop line overflowing at 1024, the Reload label at 375). The two sim carry-ins (PIN28a purchase
 marks, bot gold smelting) stay in batch 29: they touch no player and move the batch 18/19 pins.
+
+## Batch 29 refined: contracts, Manager, chips (2026-11-11, Hermes, against `c4a83d4`)
+
+Spec: PLAN.md "Batch 29" (tasks 149–151). No save bump — the v21 shape already holds `contractsByHand`, `pinned` and
+the `manager` job. Calls made while refining (sent to Toon as a reject-list):
+- A contract = any crop offer after the Tractor; its price is today's crop-order price (base × 1.1, no glut). A crop
+  under the 🏡 50 gate keeps today's order size.
+- Hand bonus ×1.25 applies only to the units a hand-reaped Fields plot puts into an order; its market units sell at ×1.
+  `contractsByHand` counts a contract whose LAST units came from the player's own reap or harvest.
+- The Manager is paid per chip it changes (💰28), idle and unpaid when its plan is already applied, like every worker.
+  The calculator's ≈ 💰20,000/h was the upper bound of a change every round; the real cost is the pool slot (M4).
+- The Manager plans on the steady-glut model, not the live market, so it does not chase its own sales. A partial field
+  counts as full in the DP. Contract fields first: ceil(shortfall ÷ (50 tiles × yield)), standing plots counted.
+- Picking a crop by hand while a Manager is assigned pins that field; 📌 shows once the certificate is owned.
+- The crop picker stays the `<select>` until batch 30; its options carry marginal ≈💰/h, the price factor and 🏡 n/50.
+- Sim "old rule" = greedy-by-marginal (the seeder rule was deleted in batch 28). The "with renown floors" pin moves to
+  batch 31, where the floors exist.
+- The Manager's emoji is 💼 (as in the code); 🧑‍💼 is Emoji 12.1 and shows as tofu on Toon's device.
+- **Renumbered:** renown = batch 31 / save v22 → v23 (batch 28.2 took v22); mine QoL = batch 32 / save v24; furnace
+  molds = batch 33 / save v25.
