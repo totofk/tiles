@@ -4776,18 +4776,92 @@ Model: Opus (UI rewrite with a memo test). Estimate $15–30 / 1–2 h, `--max-t
 
 ---
 
-## Batch 31 — Renown (tasks 155–157, save v22 → v23; renumbered 2026-11-11, batch 28.2 took v22)
+## Batch 31 — Renown (tasks 155–157, save v22 → v23)
 
-- [ ] 155. `run.renown: Record<CropId, number>`: +1 per home harvest by a worker, +2 by hand. `migrateV22` (v22 → v23, the `serialize.ts` naming) starts
-  each crop at `lifetime.harvests[crop]`, so nothing is lost. New deed row `keepRenown` (keeps the reached tiers on
-  Sell the farm, `keepFirstCertificates` style); renown itself resets on Sell the farm.
-- [ ] 156. Tiers 250 / 1,000 / 4,000 → that crop's price FLOOR 0.5 → 0.55 / 0.6 / 0.7 (Toon 2026-11-11, sim pins).
-  Not market depth: at the fields stage every crop sits on the floor from 60 tiles, so depth ×1.25 / 1.5 / 2 added
-  only +0.1 / 0.6 / 1.3 % at 20 fields; the floor gives strawberry net per unit +14 / 29 / 57 % at sell 5. The fields gate
-  (50 home harvests) is unchanged.
-- [ ] 157. Ledger shows renown per crop and the next tier. Sim: a worker-only route reaches the top tier in bounded
-  game-hours (reported + capped); prestige reset pinned.
-  Carried from batch 29: the Manager model pin (≥ 0.99 × exhaustive best) re-run with the renown floors 0.55 / 0.6 / 0.7.
+Refined 2026-11-11 against `d50ff3d` (DECISIONS "Batch 31 refined"). Design: DECISIONS lines 553–554 ("Renown … resets
+on Sell the farm, and a deed row keeps the reached tiers") and 581–582 ("Renown reward = a higher price floor per crop
+(0.55 / 0.6 / 0.7 at 250 / 1,000 / 4,000), not market depth"). The fields gate (50 home harvests,
+`fieldsCropHarvests`) is unchanged. Emoji only from existing constants; Unicode ≤ 11. No two file names that differ
+only in case or extension.
+
+- [ ] 155. **Renown state, gain and save v23** (`src/core/state.ts`, `src/core/actions.ts`, `src/core/balance.ts`,
+  `src/core/prestige.ts`, `src/save/serialize.ts`).
+  - a. `RunState.renown: Partial<Record<CropId, number>>` (absent key = 0), `createFreshRun` → `{}` unless the carry
+    says otherwise (155d). Integer points.
+  - b. Gain: only home harvests through `harvest()` (`actions.ts:199`). In its `apply`, the returned `run` becomes
+    `{ ...sale.run, renown: addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER) }`
+    with `RENOWN_BY_HAND = 2`, `RENOWN_BY_WORKER = 1` in `balance.ts` and `addRenown` a pure helper in `balance.ts` or
+    a new `src/core/renown.ts`. "By hand" is the same test as the hand-picked bonus (`energy > 0`: a tap or a tool
+    press); a worker (`workers.ts:32`, energy 0) gives 1. A double harvest (sickle) is still one harvest = one gain.
+    Estate plots (`reapPlot`, machines, `fields.ts` sales) give NO renown — they never touch `lifetime.harvests`
+    either (`fields.ts:294`).
+  - c. Tiers in `balance.ts`: `RENOWN_TIERS = [250, 1000, 4000]`, `RENOWN_FLOORS = [0.55, 0.6, 0.7]`;
+    `renownTier(points)` = number of tiers reached (0–3); `renownFloor(points)` = `MARKET_FLOOR` (0.5) at tier 0, else
+    `RENOWN_FLOORS[tier − 1]`; `nextRenownTier(points)` = the next threshold or `null` at the top.
+  - d. Sell the farm (`prestige.ts:53`): renown resets to `{}`; with the new deed row `keepRenown` owned, each crop
+    keeps the threshold of the tier it reached (`renown[c] = RENOWN_TIERS[tier − 1]`, crops at tier 0 dropped). Pass
+    it through `RunCarry` (`state.ts:217`) as `renown`. Deed row: `DEED_ROW_IDS` gains `keepRenown` last,
+    `DEED_MAX_LEVEL.keepRenown = 1`, `DEED_ONE_TIME_COST.keepRenown = 3` (same as Kept certificates);
+    `MetaUpgradeId` + `META_UPGRADE_KEYS` gain it.
+  - e. Save v23: `SAVE_VERSION = 23`; `migrateV22` (v22 → v23, the `serialize.ts` naming; `migrateV21` at
+    `serialize.ts:582` is the model) sets `run.renown[c] = run.lifetime.harvests[c]` for every crop with harvests > 0
+    (lifetime counts carry across sales, so a player who sold before gets the larger number — nothing is taken away)
+    and `meta.upgrades.keepRenown = 0`. Chain: `if (version === 22) return migrateV22(…)`, `21` and older go
+    through `migrateV21` then `migrateV22`. Fixture: `tests/fixtures/save-v22.json` is a REAL v22 save written by the
+    live build (committed with this plan; lemon 2,413 / pumpkin 300 / chilli 95 / carrot 150 lifetime harvests).
+    Test: it loads as v23 with renown `{ radish: 150, chilli: 95, pumpkin: 300, lemon: 2413 }`, so lemon is tier 2
+    (floor 0.6) and pumpkin tier 1 (0.55); cash, tiles, licenses, fields unchanged; every older fixture (v1–v21)
+    migrates to v23 with renown = its lifetime harvests.
+  - Tests: worker harvest +1, tap +2, tool press +2, double harvest still +2 by hand; Estate reap 0; the tier helpers at
+    249 / 250 / 999 / 1000 / 3999 / 4000 / 10000; Sell the farm with and without `keepRenown` (lemon 2413 → 1000,
+    radish 150 dropped); buying `keepRenown` costs 3 deeds once.
+
+- [ ] 156. **The floor in every price** (`balance.ts`, `market.ts`, `fields.ts`, `src/app/marketText.ts`,
+  `src/app/estateText.ts`).
+  - a. `marketFactor(cropId, glut, floor = MARKET_FLOOR)` → `Math.max(floor, 1 − 0.5 × glut / depth)`; add
+    `cropFloor(run, crop) = renownFloor(run.renown[crop] ?? 0)` (market.ts). Pass it at EVERY game call site:
+    `market.ts:9` (`marketCropPrice`, every sale and order-free unit), `market.ts:47` (`marketSteadyFactor` gains a
+    `floor` parameter; its callers pass `cropFloor`), `fields.ts:219` (`fieldsCropIncomeCurve`, so the 💼 Manager plans
+    with the floor), `fields.ts:505` (`fieldsMarginalIncomePerHour`), `marketText.ts:15` (`cropFactor`),
+    `estateText.ts:51` and `:68` (crop income and option texts). Grep `marketFactor(` after the change: the only
+    calls without a floor are tests of the bare curve.
+  - b. `priceTag` (`marketText.ts:20`): the " floor" suffix compares against `cropFloor`, not `MARKET_FLOOR`.
+  - c. The sim's market switch (`tests/sim.test.ts:106`, `marketFactor: (crop, glut) => market.on ? real… : 1`) passes
+    the third argument through.
+  - d. No balance number changes: with no renown every factor, price and sim pin is identical. Pins that move do so only
+    because sim bots now gain renown from home harvests (a bot that farms ≥ 250 of one crop at home): re-pin those old
+    → new with "renown floor" as the cause. Pre-Tractor pins can move only if a bot sells on the floor before the
+    Tractor; list each one.
+  - Tests: `marketFactor` with floors 0.55 / 0.6 / 0.7 at a deep glut; a sale at lemon renown 1000 on a glutted market
+    pays `round(sell × 0.6)` per unit; `priceTag` shows " floor" at 60 % with lemon tier 2 and not at 55 %;
+    `fieldsCropIncomePerHour` rises with renown on a glutted crop; `cropOptionText` uses the floor.
+
+- [ ] 157. **Showing it, sims, carry-ins, changelog.**
+  - a. 📊 Stats (`src/core/stats.ts:185`): after each licensed crop's harvests row, a row `{ label: \`${name} renown\`,
+    value: \`${points} · floor ${percent} % · next ${next}\` }` (`· top tier` instead of the next at 4,000+; percent =
+    `round(renownFloor × 100)`). Before the first point the row reads `0 · floor 50 % · next 250`.
+  - b. Legacy (`src/app/Legacy.tsx`): `NAMES.keepRenown = 'Kept renown'`, `TIPS.keepRenown = 'One-time: selling the
+    farm keeps each crop\'s renown tier.'`, `effect` → `'Renown tiers survive the sale'`. Sell card: Resets list gains
+    `<li>Renown{keepRenown ? ' — tiers kept' : ''}</li>`.
+  - c. Sim (`tests/sim.test.ts`, new describe `batch 31: renown`):
+    1. Worker-only route: from `at(true, [])` (`sim.test.ts:4294`: Better prices 5, Fertilizer 5, 24 home strawberry tiles), sprinklers on every bed and harvest
+       + plant workers assigned, no hand act; report the game-hours to 250 / 1,000 / 4,000 strawberry renown; assert
+       the top tier ≤ 48 game-hours (est.: 24 tiles × 3600 / 960 = 90 harvests/h → 44.4 h at base grow time, less with
+       fertilizer). If it measures above 48, stop and report it under Deviations — do not change a balance number.
+    2. Prestige reset pinned: a run at strawberry 4,000 sold without `keepRenown` → `{}`; with it → 4,000 kept and the
+       next run's first strawberry sale on a glutted market pays the 0.7 floor.
+    3. Carried from batch 29: the Manager model pin (`sim.test.ts:4326`, "≥ 0.99 × the exhaustive best at 2 / 6 / 10 /
+       20 fields") re-run with renown 250 / 1,000 / 4,000 on every crop (floors 0.55 / 0.6 / 0.7); report each ratio,
+       assert ≥ 0.99.
+  - d. Carried from batch 30: `tests/manager.test.ts:122` ("8 h offline with a Manager on 20 fields …") timed out once
+    at 5,148 ms in a full run under load (alone it takes 0.5–1.2 s): give that one test a 20,000 ms timeout and
+    rename it to drop "stays under the default test timeout".
+  - e. CHANGELOG (copy verbatim): `{ batch: '31', date: '<today>', line: "Renown: every home harvest builds that crop's renown, and a hand harvest counts double. At 250 / 1,000 / 4,000 renown its market price never drops below 55 / 60 / 70 %" }`
+  - Results: `## Batch 31 results` at the true end of PLAN.md: the worker-only hours per tier, the Manager ratios with
+    floors, every re-pin old → new with cause, and `### Deviations` (no browser: Hermes checks Stats rows, the Legacy
+    row and the v22 → v23 load on the live URL).
+
+Model: Opus (save bump + a cross-cutting price change + sim). Estimate $15–30 / 1–2 h, `--max-turns 160`.
 
 ---
 

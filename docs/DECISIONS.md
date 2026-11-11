@@ -670,3 +670,18 @@ Spec: PLAN.md "Batch 30" (tasks 152–154). UI only, no save bump. Calls made wh
 - The spike's "⬇ next" bottom bar is dropped: the phone bar's Sow / Reap already act on the next plot.
 - The strip keeps today's text (the spike's "sow 3.2/min · need 2.8" wording is not adopted).
 - Keyboard = native Tab order + focus ring, no roving tab index. The side-panel Fields summary line stays.
+
+## Batch 31 refined: Renown (2026-11-11, Hermes against `d50ff3d`)
+
+Spec: PLAN.md "Batch 31" (tasks 155–157, save v22 → v23). Toon: "ร่าง 31 แล้วปล่อยเลย". Calls made while refining
+(Toon may reject any):
+- "By hand" = the hand-picked test (`energy > 0`: a tap or a tool press) → +2; a worker → +1; a double harvest is one
+  gain. Estate plots give no renown (they never counted as home harvests).
+- Migration seeds renown from lifetime harvests, which carry across sales, so a player who sold before starts higher.
+- Kept renown deed: one-time 3 deeds (like Kept certificates); it keeps each crop's reached tier threshold, not its
+  points.
+- The floor applies everywhere a market price is computed, including the 💼 Manager's plan and the Estate option texts.
+- Shown as a Stats row per licensed crop ("n · floor x % · next t") and the Sell card's Resets list; no toast or
+  milestone on reaching a tier.
+- Worker-only top tier is capped at 48 game-hours (est. 44 h at base grow time with 24 strawberry tiles).
+- Carried in: the batch-30 flaky Manager offline test gets a 20 s timeout.
