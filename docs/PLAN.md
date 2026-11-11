@@ -4828,7 +4828,7 @@ A copper rock needs no pickaxe, so the chain hand → copper → iron → gold a
 
 Worker: **Opus**, `--max-turns 80`. One commit: `fix: batch 28.1 task 158 — blunt pickaxe escape`.
 
-- [ ] 158. **Blunt pickaxe escape.**
+- [x] 158. **Blunt pickaxe escape.**
   a) `craftPickaxe(state, tier)` (`mining.ts:76–82`): ALREADY_OWNED when the pickaxe in hand is NOT blunt and its tier
      ≥ `tier`, or when it IS blunt and its tier = `tier` (repair is the cheaper path for the same tier). Otherwise pay
      `pickaxeCraftCost(tier)` → `{ tier, durability: pickaxeDurability(tier) }`. Order unchanged after that:
@@ -4871,3 +4871,52 @@ offline / prestige / migration — none (no save change); touches — the mine w
 
 Still open for Toon (NOT in this batch): batch 28 deviation 2 — the 1,188 game-minute gap pump1 → plots30 (pivots
 3–6 each wait on 3 Au).
+
+## Batch 28.1 results
+
+Commit: `e92b8a8` (task 158). `pnpm test` 892 passed + 5 expected fail (`it.fails`), `pnpm lint` and `pnpm build`
+green; `npx tsc -b --force` clean. No save change, no balance number touched.
+
+- Escape pin (`tests/sim.test.ts` "batch 28.1: blunt pickaxe escape", measured `PIN28_1`): the real v20 save migrated to
+  v21, pickaxe `{ gold, 0 }`, no gold/iron bars or ore → the bot swaps to wooden (3 Cu in the bag, no Fe), climbs
+  copper → iron → gold, and holds a working gold pickaxe again after **15 game-minutes**.
+- Batch 20 "both sold runs reach harvester3" (`PIN28_1b`, hours): before [null, null] (stop after plots30, blunt gold,
+  1 Au) → after [52.6, null]: run 2 now climbs the whole ladder; the vault run still stops (deviation 3). Stays
+  `it.fails`, title updated.
+- Batch 22 "run 1 and the vault run climb to harvester3" (`PIN28_1c`, hours): before [null, null] → after
+  [null, null]. Run 1 still stops after plots30 (pump1 13.3 h, plots30 13.8 h), now with a SHARP gold pickaxe and 0 Au
+  (was blunt, 1 Au) — the blunt-pickaxe stop is gone, a bot gap remains (deviation 3). Stays `it.fails`, title updated.
+- Batch 18/19 ladder pins unchanged: Tractor 586 min, pump2 2,622 min, longest gap 1,188 min, harvester3 reached.
+- Re-pins (measured, seeded; old → new):
+  - batch 8 `[finalCash, wagesPaid]` [3452, 379] → [3618, 379]
+  - batch 9 `[finalCash, wagesPaid, bars, barsSmelted]` [13900, 898, 80, 80] → [13901, 897, 80, 80]
+  - batch 10 base gain 1085 → 1195; planter `[gain, wages, workerPlants]` [69849, 3551, 711] → [70009, 3551, 711]
+  - batch 18 income vs N, all-lemon 10/50/100/300/1000 [47661, 111447, 150893, 350763, 393223] →
+    [48481, 111346, 149875, 353375, 396138]; 4-crop mix 100/300 [193653, 263448] → [192911, 264581]
+  - batch 19 curve (k💰/h, workers / fleet) [151,153] [351,432] [396,1290] → [149,151] [349,429] [392,1286]; payback at
+    300 tiles h1 / h2 / h3 / seeders 0.8 / 17.8 / 276.7 / 153.6 → 0.8 / 15.3 / null (Δ −1,925 💰/h) / 294.8;
+    paysAtN unchanged
+
+### Deviations
+1. Sim bot additions beyond the 158d text, each needed for the escape and scoped so no-escape runs keep their path:
+   - `keepBars(bars, kindAware)`: the old copper keep counted the furnace slot as copper whatever its ore kind, so a
+     4-gold-ore residue hid the copper pickaxe's shortfall and the escape run sat 24 h on a wooden pickaxe. Only the
+     `copperPickaxe` rung is kind-aware; a global fix moved the batch 19 ladder (harvester3 not reached) and was reverted.
+   - After a swap (`swapped`), the copper / iron / gold pickaxe rungs join the batch-21 furnace-kind chooser; before,
+     the chooser ran only for workshop / fields / machines rungs and never switched the furnace off gold.
+   - `collectBars` before the repair attempt: in batch 8 the blunt copper pickaxe had its 4 repair bars in the tray at
+     tick 3,282; without it the rule would swap a pickaxe the player could repair. This (and the swap rule itself) is
+     what moved the batch 8/9/10 pins.
+2. The batch 18/19 income re-pins: the late swaps (blunt gold, 0 Au banked, ticks ~405k–584k of the 170 h ladder)
+   change the end state the curves are forged from. That the forge source is the cause is inferred from a swap log,
+   not isolated per run.
+3. Remaining batch 20 / 22 stop (pre-existing bot gap, not fixed — task 158 only): plots30's land opens a 5th field
+   without a pivot, so `plots10` is the next rung again; `smeltsFor` and the chooser cover only
+   `FIELDS_ON_GOALS.slice(0, 2)`, so the bot never smelts the gold ore it holds (5–6 in the bag) into the pivot's 3 Au
+   (+2 reserve). The 5-fields / 4-pivots / 0-Au end state was read with the earlier global `keepBars` variant; after
+   the scoped fix only the end pickaxe (sharp gold, 0 Au) and the rung hours were re-read. Worth a look for Toon:
+   add `plots10` to `smeltsFor` / the chooser (it will move batch 18/19 pins).
+4. Mine card escape row: the disabled small text uses the existing craft row's ` — {ERROR_TEXT}` shape.
+5. Escape pin runs 24 h of game time with a 30 s timeout (5.8 s alone; the 5 s default failed).
+6. Purity grep: only `src/save/storage.ts:26` (`wallClock`), pre-existing.
+7. Not verified (no browser, jsdom only): the escape row's layout in the Mine card at phone / desktop widths.
