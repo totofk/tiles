@@ -41,7 +41,7 @@ const COUNTER_LABELS: Record<CounterId, string> = {
   plants: 'Plantings',
   bars: 'Copper bars collected',
   orders: 'Orders completed',
-  contractsByHand: 'Contracts delivered by hand',
+  contractsByHand: 'Contracts delivered',
 }
 
 const times = (f: number) => `×${Math.round(f * 100) / 100}`

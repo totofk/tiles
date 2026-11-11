@@ -106,10 +106,10 @@ export function cropOrderPrice(state: GameState, crop: CropId, bonus = 1): numbe
 
 /**
  * `n` more units into the offer at `slot`. At its count the order completes: ⭐ by tier, counters.orders and the
- * lifetime totals +1, and a fresh offer is rolled into the slot. A contract completed `byHand` (the player's own reap
- * or harvest) also counts contractsByHand.
+ * lifetime totals +1, and a fresh offer is rolled into the slot. A completed contract also counts contractsByHand
+ * (batch 31.1: "contracts delivered", whoever reaped the last units).
  */
-function fillOrder(state: GameState, slot: number, n: number, byHand = false): GameState {
+function fillOrder(state: GameState, slot: number, n: number): GameState {
   const { run } = state
   const offer = run.orders.offers[slot] as Offer
   const done = offer.done + n
@@ -126,7 +126,7 @@ function fillOrder(state: GameState, slot: number, n: number, byHand = false): G
     counters: {
       ...run.counters,
       orders: run.counters.orders + 1,
-      contractsByHand: run.counters.contractsByHand + (byHand && isContract(run, offer.good) ? 1 : 0),
+      contractsByHand: run.counters.contractsByHand + (isContract(run, offer.good) ? 1 : 0),
     },
     lifetime: { ...run.lifetime, ordersCompleted: run.lifetime.ordersCompleted + 1, starsEarned: run.lifetime.starsEarned + stars },
   })
@@ -140,8 +140,8 @@ function cropOrderSlot(run: RunState, crop: CropId): number {
 /**
  * Sells `units` harvested `crop`: while an accepted order for it is open each unit goes to the order (cropOrderPrice,
  * no glut), the rest to the market (cropSale). `bonus` / `marketBonus` = the hand-picked multiplier on the order /
- * market units; `byHand` = the player's own act (counts a completed contract). Returns the cash and the run with
- * orders, ⭐, counters, lifetime, rngState and market updated (cash itself untouched).
+ * market units. Returns the cash and the run with orders, ⭐, counters, lifetime, rngState and market updated (cash
+ * itself untouched).
  */
 export function harvestSale(
   state: GameState,
@@ -149,7 +149,6 @@ export function harvestSale(
   units: number,
   bonus = 1,
   marketBonus = bonus,
-  byHand = false,
 ): { cash: number; run: RunState } {
   let s = state
   let cash = 0
@@ -158,7 +157,7 @@ export function harvestSale(
     const offer = s.run.orders.offers[slot] as Offer
     const n = Math.min(left, offer.count - offer.done)
     cash += n * cropOrderPrice(s, crop, bonus)
-    s = fillOrder(s, slot, n, byHand)
+    s = fillOrder(s, slot, n)
     left -= n
   }
   if (left === 0) return { cash, run: s.run }

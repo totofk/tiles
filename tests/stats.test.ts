@@ -23,7 +23,7 @@ describe('stats(state)', () => {
       { label: 'Plantings', value: '0' },
       { label: 'Copper bars collected', value: '0' },
       { label: 'Orders completed', value: '0' },
-      { label: 'Contracts delivered by hand', value: '0' },
+      { label: 'Contracts delivered', value: '0' },
       { label: 'Carrot harvests', value: '0' },
       { label: 'Carrot renown', value: '0 · floor 50 % · next 250' },
       { label: 'Copper bars smelted', value: '0' },

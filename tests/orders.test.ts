@@ -437,18 +437,18 @@ describe('batch 29: 🚜 estate contracts', () => {
     expect(okState(worker).run.cash - s.run.cash).toBe(4 * Math.round(base * (1 + orderBonus())) + market)
   })
 
-  it('contractsByHand +1 only when the player\'s own reap or home harvest completes a contract', () => {
+  it('contractsByHand (contracts delivered) +1 per completed contract, whoever reaped it (batch 31.1)', () => {
     const s = estate({}, [offer({ good: 'radish', count: 4 })])
+    // a hand reap counts once, not twice
     expect(okState(reapPlot(s, 0, 0)).run.counters.contractsByHand).toBe(1)
-    // an earlier worker fill is fine: only the completing act counts
     expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40, done: 36 })]), 0, 0)).run.counters.contractsByHand).toBe(1)
-    // not completed, or completed by a worker / machine
+    // not completed → 0; completed by a harvester → 1
     expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40 })]), 0, 0)).run.counters.contractsByHand).toBe(0)
-    expect(okState(fieldsHarvest(s)!).run.counters.contractsByHand).toBe(0)
-    // the home plot: a hand harvest completes it after the Tractor, never before; a worker's harvest never
+    expect(okState(fieldsHarvest(s)!).run.counters.contractsByHand).toBe(1)
+    // the home plot: a hand or a worker harvest completes it after the Tractor, never before
     const home = estate({ tiles: [ripe, ...init.run.tiles.slice(1)] }, [offer({ good: 'radish', count: 1 })])
     expect(okState(harvest(home, 0)).run.counters.contractsByHand).toBe(1)
-    expect(okState(harvest(home, 0, 0)).run.counters.contractsByHand).toBe(0)
+    expect(okState(harvest(home, 0, 0)).run.counters.contractsByHand).toBe(1)
     const before = { ...home, run: { ...home.run, fields: { ...home.run.fields, unlocked: false } } }
     const done = okState(harvest(before, 0))
     expect([done.run.counters.orders, done.run.counters.contractsByHand]).toEqual([1, 0])

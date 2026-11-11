@@ -38,9 +38,9 @@ const certified = (pool: number, water = 0, harvest = 0) => ({
 describe('batch 29: the 💼 Manager row', () => {
   const managerRow = () => screen.getByText('💼 Manager').closest('.worker-row') as HTMLElement
 
-  it('locked: the gate reads "contracts by hand 1/3"', () => {
+  it('locked: the gate reads "contracts delivered 1/10"', () => {
     setup({}, { contractsByHand: 1 })
-    expect(managerRow().textContent).toContain('contracts by hand 1/3')
+    expect(managerRow().textContent).toContain('contracts delivered 1/10')
   })
 
   it('owned, assigned and the fields unlocked: the plan line; with no wet field "no wet fields to manage"', () => {

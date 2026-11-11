@@ -79,6 +79,7 @@ import { catchUp, deserialize } from '../src/save/serialize'
 import v17 from './fixtures/save-v17.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
 import v21 from './fixtures/save-v21.json?raw'
+import v22 from './fixtures/save-v22.json?raw'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -88,7 +89,7 @@ import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWor
 import { buildSprinkler, buildWorkshop } from '../src/core/workshop'
 import { buildPivot, buyMachine, buyPlot, buyPump, fieldsCropIncomePerHour, fieldsOverview, fieldsPaybackHours, fieldsPlantable, fillTank, pivotsOwned, reapPlot, setFieldCrop, unlockFields } from '../src/core/fields'
 import { managerPlan } from '../src/core/manager'
-import { acceptOrder, buyOrderBoard, discardOrder, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
+import { acceptOrder, buyOrderBoard, discardOrder, isContract, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
 import type { OrderGood } from '../src/core/state'
 import type { ItemId } from '../src/core/data/items'
 
@@ -3715,6 +3716,20 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(ladder.miningCashPerEnergy).toBeLessThan(0.9 * ladder.farmingCashPerEnergy)
   })
 
+  // batch 31.1 (task 163d scenario A, report only): the ladder bot has no orders logic, so the measurement continues
+  // from its harvester3 end with the order board bought and the contract bot of scenario B
+  it('batch 31.1: from the ladder end, the contract bot reaches the 💼 Manager certificate (reported minute)', () => {
+    // the ladder end sells its stone, so the board's 10 stone are handed over (+💰100 is from its own cash)
+    const board = end.run.orders.unlocked ? end : (() => {
+      const b = buyOrderBoard({ ...end, run: { ...end.run, inventory: { ...end.run.inventory, stone: Math.max(10, end.run.inventory.stone ?? 0) } } })
+      if (!b.ok) throw new Error(b.error)
+      return b.state
+    })()
+    const r = contractRun(board, 48 * 60)
+    console.log('PIN311a', JSON.stringify({ ladderEndMin: Math.round(end.run.tick / 60), ...r }))
+    expect(r.reached).not.toBeNull()
+  }, 300_000)
+
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
   // saving for Pump 2; prices LOCKED
@@ -4296,6 +4311,41 @@ describe('batch 28.2: sell on dig', () => {
   }, 120_000)
 })
 
+/**
+ * batch 31.1 (task 163d): every game-minute accept every contract for a crop some plot grows and discard every other
+ * offer (an item order, or a contract no field grows, would hold its slot forever); the harvesters do the reaping. Stops when contractsByHand reaches
+ * 10 or after `maxMinutes`; reports the minute, ⭐ / 💰 / 🥇 held then, and the minute the certificate first buys.
+ */
+function contractRun(s0: GameState, maxMinutes: number) {
+  let s = s0
+  let reached: { minute: number; stars: number; cash: number; goldBar: number } | null = null
+  let buyable: number | null = null
+  for (let m = 0; m < maxMinutes && (reached === null || buyable === null); m++) {
+    s.run.orders.offers.forEach((o, i) => {
+      if (!isOffer(o) || o.accepted) return
+      const grown = s.run.fields.list.some((f) => f.plots.some((p) => p.crop === o.good))
+      const r = isContract(s.run, o.good) && grown ? acceptOrder(s, i) : discardOrder(s, i)
+      if (r.ok) s = r.state
+    })
+    s = step(s, 60)
+    if (reached === null && s.run.counters.contractsByHand >= 10) reached = { minute: m + 1, stars: s.run.stars, cash: Math.round(s.run.cash), goldBar: s.run.inventory.goldBar ?? 0 }
+    if (buyable === null && buyCertificate(s, 'manager').ok) buyable = m + 1
+  }
+  return { reached, buyable, counter: s.run.counters.contractsByHand }
+}
+
+describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (task 163d)', () => {
+  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts ≤ 240 game-minutes holding ⭐ ≥ 40 and 💰 ≥ 1.5M', () => {
+    const loaded = deserialize(v22)!.state
+    const r = contractRun(loaded, 600)
+    console.log('PIN311b', JSON.stringify(r))
+    expect(r.reached).not.toBeNull()
+    expect(r.reached!.minute).toBeLessThanOrEqual(240)
+    expect(r.reached!.stars).toBeGreaterThanOrEqual(40)
+    expect(r.reached!.cash).toBeGreaterThanOrEqual(1_500_000)
+  }, 300_000)
+})
+
 describe('batch 29: manager', () => {
   const init = createInitialState()
   const FIELD = fieldPlots() * plotTiles()
@@ -4418,14 +4468,15 @@ describe('batch 29: manager', () => {
     expect(doneAt!).toBeLessThanOrEqual(HOUR_TICKS)
   }, 120_000)
 
-  it('unlock path: 3 contracts completed by hand reaps → contractsByHand 3 → the Manager certificate buys; 💰500,000 in stage-6 hours', () => {
+  // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M
+  it('unlock path: 7 delivered + 3 hand reaps → contractsByHand 10 → the Manager certificate buys; 💰1.5M in stage-6 hours', () => {
     const ready = { crop: 'strawberry' as const, readyTick: 0 }
     const offer = (good: CropId) => ({ good, count: 5, done: 0, tier: 1, accepted: false })
     let s: GameState = {
       ...at(true, [{ ...emptyField('strawberry'), plots: Array.from({ length: fieldPlots() }, () => ({ ...ready })) }], 0, false),
       meta: init.meta,
     }
-    s = { ...s, run: { ...s.run, energy: 100, orders: { ...s.run.orders, unlocked: true, offers: [offer('strawberry'), offer('strawberry'), offer('strawberry')] } } }
+    s = { ...s, run: { ...s.run, energy: 100, counters: { ...s.run.counters, contractsByHand: 7 }, orders: { ...s.run.orders, unlocked: true, offers: [offer('strawberry'), offer('strawberry'), offer('strawberry')] } } }
     for (let slot = 0; slot < 3; slot++) {
       const accepted = acceptOrder(s, slot)
       if (!accepted.ok) throw new Error(accepted.error)
@@ -4433,10 +4484,10 @@ describe('batch 29: manager', () => {
       if (!reaped.ok) throw new Error(reaped.error)
       s = reaped.state
     }
-    expect(s.run.counters.contractsByHand).toBe(3)
+    expect(s.run.counters.contractsByHand).toBe(10)
     const price = certificateCost('manager', s.meta)
-    expect(price).toEqual({ goldBar: 4, cash: 500_000 })
-    const bought = buyCertificate({ ...s, run: { ...s.run, cash: price.cash, inventory: { ...s.run.inventory, goldBar: price.goldBar } } }, 'manager')
+    expect(price).toEqual({ goldBar: 4, stars: 40, cash: 1_500_000 })
+    const bought = buyCertificate({ ...s, run: { ...s.run, cash: price.cash, stars: price.stars!, inventory: { ...s.run.inventory, goldBar: price.goldBar } } }, 'manager')
     expect(bought.ok).toBe(true)
     const perHour = run(stage6(false, (() => {
       const { split } = enumerate(stage6(false), 6)

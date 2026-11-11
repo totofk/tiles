@@ -36,7 +36,7 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
 }
 
 /** a locked row's gate counter as words where its id would read raw (other counters keep their id) */
-const GATE_LABEL: Partial<Record<CounterId, string>> = { contractsByHand: 'contracts by hand' }
+const GATE_LABEL: Partial<Record<CounterId, string>> = { contractsByHand: 'contracts delivered' }
 
 /** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
 const jobTip = (job: WorkerJob) => (job === 'harvest' ? `${WORKER_TIPS.harvest} Workers sell at ×1; what you harvest yourself sells at ${HAND_PICKED}.` : WORKER_TIPS[job])

@@ -215,7 +215,7 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
       // is hand-picked, a worker's (energy 0) is not
       const bonus = energy > 0 ? handPickedBonus() : 1
-      const sale = harvestSale({ ...state, run: { ...run, rngState } }, t.cropId!, crops, bonus, bonus, energy > 0)
+      const sale = harvestSale({ ...state, run: { ...run, rngState } }, t.cropId!, crops, bonus)
       return {
         tile: clearedTile(t),
         cashDelta: sale.cash,

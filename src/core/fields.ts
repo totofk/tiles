@@ -307,7 +307,7 @@ function reapAt(state: GameState, field: number, plot: number, energy: number): 
   }
   // batch 29: the player's own reap pays ×1.25 into accepted orders only; its market units sell at ×1
   const rolled = { ...state, run: { ...run, rngState } }
-  const sale = energy > 0 ? harvestSale(rolled, crop, units, handPickedBonus(), 1, true) : harvestSale(rolled, crop, units)
+  const sale = energy > 0 ? harvestSale(rolled, crop, units, handPickedBonus(), 1) : harvestSale(rolled, crop, units)
   return {
     ...sale.run,
     cash: sale.run.cash + sale.cash,

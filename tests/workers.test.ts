@@ -125,6 +125,12 @@ describe('buyCertificate', () => {
     }
     expect(['ore', 'fuel', 'mine'].map((job) => certificateUnlock(job as WorkerJob).tool)).toEqual([undefined, undefined, undefined])
   })
+
+  it('batch 31.1: the 💼 Manager unlocks at 10 contracts delivered, for 🥇4 ⭐40 💰1.5M', () => {
+    expect(certificateUnlocked(withRun({}, { contractsByHand: 9 }).run, 'manager')).toBe(false)
+    expect(certificateUnlocked(withRun({}, { contractsByHand: 10 }).run, 'manager')).toBe(true)
+    expect(certificateCost('manager', meta)).toEqual({ goldBar: 4, stars: 40, cash: 1_500_000 })
+  })
 })
 
 describe('assignWorker', () => {
