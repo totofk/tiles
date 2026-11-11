@@ -62,6 +62,8 @@ import {
   workerActionTicks,
   veinUpgradeCost,
   workshopCost,
+  MINE_DROP_IDS,
+  oreSortUnlockCost,
   type DeedRowId,
   type Price,
 } from '../src/core/balance'
@@ -72,6 +74,7 @@ import { buyMetaUpgrade, sellFarm, sellFarmUnlocked, starDeeds } from '../src/co
 import { catchUp, deserialize } from '../src/save/serialize'
 import v17 from './fixtures/save-v17.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
+import v21 from './fixtures/save-v21.json?raw'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -4206,4 +4209,62 @@ describe('batch 28.1: blunt pickaxe escape (rules.batch13 on)', () => {
     console.log('PIN28_1', JSON.stringify({ escapeMin: back === undefined ? null : Math.round((back - start.run.tick) / 60) }))
     expect(back).toBeDefined()
   }, 30_000)
+})
+
+describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
+  it('ORE_SORT_CASH = 0.5 h of the batch-16 ladder bot income in its first hour on vein Lv3, rounded to 💰500; every unlock fits storage', () => {
+    const lv3 = { start: 0, cashEarned: 0, bagCapacity: 0, income: -1 }
+    let meta = createInitialState().meta
+    withBatch13(() =>
+      runBot(true, {
+        ticks: 12 * HOUR_TICKS,
+        licenses: LICENSE_ORDER,
+        crops: PLANT_ORDER,
+        ladder: true,
+        copperTools: true,
+        workers: true,
+        furnace: true,
+        planter: true,
+        iron: true,
+        ironTools: true,
+        gold: true,
+        buyTools: true,
+        onEnd: (s) => (meta = s.meta),
+        onTick: (s) => {
+          if (!lv3.start && s.run.vein.level >= 3) Object.assign(lv3, { start: s.run.tick, cashEarned: s.run.lifetime.cashEarned, bagCapacity: s.run.bagCapacity })
+          if (lv3.start && lv3.income < 0 && s.run.tick >= lv3.start + HOUR_TICKS) lv3.income = s.run.lifetime.cashEarned - lv3.cashEarned
+        },
+      }),
+    )
+    const cash = oreSortUnlockCost('stone', meta).cash
+    console.log('PIN162a', JSON.stringify({ startMin: Math.round(lv3.start / 60), incomePerHour: lv3.income, bagCapacity: lv3.bagCapacity, cash }))
+    expect(lv3.income).toBeGreaterThan(0)
+    expect(cash).toBe(Math.max(500, Math.round((0.5 * lv3.income) / 500) * 500))
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 12842, cash: 6500 })
+    for (const kind of MINE_DROP_IDS) {
+      expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
+      expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
+    }
+  }, 300_000)
+})
+
+describe('batch 28.2: sell on dig', () => {
+  it('the real v21 save with a miner and an empty tank: Sell on dig keeps the miner digging for 8 h and the coal flowing', () => {
+    const loaded = deserialize(v21)!.state
+    // every pool worker is busy and the pool is at its cap: one more worker, set in the test state, mines
+    const { workers } = loaded.run
+    const pool = workers.pool + (freeWorkers(loaded.run) > 0 ? 0 : 1)
+    const base: GameState = { ...loaded, run: { ...loaded.run, workers: { ...workers, pool, assigned: { ...workers.assigned, mine: workers.assigned.mine + 1 } } } }
+    const start = (oreSort: GameState['run']['oreSort']): GameState => ({ ...base, run: { ...base.run, oreSort, fields: { ...base.run.fields, tank: 0 } } })
+    const report = (s: GameState) => ({
+      mines: s.run.counters.mines - base.run.counters.mines,
+      coal: (s.run.inventory.coal ?? 0) + s.run.fields.tank / TANK_UNITS_PER_COAL,
+      cash: s.run.cash - base.run.cash,
+    })
+    const a = report(step(start({}), OFFLINE_CAP_TICKS))
+    const b = report(step(start({ stone: 'sell', coal: 'keep', copperOre: 'sell', ironOre: 'sell', goldOre: 'sell' }), OFFLINE_CAP_TICKS))
+    console.log('PIN162b', JSON.stringify({ a, b }))
+    expect(b.mines).toBeGreaterThan(5 * a.mines)
+    expect(b.coal).toBeGreaterThan(a.coal)
+  }, 120_000)
 })

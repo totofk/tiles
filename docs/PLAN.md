@@ -4943,7 +4943,7 @@ in batch 32. Toon also folded in three UI nits found in the batch 28 live check.
 
 Worker: **Opus**, `--max-turns 100`. Commits: one per task, `feat: batch 28.2 task N — …`.
 
-- [ ] 159. **Core + save v22.**
+- [x] 159. **Core + save v22.**
   a) State: `run.oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>`, where `MineDropId` = the five vein drops
      `stone | coal | copperOre | ironOre | goldOre` (derive the type from the `VEIN_DROPS` keys or list them once
      in `balance.ts`). A missing key = that kind is locked. It is run state: prestige resets it to `{}` like the
@@ -4969,7 +4969,7 @@ Worker: **Opus**, `--max-turns 100`. Commits: one per task, `feat: batch 28.2 ta
      toggled; a Sell stone drop on a FULL storage succeeds, adds `itemSellPrice('stone')` cash and `sales + 1`, and
      leaves the inventory unchanged; a Keep kind on a full storage still fails BAG_FULL; with the same rng seed, the
      Sell and Keep runs make identical rolls (same next rock); prestige clears `oreSort`.
-- [ ] 160. **Mine card UI.**
+- [x] 160. **Mine card UI.**
   a) Sell list (`Mine.tsx:433–…`, `.item-grid`): add a 6th column (`auto`) to `.item-grid`'s template (app.css
      `.item-grid`, today 5 columns). For an unlocked vein-drop row, it holds a toggle button: text `Keep` or
      `Sell on dig`, `aria-pressed` true on Sell, min 44 px tall, the same `.item-row` subgrid. Other rows get an
@@ -4984,7 +4984,7 @@ Worker: **Opus**, `--max-turns 100`. Commits: one per task, `feat: batch 28.2 ta
   d) Tests (`tests/Mine.test.tsx`): vein Lv2 shows no sorting group; vein Lv3 shows 5 unlock rows; unlocking
      stone moves it to a `Keep` toggle in the sell list and removes its unlock row; clicking the toggle flips
      `aria-pressed` and the state; the 6-column grid renders an empty cell on the wood row.
-- [ ] 161. **Batch 28 UI nits** (found live 2026-11-11 by Hermes, all `src/app`).
+- [x] 161. **Batch 28 UI nits** (found live 2026-11-11 by Hermes, all `src/app`).
   a) `Estate.tsx:127`: `1 plot to sow`, otherwise `{n} plots to sow`. Grep `src/app` for other `plots` chips with a
      count; if one exists, give it the same singular rule. Test n = 1 and n = 2.
   b) Workshop (`Workshop.tsx:63–67`): the one-line sprinkler status sits alone in a `.gauge-grid`, whose first
@@ -4994,7 +4994,7 @@ Worker: **Opus**, `--max-turns 100`. Commits: one per task, `feat: batch 28.2 ta
   c) Two-tab banner (`App.tsx:159–162`, `.banner`): at 375 px the `Reload` label overflows its button. The button
      gets `flex: none; white-space: nowrap`, and the text span `min-width: 0` so the text wraps instead. If
      `.banner` is not a flex row, use the equivalent grid rule; say which in Deviations.
-- [ ] 162. **Sim + docs.**
+- [x] 162. **Sim + docs.**
   a) Cash part: in `tests/sim.test.ts`, measure the batch-16 ladder bot's net cash per hour in its first hour that
      owns vein Lv3 (the same bot and options as the "Batch 16 results" vein-Lv4 phase measure that
      `balance.ts:137–138` cites). `ORE_SORT_CASH` = 0.5 h of it, rounded to 💰500 (minimum 💰500). Pin the measured
@@ -5017,3 +5017,56 @@ prestige — reset with the run (like vein and storage); migration — v22 adds 
 375 px — the toggle column in the subgrid; two tabs — nothing new; touches — the miner worker, the fuel loader (coal
 stays Keep, so it feeds the tank), Sell all (coal now excluded), sales counters and lifetime income, batch 32
 (Keep N extends this state).
+
+## Batch 28.2 results
+
+Commits: 159 `1689e78`, 160 `f9c8f1c`, 161 `3f21b67`, 162 (this commit). Not pushed.
+
+**162a — cash part** (`tests/sim.test.ts` "batch 28.2: ore sorting cash part", log `PIN162a`): the batch-16 ladder
+bot (same options as the "Batch 16 results" vein-Lv4 phase measure, `rules.batch13` on, 12 h) reaches vein Lv3 at
+minute 93 with storage 50. Its income in the first hour on vein Lv3 (`lifetime.cashEarned` delta over 3600 ticks) is
+**💰12 842/h**. `ORE_SORT_CASH` = 0.5 × 12 842 = 6 421 → **💰6 500** (rounded to 💰500, above the 💰500 minimum),
+the same for every kind. Every unlock's item count (stone 30, coal / copper / iron ore 15, gold ore 10) ≤ the
+storage 50 at that tick. Pinned: `{ incomePerHour: 12842, cash: 6500 }`.
+
+**162b — the miner pin** (`tests/sim.test.ts` "batch 28.2: sell on dig", log `PIN162b`): the real v21 fixture, one
+more pool worker set on `mine`, the Fields tank emptied, `step` for 8 h (`OFFLINE_CAP_TICKS`); coal = storage + tank.
+
+| run | oreSort | mines | coal (storage + tank) | cash gained |
+|---|---|---|---|---|
+| A | `{}` | 25 | 0 | 💰1 654 156 |
+| B | coal Keep, the other four Sell | 1 624 | 253.26 | 💰2 492 392 |
+
+B mines 65× A (pin: > 5×) and ends with more coal (pin: B > A). A's miner idles once its 14 free slots fill.
+
+**162c**: every existing sim pin stayed green unchanged (full `pnpm test`: 50 files, 909 passed incl. the two
+batch 28.2 sims, 5 expected fail; `pnpm lint`, `pnpm build` and `tsc -b --force` clean). No re-pin.
+
+### Deviations
+
+- 159a: `MINE_DROP_IDS` is listed once in `balance.ts` (with `MineDropId` derived from it), next to `VEIN_DROPS`; the
+  vein Lv3 gate is `oreSortVeinLevel()` there too, not a literal 3 in `mining.ts`.
+- 159e: past save shapes stay frozen: `RunV21 = Omit<RunState, 'oreSort'>` and `RunV20` now derives from it, so the
+  live `oreSort` field does not leak into the v20/v21 types. Save tests that hard-coded version 21 as "latest" now
+  read `SAVE_VERSION` (or 22); `asV12` strips `oreSort` like the other post-v12 fields.
+- 160a: the 6th column is on a Mine-only modifier, `.item-grid.mine-grid`, not on `.item-grid` itself: the seed
+  pouch (Farm.tsx) shares `.item-grid` with 5 cells per row and would have gained an empty column and gap. Values
+  are the plan's (`auto`, 44 px, same subgrid).
+- 160a: an unlocked vein-drop row stays in the sell list at ×0 (its sell 1 / sell all buttons are disabled there).
+  Without this a Sell kind, always at 0 in storage, would lose its row and its toggle could never be switched back.
+- 160a: in the narrow two-line mode (container ≤ 359 px) the toggle takes a third line spanning the row (only on rows
+  that have one, via `:has(> .sort-toggle)`); the empty 6th cell of other rows is `display: none` there.
+- 160b: the unlock row is a `.sort-row` (label span + `Unlock` button, `<small> — {ERROR_TEXT}</small>` when
+  disabled); `p.hint` stays unstyled like the Workshop's existing hint (no new `.hint` rule).
+- 161a: the other count chip with `plots` is the 🚜 Fields summary card (`Fields.tsx`, "N plots"); it got the same
+  singular rule and a "1 plot" test. The Estate row's `n/5 plots` is a fraction, left plural.
+- 161c: `.banner` is a flex row, so the flex rule was used: `.banner button { flex: none; white-space: nowrap }`
+  and `.banner > span { min-width: 0 }`.
+- 162b: hiring fails with POOL_FULL on the v21 fixture (pool 6, all assigned, at its cap), so the test sets
+  `pool + 1` and `mine + 1` directly in the test state, as the plan allows. Both runs use plain `step` (no
+  `rules.batch13`), like the save tests' 8 h pins.
+- 162a: "net cash per hour" is measured as `lifetime.cashEarned` per hour (income), the same quantity as the
+  batch-16 vein-Lv4 phase measure it cites.
+- Not verified (no browser; jsdom has no layout): the 6-column sell list and its narrow mode, the `.sort-row` wrap,
+  the Workshop hint at 1024 px and the Reload button at 375 px. Hermes re-measures live at 375 / 1024 / 1440 / 2560 /
+  3440.
