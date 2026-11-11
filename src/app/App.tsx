@@ -25,7 +25,7 @@ import { Workshop } from './Workshop'
 const TAP_GUARD_MS = 400
 
 export default function App() {
-  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, minerActed, frozen } = useGame()
+  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, minerActed, frozen, rates } = useGame()
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
@@ -144,7 +144,7 @@ export default function App() {
   return (
     <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed && !wide ? ' panel-collapsed' : ''}`} data-view={view}>
       <div className="top">
-        <Hud state={state} />
+        <Hud state={state} rates={rates} />
         <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
           🛒 Shop
           {(badge('shop') || badge('upgrades')) && <span className="badge-dot" aria-hidden="true" />}

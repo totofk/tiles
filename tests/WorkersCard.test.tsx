@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { FarmGrid } from '../src/app/FarmGrid'
 import { Hud } from '../src/app/Hud'
-import { bannerText, type Act } from '../src/app/useGame'
+import { bannerText, pushRate, ratesPerHour, type Act, type RateSample } from '../src/app/useGame'
 import { Workers } from '../src/app/Workers'
 import { workerHireCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
@@ -62,6 +63,55 @@ describe('batch 29: the 💼 Manager row', () => {
   it('owned, none assigned: no plan line', () => {
     setup({ workers: { pool: 1, assigned: createInitialState().run.workers.assigned, certificates: ['manager'] } })
     expect(managerRow().querySelector('small')).toBeNull()
+  })
+})
+
+describe('batch 31.1 task 165: HUD time and income / wages per hour', () => {
+  it('window math: last 600 ticks, hidden under 60, scaled to an hour, a tick going back starts over', () => {
+    let win: RateSample[] = []
+    for (let t = 0; t <= 59; t++) win = pushRate(win, { tick: t, cashEarned: 10 * t, wagesPaid: t })
+    expect(ratesPerHour(win)).toBeNull()
+    win = pushRate(win, { tick: 60, cashEarned: 600, wagesPaid: 60 })
+    expect(ratesPerHour(win)).toEqual({ income: 36_000, wages: 3_600 })
+    for (let t = 61; t <= 1000; t++) win = pushRate(win, { tick: t, cashEarned: 10 * t + (t > 400 ? 10 * (t - 400) : 0), wagesPaid: t })
+    expect([win[0]!.tick, win.length]).toEqual([400, 601])
+    expect(ratesPerHour(win)).toEqual({ income: 72_000, wages: 3_600 })
+    win = pushRate(win, { tick: 5, cashEarned: 0, wagesPaid: 0 })
+    expect([win.length, ratesPerHour(win)]).toEqual([1, null])
+  })
+
+  it('375 px: the v22 save with rates — ⏱ reads 8h 39m 06s, rates sit in the 👷 title, and the inline rates would not fit one line', () => {
+    const loaded = deserialize(v22)!.state
+    render(<Hud state={loaded} rates={{ income: 385_500, wages: 1_240 }} />)
+    const hud = document.querySelector<HTMLElement>('.hud')!
+    expect(hud.textContent).toContain('⏱ 8h 39m 06s')
+    expect(screen.getByTitle('Harvest and sale income, last 10 game-minutes').textContent).toBe('+≈💰386k/h')
+    expect(screen.getByTitle('Wages paid, last 10 game-minutes').textContent).toBe('−≈💰1,240/h')
+    expect(screen.getByText(/^👷/).title).toBe(
+      'Workers hired\nHarvest and sale income, last 10 game-minutes: +≈💰386k/h\nWages paid, last 10 game-minutes: −≈💰1,240/h',
+    )
+    // jsdom has no layout: estimate 600-weight 15 px text at 8.4 px a character, 20 px an emoji, 8 px gaps;
+    // the budget is 375 − the app and HUD paddings (2 × 8 + 2 × 8) = 343 px
+    const width = (spans: HTMLElement[]) =>
+      spans.reduce((w, s) => w + [...s.textContent!].reduce((a, ch) => a + (ch.codePointAt(0)! > 0x2600 ? 20 : 8.4), 0), 8 * (spans.length - 1))
+    const spans = [...hud.querySelectorAll<HTMLElement>(':scope > span')]
+    const without = width(spans.filter((s) => !s.classList.contains('hud-rate')))
+    const withRates = width(spans)
+    console.log('PIN311hud', JSON.stringify({ without: Math.round(without), withRates: Math.round(withRates), budget: 343 }))
+    expect(withRates).toBeGreaterThan(343)
+    const css = readFileSync('src/app/app.css', 'utf8')
+    expect(css).toMatch(/@media \(max-width: 767px\) {[^@]*\.hud-rate {\s*display: none;/s)
+  })
+
+  it('no rates without workers, and none until the window spans a minute', () => {
+    const s = createInitialState()
+    render(<Hud state={s} rates={{ income: 1000, wages: 0 }} />)
+    expect(document.querySelector('.hud-rate')).toBeNull()
+    cleanup()
+    const hired = { ...s, run: { ...s.run, workers: { ...s.run.workers, pool: 1 } } }
+    render(<Hud state={hired} rates={null} />)
+    expect(document.querySelector('.hud-rate')).toBeNull()
+    expect(screen.getByText(/^👷/).title).toBe('Workers hired')
   })
 })
 

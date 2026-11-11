@@ -114,6 +114,27 @@ const TOAST_MS = 2000
 const LOOP_MS = 250
 const SAVE_DEBOUNCE_MS = 1000
 
+/** batch 31.1 (task 165b): the HUD's trailing rate window, kept in the app (never the save) */
+export type RateSample = { tick: number; cashEarned: number; wagesPaid: number }
+export type Rates = { income: number; wages: number }
+const RATE_WINDOW_TICKS = 600
+const RATE_MIN_TICKS = 60
+
+/** the window with `s` appended, trimmed to the last 600 ticks; a tick that went back (reset, sale) starts it over */
+export function pushRate(win: RateSample[], s: RateSample): RateSample[] {
+  const kept = win.length > 0 && s.tick < win[win.length - 1]!.tick ? [] : win
+  return [...kept.filter((x) => x.tick >= s.tick - RATE_WINDOW_TICKS), s]
+}
+
+/** income (Δ cashEarned) and wages (Δ wagesPaid) scaled to an hour; null until the window spans 60 ticks */
+export function ratesPerHour(win: RateSample[]): Rates | null {
+  const a = win[0]
+  const b = win[win.length - 1]
+  if (!a || !b || b.tick - a.tick < RATE_MIN_TICKS) return null
+  const perHour = 3600 / (b.tick - a.tick)
+  return { income: (b.cashEarned - a.cashEarned) * perHour, wages: (b.wagesPaid - a.wagesPaid) * perHour }
+}
+
 /** okToast: text to show when the action succeeds (null = no toast) */
 export type Act = (fn: (s: GameState) => ActionResult, okToast?: (prev: GameState, next: GameState) => string | null) => void
 
@@ -138,6 +159,9 @@ export function useGame() {
   const [worked, setWorked] = useState<WorkTouch[]>([])
   const [minerActed, setMinerActed] = useState(false)
   const saveTimer = useRef<number | undefined>(undefined)
+  // empty on load; cleared on import and offline catch-up (a jump that is not 10 game-minutes of play)
+  const rateWin = useRef<RateSample[]>([])
+  const [rates, setRates] = useState<Rates | null>(null)
 
   const showToast = useCallback((text: string) => {
     setToast(text)
@@ -213,6 +237,8 @@ export function useGame() {
     (save: Save): ImportResult => {
       saveGame(localStorage, stateRef.current)
       frozenRef.current = true
+      rateWin.current = []
+      setRates(null)
       window.clearTimeout(saveTimer.current)
       saveTimer.current = undefined
       const r = commitImport(localStorage, save)
@@ -249,6 +275,9 @@ export function useGame() {
       setActed(touches.filter((t): t is WorkerTarget => t.tile !== undefined))
       setWorked(touches)
       setMinerActed(crossed && after.run.lifetime.workerMines > before.run.lifetime.workerMines)
+      const { cashEarned, wagesPaid } = after.run.lifetime
+      rateWin.current = pushRate(rateWin.current, { tick: after.run.tick, cashEarned, wagesPaid })
+      setRates(ratesPerHour(rateWin.current))
       commit(after)
     }, LOOP_MS)
     return () => window.clearInterval(id)
@@ -287,6 +316,8 @@ export function useGame() {
       if (offlineTicks(awayMs) < 1) return
       const before = stateRef.current
       const caught = catchUp(before, awayMs)
+      rateWin.current = []
+      setRates(null)
       setActed([])
       setWorked([])
       setMinerActed(false)
@@ -306,5 +337,5 @@ export function useGame() {
     }
   }, [commit])
 
-  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, minerActed, frozen }
+  return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, minerActed, frozen, rates }
 }

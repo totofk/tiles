@@ -139,6 +139,10 @@ body {
   .app:not([data-view='panel']) > .panel {
     display: none;
   }
+  /* batch 31.1 (task 165c): the HUD rates do not fit 375 px on one line; the 👷 title carries them */
+  .hud-rate {
+    display: none;
+  }
 }
 
 /* ---- tablet: Farm + Mine side by side, side panel as a slide-over ---- */
@@ -289,7 +293,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* wraps only when the spans do not fit one line (375 px with ⭐, a loan and a 5-digit tick ≈ 394 px > 343) */
+/* wraps only when the spans do not fit one line (375 px with ⭐, 👷 and ⏱ 8h 39m 06s ≈ 389 px > 343, batch 31.1) */
 .hud {
   display: flex;
   flex-wrap: wrap;
