@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
-import { itemSellPrice, pickaxeDurability } from '../src/core/balance'
+import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { createFurnace, createInitialState, type GameState } from '../src/core/state'
 
@@ -338,15 +338,14 @@ describe('Mine panel', () => {
     expect(dig().querySelector('.cell-pop')!.textContent).toBe('⛏️')
   })
 
-  it('when storage is full, sells stone and coal from the panel and keeps the wood', () => {
+  it('when storage is full, sells the stone from the panel and keeps the wood and the coal (it fuels the Fields tank)', () => {
     const t = setup({ cash: 0, inventory: { stone: 15, coal: 3, wood: 2 } })
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('Storage is full')
-    const meta = t.get().meta
-    const value = 15 * itemSellPrice('stone', meta, 0) + 3 * itemSellPrice('coal', meta, 0)
-    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} ⚫ 💰${value}$`) }))
+    const value = 15 * itemSellPrice('stone', t.get().meta, 0)
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} 💰${value}$`) }))
     t.rerender()
     expect(t.get().run.cash).toBe(value)
-    expect(t.get().run.inventory).toEqual({ stone: 0, coal: 0, wood: 2 })
+    expect(t.get().run.inventory).toEqual({ stone: 0, coal: 3, wood: 2 })
     expect(screen.queryByRole('button', { name: /^Sell all/ })).toBeNull()
   })
 
@@ -357,7 +356,8 @@ describe('Mine panel', () => {
     // the price-each column, ×N count and both sell buttons; every mine item is sellable since bars joined
     expect(barRow().textContent).toBe(`${BAR} Copper bar×2💰2sell 1sell all`)
     const woodRow = () => screen.getByText(`${WOOD} Wood`).closest('.item-row')!
-    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all'])
+    // batch 28.2: the 6th column (Keep / Sell on dig) is an empty cell on rows that are not an unlocked vein drop
+    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all', ''])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell 1' }))
     t.rerender()
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([2, 1])
@@ -366,11 +366,12 @@ describe('Mine panel', () => {
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([4, 0])
   })
 
-  it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 5 cells, the recipe is two lines', () => {
+  it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 6 cells, the recipe is two lines', () => {
     setup({ furnace: built, inventory: { copperBar: 2, wood: 1 } })
     // both users render through the wrapper: the sell list here, the seed pouch in the Farm tab (Shop tests)
     expect(document.querySelector('.mine .item-grid-wrap .item-grid')).toBeTruthy()
-    for (const row of document.querySelectorAll('.mine .item-row')) expect(row.children).toHaveLength(5)
+    // batch 28.2: name | count | extra | sell 1 | sell all | Keep / Sell on dig
+    for (const row of document.querySelectorAll('.mine .item-row')) expect(row.children).toHaveLength(6)
     const recipe = document.querySelector('.mine-furnace .furnace-recipe')!
     const stock = document.querySelector('.mine-furnace .furnace-stock')!
     expect(recipe.textContent).toBe(`${ORE}2 + ⚫1 or ${WOOD}2 → ${BAR}1 · 60 s`)
@@ -387,5 +388,56 @@ describe('Mine panel', () => {
     t.rerender()
     expect(t.get().run.cash).toBe(value)
     expect(t.get().run.inventory).toEqual({ stone: 0, copperBar: 5 })
+  })
+})
+
+describe('batch 28.2: 🧺 ore sorting', () => {
+  const vein = (level: number) => ({ level, progress: 0, rock: 'stone' as const })
+  const group = () => screen.queryByRole('heading', { name: '🧺 Ore sorting' })?.parentElement ?? null
+  const unlockRows = () => [...(group()?.querySelectorAll('.sort-row') ?? [])].map((r) => r.querySelector('span')!.textContent)
+
+  it('vein Lv2 shows no sorting group; vein Lv3 shows 5 unlock rows with their price and the hint', () => {
+    setup({ vein: vein(2) })
+    expect(group()).toBeNull()
+    cleanup()
+    const t = setup({ vein: vein(3) })
+    const cash = oreSortUnlockCost('stone', t.get().meta).cash
+    expect(unlockRows()).toEqual([
+      `Sell ${STONE} Stone on dig — ${STONE}⁠30 💰⁠${cash}`,
+      `Sell ⚫ Coal on dig — ⚫⁠15 💰⁠${cash}`,
+      `Sell ${ORE} Copper ore on dig — ${ORE}⁠15 💰⁠${cash}`,
+      `Sell ${IRON_ORE} Iron ore on dig — ${IRON_ORE}⁠15 💰⁠${cash}`,
+      `Sell ${ITEMS.goldOre.emoji} Gold ore on dig — ${ITEMS.goldOre.emoji}⁠10 💰⁠${cash}`,
+    ])
+    expect(group()!.textContent).toContain('Unlocked kinds can be sold the moment you dig them, so the miner never stops on a full storage.')
+    // disabled with the action's reason, in the craft rows' shape
+    expect(within(group()!).getAllByRole('button')[0].textContent).toBe('Unlock — Not enough items')
+  })
+
+  it('unlocking stone moves it to a Keep toggle in the sell list; the toggle flips aria-pressed and the state', () => {
+    const cash = oreSortUnlockCost('stone', createInitialState().meta).cash
+    const t = setup({ vein: vein(3), cash, inventory: { stone: 30 }, bagCapacity: 60 })
+    fireEvent.click(within(group()!).getAllByRole('button')[0])
+    t.rerender()
+    expect(t.get().run.oreSort).toEqual({ stone: 'keep' })
+    expect(unlockRows()).toHaveLength(4)
+    expect(unlockRows()[0]).toContain('Coal')
+    // the stone row stays at ×0 so its toggle is reachable
+    const row = screen.getByText(`${STONE} Stone`).closest('.item-row') as HTMLElement
+    const toggle = () => within(row).getByRole('button', { name: /^(Keep|Sell on dig)$/ })
+    expect([toggle().textContent, toggle().getAttribute('aria-pressed')]).toEqual(['Keep', 'false'])
+    fireEvent.click(toggle())
+    t.rerender()
+    expect(t.get().run.oreSort).toEqual({ stone: 'sell' })
+    expect([toggle().textContent, toggle().getAttribute('aria-pressed')]).toEqual(['Sell on dig', 'true'])
+    fireEvent.click(toggle())
+    t.rerender()
+    expect(t.get().run.oreSort).toEqual({ stone: 'keep' })
+  })
+
+  it('the group is hidden once every kind is unlocked', () => {
+    setup({ vein: vein(4), oreSort: { stone: 'sell', coal: 'keep', copperOre: 'sell', ironOre: 'sell', goldOre: 'sell' } })
+    expect(group()).toBeNull()
+    expect(screen.getAllByRole('button', { name: /^(Keep|Sell on dig)$/ })).toHaveLength(5)
   })
 })

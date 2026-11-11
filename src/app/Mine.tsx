@@ -30,7 +30,11 @@ import {
   veinDrops,
   veinUpgradeCost,
   woodCost,
+  MINE_DROP_IDS,
+  oreSortUnlockCost,
+  oreSortVeinLevel,
   type FurnaceUpgradeId,
+  type MineDropId,
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
@@ -48,6 +52,8 @@ import {
   minedRock,
   repairPickaxe,
   sellItem,
+  setOreSort,
+  unlockOreSort,
   upgradeVein,
 } from '../core/mining'
 import type { GameState } from '../core/state'
@@ -60,7 +66,11 @@ import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 type OreTier = 'copper' | 'iron' | 'gold'
 const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore`] ?? 0) > 0
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs, bars pay for upgrades (batch 24) */
-const SELL_WHEN_FULL = ITEM_IDS.filter((id) => isSellable(id) && id !== 'wood' && !ORE_IDS.map(oreBar).includes(id))
+const SELL_WHEN_FULL = ITEM_IDS.filter(
+  // coal fuels the Fields tank (batch 28)
+  (id) => isSellable(id) && id !== 'wood' && id !== 'coal' && !ORE_IDS.map(oreBar).includes(id),
+)
+const isMineDrop = (id: ItemId): id is MineDropId => (MINE_DROP_IDS as ReadonlyArray<ItemId>).includes(id)
 
 /** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
 const SMELT_SHORT: Partial<Record<ActionError, string>> = {
@@ -428,34 +438,66 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{woodCost(meta)}
       </button>
-      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all; the columns
-          live on the container, rows are subgrids; the wrap is the container the two-line mode queries */}
+      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all | sort; the columns
+          live on the container, rows are subgrids; the wrap is the container the two-line mode queries. An unlocked
+          vein drop keeps its row at ×0, so its Sell on dig toggle stays reachable (batch 28.2) */}
       <div className="item-grid-wrap">
-        <div className="item-grid">
-          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => (
-            <div key={id} className="item-row">
-              <span className="item-name">
-                <span className="item-label">
-                  {ITEMS[id].emoji} {ITEMS[id].name}
+        <div className="item-grid mine-grid">
+          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0 || (isMineDrop(id) && run.oreSort[id])).map((id) => {
+            const n = run.inventory[id] ?? 0
+            const mode = isMineDrop(id) ? run.oreSort[id] : undefined
+            return (
+              <div key={id} className="item-row">
+                <span className="item-name">
+                  <span className="item-label">
+                    {ITEMS[id].emoji} {ITEMS[id].name}
+                  </span>
                 </span>
-              </span>
-              <span className="item-count">×{run.inventory[id]}</span>
-              <span className="item-extra">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
-              {isSellable(id) ? (
-                <>
-                  <button onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
-                  <button onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
-                </>
-              ) : (
-                <>
+                <span className="item-count">×{n}</span>
+                <span className="item-extra">{isSellable(id) ? `💰${itemSellPrice(id, meta, run.upgrades.sellPrice)}` : ''}</span>
+                {isSellable(id) ? (
+                  <>
+                    <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
+                    <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
+                  </>
+                ) : (
+                  <>
+                    <span />
+                    <span />
+                  </>
+                )}
+                {mode && isMineDrop(id) ? (
+                  <button className="sort-toggle" aria-pressed={mode === 'sell'} onClick={() => act((s) => setOreSort(s, id, mode === 'sell' ? 'keep' : 'sell'))}>
+                    {mode === 'sell' ? 'Sell on dig' : 'Keep'}
+                  </button>
+                ) : (
                   <span />
-                  <span />
-                </>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
+      {run.vein.level >= oreSortVeinLevel() && MINE_DROP_IDS.some((k) => !run.oreSort[k]) && (
+        <div className="group">
+          <h3>🧺 Ore sorting</h3>
+          {MINE_DROP_IDS.filter((k) => !run.oreSort[k]).map((kind) => {
+            const r = unlockOreSort(state, kind)
+            return (
+              <div key={kind} className="sort-row">
+                <span>
+                  Sell {ITEMS[kind].emoji} {ITEMS[kind].name} on dig — {priceText(oreSortUnlockCost(kind, meta))}
+                </span>
+                <button disabled={!r.ok} onClick={() => act((s) => unlockOreSort(s, kind))}>
+                  Unlock
+                  {!r.ok && <small> — {ERROR_TEXT[r.error]}</small>}
+                </button>
+              </div>
+            )
+          })}
+          <p className="hint">Unlocked kinds can be sold the moment you dig them, so the miner never stops on a full storage.</p>
+        </div>
+      )}
     </section>
   )
 }

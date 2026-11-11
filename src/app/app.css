@@ -1526,6 +1526,42 @@ details > summary:focus-visible {
   .item-row > :nth-child(5) {
     grid-area: b2;
   }
+  /* batch 28.2: the Keep / Sell on dig toggle takes a third line; rows without one drop their empty cell */
+  .item-row:has(> .sort-toggle) {
+    grid-template-areas: 'name name count' 'extra b1 b2' 'sort sort sort';
+  }
+  .item-row > .sort-toggle {
+    grid-area: sort;
+  }
+  .item-row > span:nth-child(6) {
+    display: none;
+  }
+}
+/* batch 28.2: the Mine's sell list adds a 6th column, the Keep / Sell on dig toggle (the seed pouch keeps 5) */
+.mine-grid {
+  grid-template-columns: minmax(0, 1fr) auto auto 64px 64px auto;
+}
+.item-row > .sort-toggle {
+  min-height: 44px;
+  padding: 0 var(--s2);
+  white-space: nowrap;
+}
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.sort-row > span {
+  flex: 1;
+  min-width: 0;
+}
+.sort-row > button {
+  min-height: 44px;
+}
+.hint {
+  margin: 0;
+  font-size: 13px;
+  color: #555;
 }
 .item-name {
   min-width: 0;
