@@ -615,3 +615,11 @@ a soft lock older than batch 28. Fix is systemic, not a gift: a blunt pickaxe ma
 its normal craft price (same tier = repair, which is cheaper). Copper rock needs no pickaxe, so hand → copper → iron →
 gold always exists. The Mine card shows the craft-instead row only while the pickaxe is blunt and the repair is
 unaffordable. No save change. Spec: PLAN.md "Batch 28.1" (task 158).
+
+## Pivot recipe stays 3 Au; PIN28a measures purchases (2026-11-11, Toon: "ok")
+
+The batch 28 worker blamed the 1,188 game-minute gap pump1 → plots30 on pivots waiting for gold. A Hermes probe of
+the batch 19/28 ladder (`571815a`) showed every pivot bought the moment cash reached its price, with 5 Au and 6 Fe in
+hand; cash bound every plot and pivot, one every 47–58 min. The gap was PIN28a counting only milestones and rungs.
+Decision: keep the pivot recipe (3 Au + 6 Fe + 6 Cu, kin to the sprinkler); batch 29 makes PIN28a count purchases.
+The real longest waits are saving for pump1 (228 min) and pump2 (233 min); pump prices are looked at after that.

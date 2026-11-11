@@ -4531,6 +4531,14 @@ Rules (every task):
 - [ ] 151. **Chips wiring + sim.** The crop sheet shows marginal 💰/h per crop for this field from Field 1, the price
   factor and 🏡 n/50. With no Manager and no chip, the field waits and the strip says why. Sim: Manager ≥ 0.99 × best
   fixed plan at base levels, at sell 5 + fert 5, and with renown floors; report best / Manager / mono / old rule.
+  - Carried in from the batch 28 verification (Toon "ok", 2026-11-11): PIN28a ("no milestone gap over 60
+    game-minutes from the Tractor to Pump 2") also counts every plot, pivot, pump and machine purchase as a mark — it
+    counted only milestones and ladder rungs, so pump1 → plots30 read as a 1,188-min gap while the bot bought a plot or
+    pivot every 47–58 min (Hermes probe, cash bound every purchase, gold never did). Re-measure and re-title the
+    `it.fails` with the new longest gap (expected ≈ 228–233 min: saving for pump1 / pump2). Pivot recipe unchanged.
+  - Sim bot gap from batch 28.1 deviation 3: add `plots10` (the pivot rung) to `smeltsFor` and the furnace-kind
+    chooser so the bot smelts the gold ore it holds into the pivot's 3 Au; re-run the batch 20 / 22 "reach
+    harvester3" `it.fails` pins and re-pin batch 18 / 19 if they move (old → new).
 
 ---
 
