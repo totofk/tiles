@@ -198,11 +198,17 @@ export function useGame() {
       const before = stateRef.current.run
       const prev = before.counters
       const fresh = UPGRADE_IDS.filter((id) => upgradeUnlocked(id, s.run.counters) && !upgradeUnlocked(id, prev))
-      const hires = WORKER_JOBS.filter((job) => certificateUnlocked(s.run, job) && !certificateUnlocked(before, job))
+      // a kept certificate (Sell the farm's keep row) re-crosses its counter gate in the next run: not news
+      const hires = WORKER_JOBS.filter(
+        (job) => certificateUnlocked(s.run, job) && !certificateUnlocked(before, job) && !s.run.workers.certificates.includes(job),
+      )
       stateRef.current = s
       setState(s)
-      if (fresh.length) showToast(`New upgrade: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`)
-      if (hires.length) showToast(`New worker: ${hires.map((job) => WORKER_JOB_LABEL[job]).join(', ')}`)
+      const text = [
+        fresh.length > 0 && `New upgrade: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`,
+        hires.length > 0 && `New worker: ${hires.map((job) => WORKER_JOB_LABEL[job]).join(', ')}`,
+      ].filter(Boolean)
+      if (text.length) showToast(text.join(' · '))
     },
     [showToast],
   )

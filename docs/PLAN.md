@@ -5703,7 +5703,8 @@ Toon's own save held 💰15M, so the 💰 part of a late certificate must be siz
 
 ## Batch 31.1 results (2026-11-12)
 
-Tasks 163–166 done, one commit each (`4251028`, `e6ca2a8`, `d2b2b64`, `189b246`), all on `main`, not pushed.
+Tasks 163–166 done, one commit each (`4251028`, `e6ca2a8`, `d2b2b64`, `189b246`) plus a 166 follow-up fix and
+this results commit, all on `main`, not pushed.
 SAVE_VERSION stays 23; no fixture edited; the only balance change is the Manager certificate (163c).
 
 - **163.** `fillOrder` counts every completed contract in `counters.contractsByHand` (now "contracts delivered"),
@@ -5739,12 +5740,13 @@ SAVE_VERSION stays 23; no fixture edited; the only balance change is the Manager
   tier). `DEFAULT_UI.seen` gains `farm: []`, `mine: []`; `parseUi` already falls back per tab, so an old `tiles.ui`
   loads with empty lists (tested). Phone: the 🌱 Farm / ⛏️ Mine nav items dot until that view is open; tablet and
   desktop mark them seen while the card is on screen. A certificate that unlocks toasts `New worker: 🌾 Harvest` (names
-  joined) once. A manual Buy ×1 / ×10 of another crop also runs `selectCrop` in the same act and toasts
+  joined) once; it shares one toast with a same-commit upgrade unlock (`New upgrade: … · New worker: …`), and a
+  certificate already owned (the keep row carries plant / water / harvest into the next run) is not news. A manual Buy ×1 / ×10 of another crop also runs `selectCrop` in the same act and toasts
   `Now planting 🥕 Carrot`; auto-buy never switches (tested on `plant`).
 - **Re-pins (old → new, cause):** batch 29 "unlock path" — `contractsByHand` 3 → **10** (the test now starts at 7
   delivered and hand-reaps 3) and the price `{ goldBar: 4, cash: 500000 }` → `{ goldBar: 4, stars: 40, cash: 1500000 }`
   — the Manager unlocks at 10 contracts delivered (163c). No other pin moved.
-- Gates before each commit: `pnpm test` (52 → 53 files; 982 → 1013 passed + 3 expected fail at the 166 commit),
+- Gates before each commit: `pnpm test` (52 → 53 files; 982 → 1013 passed + 3 expected fail at the 166 commit, 1014 at the 166 fix),
   `pnpm lint` clean, `pnpm build` clean; at the end `rm` tsbuildinfo + `tsc -b --force` clean. Purity grep
   `Date.now|react` over `src/core` and `src/save`: only the known `src/save/storage.ts:26`. Case/extension collision
   check prints nothing.
@@ -5780,6 +5782,9 @@ SAVE_VERSION stays 23; no fixture edited; the only balance change is the Manager
   the fix only `tests/stats.test.ts` was rerun before committing. Every later full run (164, 165, 166) passed all
   files, including that one.
 - Not verified (no browser, jsdom only): the HUD at 375 / 1024 / 1440 / 2560 / 3440 with the rates (the hidden spans
-  on phones, the inline spans on wider layouts, the 👷 title tooltip), the 🌱 / ⛏️ dots on a real phone, the toast
-  sequence when an upgrade and a worker unlock on the same commit (the second toast replaces the first), and the
+  on phones, the inline spans on wider layouts, the 👷 title tooltip), the 🌱 / ⛏️ dots on a real phone, and the
   live v22 save. Hermes re-measures.
+- 166 has two commits: a review after `189b246` found that (a) a worker toast in the same commit as an upgrade toast
+  replaced it, and (b) a vault run toasted a certificate it already owned. The fix (one joined toast; owned
+  certificates skipped; a test for the owned case) is a separate `fix: batch 31.1 task 166` commit, not folded in,
+  because history is not rewritten here.

@@ -110,6 +110,19 @@ describe('batch 31.1 task 166: 🌱 Farm / ⛏️ Mine dots, the unlock toast, a
     }
   })
 
+  it('a certificate already owned (Sell the farm keep row) that re-crosses its gate neither toasts nor dots', () => {
+    const s = createInitialState()
+    const ripe = { status: 'planted' as const, cropId: 'radish' as const, growth: cropGrowTicks('radish', s.meta, 0), moisture: 0, ticksSinceMature: 0 }
+    const workers = { ...s.run.workers, certificates: ['harvest' as const] }
+    const run = { ...s.run, tiles: [ripe, ...s.run.tiles.slice(1)], tools: { ...s.run.tools, harvest: 3 }, counters: { ...s.run.counters, harvests: 39 }, workers }
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run }, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'mine', pulledBack: true }))
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /Mature — harvest!/ }))
+    expect(toastText()).not.toContain('New worker')
+    expect(hasDot(mobileTab(/Farm/))).toBe(false)
+  })
+
   // the 🥕 Carrot's id is `radish`
   it('buying carrot seeds while pumpkin is selected switches to carrot and toasts', () => {
     const s = createInitialState()
