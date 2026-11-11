@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { harvest, type ActionResult } from '../src/core/actions'
+import { harvest, nextRandom, type ActionResult } from '../src/core/actions'
+import { fieldsHarvest, reapPlot } from '../src/core/fields'
+import { cropSale } from '../src/core/market'
 import type { CropId } from '../src/core/data/crops'
 import {
+  FIELD_PRESSURE,
   certificateCost,
+  contractWetShare,
   cropGrowTicks,
+  plotTiles,
   cropSellPrice,
   orderMaxSlots,
   orderSlotStars,
@@ -32,6 +37,7 @@ import {
   isOffer,
   itemOrderValue,
   orderCount,
+  orderPerMinute,
   orderPool,
   rollOffer,
   tickOrders,
@@ -373,6 +379,86 @@ describe('order clerk (worker job)', () => {
     }
     expect(single.run.counters.orders).toBeGreaterThanOrEqual(2)
     expect(single.run.milestones.firstOrder).toBeDefined()
+  })
+})
+
+describe('batch 29: 🚜 estate contracts', () => {
+  const plots = (n: number, crop: CropId | null = null, readyTick = 0) => Array.from({ length: n }, () => ({ crop, readyTick }))
+  /** the Tractor bought: 3 pivoted fields (5 + 5 + 2 plots, one ready radish plot in field 0) and a dry 2-plot field */
+  const estate = (run: Partial<RunState> = {}, offers: RunState['orders']['offers'] = []): GameState =>
+    board(offers, {
+      energy: 100,
+      licenses: ['radish', 'lemon', 'strawberry'],
+      lifetime: { ...init.run.lifetime, harvests: { radish: 50, lemon: 50, strawberry: 49 } },
+      fields: {
+        ...init.run.fields,
+        unlocked: true,
+        list: [
+          { pivot: true, crop: 'radish', pinned: false, plots: [{ crop: 'radish', readyTick: 0 }, ...plots(4)] },
+          { pivot: true, crop: null, pinned: false, plots: plots(5) },
+          { pivot: true, crop: null, pinned: false, plots: plots(2) },
+          { pivot: false, crop: null, pinned: false, plots: plots(2) },
+        ],
+      },
+      ...run,
+    })
+  const WET = (5 + 5 + 2) * plotTiles()
+
+  it('after the Tractor a fields-plantable crop asks max(home, share × wet tiles ÷ pressured cycle × 60); else today\'s size', () => {
+    const s = estate()
+    const home = (crop: CropId, standing = 0) => ((9 + standing) / cropGrowTicks(crop, meta, 0)) * 60
+    for (const crop of ['radish', 'lemon'] as const) {
+      const contract = ((contractWetShare() * WET) / Math.ceil(cropGrowTicks(crop, meta, 0) / FIELD_PRESSURE)) * 60
+      expect(orderPerMinute(s, crop)).toBe(Math.max(home(crop, crop === 'radish' ? plotTiles() : 0), contract))
+      expect(orderPerMinute(s, crop)).toBeGreaterThan(home(crop, crop === 'radish' ? plotTiles() : 0))
+    }
+    // under the 50-harvest gate, and before the Tractor: unchanged
+    expect(orderPerMinute(s, 'strawberry')).toBe(home('strawberry'))
+    const before = { ...s, run: { ...s.run, fields: { ...s.run.fields, unlocked: false } } }
+    expect(orderPerMinute(before, 'lemon')).toBe(home('lemon'))
+  })
+
+  it('the clerk accepts no crop offer after the Tractor, still accepts an item offer; before the Tractor it accepts the crop', () => {
+    const run = { mineLicense: true, vein: { level: 1, progress: 0, rock: 'stone' as const }, plantCrop: 'radish' as const }
+    const crop = offer({ good: 'radish', accepted: false })
+    expect(clerkTarget(estate(run, [crop]))).toBe(-1)
+    expect(clerkTarget(estate(run, [crop, offer({ good: 'coal', accepted: false })]))).toBe(1)
+    const before = estate(run, [crop])
+    expect(clerkTarget({ ...before, run: { ...before.run, fields: { ...before.run.fields, unlocked: false } } })).toBe(0)
+  })
+
+  it('a hand reapPlot pays round(base × 1.1 × 1.25) per order unit and ×1 per market unit; a worker reap ×1 on both', () => {
+    const s = estate({}, [offer({ good: 'radish', count: 4 })])
+    const market = cropSale(s, 'radish', plotTiles() - 4).cash
+    const base = cropSellPrice('radish', meta, 0)
+    const hand = okState(reapPlot(s, 0, 0))
+    expect(hand.run.cash - s.run.cash).toBe(4 * Math.round(base * (1 + orderBonus()) * handPickedBonus()) + market)
+    const worker = fieldsHarvest(s)!
+    expect(okState(worker).run.cash - s.run.cash).toBe(4 * Math.round(base * (1 + orderBonus())) + market)
+  })
+
+  it('contractsByHand +1 only when the player\'s own reap or home harvest completes a contract', () => {
+    const s = estate({}, [offer({ good: 'radish', count: 4 })])
+    expect(okState(reapPlot(s, 0, 0)).run.counters.contractsByHand).toBe(1)
+    // an earlier worker fill is fine: only the completing act counts
+    expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40, done: 36 })]), 0, 0)).run.counters.contractsByHand).toBe(1)
+    // not completed, or completed by a worker / machine
+    expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40 })]), 0, 0)).run.counters.contractsByHand).toBe(0)
+    expect(okState(fieldsHarvest(s)!).run.counters.contractsByHand).toBe(0)
+    // the home plot: a hand harvest completes it after the Tractor, never before; a worker's harvest never
+    const home = estate({ tiles: [ripe, ...init.run.tiles.slice(1)] }, [offer({ good: 'radish', count: 1 })])
+    expect(okState(harvest(home, 0)).run.counters.contractsByHand).toBe(1)
+    expect(okState(harvest(home, 0, 0)).run.counters.contractsByHand).toBe(0)
+    const before = { ...home, run: { ...home.run, fields: { ...home.run.fields, unlocked: false } } }
+    const done = okState(harvest(before, 0))
+    expect([done.run.counters.orders, done.run.counters.contractsByHand]).toEqual([1, 0])
+  })
+
+  it('rollOffer consumes exactly two rolls before and after the Tractor', () => {
+    const twoRolls = nextRandom(nextRandom(12345)[1])[1]
+    const s = estate()
+    expect(rollOffer(s, 12345)[1]).toBe(twoRolls)
+    expect(rollOffer({ ...s, run: { ...s.run, fields: { ...s.run.fields, unlocked: false } } }, 12345)[1]).toBe(twoRolls)
   })
 })
 

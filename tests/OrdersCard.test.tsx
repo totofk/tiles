@@ -110,6 +110,20 @@ describe('📋 Orders', () => {
     expect(screen.getByRole('heading').textContent).toBe('📋 Orders · ⭐ 5 · 1 ready')
   })
 
+  it('batch 29: after the Tractor a crop order is a 🚜 Contract; the accepted row names the ×1.25, the intro says only you accept', () => {
+    setup(board([offer({}), offer({ accepted: true }), offer({ good: 'stone', count: 8, done: 0, tier: 0 })], { fields: { ...init.run.fields, unlocked: true } }))
+    const [open, accepted, item] = rows()
+    expect(open.textContent).toContain('🚜 Contract')
+    expect(accepted.textContent).toContain('filling from harvests · your own reaps pay ×1.25')
+    expect(item.textContent).not.toContain('Contract')
+    expect(document.querySelector('.order-note')!.textContent).toContain('After the Tractor, crop orders are 🚜 contracts sized by your wet fields; only you accept them.')
+    cleanup()
+    setup(board([offer({ accepted: true })]))
+    expect(rows()[0].textContent).not.toContain('Contract')
+    expect(rows()[0].textContent).not.toContain('×1.25')
+    expect(document.querySelector('.order-note')!.textContent).not.toContain('Tractor')
+  })
+
   it('batch 24.1: ✕ on an accepted order with progress needs a second press; offers and zero-progress orders discard on one', () => {
     const t = setup(board([offer({ done: 12, accepted: true })]))
     within(rows()[0])

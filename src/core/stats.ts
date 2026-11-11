@@ -29,8 +29,8 @@ const SHOWN_JOBS = WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job))
 export type StatRow = { label: string; value: string; source?: string }
 export type Stats = { totals: StatRow[]; multipliers: StatRow[] }
 
-/** shown counters; contractsByHand gets its row with the contracts (batch 29) */
-const COUNTER_LABELS: Record<Exclude<CounterId, 'contractsByHand'>, string> = {
+/** shown counters */
+const COUNTER_LABELS: Record<CounterId, string> = {
   harvests: 'Harvests',
   sales: 'Items sold',
   mines: 'Mine actions',
@@ -39,6 +39,7 @@ const COUNTER_LABELS: Record<Exclude<CounterId, 'contractsByHand'>, string> = {
   plants: 'Plantings',
   bars: 'Copper bars collected',
   orders: 'Orders completed',
+  contractsByHand: 'Contracts delivered by hand',
 }
 
 const times = (f: number) => `×${Math.round(f * 100) / 100}`

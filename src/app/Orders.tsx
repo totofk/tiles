@@ -3,7 +3,7 @@ import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierC
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
-import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
+import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isContract, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
@@ -44,17 +44,19 @@ function OrderRow({ state, act, slot, flash = false }: { state: GameState; act: 
   const progress = isCropGood(s.good) ? s.done : stored
   const twoPress = s.accepted && progress > 0
   const stateClass = ready ? 'order-ready' : s.accepted ? 'order-accepted' : 'order-offer'
+  const contract = isContract(state.run, s.good)
   return (
     <div className={`order-row ${stateClass}${flash ? ' mine-flash' : ''}`}>
       <span>
         {goodEmoji(s.good)} {s.accepted && !isCropGood(s.good) ? `${stored} / ${remaining} in storage` : `${s.done} / ${s.count}`}
+        {contract && <span className="order-badge">🚜 Contract</span>}
         {!s.accepted && <span className="order-badge order-badge-new">New</span>}
         {ready && <span className="order-badge order-badge-ready">✓ Ready</span>}
         <small>
           <span aria-label={`size ${s.tier + 1} of ${orderTierCount()}`}>{dots}</span> · {STAR_EMOJI}
           {orderTierStars(s.tier)} · +💰{orderCash(state, s)}
         </small>
-        {s.accepted && isCropGood(s.good) && <small>filling from harvests</small>}
+        {s.accepted && isCropGood(s.good) && <small>{contract ? 'filling from harvests · your own reaps pay ×1.25' : 'filling from harvests'}</small>}
       </span>
       {s.accepted && <Bar value={remaining > 0 ? progress / remaining : 1} kind="grow" />}
       {!s.accepted && (
@@ -84,6 +86,7 @@ export function Orders({ state, act, card = false, flashSlot = null }: { state: 
   const note = (
     <small className="order-note">
       Accepted crop orders take every harvest of that crop at +{Math.round(orderBonus() * 100)} %, with no market glut.
+      {state.run.fields.unlocked && ' After the Tractor, crop orders are 🚜 contracts sized by your wet fields; only you accept them.'}
     </small>
   )
   const slotStars = orderSlotStars(orders.slots)

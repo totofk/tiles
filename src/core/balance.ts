@@ -450,6 +450,8 @@ const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: numbe
   { minutes: 10, weight: 0.35, stars: 2 },
   { minutes: 20, weight: 0.15, stars: 4 },
 ]
+// batch 29: after the Tractor a crop order (a 🚜 contract) is sized by this share of the wet tiles' pressured output
+const CONTRACT_WET_SHARE = 0.15
 const ORDER_ROCKS_PER_MIN = 12
 /** an item order asks for at most this share of the storage capacity (rounded down) */
 const ORDER_ITEM_BAG_SHARE = 0.5
@@ -477,6 +479,11 @@ export function orderStartSlots(): number {
 /** extra share of the base price an ordered good pays */
 export function orderBonus(): number {
   return ORDER_BOARD.bonus
+}
+
+/** share of the wet tiles' pressured output a contract asks per minute */
+export function contractWetShare(): number {
+  return CONTRACT_WET_SHARE
 }
 
 export function orderTierCount(): number {

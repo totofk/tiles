@@ -14,6 +14,7 @@ import {
   fieldPlots,
   fieldsCost,
   fieldsCropHarvests,
+  handPickedBonus,
   machineCost,
   machineMaintPerHour,
   machineTilesPerHour,
@@ -55,6 +56,16 @@ export function plantedTiles(f: Fields, crop: CropId): number {
   let n = 0
   for (const field of f.list) for (const p of field.plots) if (p.crop === crop) n++
   return n * plotTiles()
+}
+
+/** Σ over pivoted fields of their bought tiles (planted or not) */
+export function wetTiles(f: Fields): number {
+  return f.list.reduce((n, field) => (field.pivot ? n + field.plots.length * plotTiles() : n), 0)
+}
+
+/** a field plot's grow ticks under pressure: ceil(grow / FIELD_PRESSURE) */
+export function pressuredCycle(state: GameState, crop: CropId): number {
+  return Math.ceil(cropGrowTicks(crop, state.meta, state.run.upgrades.fertilizer) / FIELD_PRESSURE)
 }
 
 /** counts of plots for the UI and sim; emptyWet = empty plots in a field with a pivot and a chip (sowable now) */
@@ -209,7 +220,7 @@ export function sowPlot(state: GameState, field: number, plot: number): ActionRe
     if (left > 0) left--
     else cash -= price
   }
-  const readyTick = run.tick + Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
+  const readyTick = run.tick + pressuredCycle(state, crop)
   return withRun(state, { cash, rngState, seeds: { ...run.seeds, [crop]: left }, fields: withPlot(f, field, plot, { crop, readyTick }) })
 }
 
@@ -249,7 +260,7 @@ function oldestReady(run: RunState): [number, number] | null {
 
 /**
  * Reaps one whole plot (the caller checked it is ready): the best sickle's double harvest rolls per tile, the crop
- * sells through harvestSale at ×1 (accepted orders first, then the market). Home counters and lifetime.harvests stay
+ * sells through harvestSale (accepted orders first, then the market). Home counters and lifetime.harvests stay
  * untouched (the 50-harvest gate keeps its meaning); `energy` is the hand reap's cost (0 for workers and machines).
  */
 function reapAt(state: GameState, field: number, plot: number, energy: number): RunState {
@@ -262,7 +273,9 @@ function reapAt(state: GameState, field: number, plot: number, energy: number): 
     units += r < doubleHarvestChance(run.toolTier.harvest) ? 2 : 1
     rngState = next
   }
-  const sale = harvestSale({ ...state, run: { ...run, rngState } }, crop, units)
+  // batch 29: the player's own reap pays ×1.25 into accepted orders only; its market units sell at ×1
+  const rolled = { ...state, run: { ...run, rngState } }
+  const sale = energy > 0 ? harvestSale(rolled, crop, units, handPickedBonus(), 1, true) : harvestSale(rolled, crop, units)
   return {
     ...sale.run,
     cash: sale.run.cash + sale.cash,

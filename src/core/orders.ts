@@ -6,6 +6,7 @@ import {
   barTicks,
   batchBars,
   cropGrowTicks,
+  contractWetShare,
   cropSellPrice,
   isSellable,
   itemSellPrice,
@@ -28,13 +29,15 @@ import {
 import { CROP_IDS, type CropId } from './data/crops'
 import { ITEM_IDS, ORE_IDS, type ItemId } from './data/items'
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
-import { plantedTiles } from './fields'
+import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
 import { cropSale } from './market'
 import { minedRock, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
 
 export const isOffer = (slot: OrderSlot): slot is Offer => 'good' in slot
 export const isCropGood = (good: OrderGood): good is CropId => (CROP_IDS as readonly string[]).includes(good)
+/** a 🚜 contract: any crop order once the Tractor is bought */
+export const isContract = (run: RunState, good: OrderGood): boolean => isCropGood(good) && run.fields.unlocked
 
 /** the ore a bar is smelted from; undefined for anything else */
 const barOre = (good: OrderGood) => ORE_IDS.find((ore) => oreBar(ore) === good)
@@ -56,7 +59,10 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   // batch 19: the Fields' standing tiles of the crop produce at the same per-tile pace as the home plot
   if (isCropGood(good)) {
     const standing = plantedTiles(run.fields, good)
-    return ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+    const home = ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+    // batch 29: a contract (after the Tractor, a crop the fields can sow) scales with the wet tiles
+    if (!run.fields.unlocked || !fieldsPlantable(run, good)) return home
+    return Math.max(home, ((contractWetShare() * wetTiles(run.fields)) / pressuredCycle(state, good)) * 60)
   }
   const ore = barOre(good)
   if (ore) return (batchBars(run.furnace.levels.batch) * 60) / barTicks(ore)
@@ -100,9 +106,10 @@ export function cropOrderPrice(state: GameState, crop: CropId, bonus = 1): numbe
 
 /**
  * `n` more units into the offer at `slot`. At its count the order completes: ⭐ by tier, counters.orders and the
- * lifetime totals +1, and a fresh offer is rolled into the slot.
+ * lifetime totals +1, and a fresh offer is rolled into the slot. A contract completed `byHand` (the player's own reap
+ * or harvest) also counts contractsByHand.
  */
-function fillOrder(state: GameState, slot: number, n: number): GameState {
+function fillOrder(state: GameState, slot: number, n: number, byHand = false): GameState {
   const { run } = state
   const offer = run.orders.offers[slot] as Offer
   const done = offer.done + n
@@ -116,7 +123,11 @@ function fillOrder(state: GameState, slot: number, n: number): GameState {
   return withSlot(fresh, {
     rngState,
     stars: run.stars + stars,
-    counters: { ...run.counters, orders: run.counters.orders + 1 },
+    counters: {
+      ...run.counters,
+      orders: run.counters.orders + 1,
+      contractsByHand: run.counters.contractsByHand + (byHand && isContract(run, offer.good) ? 1 : 0),
+    },
     lifetime: { ...run.lifetime, ordersCompleted: run.lifetime.ordersCompleted + 1, starsEarned: run.lifetime.starsEarned + stars },
   })
 }
@@ -128,10 +139,18 @@ function cropOrderSlot(run: RunState, crop: CropId): number {
 
 /**
  * Sells `units` harvested `crop`: while an accepted order for it is open each unit goes to the order (cropOrderPrice,
- * no glut), the rest to the market (cropSale). `bonus` = hand-picked multiplier. Returns the cash and the run with
+ * no glut), the rest to the market (cropSale). `bonus` / `marketBonus` = the hand-picked multiplier on the order /
+ * market units; `byHand` = the player's own act (counts a completed contract). Returns the cash and the run with
  * orders, ⭐, counters, lifetime, rngState and market updated (cash itself untouched).
  */
-export function harvestSale(state: GameState, crop: CropId, units: number, bonus = 1): { cash: number; run: RunState } {
+export function harvestSale(
+  state: GameState,
+  crop: CropId,
+  units: number,
+  bonus = 1,
+  marketBonus = bonus,
+  byHand = false,
+): { cash: number; run: RunState } {
   let s = state
   let cash = 0
   let left = units
@@ -139,11 +158,11 @@ export function harvestSale(state: GameState, crop: CropId, units: number, bonus
     const offer = s.run.orders.offers[slot] as Offer
     const n = Math.min(left, offer.count - offer.done)
     cash += n * cropOrderPrice(s, crop, bonus)
-    s = fillOrder(s, slot, n)
+    s = fillOrder(s, slot, n, byHand)
     left -= n
   }
   if (left === 0) return { cash, run: s.run }
-  const sale = cropSale(s, crop, left, bonus)
+  const sale = cropSale(s, crop, left, marketBonus)
   return { cash: cash + sale.cash, run: { ...s.run, market: sale.market } }
 }
 
@@ -252,9 +271,10 @@ export function rerollOrders(state: GameState): ActionResult {
   return pay(state, { cash: 0, stars: orderRerollStars() }, { rngState, orders: { ...orders, offers } })
 }
 
-/** goods the clerk accepts: a crop planted on a tile or set as "Crop to plant", or an item the current vein drops */
+/** goods the clerk accepts: a crop planted on a tile or set as "Crop to plant" (never a contract: only the player
+ * accepts those), or an item the current vein drops */
 function clerkTakes(run: RunState, good: OrderGood): boolean {
-  if (isCropGood(good)) return run.plantCrop === good || run.tiles.some((t) => t.cropId === good)
+  if (isCropGood(good)) return !run.fields.unlocked && (run.plantCrop === good || run.tiles.some((t) => t.cropId === good))
   return (veinDrops(run.vein.level)[good] ?? 0) > 0
 }
 
