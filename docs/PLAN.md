@@ -4256,72 +4256,253 @@ Rules (every task):
 
 ## Batch 28 — Plots, pivots, pumps, pressure (C4a, tasks 145–148, save v20 → v21)
 
-Refined after the calculator. All save shape for batches 28 AND 29 lands here, so 29 needs no bump (decision 16:
-two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and expect a resume leg.
+Refined 2026-11-11 by Hermes from the code at `72ec00a` (`src/core/fields.ts` 433 lines, `state.ts:129–151`,
+`balance.ts:257–325`, `serialize.ts:22,435–465`, `workers.ts:51–56,86`, `step.ts:57–62`, `orders.ts:56`,
+`src/app/Estate.tsx`, `estateText.ts`, `Fields.tsx`, `Surface.tsx:139–141`) and the calculator
+(`docs/DECISIONS.md` "Big farm numbers from the crop-mix calculator"). This section is the authority: every number,
+label, error order and test below is fixed — do not pick other values. All save shape for batches 28 AND 29 lands
+here, so batch 29 needs no bump. Worker: **Opus**, `--max-turns 140` (core rewrite + migration + sim re-pins + UI).
+
+LOCKED (Toon) — design around these, do not argue them away:
+- L1 a sprinkler is placed and never moves; L2 the Tractor opens the Estate as the MAIN view (two stops);
+  L3 systems may change but must not drift far — always something to do; L4 every object answers The Door Problem.
+- A plot is 10 tiles (the unit of land and work); a field is 5 plots (the unit of water and crop); one pivot per
+  field; the pump caps wet fields at 2 / 6 / 12 / 20; coal = pressure ×2, an empty tank = ×1, fields never stall or
+  die; pressure ships together with plots. Seeders and planters never pick a crop (the field chip does).
+- Every batch ships to live players: the game must stay fully playable on the new model after this batch.
+
+Rules (every task):
+- Save progress must survive: `SAVE_VERSION = 21`, `migrateV20` chained for every older version, migrations never
+  take earned value away. Freeze the v20 shape as `RunV20`/`SaveV20` types in `serialize.ts` (past shapes are never
+  derived from the live `RunState`), the way `WorkshopV19` was frozen.
+- Purity: `grep -rn "Date.now\|react" src/core src/save` stays empty.
+- Item ids and emoji only from `src/core/data/items.ts` and existing constants; every glyph Unicode ≤ 11
+  (new here: ⛽ U+26FD Unicode 5.2, 💼 Unicode 6).
+- No file names that differ only in case or extension:
+  `git ls-files | sed -E 's/\.(tsx?|jsx?)$//' | sort -f | uniq -di` prints NOTHING.
+- Grep `tests/` for every render of a component whose props change and every caller of a deleted export; CI's
+  `tsc -b` fails on a stale import. Cast `querySelector<HTMLElement>` before `.style`.
+- Never change a balance number to make a pin pass. When a pin fails at the fixed numbers, keep the numbers, mark
+  the test `it.fails`/`it.todo` with the measured value in its title and record it under `### Deviations`.
+- Never run `git push` or `pnpm dev`. One commit per task (`feat: batch 28 task N — …`). `pnpm test`, `pnpm lint`,
+  `pnpm build` green before each commit; `rm -f node_modules/.tmp/*.tsbuildinfo && npx tsc -b --force` once at the end.
+
+### Door Problem answers (for the worker; nothing here is open)
+- **Plot** — bought with cash (＋ Plot); state = empty / growing (crop emoji + "next in") / ready (🌾); fails: never
+  (no death, no stall); 8 h offline: ripens on its absolute `readyTick`; prestige: Sell the farm resets the fields
+  (`createFields()`); touched by: planter/harvester workers, both machines, hand Sow/Reap.
+- **Pivot** — built on a field's socket, permanent; state = wet / dry (dry rows say "no pivot — cannot sow"); a
+  field without one can hold and reap plots but never be sown; the pump cap limits how many can exist.
+- **Pump** — tier 0 comes with the Tractor (2 fields); tiers 1–3 are Estate recipes; sets the wet-field cap and the
+  tank size.
+- **Tank** — filled by hand (Fill tank) or by the fuel loader (furnace first, then the tank); state = "⛽ 37/120 ·
+  ×2" or "⛽ empty · ×1"; failure = pressure off, growth ×1, never a stall; worst-case offline loss = the tank's
+  content (≤ 8 h of burn), bounded by the tank cap; the valve removes idle burn.
 
 - [ ] 145. **Model + migration v21.**
-  - `Plot = { crop: CropId | null; readyTick: number }` (crop null = empty).
-  - `Field = { pivot: boolean; crop: CropId | null; pinned: boolean; plots: Plot[] }`, with 1–5 plots.
-  - `Fields = { unlocked, list: Field[], pump: number, tank: number, machines }`. Delete `count`, `planted`,
-    `cohorts`, `pipes`, `plantCrop` and `coalCarry`; their values become derived helpers.
-  - Add the `manager` worker job key (`assigned.manager: 0`) and the new counter `contractsByHand: 0` (both used in
-    batch 29).
-  - `migrateV20`:
-    - plots = ceil(old count / 10), packed per crop from Field 1 in fields of 5 (the last field may be partial);
-    - cohorts → plots, 10 tiles each, rounded up; the earliest `readyTick` wins; remaining time
-      (`readyTick − tick`) halved once, rounded up (the old rule closed 2 per tick under cover);
-    - plantings that sat beyond the pipe cover (stalled) return their seeds to the pouch;
-    - pipes tier N → `pump` N;
-    - a pivot on every field holding a planted plot, up to the pump cap, and never fewer than old cover ÷ 50;
-    - each field's crop = the crop packed into it, else the old `plantCrop`, else null;
-    - `tank` = min(tank cap, storage coal), taken from storage (the old pump drew that same coal);
-    - `coalCarry` dropped; machines and their carries kept; `valve` kept.
-  - Pins:
-    - fixtures v14…v20 migrate;
-    - wet tiles ≥ old covered + ready;
-    - owned tiles ≥ old count;
-    - each fixture earns ≥ its pre-migration 8 h (run the old code's 8 h number from the committed fixture);
-    - Hermes commits the real `save-v20.json` fixture before dispatch.
-- [ ] 146. **Core: plots, fields, pivots, pumps, whole-plot work.**
-  - Plot purchase: price of plot p (from 0) = 💰10,000·p + 5,500, which is the sum of today's 10 tile prices,
-    `fieldTileCost`. A plot goes into any started field with room, or opens the next field. A new field can open
-    only if the pump has room.
-  - Pivot: one per field, built on the field's socket, permanent. Price for pivot n (n = 2…20):
-    3 Au + 6 Fe + 6 Cu + 💰50,000 × (n − 1) (calculator 2026-11-11: kept — the field's 5 plots already cost ≈ 0.5 h of
-    income, 377k at field 2 → 4.88M at field 20). Field 1 comes with the Tractor, plot 1 and its pivot already
-    plumbed. A field without a pivot is dry and cannot be sown.
-  - Pump tiers = today's pipe recipes. Bars stay 8 Cu / 8 Fe / 8 Au. Cash is 💰500k / 1.5M / 3M (calculator 2026-11-11:
-    ≈ 0.5 h of net income at 2 / 6 / 12 fields; the old 150k / 450k / 900k was ≈ 0.15 h; owned tiers kept). Wet fields are capped at 2 / 6 / 12 / 20.
-  - Field crop chip: free to change, applies at the next sowing; standing plots finish.
-  - Sow a whole plot (free, all-or-nothing): seeds, auto-buy and dibber rolls per tile, as today. Reap a whole plot:
-    by hand costs 10 ⚡; the sickle's doubles roll per tile, as today.
-  - Planter/harvester workers and the machines take whole plots, home lot first: oldest ready plot, first empty wet
-    plot. They only sow what the field's chip says (no chip = the field waits).
-  - Delete the prefix coverage rule (`fields.ts:121,250`), `seederCrop` and `coalCarry`.
-  - Sim perf: 1,000 / 1,920 / 3,000 tiles × 8 h under 2,000 ms; step identity.
-- [ ] 147. **Pressure: the tank, the valve's new job, the loader.**
-  - Growth base is ×1 (`cropGrowTicks`); "pressure ×2" is a named, displayed constant (`FIELD_PRESSURE = 2`).
-  - Sowing sets `readyTick = tick + ceil(grow / FIELD_PRESSURE)`. On any tick the tank cannot pay this tick's burn,
-    every growing plot gets `readyTick += 1` on odd ticks, which nets ×1. Fields never stall and never die.
-  - Burn = 0.5 coal per plot per hour (today's `PIPE_COAL_PER_10_TILES`), as a float subtracted from `tank`.
-    - Without the valve, every plot in a pivoted field burns.
-    - With the valve, only plots that are growing burn ("no idle burn", the DECISIONS 235 pattern). `buyValve` is
-      unlocked again from here.
-  - Tank cap per pump tier = 8 h × the burn at that tier's field cap: 40 / 120 / 240 / 400 coal (base, t1–t3).
-  - Filling the tank:
-    - manual **Fill tank** (moves min(room, storage coal));
-    - the fuel loader: furnace first, then the tank, 1 coal per action.
-  - The surface shows "pressure off ×1" when the tank is empty.
-  - Pins: 8 h offline with a full top-tier tank keeps ×2; an empty tank still ripens everything at ×1.
-- [ ] 148. **Minimal Fields UI on the new model + sim + CHANGELOG.**
-  - The existing Fields card / batch-27 rows switch to fields → plots: + Plot, Pivot, Pump, Fill tank, crop picker,
-    and the pressure line. The map comes in batch 30.
-  - Sim:
-    - no gap over 60 game-minutes from the Tractor to Pump 2;
-    - something buyable at every pump cap;
-    - every price ≤ storage capacity;
-    - prices follow the rule;
-    - report best plan / old rule / mono.
+  a) `src/core/state.ts` — replace `Cohort` (`:129–130`) and `Fields` (`:138–152`):
+     ```ts
+     /** one plot = PLOT_TILES tiles; crop null = empty; readyTick = the absolute tick it ripens (ignored when empty) */
+     export type Plot = { crop: CropId | null; readyTick: number }
+     /** one field = up to FIELD_PLOTS plots; pivot = wet (sowable); crop = the chip (what gets sown next); pinned =
+      *  the Manager leaves it alone (batch 29) */
+     export type Field = { pivot: boolean; crop: CropId | null; pinned: boolean; plots: Plot[] }
+     /** pump = owned tier (0 = the Tractor's); tank = burn units, TANK_UNITS_PER_COAL per coal (integers, exact) */
+     export type Fields = { unlocked: boolean; list: Field[]; pump: number; tank: number; machines: Machines }
+     ```
+     `createFields()` → `{ unlocked: false, list: [], pump: 0, tank: 0, machines: createMachines() }`. `count`,
+     `planted`, `cohorts`, `pipes`, `plantCrop` and `coalCarry` are gone; `planted` per crop becomes the derived
+     helper `plantedTiles(fields, crop)` (task 146).
+  b) Batch-29 shape, added now (nothing uses it in 28):
+     - `Counters` gains `contractsByHand: number` (0 in `createInitialState`, the migration sets 0).
+     - `WORKER_JOBS` gains `'manager'` LAST (`src/core/data/workers.ts:4`); `assigned.manager = 0`.
+       `CERTIFICATES.manager = { price: { goldBar: 4, cash: 500000 }, counter: 'contractsByHand', at: 3 }` (est.,
+       batch 29's sim pins it) — it cannot unlock in 28 because nothing increments `contractsByHand` yet.
+       `NO_TILE_WORK.manager = () => null` (idles unpaid). Add one exported `HIDDEN_JOBS: readonly WorkerJob[] =
+       ['manager']` in `data/workers.ts`; the Workers card rows, the `cert…` milestone rows (`milestones.ts:73`) and any
+       other `WORKER_JOBS.map` in `src/app` skip hidden jobs (batch 29 empties the list). Emoji `💼` (Unicode 6 — the
+       design's 🧑‍💼 is an Emoji 12.1 sequence and renders as tofu on Toon's device), label `Manager`, tip
+       `Picks each field's crop (comes with Estate contracts).`
+  c) `migrateV20` (v20 → v21), in this order, pure:
+     1. Not unlocked → `fields = { unlocked: false, list: [], pump: 0, tank: 0, machines: run.fields.machines }`.
+     2. Stalled cohorts: run the old prefix rule at the save's tick (`fields.ts:110–126`: ready cohorts skip the queue,
+        growing cohorts fill `PIPE_COVER[pipes]` = `[0, 60, 150, 300]` in array order, the first misfit and every
+        later growing cohort are stalled). Each stalled cohort's `count` goes back to `seeds[crop]` (the pouch has no
+        cap) and the cohort is dropped.
+     3. Kept cohorts → plots, per crop in `CROP_IDS` order: sort that crop's cohorts by `readyTick` ascending, cut
+        the tiles into chunks of 10 (the last chunk rounded UP to a full plot); each plot's `readyTick` = the
+        earliest `readyTick` in its chunk; then for a growing plot (`readyTick > tick`):
+        `readyTick = tick + ceil((readyTick − tick) / 2)` (the old rule closed 2 per covered tick).
+     4. Plot count `P = max(ceil(count / 10), planted plots)`, at least 1. Order: planted plots (crop order, then
+        readyTick), then empty plots `{ crop: null, readyTick: 0 }`. Fields = chunks of 5 in that order from Field 1
+        (the last field may be partial). Each field's chip = the crop holding most plots in it (tie → earlier in
+        `CROP_IDS`); a field with no planted plot gets the old `plantCrop` (may be null). `pinned: false`.
+     5. `pump = pipes`. Pivots: Field 1 always; then every field holding a planted plot, in order, while pivots <
+        `pumpFieldCap(pump)`; then further fields in order until pivots ≥ `min(list.length, pumpFieldCap(pump),
+        ceil(PIPE_COVER[pipes] / 50))`.
+     6. `tank = min(tankCapCoal(pump), storage coal) × TANK_UNITS_PER_COAL`, that coal removed from
+        `inventory.coal` (the old pump drew the same coal).
+     7. `coalCarry` dropped; `machines` (tiers and carries) kept; `workshop.valve` kept.
+     8. `assigned.manager = 0`, `counters.contractsByHand = 0`.
+  d) Fixture: Hermes commits the real `tests/fixtures/save-v20.json` (written by the live v20 build) before
+     dispatch. Add it to the fixture list in `tests/save.test.ts` (`?raw` import like `v19`).
+  e) Tests (`tests/save.test.ts`, new `describe('v20 → v21: plots')`):
+     - every fixture v1…v20 deserializes to version 21 with no throw;
+     - for every fixture with the Fields unlocked (v16–v20): owned tiles (`10 × plots`) ≥ old `count`; wet tiles
+       (tiles in fields with a pivot) ≥ old covered + ready (`fieldsStats` numbers, computed in the test from the raw
+       cohorts with the prefix rule); seeds returned = the old stalled count per crop; storage coal + tank coal =
+       old storage coal; `list.length ≤ ceil(P / 5)`; every growing plot's remaining ticks = ceil(old / 2);
+     - a hand-built v20 save: unlocked with count 0 → Field 1 with pivot + 1 empty plot; pipes 0 with 3 growing
+       cohorts → all stalled, seeds back, plots empty;
+     - each fixture's 8 h (`step(s, OFFLINE_CAP_TICKS)`) earns at least what the v20 code earned (`run.cash` delta),
+       measured by Hermes on `72ec00a`: v16 ≥ 💰458,346 · v17 ≥ 💰446,798 · v18 ≥ 💰442,797 · v19 ≥ 💰441,238 ·
+       v20 ≥ 💰439,579. (Context, measured: on the v20 code every one of these saves ends
+       the 8 h with 0 coal in storage and every field tile still growing, none ready — the pump ran dry and the
+       Fields stood still; under v21 an empty tank still grows at ×1.)
+
+- [ ] 146. **Core: plots, fields, pivots, pumps, whole-plot work** (`src/core/fields.ts` rewrite, `balance.ts`).
+  a) `balance.ts` — replace the pipe block (`:257–325`), keeping `FIELDS_COST`, `FIELDS_CROP_HARVESTS`, the machine
+     block and `fieldTileCost` (used for the plot price):
+     ```ts
+     const PLOT_TILES = 10
+     const FIELD_PLOTS = 5
+     export const FIELD_PRESSURE = 2 // named and displayed: a full tank grows fields ×2
+     const PUMP_FIELD_CAP = [2, 6, 12, 20] // index = pump tier owned
+     const PUMP_COSTS: ReadonlyArray<Price> = [
+       { copperBar: 8, cash: 500000 }, { ironBar: 8, cash: 1500000 }, { goldBar: 8, cash: 3000000 },
+     ]
+     const PIVOT_ITEMS: Price = { goldBar: 3, ironBar: 6, copperBar: 6, cash: 0 }
+     const PIVOT_CASH_STEP = 50000 // pivot n costs PIVOT_ITEMS + 50,000 × (n − 1), n = 2…20
+     const FIELD_COAL_PER_PLOT_HOUR = 0.5 // was PIPE_COAL_PER_10_TILES
+     export const TANK_UNITS_PER_COAL = 7200 // 1 burn unit = 1 plot for 1 tick (0.5 coal / plot / h)
+     const REAP_PLOT_ENERGY = 10
+     ```
+     Exports: `plotTiles()`, `fieldPlots()`, `plotCost(plots, meta)` = Σ `fieldTileCost(10·plots + i, meta)` for
+     i = 0…9 (= 💰10,000·p + 5,500 at base, p = plots owned); `pivotCost(n, meta)` (scalePrice of items + cash);
+     `pumpCost(pump, meta)` (null at the top), `pumpMaxTiers()` = 3, `pumpFieldCap(pump)`, `tankCapCoal(pump)` =
+     8 × `pumpFieldCap(pump)` × `FIELD_PLOTS` × `FIELD_COAL_PER_PLOT_HOUR` → 40 / 120 / 240 / 400, `fieldCoalPerPlotHour()`,
+     `reapPlotEnergy()`. Delete `pipeCover`, `pipeCost`, `pipeMaxTiers`, `pipeCoalPer10Tiles`, `pipeCoalPerTick`,
+     `plantBatch`, `harvestBatch` (a plot is the batch now) and fix every caller.
+  b) `ActionError` gains `'NO_PIVOT'`, `'NO_CROP'`, `'PUMP_FULL'`; `ERROR_TEXT` (`src/app/useGame.ts:17`):
+     `NO_PIVOT: 'This field has no pivot — build one to sow it'`, `NO_CROP: 'Pick a crop for this field first'`,
+     `PUMP_FULL: 'The pump feeds no more fields — build the next pump'`.
+  c) Actions (error orders fixed; `pay` gives NOT_ENOUGH_ITEMS before NO_CASH):
+     - `unlockFields` (unchanged gates and price) now sets `list = [{ pivot: true, crop: null, pinned: false,
+       plots: [{ crop: null, readyTick: 0 }] }]` — Field 1, its pivot and plot 1 come with the Tractor.
+     - `buyPlot(state)` — LOCKED, PUMP_FULL, NO_CASH. Price `plotCost(total plots owned)`. Goes into the first field
+       with < 5 plots; if none, opens a new field `{ pivot: false, crop: null, pinned: false, plots: [plot] }`, allowed
+       only while `list.length < pumpFieldCap(pump)` (else PUMP_FULL).
+     - `buildPivot(state, field)` — LOCKED, BAD_TILE (no such field), ALREADY_OWNED, PUMP_FULL (pivots owned ≥ cap),
+       NOT_ENOUGH_ITEMS, NO_CASH. Price `pivotCost(pivots owned + 1)`.
+     - `buyPump(state)` — LOCKED, NO_WORKSHOP, MAX_LEVEL, NOT_ENOUGH_ITEMS, NO_CASH (replaces `buyPipes`).
+     - `setFieldCrop(state, field, crop | null)` — LOCKED, BAD_TILE, NOTHING_TO_DO (same as the chip), NO_LICENSE,
+       LOCKED (not `fieldsPlantable`). Free; standing plots finish as they are.
+     - `sowPlot(state, field, plot)` — LOCKED, BAD_TILE, NO_PIVOT, NO_CROP, NOTHING_TO_DO (plot not empty),
+       NO_SEEDS, NO_CASH. All-or-nothing: needs `stock ≥ 10`, or auto-buy on and cash ≥ (10 − stock) × seed price;
+       then rolls the dibber's seed-keep per tile exactly like `plantFields` today (`fields.ts:147–165`). No energy.
+       Sets `readyTick = tick + ceil(cropGrowTicks(crop, meta, fertilizer) / FIELD_PRESSURE)`.
+     - `sowNext(state)` — LOCKED, NOTHING_TO_DO (no empty plot in a field with pivot + chip), then `sowPlot`'s
+       errors for the first such plot (fields in order, plots in order).
+     - `reapPlot(state, field, plot)` (by hand) — LOCKED, BAD_TILE, NOT_MATURE (empty or growing), NO_ENERGY
+       (`reapPlotEnergy()` = 10 ⚡, added to `lifetime.energySpent`). Sickle doubles roll per tile (as
+       `fieldsHarvest`, `fields.ts:198–204`); sells through `harvestSale` at ×1 (the hand-picked ×1.25 into orders
+       arrives with contracts in batch 29). Home counters and `lifetime.harvests` untouched (the 50-harvest gate keeps
+       its meaning). The plot becomes `{ crop: null, readyTick: 0 }`.
+     - `reapNext(state)` (by hand) — LOCKED, NOTHING_TO_DO (nothing ready), NO_ENERGY; reaps the oldest ready plot.
+  d) Work order (workers and machines): the oldest ready plot (smallest `readyTick`, ties → field order, plot order)
+     and the first empty plot in a field with a pivot and a chip. `fieldsHarvest` (harvester worker, `workers.ts:86`)
+     reaps one whole plot per action, no energy; `fieldsPlantAction` sows one whole plot per action via `sowNext`.
+     Workers still work the home lot first (unchanged). `machinesAct` keeps its maintenance rule and the
+     machines-before-workers order (`step.ts:60`), on whole plots: the harvester accrues `carry.harvest` only while a
+     plot is ready, reaps one plot per 10 accrued (as many as are ready), then clamps the carry to ≤ 10; the seeder
+     accrues only while `sowNext` has a target, sows one plot per 10 accrued, and on NO_SEEDS / NO_CASH holds
+     `carry.plant = 10` (as today). Delete `seederCrop`, `plantFields`, `stopFieldsPlant`, `buyField`, `buyPipes`,
+     `fieldsStats`, `withCohorts` and the prefix coverage rule (`fields.ts:121,250`).
+  e) Helpers (exported, used by the UI and sim): `plotState(plot, tick)` → `'empty' | 'growing' | 'ready'`;
+     `fieldsOverview(run)` → `{ plots, tiles, fields, wetFields, empty, emptyWet, growing, ready }` (counts of plots;
+     `emptyWet` = empty plots in fields with pivot + chip); `plantedTiles(fields, crop)` (10 × plots of that crop);
+     `pivotsOwned(fields)`; `fieldsMarginalIncomePerHour` / `fieldsPaybackHours` keep their meaning with the pressured
+     cycle (`ceil(grow / FIELD_PRESSURE)`) and the payback = `plotCost` ÷ (10 × marginal per tile).
+  f) Other readers: `orders.ts:56` standing = `plantedTiles(run.fields, good)`; milestones (`milestones.ts:89–91`)
+     keep their ids: `firstField` = plots ≥ 1, `fields100` = owned tiles ≥ 100, `fields500` = owned tiles ≥ 500.
+  g) Tests: rewrite `tests/fields.test.ts` for the new API (each error order above, the plot price sum, the open-a-field
+     rule, PUMP_FULL, the Tractor gift, all-or-nothing sowing, the dibber roll per tile, hand reap energy and ×1 sale,
+     worker and machine plot order, machine carry clamp/hold). Sim perf (`tests/sim.test.ts:3444,3661,3994`): 100 /
+     192 / 300 plots × 8 h each < 2,000 ms with step identity — build the 192/300-plot states directly (60 fields, as a
+     migrated save holds them; only 20 are pivoted).
+
+- [ ] 147. **Pressure: the tank, the valve's new job, the loader.** (`fieldsAct`, `workshop.ts`, `workers.ts`)
+  a) `fieldsAct` per tick (still after the workers, `step.ts:62`): burning plots = without the valve every plot in a
+     field with a pivot (empty ones too); with the valve only growing plots in a field with a pivot. If
+     `tank ≥ burning`: `tank −= burning` and pressure is on; else the tank is left as it is and pressure is off.
+     Then every growing plot whose field has no pivot, or every growing plot at all when pressure is off, gets
+     `readyTick += 1` when `run.tick` is odd (nets ×1). Nothing else changes; fields never stall and never die.
+     Return the same state object when nothing burns and nothing slows.
+  b) `fillTank(state)` — LOCKED, NOTHING_TO_DO (room < 1 coal: `floor((tankCapCoal(pump) × U − tank) / U) < 1`),
+     NOT_ENOUGH_ITEMS (no coal in storage). Moves `min(room, storage coal)` whole coal. No energy.
+  c) Fuel loader (`workers.ts:51–54`): the furnace first (unchanged condition), else the tank when the Fields are
+     unlocked, the tank has room for 1 coal and storage has 1 — one coal per action. Update the doc comment.
+  d) `buyValve` (`workshop.ts:37`) is live again — NO_WORKSHOP, LOCKED (Fields not unlocked), ALREADY_OWNED,
+     NOT_ENOUGH_ITEMS, NO_CASH; price unchanged `valveCost` (2 Au + 💰8,000). Update the "inert until batch 28"
+     comments in `workshop.ts:3,36`, `state.ts:124–125`, `balance.ts:223`.
+  e) Tests: tank pays → ×2 (a plot sown at tick t ripens at t + ceil(grow/2)); empty tank → ×1 exactly (ripens at
+     t + ceil(grow/2) + the odd ticks passed); valve on → empty/ready plots burn nothing; valve off → they burn; a dry
+     field's growing plot ripens at ×1 and burns nothing; fill tank error order and the whole-coal move; loader:
+     furnace first, then tank, then idle; `buyValve` order. **Pins:** 20 pivoted fields × 5 growing plots with a full
+     Pump-3 tank (400 coal) stay at ×2 for every one of the 28,800 offline ticks and end at tank 0; the same farm
+     with an empty tank ripens everything at ×1; step(s, n) = n × step(s, 1) with the tank crossing empty mid-run.
+
+- [ ] 148. **Minimal Fields UI on the new model + sim + CHANGELOG.** (`src/app` only besides the sim)
+  a) Capacity strip (`Estate.tsx:88–94`): `💧 {wetFields}/{pumpFieldCap} fields wet`;
+     `⛽ {floor(tank/U)}/{tankCapCoal} · ×2` when the last tick had pressure, else `⛽ empty · ×1` (warn style);
+     `🌱 {seeder rate}/h · {emptyWet} plots to sow`; `🌾 {harvester rate}/h · {ready} ready`; the order chip and the
+     bottleneck chip stay.
+  b) Bottleneck chip (`estateText.ts:61–107`), first match wins:
+     1. pressure off with growing plots → `⚠ Pressure off ×1 — tank empty` / `Fill tank` (storage coal ≥ 1) else
+        `mine coal`;
+     2. a field holding plots has no pivot → `⚠ Dry — Field {k} has no pivot` / `Pivot {pivotCost} · {afford}`;
+     3. empty plots in pivoted fields with no chip → `⚠ Sowing — pick a crop for Field {k}` / `pick a crop`;
+     4. emptyWet ≥ 1 and no seeder → today's branch 3 text with plots;
+     5. ready ≥ 1 and no harvester → today's branch 4 text with plots;
+     6. the next plot needs a new field and `list.length ≥ pumpFieldCap` → `⚠ Pump — Field {n} needs Pump Lv{x}` /
+        pump price · afford (`max pump` at the top);
+     7. `✓ Land — next plot` / `＋ Plot 💰{plotCost} · {afford}`.
+  c) Field rows replace the crop rows (`Estate.tsx:96–124`): one `.estate-row` per field up to the pump cap; fields
+     beyond it collapse into ONE row `Fields {a}–{b} · 🚱 beyond Pump {pump}` (🚱 Unicode 6). Row text:
+     `Field {k} · {CROP_EMOJI|—} · {plots}/5 plots ({ready} ready{, next in …})`, small line = the chip crop's
+     `≈💰/h` (`estateCropIncomePerHour`, now per field and pressured) or `no pivot — cannot sow`. Controls: a
+     `<select>` crop chip (licensed + fields-plantable crops and `— none —`, `aria-label="Field {k} crop"`) →
+     `setFieldCrop`; `Sow` (`sowPlot` on the field's first empty plot); `Reap ⚡10` (`reapPlot` on its oldest ready
+     plot); a dry field shows `Build pivot` + `priceText(pivotCost)` instead of Sow.
+  d) Expand group (`Estate.tsx:125–150`): ghost row `＋ Plot 💰{plotCost}{ · opens Field n}{ · ~X h payback}` →
+     `buyPlot` (disabled with `needs Pump Lv{x}` when PUMP_FULL); `🚰 Pump Lv{n+1}` recipe row `waters {cap} fields ·
+     tank {tankCapCoal} {coal emoji}` → `buyPump`; `⛽ Fill tank` row `+{n} {coal emoji} from storage` → `fillTank`;
+     the smart valve RecipeRow (workshop built, valve not owned) `pivots burn coal only while a plot grows` →
+     `buyValve`. In `Workshop.tsx:73–76` the owned valve's line becomes `no idle burn in the Fields`.
+  e) Phone Estate bar (`Estate.tsx:42–65`): `🌱 Sow` → `sowNext` (title = the error text when disabled),
+     `🌾 Reap · {ready}` → `reapNext` (enabled now; 10 ⚡), `＋ Plot` → `buyPlot`. Delete `buyTenFields` and the
+     "hand reaping comes next update" hint (`Estate.tsx:55,62`).
+  f) `Fields.tsx` summary: `🚜 Fields · {plots} plots · 🌾 {ready} ready · ⛽ ×2|×1`. `Surface.tsx:139–141` fold strip
+     reads `plantedTiles`. Grep `src/app` for `pipe`, `Pipes`, `stalled`, `cohort`, `tiles empty` and update copy.
+  g) Sim (`tests/sim.test.ts`, the batch 18/19/22 describes from `:3240`): the ladder becomes `fields` (unlock) →
+     `pivot2` + `plots10` → `pump1` → `plots30` → `harvester1` → `seeder1` → `pump2` → `plots60` → `harvester2` →
+     `seeder2` → `harvester3`; the bot sets each new field's chip to its best fields-plantable crop (it picks lemon
+     today, `sim.test.ts:821–823`), keeps an hour of tank burn in storage and fills the tank when it has room.
+     Pins: the existing ≤ 60 game-minute unlock-step pin and pin 26b stay; **no milestone gap > 60 game-minutes from
+     the Tractor to Pump 2**; something is buyable (plot, pivot, pump or machine) at every pump cap; every bar price ≤
+     the storage the player holds when it becomes buyable; `plotCost` = the ten-tile sum, `pivotCost` and `pumpCost`
+     follow the rule above. Reported (printed, not pinned): income per hour at 2 / 6 / 12 / 20 fields (mono strawberry
+     vs the bot's chips), tank coal/h vs the miner's coal/h at each cap, and the **labor-bound** income at 20 fields:
+     20 fields need 15,000 tiles/h sown and reaped, the full fleet does 12,600 reap + 5,400 sow, a planter worker on
+     whole plots 7,200/h — report tiles/h sown and reaped vs needed and the income it caps. Re-pin every number the
+     batch 18/19/22 tests pinned on cohorts with the measured value; list old → new in the results.
+  h) Tests: `tests/Estate.test.tsx`, `tests/estateText.test.ts`, `tests/FieldsCard.test.tsx` rewritten for rows,
+     chips, the bottleneck order, the collapsed row, the phone bar; the v20 fixture rendered after migration shows
+     Field rows and no "Pipes" text. jsdom only — list what you could not verify (layout at 375 / 1024 / 1440) under
+     `### Deviations`; Hermes checks live.
+  i) CHANGELOG: ONE entry at the TOP of `CHANGELOG` in `src/app/changelog.ts`, copied verbatim:
+     `{ batch: '28', date: '<today, YYYY-MM-DD>', line: 'Fields now come in plots: buy land ten tiles at a time, build a pivot to water each field, and keep the coal tank full to grow twice as fast — you can also reap a plot by hand' }`
+  j) Write `## Batch 28 results` + `### Deviations` at the TRUE END of `docs/PLAN.md` and tick 145–148.
 
 ---
 

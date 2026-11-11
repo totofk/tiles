@@ -586,3 +586,23 @@ Design C's base table (best 2.42M/h, mono 2.36M/h at 20 fields).
 - Noted for batch 28's sim: 20 fields need 15,000 tiles/h sown and reaped — more than the machines' 12,600 + 5,400,
   so report labor-bound income too. The crop mix is not a decision at the fields stage (mono strawberry is best from
   2 fields); the recurring decision has to come from contracts.
+
+## Batch 28 refined: plots model details (2026-11-11, Hermes from the code at 72ec00a)
+
+Full spec in PLAN.md "Batch 28". The calls made while refining (Toon may reject any):
+- **Migration packs plots contiguously** (planted plots by crop, then empty), so a field may hold two crops; its chip
+  is the crop with the most plots. Why: one-crop-per-field packing opens up to 8 partial fields and pushes old saves
+  past the pump cap.
+- **The tank counts integer burn units** (7,200 per coal = one plot for one tick at 0.5 coal/plot/h), so "a full
+  Pump-3 tank lasts exactly 8 h at 20 fields" is an exact pin, not a float edge.
+- **A dry field's growing plot (migration leftovers) grows at ×1 and burns nothing**; the pivot gates sowing only.
+  Fields never stall.
+- **Without the valve, empty plots in a pivoted field burn too** (the design's "every plot burns"); the worst case is
+  the tank's content, bounded by the tank cap. The valve keeps its old price (2 Au + 💰8,000).
+- **Hand reap sells at ×1 in batch 28**; the ×1.25 into orders and contracts comes with contracts (batch 29).
+- **The Manager job is added hidden in batch 28** (save shape only, decision 16): certificate 💰500,000 + 4 Au (est.,
+  batch 29's sim pins it), glyph 💼 because 🧑‍💼 is an Emoji 12.1 sequence (tofu on Toon's device).
+- **Fields beyond the pump cap collapse into one row now** (only migrated big saves have them), not in batch 30.
+- Measured for the migration pin: on the v20 code every committed fixture (v16–v20) ends 8 h offline with 0 coal and
+  all field tiles still growing — the old pump ran dry. The new model must earn at least the old 8 h cash delta per
+  fixture (💰439,579–458,346).
