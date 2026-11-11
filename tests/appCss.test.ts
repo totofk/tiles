@@ -52,6 +52,9 @@ describe('app.css shared columns (batch 24.1)', () => {
 describe('app.css beds layout (batch 25, re-pinned batch 27)', () => {
   it('.beds pairs the beds in a 380px container query and .bed is a 3-column grid', () => {
     expect(css).toContain('@container (min-width: 380px)')
+    // phones pair only when six 96 px tiles fit; the 380 px rule sits inside the ≥ 768 px media query
+    expect(css).toMatch(/@media \(min-width: 768px\)\s*\{\s*@container \(min-width: 380px\)/)
+    expect(css).toMatch(/@container \(min-width: 680px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
     expect(css).toMatch(/@container \(min-width: 380px\)\s*\{[^}]*\.beds\s*\{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/s)
     expect(css).toMatch(/\.bed\s*{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/s)
   })

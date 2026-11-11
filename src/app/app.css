@@ -348,13 +348,24 @@ button:disabled {
   grid-template-columns: 1fr;
   gap: var(--s4);
 }
-/* pairs from a 380 px container (batch 27: 480 left 24 tiles scrolling 210 px at 1024 × 768; with the Tractor the Home stop's
-   container is 396 px, so 400 still stacked it and scrolled 71 px; paired at 52–54 px fits with no scroll) */
-@container (min-width: 380px) {
+/* pairing. Phones (< 768 px) keep the .cell 96 px touch floor, so they pair only when six 96 px tiles fit (674 px of
+   container) — a 380 px rule paired the beds on a 430 px phone at 50 px columns and the 96 px tiles overlapped
+   (Toon, 9-tile save, 2026-11-11). From 768 px the tile formula sizes the tiles (52 px floor), so the beds pair from a
+   380 px container: 1024 × 768 fits 24 tiles with no scroll, also on the Tractor's 396 px Home stop. */
+@container (min-width: 680px) {
   .beds {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     --cols: 6;
     --rows: var(--rows-paired);
+  }
+}
+@media (min-width: 768px) {
+  @container (min-width: 380px) {
+    .beds {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      --cols: 6;
+      --rows: var(--rows-paired);
+    }
   }
 }
 /* a bed's own chrome = 2 px border × 2 + s2 padding × 2 = 20 px per axis */
