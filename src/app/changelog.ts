@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '28.1', date: '2026-11-11', line: 'A blunt pickaxe you cannot repair can now be swapped for a cheaper one, so you can always mine your way back to gold' },
   { batch: '28', date: '2026-11-11', line: 'Fields now come in plots: buy land ten tiles at a time, build a pivot to water each field, and keep the coal tank full to grow twice as fast — you can also reap a plot by hand' },
   { batch: '27', date: '2026-11-11', line: 'The Tractor opens your Estate: the whole farm at a glance, the home lot one tap away — and smaller screens now fit the whole home lot without scrolling' },
   { batch: '26', date: '2026-11-10', line: 'Sprinklers are built on a bed and water those six tiles forever — no coal, no refills' },

@@ -313,6 +313,10 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
   const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(tier ?? 'wooden') + 1] as OreTier | undefined
   const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || tierVein(nextTier, run.vein.level)) ? nextTier : null
   const nextCraft = offerTier && craftPickaxe(state, offerTier)
+  // batch 28.1: a blunt pickaxe whose repair is out of reach offers the best lower tier it can afford (else the one below)
+  const lower = run.pickaxe?.durability === 0 && !repair.ok ? PICKAXE_TIERS.slice(0, PICKAXE_TIERS.indexOf(run.pickaxe.tier)) : []
+  const escapeTier = lower.findLast((t) => craftPickaxe(state, t).ok) ?? lower[lower.length - 1]
+  const escape = escapeTier && craftPickaxe(state, escapeTier)
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
   const level = tier ? masteryLevel(tier, xp) : 0
@@ -377,10 +381,19 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       {/* batch 24: the pickaxe card's blocks — status + craft, then mastery — each its own group over a divider */}
       <div className="group">
         {run.pickaxe?.durability === 0 ? (
-          <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
-            Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
-            {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
-          </button>
+          <>
+            <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
+              Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
+              {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
+            </button>
+            {escapeTier && escape && (
+              <button disabled={!escape.ok} onClick={() => act((s) => craftPickaxe(s, escapeTier))}>
+                Craft {PICKAXE_NAMES[escapeTier].toLowerCase()} instead ({priceText(pickaxeCraftCost(escapeTier, meta))}) — replaces the
+                blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()}
+                {!escape.ok && <small> — {ERROR_TEXT[escape.error]}</small>}
+              </button>
+            )}
+          </>
         ) : run.pickaxe ? (
           <div className="mine-pickaxe">
             <span>

@@ -73,11 +73,14 @@ export function buyWood(state: GameState, n: number): ActionResult {
   return withRun(state, { cash: run.cash - cost, inventory: addItems(run, 'wood', n) })
 }
 
-// A higher tier replaces the pickaxe in hand (blunt or not); every tier's mastery xp stays in run.mastery.
-// Order: ALREADY_OWNED (this tier or a higher one in hand), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
+// A higher tier replaces the pickaxe in hand; a blunt pickaxe can be replaced by any other tier (the way out when its
+// repair is out of reach). Every tier's mastery xp stays in run.mastery.
+// Order: ALREADY_OWNED (sharp: this tier or a higher one in hand; blunt: this tier), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
 export function craftPickaxe(state: GameState, tier: PickaxeTier = 'wooden'): ActionResult {
   const { run } = state
-  if (run.pickaxe && PICKAXE_TIERS.indexOf(run.pickaxe.tier) >= PICKAXE_TIERS.indexOf(tier)) return fail('ALREADY_OWNED')
+  const held = run.pickaxe
+  if (held && (held.durability > 0 ? PICKAXE_TIERS.indexOf(held.tier) >= PICKAXE_TIERS.indexOf(tier) : held.tier === tier))
+    return fail('ALREADY_OWNED')
   return pay(state, pickaxeCraftCost(tier, state.meta), { pickaxe: { tier, durability: pickaxeDurability(tier) } })
 }
 

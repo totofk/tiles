@@ -306,6 +306,26 @@ describe('Mine panel', () => {
     expect((screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}⁠2)` }) as HTMLButtonElement).disabled).toBe(false)
   })
 
+  it('a blunt pickaxe whose repair is out of reach offers a cheaper tier instead (batch 28.1)', () => {
+    const bluntGold = { tier: 'gold' as const, durability: 0 }
+    const instead = () => screen.queryByRole('button', { name: /instead/ }) as HTMLButtonElement | null
+    const t = setup({ furnace: built, pickaxe: bluntGold, cash: 200, inventory: { ironBar: 5 } })
+    expect(instead()?.textContent).toBe(`Craft iron pickaxe instead (${IRON_BAR}⁠5 💰⁠200) — replaces the blunt gold pickaxe`)
+    expect(instead()?.disabled).toBe(false)
+    fireEvent.click(instead()!)
+    expect(t.get().run.pickaxe).toEqual({ tier: 'iron', durability: 1200 })
+    cleanup()
+    setup({ furnace: built, pickaxe: bluntGold, cash: 50, inventory: { copperBar: 5 } })
+    expect(instead()?.textContent).toMatch(/^Craft copper pickaxe instead/)
+    expect(instead()?.disabled).toBe(false)
+    cleanup()
+    setup({ furnace: built, pickaxe: bluntGold, inventory: { goldBar: 2 } })
+    expect(instead()).toBeNull()
+    cleanup()
+    setup({ pickaxe: wooden(0) })
+    expect(instead()).toBeNull()
+  })
+
   it('a mine worker press flashes the Mine button and pops ⛏️; nothing otherwise', () => {
     const s = createInitialState()
     const state: GameState = { ...s, run: { ...s.run, mineLicense: true } }

@@ -111,6 +111,24 @@ describe('craftPickaxe', () => {
     expect([next.run.pickaxe, next.run.cash, next.run.inventory]).toEqual([{ tier: 'gold', durability: 6500 }, 0, { goldBar: 0 }])
     expect(pickaxeRepairCost('gold', meta)).toEqual({ goldBar: 2, cash: 0 })
   })
+  it('a blunt pickaxe can be replaced by any other tier; a sharp one only by a higher tier (batch 28.1)', () => {
+    const bluntGold = (run: Partial<GameState['run']>) => miner({ pickaxe: { tier: 'gold', durability: 0 }, mastery: { gold: 7 }, ...run })
+    const next = okState(craftPickaxe(bluntGold({ cash: 200, inventory: { ironBar: 5 } }), 'iron'))
+    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery.gold]).toEqual([
+      { tier: 'iron', durability: 1200 },
+      0,
+      { ironBar: 0 },
+      7,
+    ])
+    expect(craftPickaxe(bluntGold({ cash: 1e3, inventory: { goldBar: 9 } }), 'gold')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    const bluntIron = miner({ pickaxe: { tier: 'iron', durability: 0 }, cash: 1e3, inventory: { copperBar: 5, wood: 3 } })
+    expect(okState(craftPickaxe(bluntIron, 'copper')).run.pickaxe?.tier).toBe('copper')
+    expect(okState(craftPickaxe(bluntIron, 'wooden')).run.pickaxe?.tier).toBe('wooden')
+    const sharpGold = bluntGold({ pickaxe: { tier: 'gold', durability: 1 }, cash: 1e3, inventory: { ironBar: 9 } })
+    expect(craftPickaxe(sharpGold, 'iron')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(craftPickaxe(bluntGold({ cash: 0, inventory: { ironBar: 4 } }), 'iron')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(craftPickaxe(bluntGold({ cash: 199, inventory: { ironBar: 5 } }), 'iron')).toEqual({ ok: false, error: 'NO_CASH' })
+  })
 })
 
 describe('dig', () => {
