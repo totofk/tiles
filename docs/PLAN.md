@@ -4287,10 +4287,11 @@ two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and ex
     `fieldTileCost`. A plot goes into any started field with room, or opens the next field. A new field can open
     only if the pump has room.
   - Pivot: one per field, built on the field's socket, permanent. Price for pivot n (n = 2…20):
-    3 Au + 6 Fe + 6 Cu + 💰50,000 × (n − 1) (est.). Field 1 comes with the Tractor, plot 1 and its pivot already
+    3 Au + 6 Fe + 6 Cu + 💰50,000 × (n − 1) (calculator 2026-11-11: kept — the field's 5 plots already cost ≈ 0.5 h of
+    income, 377k at field 2 → 4.88M at field 20). Field 1 comes with the Tractor, plot 1 and its pivot already
     plumbed. A field without a pivot is dry and cannot be sown.
-  - Pump tiers = today's pipe recipes. Bars stay 8 Cu / 8 Fe / 8 Au. Cash is 💰150k / 450k / 900k (est., the 8-crop
-    re-price; owned tiers kept). Wet fields are capped at 2 / 6 / 12 / 20.
+  - Pump tiers = today's pipe recipes. Bars stay 8 Cu / 8 Fe / 8 Au. Cash is 💰500k / 1.5M / 3M (calculator 2026-11-11:
+    ≈ 0.5 h of net income at 2 / 6 / 12 fields; the old 150k / 450k / 900k was ≈ 0.15 h; owned tiers kept). Wet fields are capped at 2 / 6 / 12 / 20.
   - Field crop chip: free to change, applies at the next sowing; standing plots finish.
   - Sow a whole plot (free, all-or-nothing): seeds, auto-buy and dibber rolls per tile, as today. Reap a whole plot:
     by hand costs 10 ⚡; the sickle's doubles roll per tile, as today.
@@ -4335,17 +4336,20 @@ two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and ex
   - Each contract the player delivers by hand: `counters.contractsByHand + 1`.
 - [ ] 150. **🧑‍💼 Manager worker (M1–M5).**
   - New certificate job `manager`, unlocked after N = 3 hand-delivered contracts (sim may move N).
-  - Wage = a few % of estate net at unlock (est., sim pins; per-job wage support in `balance.ts`).
+  - Wage = 💰28 per worker action ≈ 💰20,000/h (calculator 2026-11-11: 2 % of net at 2 fields, 0.2 % at 20; sim may
+    move it; per-job wage support in `balance.ts`).
   - On each worker round:
     - accepted orders/contracts first: fields to flip = ceil(shortfall ÷ (50 tiles × yield per cycle));
-    - the rest go to the best marginal 💰/h crop;
+    - the rest: the EXACT best plan over the fields it may flip (DP over crops × fields, ≈ 3,200 ops per round), not
+      greedy — the price floor makes per-crop income non-concave and greedy-per-field drops to 0.83 × best at base
+      levels and 0.73 × with deeper markets (calculator 2026-11-11);
     - it never accepts an order and never touches a 📌 pinned field.
   - Its row shows its plan, e.g. "🍓 ×3 fields → order #12 · 🍋 rest".
   - The certificate resets on prestige like the others.
   - Pool: 8 jobs / 6 slots.
 - [ ] 151. **Chips wiring + sim.** The crop sheet shows marginal 💰/h per crop for this field from Field 1, the price
-  factor and 🏡 n/50. With no Manager and no chip, the field waits and the strip says why. Sim: Manager ≥ 0.9 × best
-  fixed plan; report best / Manager / mono / old rule.
+  factor and 🏡 n/50. With no Manager and no chip, the field waits and the strip says why. Sim: Manager ≥ 0.99 × best
+  fixed plan at base levels, at sell 5 + fert 5, and with renown floors; report best / Manager / mono / old rule.
 
 ---
 
@@ -4369,7 +4373,9 @@ two save bumps for C2 + C4). Dispatch a GLM worker with `--max-turns 300` and ex
 - [ ] 155. `run.renown: Record<CropId, number>`: +1 per home harvest by a worker, +2 by hand. `migrateV21` starts
   each crop at `lifetime.harvests[crop]`, so nothing is lost. New deed row `keepRenown` (keeps the reached tiers on
   Sell the farm, `keepFirstCertificates` style); renown itself resets on Sell the farm.
-- [ ] 156. Tiers 250 / 1,000 / 4,000 → that crop's market depth ×1.25 / 1.5 / 2 (est., sim pins). The fields gate
+- [ ] 156. Tiers 250 / 1,000 / 4,000 → that crop's price FLOOR 0.5 → 0.55 / 0.6 / 0.7 (Toon 2026-11-11, sim pins).
+  Not market depth: at the fields stage every crop sits on the floor from 60 tiles, so depth ×1.25 / 1.5 / 2 added
+  only +0.1 / 0.6 / 1.3 % at 20 fields; the floor gives strawberry net per unit +14 / 29 / 57 % at sell 5. The fields gate
   (50 home harvests) is unchanged.
 - [ ] 157. Ledger shows renown per crop and the next tier. Sim: a worker-only route reaches the top tier in bounded
   game-hours (reported + capped); prestige reset pinned.

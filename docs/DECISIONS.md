@@ -573,3 +573,16 @@ Research and earlier rounds: `bigfarm-design.md` (A), `-b.md`, `-d.md`, `placeme
   act on the fields, and the ledger is the rows themselves rather than a second read-only copy.
 - **Phones:** the 📋 sheet and the Estate bar apply only after the Tractor; before it phones are unchanged. Reap on the
   bar is a disabled count with a hint until batch 28 adds hand reaping.
+
+## Big farm numbers from the crop-mix calculator (2026-11-11, Toon accepted Hermes's recommendations)
+
+Calculator on the real `balance.ts` / `market.ts` (steady glut, pressure ×2, 50 tiles per field); it reproduces
+Design C's base table (best 2.42M/h, mono 2.36M/h at 20 fields).
+- **Renown reward = a higher price floor per crop** (0.55 / 0.6 / 0.7 at 250 / 1,000 / 4,000), not market depth.
+  Why: with sell 5 + fertilizer 5 every crop hits the floor from 60 tiles, so depth ×2 added only +1.3 %.
+- **Pump cash 💰500k / 1.5M / 3M** (≈ 0.5 h of income at 2 / 6 / 12 fields). **Pivot cash kept** at 💰50,000 × (n − 1).
+- **Manager plans with an exact DP** and the sim pins ≥ 0.99 × best; greedy fell to 0.73–0.83 in some stages.
+- **Manager wage 💰28 per action** (≈ 💰20k/h). Unlock stays at 3 hand-delivered contracts.
+- Noted for batch 28's sim: 20 fields need 15,000 tiles/h sown and reaped — more than the machines' 12,600 + 5,400,
+  so report labor-bound income too. The crop mix is not a decision at the fields stage (mono strawberry is best from
+  2 fields); the recurring decision has to come from contracts.
