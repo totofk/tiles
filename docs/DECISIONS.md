@@ -623,3 +623,15 @@ the batch 19/28 ladder (`571815a`) showed every pivot bought the moment cash rea
 hand; cash bound every plot and pivot, one every 47–58 min. The gap was PIN28a counting only milestones and rungs.
 Decision: keep the pivot recipe (3 Au + 6 Fe + 6 Cu, kin to the sprinkler); batch 29 makes PIN28a count purchases.
 The real longest waits are saving for pump1 (228 min) and pump2 (233 min); pump prices are looked at after that.
+
+## Batch 28.2: Ore sorting's sell-on-dig pulled forward from batch 32 (2026-11-11, Toon: "รวมเข้าไปเลย แล้วปล่อย 28.2")
+
+Toon, playing v21: the Fields tank needs coal, but the miner idles on a full storage (vein Lv4 is 50 % stone), so he
+cleared storage by hand, and "Sell all when full" also sold the tank's coal. The per-kind Keep ↔ Sell on dig of the
+"🧺 Ore sorting" milestone (accepted 2026-11-09, minor-feedback items 3 + 6) moves to batch 28.2, priced as agreed:
+each kind paid in itself (stone 30, coal 15, copper / iron ore 15, gold ore 10) + one cash part = 0.5 h of the ladder
+bot's income at vein Lv3 (sim-set). Toon's rule: every convenience costs some of what it eases, priced in surplus.
+A Sell kind never fails BAG_FULL and sells exactly like `sellItem` at drop time. Run state (reset on prestige). Coal
+leaves "Sell all when full" (it is fuel now). "Keep N" stays in batch 32. Folded in: three batch 28 UI nits
+("1 plots", the Workshop line overflowing at 1024, the Reload label at 375). The two sim carry-ins (PIN28a purchase
+marks, bot gold smelting) stay in batch 29: they touch no player and move the batch 18/19 pins.

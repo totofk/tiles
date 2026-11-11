@@ -4928,3 +4928,92 @@ green; `npx tsc -b --force` clean. No save change, no balance number touched.
 5. Escape pin runs 24 h of game time with a 30 s timeout (5.8 s alone; the 5 s default failed).
 6. Purity grep: only `src/save/storage.ts:26` (`wallClock`), pre-existing.
 7. Not verified (no browser, jsdom only): the escape row's layout in the Mine card at phone / desktop widths.
+
+---
+
+## Batch 28.2 — Ore sorting: sell on dig + Batch 28 UI nits (tasks 159–162, save v21 → v22)
+
+Why (Toon, 2026-11-11, playing the live v21 build): the Fields tank needs coal, but the miner cannot run on its own.
+A failed press on a full storage idles the miner (`src/core/workers.ts:39`); vein Lv4 drops 50 % stone
+(`balance.ts:135`), so 60 slots fill in minutes and he clears them row by row. "Sell all … when storage is full"
+also sells the coal the tank needs (`Mine.tsx:63` keeps coal in `SELL_WHEN_FULL`). Fix: the per-kind
+**Keep ↔ Sell on dig** part of the "🧺 Ore sorting" milestone, which Toon accepted on 2026-11-09
+(`tiles-drafts/b24-minor-feedback-decisions.md` "Items 3 + 6"), pulled forward from batch 32. Its "Keep N" step stays
+in batch 32. Toon also folded in three UI nits found in the batch 28 live check. Decisions: DECISIONS.md "Batch 28.2".
+
+Worker: **Opus**, `--max-turns 100`. Commits: one per task, `feat: batch 28.2 task N — …`.
+
+- [ ] 159. **Core + save v22.**
+  a) State: `run.oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>`, where `MineDropId` = the five vein drops
+     `stone | coal | copperOre | ironOre | goldOre` (derive the type from the `VEIN_DROPS` keys or list them once
+     in `balance.ts`). A missing key = that kind is locked. It is run state: prestige resets it to `{}` like the
+     vein and storage, and the fresh-run builder in `state.ts` (the object with `vein: { level: 0, … }`, ≈ line 231)
+     starts it at `{}`.
+  b) Price: `oreSortUnlockCost(kind, meta): Price` in `balance.ts`, through the cost multiplier like every price.
+     Items: `{ stone: 30 } | { coal: 15 } | { copperOre: 15 } | { ironOre: 15 } | { goldOre: 10 }`, each paid in its
+     own kind. Cash: `ORE_SORT_CASH`, the same for every kind, set by 162a. Comment above it: "every convenience costs
+     some of what it eases, priced in what is in surplus at that stage (DECISIONS 'Batch 28.2')".
+  c) `unlockOreSort(state, kind)` in `mining.ts`. Error order: NO_MINE_LICENSE, `LOCKED` when `run.vein.level < 3`,
+     ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH (existing ActionErrors only). Success sets `oreSort[kind] = 'keep'`.
+     `setOreSort(state, kind, mode)`: free, no energy; `LOCKED` when the kind is not unlocked.
+  d) `dig` (`mining.ts:121–145`): let `rock = minedRock(…)`. When the rock that would drop is a kind set to
+     `'sell'`, a full storage does NOT fail BAG_FULL. When that press drops it, the result equals adding it to
+     storage and then `sellItem(state, rock, 1)`: the same cash with the sell multiplier, `counters.sales + 1` and
+     `lifetime` income, and storage unchanged. Everything else in `dig` is unchanged (energy, rng order, pickaxe
+     wear, mastery, `counters.mines`). Keep kinds behave exactly as today, including BAG_FULL. The miner worker
+     (`workers.ts` `mine`) needs no change, because it calls `dig`.
+  e) Save v22: `SAVE_VERSION = 22`; `migrateV22` sets `run.oreSort = {}`. Commit `tests/fixtures/save-v21.json`
+     (already in the repo: a real save written by the live v21 build). Every fixture v1–v21 migrates in
+     `tests/save.test.ts`. The 8 h offline pins for the old fixtures stay: no sort means the same play.
+  f) Unit tests (`tests/mining.test.ts`): unlock pays the items and cash; the error order; a locked kind cannot be
+     toggled; a Sell stone drop on a FULL storage succeeds, adds `itemSellPrice('stone')` cash and `sales + 1`, and
+     leaves the inventory unchanged; a Keep kind on a full storage still fails BAG_FULL; with the same rng seed, the
+     Sell and Keep runs make identical rolls (same next rock); prestige clears `oreSort`.
+- [ ] 160. **Mine card UI.**
+  a) Sell list (`Mine.tsx:433–…`, `.item-grid`): add a 6th column (`auto`) to `.item-grid`'s template (app.css
+     `.item-grid`, today 5 columns). For an unlocked vein-drop row, it holds a toggle button: text `Keep` or
+     `Sell on dig`, `aria-pressed` true on Sell, min 44 px tall, the same `.item-row` subgrid. Other rows get an
+     empty cell, so columns stay aligned.
+  b) Under the sell list, once `run.vein.level >= 3`: a group with heading `🧺 Ore sorting` and one row per LOCKED
+     kind: `Sell {emoji} {name} on dig — {priceText(oreSortUnlockCost(kind))}`, a button `Unlock`, disabled with
+     ` — {ERROR_TEXT}` (the shape of the existing craft rows) when it fails. Hint line, verbatim:
+     `Unlocked kinds can be sold the moment you dig them, so the miner never stops on a full storage.`
+     The whole group is hidden when every kind is unlocked, and absent below vein Lv3.
+  c) `SELL_WHEN_FULL` (`Mine.tsx:63`): also exclude `coal`. Comment: "coal fuels the Fields tank (batch 28)". Test:
+     the button leaves coal in storage.
+  d) Tests (`tests/Mine.test.tsx`): vein Lv2 shows no sorting group; vein Lv3 shows 5 unlock rows; unlocking
+     stone moves it to a `Keep` toggle in the sell list and removes its unlock row; clicking the toggle flips
+     `aria-pressed` and the state; the 6-column grid renders an empty cell on the wood row.
+- [ ] 161. **Batch 28 UI nits** (found live 2026-11-11 by Hermes, all `src/app`).
+  a) `Estate.tsx:127`: `1 plot to sow`, otherwise `{n} plots to sow`. Grep `src/app` for other `plots` chips with a
+     count; if one exists, give it the same singular rule. Test n = 1 and n = 2.
+  b) Workshop (`Workshop.tsx:63–67`): the one-line sprinkler status sits alone in a `.gauge-grid`, whose first
+     column is `max-content`, so at 1024 px it overflows its card by 100 px. Render it as `<p className="hint">`
+     with the same text, without the `.gauge-grid` / `.gauge-row` wrapper (it has no bar and no count). Test: the
+     text renders and no `.gauge-row` is in the Workshop card.
+  c) Two-tab banner (`App.tsx:159–162`, `.banner`): at 375 px the `Reload` label overflows its button. The button
+     gets `flex: none; white-space: nowrap`, and the text span `min-width: 0` so the text wraps instead. If
+     `.banner` is not a flex row, use the equivalent grid rule; say which in Deviations.
+- [ ] 162. **Sim + docs.**
+  a) Cash part: in `tests/sim.test.ts`, measure the batch-16 ladder bot's net cash per hour in its first hour that
+     owns vein Lv3 (the same bot and options as the "Batch 16 results" vein-Lv4 phase measure that
+     `balance.ts:137–138` cites). `ORE_SORT_CASH` = 0.5 h of it, rounded to 💰500 (minimum 💰500). Pin the measured
+     income and the cash. Assert every unlock's item count ≤ `bagCapacity` at that tick.
+  b) The miner pin (new `describe('batch 28.2: sell on dig')`): start from `tests/fixtures/save-v21.json`
+     (deserialize), assign one pool worker to `mine` (set it in the test state; hire one if the pool is empty), and
+     empty the Fields tank. Run 8 h (`OFFLINE_CAP_TICKS`) twice: (A) `oreSort` `{}`, (B) every kind unlocked, coal
+     `'keep'`, the other four `'sell'`. Pin: B's `counters.mines` > 5 × A's, and B ends with more coal in storage
+     + tank than A. Report both runs' mines, coal and cash under results.
+  c) The ladder bot never unlocks sorting, so every existing sim pin must stay. If one moves, that is a bug in 159d:
+     fix the code, never re-pin.
+  d) CHANGELOG: ONE entry at the TOP of `CHANGELOG` in `src/app/changelog.ts`, copied verbatim:
+     `{ batch: '28.2', date: '<today, YYYY-MM-DD>', line: 'Ore sorting: unlock Sell on dig per kind so the miner keeps digging on a full storage, and Sell all now keeps your coal for the Fields tank' }`
+  e) `## Batch 28.2 results` + `### Deviations` at the TRUE END of `docs/PLAN.md`; tick 159–162.
+
+Door Problem: got by — the Mine card, from vein Lv3, paid in the same kind + cash; state — per kind locked / Keep /
+Sell on dig, shown in the sell list's last column; failure — the typed errors in 159c, the BAG_FULL of Keep kinds as
+today; 8 h offline — the miner's drops follow the toggles inside `step` (core), so the catch-up equals live play;
+prestige — reset with the run (like vein and storage); migration — v22 adds `oreSort {}` (all locked, today's play);
+375 px — the toggle column in the subgrid; two tabs — nothing new; touches — the miner worker, the fuel loader (coal
+stays Keep, so it feeds the tank), Sell all (coal now excluded), sales counters and lifetime income, batch 32
+(Keep N extends this state).
