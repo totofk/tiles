@@ -4680,7 +4680,7 @@ no change. Emoji only from existing constants (`CROP_EMOJI`, `SPRINKLER_EMOJI`, 
 Words used below: **row** = one field on the map: a chip then five plot cells. **cell** = one plot (10 tiles).
 **ghost cell** = the slot `buyPlot` fills next. **field sheet** = the `Modal` a chip opens.
 
-- [ ] 152. **Field rows** (`src/app/Estate.tsx`, new `src/app/EstateMap.tsx`, `src/app/estateText.ts`, `app.css`).
+- [x] 152. **Field rows** (`src/app/Estate.tsx`, new `src/app/EstateMap.tsx`, `src/app/estateText.ts`, `app.css`).
   - a. Replace the text rows (`Estate.tsx:135–192`: the `estate-row` title span, 📌, `<select>`, Sow / Build pivot /
     Reap buttons) with `<EstateMap state act ui />` in `EstateMap.tsx`. One `.map-row` per field in
     `run.fields.list.slice(0, pumpFieldCap(pump))`, the existing collapsed row after it unchanged ("Fields k–n ·
@@ -4729,7 +4729,7 @@ Words used below: **row** = one field on the map: a chip then five plot cells. *
     `nextSowTarget` only with that machine owned; the ghost field's two texts; the collapsed row past the cap; the v20
     fixture renders rows. Keep every existing strip / tank / valve / machines / phone-bar test passing.
 
-- [ ] 153. **Chip + field sheet** (`EstateMap.tsx`, `estateText.ts`, `app.css`).
+- [x] 153. **Chip + field sheet** (`EstateMap.tsx`, `estateText.ts`, `app.css`).
   - a. Chip (`.map-chip`, 56 × 52): the crop emoji (`—` with no crop; 🚱 `BEYOND_EMOJI` with no pivot), a small
     `F${k+1}` line prefixed with 📌 when pinned, and a corner badge: ⛲ (`SPRINKLER_EMOJI`, solid blue frame) with a
     pivot, a dashed "＋" without (`aria-hidden`, decorative). `aria-label`: `Field ${k+1} · ${crop name | 'no crop'}
@@ -4756,7 +4756,7 @@ Words used below: **row** = one field on the map: a chip then five plot cells. *
     (Modal); the keys 1 / 2 / Esc do not switch stops while the sheet is open (Surface already skips on
     `[role="dialog"]` — assert it).
 
-- [ ] 154. **Keyboard, reduced motion, offline reasons, changelog.**
+- [x] 154. **Keyboard, reduced motion, offline reasons, changelog.**
   - a. Keyboard: cells and chips are native buttons in row order (Tab reaches every action), with a 3 px
     `:focus-visible` outline (the spike's `.minibtn` style). No roving tab index.
   - b. Reduced motion (`@media (prefers-reduced-motion: reduce)`): the progress bar has no width transition and the
@@ -5397,3 +5397,87 @@ Final: `pnpm test` 51 files, 944 passed, 3 expected fail; `pnpm lint` and `pnpm 
   the long picker options (`· ≈💰m/h · ×f`) in the closed 96 px select and the open list, the Manager row's plan line
   and the two new strip labels at 375 / 1024 / 1440 / 2560 / 3440. jsdom tests cover the text, `aria-pressed`, the
   pin-on-pick and the disabled gate options. Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440.
+
+## Batch 30 results (2026-11-11)
+
+Tasks 152–154 done, one commit each (`3563d26`, `409a89f`, and this one), all on `main`, not pushed. UI only:
+SAVE_VERSION stays 22, no fixture edited, no balance number or sim pin moved. In `src/core` the only change is the
+rename + export of `sowTarget` → `nextSowTarget(fields)` and `oldestReady` → `nextReapTarget(run)` (callers
+`sowNext`, `reapNext`, `fieldsHarvest`, `fieldsPlantAction`, `machinesAct` call them unchanged).
+
+- **152 Field rows.** New `src/app/EstateMap.tsx`: the legend, one `.map-row` per field up to `pumpFieldCap`, the
+  collapsed row (unchanged text, still `.estate-row`) and the ghost field `<p>`. Cells come from the pure
+  `plotCellView(state, k, j)` in `estateText.ts` (kinds empty / dry / growing / ready / ghost / none, the 🚜 marker on
+  `nextReapTarget` / `nextSowTarget` with that machine owned, 📋 on ready plots an accepted unfinished order wants) and
+  `compactCash`. The Expand "＋ Plot" ghost row and its tests are gone; Pump, Fill tank and Smart valve stay.
+- **Row width in jsdom CSS terms:** `.map-row { grid-template-columns: 56px repeat(5, 52px); gap: 5px }` = 56 + 5 × 52 +
+  5 × 5 = **341 px**; `.map-rows { grid-template-columns: repeat(auto-fill, 341px); column-gap: 40px; row-gap: 8px }`.
+  Asserted from the stylesheet text in `tests/appCss.test.ts` (jsdom has no layout). Chip and cells are 52 px tall
+  buttons with `padding: 0; min-width: 0`, so the global `button { min-height: 44px }` holds and nothing widens a column.
+- **Memo render-count test** (`tests/Estate.test.tsx`, "task 152e"): `react`'s `memo` is wrapped by `vi.mock` to log
+  each `PlotCell` render as `k,j`. First render of 2 full fields = 10 cells; tick +1 with plot (0,1) sown → renders
+  `['0,1']` only; tick +1 with plot (0,0) reaped → `['0,0']` only. `onTap(k, j, kind)` is one `useCallback` over
+  `[act, setSheet]`, `pct` is passed as whole percent.
+- **153 Chip + field sheet.** Chip `.map-chip` (crop emoji / `—` / 🚱, `📌F<k>`, ⛲ or dashed ＋ badge, `aria-hidden`),
+  `aria-label` per spec. The sheet is the shared `Modal`: pivot Build with `sheet-line` / `sheet-price` / `sheet-short`
+  / `sheet-build` (closes on success; at the pump's pivot cap disabled with `Pump p waters c fields — build Pump p+1`),
+  the income line with a pivot, the crop buttons (`cropOptionText`, 🏡-gated, `aria-pressed`, "No crop"; a pick under a
+  working Manager pins, toasts `Field k → <name> at the next sowing` and closes), the 📌 row behind the certificate.
+  Old row CSS removed (`.estate-rows`, `.estate-row > span > small`, `.estate-row .pin*`, `.ghost-row button`).
+- **154.** 3 px `:focus-visible` outline on chips and cells, no `tabindex` anywhere in the map; under
+  `prefers-reduced-motion: reduce` the bar has no width transition and the 🚜 badge no animation (both asserted in
+  `appCss.test.ts`). `bannerText` appends, only when `after.run.fields.unlocked` (App's Tractor test), in order:
+  `⛽ tank ran dry`, `🌱 seeder waiting — no seeds or cash`, `🚜 machines paused — upkeep unpaid`, `🌾 n plots ready`;
+  each tested from a forged before/after pair plus the order and the pre-Tractor case (`tests/WorkersCard.test.tsx`).
+  The six older banner assertions are unchanged. CHANGELOG entry added at the top verbatim.
+- **Removed tests → replacements** (`tests/Estate.test.tsx` unless named):
+  - "one row per field with its plots and chip" → "8 fields render 8 map rows of a chip + 5 cells".
+  - "the crop chip goes through setFieldCrop, Sow through sowPlot; a dry field shows Build pivot" → "tap an empty cell
+    sows it…", "a dry cell … opens the field sheet", "the sheet Build path…", "a crop pick goes through setFieldCrop…".
+  - "the ghost row buys one plot when cash allows" → "the ghost cell buys a plot; without the cash … toasts the error".
+  - "fields past the pump cap collapse…; the ghost row says when the next plot opens a field" → "fields past the pump
+    cap collapse into one row; the ghost field says what opens the next field".
+  - "the real v20 fixture renders Field rows" → "the real v20 fixture renders map rows".
+  - "151a: every licensed crop is an option…" → "with a pivot the sheet shows the crop income line; every licensed crop
+    is a button…".
+  - "no 📌 button before the Manager certificate" + "once owned each row has a 📌 toggle…" → "the 📌 row only with
+    the Manager certificate…".
+  - "a hand pick while a Manager is assigned pins the field" → "a crop pick goes through setFieldCrop, toasts and
+    closes; it pins the field while a Manager is assigned".
+  - New: the 🚜 marker test, Esc / backdrop close, "the old row controls are gone", the memo test,
+    `estateText.test.ts` plotCellView / compactCash tests, `App.test.tsx` "keys 1 / 2 / Esc do not switch stops while
+    the field sheet is open".
+- Gates before the 154 commit: `pnpm test` 51 files, 963 passed + 3 expected fail (948 at the 152 commit, 956 at
+  the 153 commit), `pnpm lint` clean, `pnpm build` clean, `rm` tsbuildinfo + `tsc -b --force` clean. Purity grep
+  `Date.now|react` over `src/core` and `src/save`: only the known `src/save/storage.ts:26`. Case/extension collision
+  check prints nothing.
+
+### Deviations
+
+- Commit split: the chip and field sheet code landed in the 152 commit, because 152a removes the `<select>` and the
+  dry-cell tap opens the sheet — splitting it would have left a commit with no way to pick a crop. The 153 commit
+  carries the chip / sheet tests (and the App key test).
+- `compactCash(385_500)` returns `386k` by the spec's own `round(n / 1000)` formula; the prose example says "385k".
+  The formula wins; the unit test pins `386k`.
+- The ghost field's pump price uses `pumpCost(pump, meta)` (the real signature; the spec writes `pumpCost(pump)`).
+- 📋 sits on ready cells only (the spec lists it under `ready`); growing cells carry `ordered: false`. Its rule is
+  `isOffer && accepted && done < count` (the spec's "accepted unfinished"); FarmGrid's `orderedCrops` checks only
+  `accepted`, so the two differ only for an offer already at its count.
+- The `contractsByHand` check is its own test ("a ready-cell tap is the hand reap…", added in the 154 commit) rather
+  than a line in the 152 tap test.
+- `🌾 ${ready} plots ready` is literal, so one plot reads "1 plots ready".
+- "→ no crop" toast reads `Field k → no crop at the next sowing`.
+- `PlotCell` takes two extra primitive props, `price` and `payback` ('' / 0 except on the ghost cell), for its three
+  lines; `onTap` takes the cell's own `kind` as a third argument so the handler needs no state.
+- The 🚜 glyph is defined as `MARKER_EMOJI` in `EstateMap.tsx` (the same glyph as `Surface.tsx`'s `ESTATE_EMOJI`;
+  importing that one would close an import cycle). `ORDER_EMOJI` and `BEYOND_EMOJI` moved from `Estate.tsx` to
+  `EstateMap.tsx` (Estate imports `ORDER_EMOJI` back); `PIN_EMOJI` moved with them.
+- The ready cell's look is the home `.cell-mature` yellow (`#fff59d`) with a 2 px green (`#2e7d32`) frame — the home
+  class itself has an amber frame, so it is not reused.
+- One full `pnpm test` run before the 152 commit failed and its output was not captured; the immediate rerun and every
+  later full run passed. Likely the known timing-bound flake (`PIN28perf`, batch 29 Deviations); not confirmed.
+- Not verified (no browser; jsdom has no layout): the 341 px rows at 375 and the column count at 1024 / 1440 / 2560 /
+  3440, the cell emoji / badge / progress-bar placement inside 52 px, the three ghost-cell lines fitting 52 px with a
+  "1.2M" price, the focus ring rendering, the marker animation and the reduced-motion switch, the sheet's crop buttons
+  with long option texts, and 8 / 20 / 60 fields. Hermes measures 375 / 1024 / 1440 / 2560 / 3440 with 8, 20 and 60
+  fields.

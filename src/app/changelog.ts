@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '30', date: '2026-11-11', line: 'Estate map: each field is now a row of plot squares (1 square = 10 tiles). Tap an empty plot to sow, a ready one to reap; tap the field to pick its crop or build its pivot' },
   { batch: '29', date: '2026-11-11', line: 'Estate contracts: crop orders now scale with your wet fields, and plots you reap by hand pay ×1.25 into them. Deliver 3 by hand to unlock the 💼 Manager, who picks each field\'s crop' },
   { batch: '28.2', date: '2026-11-11', line: 'Ore sorting: unlock Sell on dig per kind so the miner keeps digging on a full storage, and Sell all now keeps your coal for the Fields tank' },
   { batch: '28.1', date: '2026-11-11', line: 'A blunt pickaxe you cannot repair can now be swapped for a cheaper one, so you can always mine your way back to gold' },

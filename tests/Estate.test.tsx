@@ -76,6 +76,8 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
       expect([...row.children].every((c) => c.tagName === 'BUTTON' || c.tagName === 'SPAN')).toBe(true)
       expect(row.children[0].className).toBe('map-chip')
     })
+    // task 154a: native buttons in row order, no roving tab index
+    expect(container.querySelectorAll('.map-rows [tabindex]')).toHaveLength(0)
     expect(screen.getByText('1 square = 1 plot of 10 tiles · a field = 5 plots under one ⛲ pivot').className).toBe('map-legend')
     const { emptyWet, ready, wetFields } = fieldsOverview(base.run)
     expect(screen.getByText(`💧 ${wetFields}/${pumpFieldCap(base.run.fields.pump)} fields wet`)).toBeTruthy()
@@ -110,6 +112,15 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
     fireEvent.click(cell(/^Field 1 plot 3 · .+ % · ripe in /))
     expect(t.cur).toBe(before)
     expect(t.toasts.at(-1)).toBe('Not ready yet')
+  })
+
+  it('a ready-cell tap is the hand reap: it completes an accepted contract and counts contractsByHand', () => {
+    const crop = base.run.fields.list[0].crop! // a fields-plantable crop, so its order is a contract
+    const offers = [{ good: crop, count: 1, done: 0, tier: 1, accepted: true }]
+    const t = tick(withFields([field([plot(crop, 5)], true, crop)], { energy: 50, orders: { ...base.run.orders, unlocked: true, slots: 1, offers } }))
+    const before = t.cur.run.counters.contractsByHand
+    fireEvent.click(cell(`Field 1 plot 1 · ${CROPS[crop].name} ready — reap ⚡10`))
+    expect([t.cur.run.counters.contractsByHand, t.cur.run.energy]).toEqual([before + 1, 40])
   })
 
   it('the ghost cell buys a plot; without the cash it keeps its look and the tap toasts the error', () => {

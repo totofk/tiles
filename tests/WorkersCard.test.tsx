@@ -8,7 +8,7 @@ import { bannerText, type Act } from '../src/app/useGame'
 import { Workers } from '../src/app/Workers'
 import { workerHireCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
-import { createInitialState, type Counters, type GameState } from '../src/core/state'
+import { createInitialState, createMachines, type Counters, type GameState } from '../src/core/state'
 import { serialize } from '../src/save/serialize'
 import { SAVE_KEY } from '../src/save/storage'
 
@@ -286,5 +286,56 @@ describe('HUD and away banner', () => {
     const at = (workerMines: number, ironBarsSmelted: number) => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, workerMines, ironBarsSmelted } } })
     expect(bannerText(60_000, at(5, 1), at(5, 1))).toBe('Away for 1m — 60 ticks simulated')
     expect(bannerText(60_000, at(5, 1), at(17, 4))).toBe(`Away for 1m — 60 ticks simulated · ⛏️ 12 mined · ${ITEMS.ironBar.emoji} 3 smelted`)
+  })
+})
+
+describe('batch 30, task 154c: the away banner names why the Estate sat idle', () => {
+  const s = createInitialState()
+  const away = 'Away for 1m — 60 ticks simulated'
+  /** an Estate run at tick 100: one pivoted radish field holding `plots`, a tank of `tank`, machines and carry as given */
+  const estate = (o: { plots: { crop: 'radish' | null; readyTick: number }[]; tank?: number; harvester?: number[]; seeder?: number[]; plant?: number; maint?: number; unlocked?: boolean; cash?: number }): GameState => ({
+    ...s,
+    run: {
+      ...s.run,
+      tick: 100,
+      cash: o.cash ?? 0,
+      fields: {
+        ...s.run.fields,
+        unlocked: o.unlocked ?? true,
+        tank: o.tank ?? 0,
+        list: [{ pivot: true, crop: 'radish', pinned: false, plots: o.plots }],
+        machines: { ...createMachines(), harvester: o.harvester ?? [], seeder: o.seeder ?? [], carry: { ...createMachines().carry, plant: o.plant ?? 0, maint: o.maint ?? 0 } },
+      },
+    },
+  })
+  const growing = { crop: 'radish' as const, readyTick: 1e9 }
+  const ready = { crop: 'radish' as const, readyTick: 50 }
+  const empty = { crop: null, readyTick: 0 }
+
+  it('⛽ tank ran dry: growing plots and the tank cannot pay the burn', () => {
+    expect(bannerText(60_000, s, estate({ plots: [growing], tank: 0 }))).toBe(`${away} · ⛽ tank ran dry`)
+    expect(bannerText(60_000, s, estate({ plots: [growing], tank: 999 }))).toBe(away)
+  })
+
+  it('🌱 seeder waiting: a seeder, a sowable plot and a full plot banked', () => {
+    expect(bannerText(60_000, s, estate({ plots: [empty], seeder: [1], plant: 10 }))).toBe(`${away} · 🌱 seeder waiting — no seeds or cash`)
+    expect(bannerText(60_000, s, estate({ plots: [empty], seeder: [1], plant: 3 }))).toBe(away)
+    expect(bannerText(60_000, s, estate({ plots: [empty], plant: 10 }))).toBe(away) // no seeder
+  })
+
+  it('🚜 machines paused: an unpaid hour of upkeep', () => {
+    expect(bannerText(60_000, s, estate({ plots: [empty], maint: 1 }))).toBe(`${away} · 🚜 machines paused — upkeep unpaid`)
+    expect(bannerText(60_000, s, estate({ plots: [empty], maint: 0.5 }))).toBe(away)
+  })
+
+  it('🌾 n plots ready: ready plots and no harvester', () => {
+    expect(bannerText(60_000, s, estate({ plots: [ready, ready], tank: 999 }))).toBe(`${away} · 🌾 2 plots ready`)
+    expect(bannerText(60_000, s, estate({ plots: [ready, ready], tank: 999, harvester: [1] }))).toBe(away)
+  })
+
+  it('the reasons come in order, and nothing is added before the Tractor', () => {
+    const all = { plots: [growing, ready, empty], tank: 0, seeder: [1], plant: 10, maint: 1 }
+    expect(bannerText(60_000, s, estate(all))).toBe(`${away} · ⛽ tank ran dry · 🌱 seeder waiting — no seeds or cash · 🚜 machines paused — upkeep unpaid · 🌾 1 plots ready`)
+    expect(bannerText(60_000, s, estate({ ...all, unlocked: false }))).toBe(away)
   })
 })

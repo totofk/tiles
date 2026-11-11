@@ -86,4 +86,11 @@ describe('app.css Estate map (batch 30)', () => {
     // every cell and the chip are 52 px tall (≥ 44 px tap targets) with no padding pushing past the column
     expect(css).toMatch(/\.map-chip,\s*\.map-cell\s*{[^}]*height: 52px;[^}]*min-width: 0;[^}]*padding: 0;/s)
   })
+
+  it('task 154: a 3 px focus ring on chips and cells; reduced motion drops the bar transition and the 🚜 animation', () => {
+    expect(css).toMatch(/\.map-chip:focus-visible,\s*\.map-cell:focus-visible\s*{[^}]*outline: 3px solid/s)
+    expect(css).toMatch(/\.map-bar\s*{[^}]*transition: width/s)
+    expect(css).toMatch(/\.map-marker\s*{[^}]*animation: map-marker/s)
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*{\s*\.map-bar\s*{\s*transition: none;\s*}\s*\.map-marker\s*{\s*animation: none;\s*}/s)
+  })
 })

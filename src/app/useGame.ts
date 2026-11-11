@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
-import { fireUnitTicks, upgradeUnlocked, workerActionTicks } from '../core/balance'
+import { fireUnitTicks, plotTiles, upgradeUnlocked, workerActionTicks } from '../core/balance'
+import { fieldsOverview, fieldsPressure, nextSowTarget } from '../core/fields'
 import { ITEMS } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
@@ -89,9 +90,23 @@ export function bannerText(awayMs: number, before: GameState, after: GameState):
     ready > 0 && `${ready} bar${ready === 1 ? '' : 's'} ready`,
     wages > 0 && `wages paid 💰${wages}`,
     marketMoves(before, after),
+    ...(after.run.fields.unlocked ? estateIdleReasons(after) : []),
   ]
     .filter(Boolean)
     .join(' · ')
+}
+
+/** batch 30, task 154c: why the Estate sat idle at the end of the catch-up, each only when true */
+function estateIdleReasons(after: GameState): (string | false)[] {
+  const { run } = after
+  const { machines } = run.fields
+  const { growing, ready } = fieldsOverview(run)
+  return [
+    growing > 0 && !fieldsPressure(run) && '⛽ tank ran dry',
+    machines.seeder.length > 0 && nextSowTarget(run.fields) !== null && machines.carry.plant >= plotTiles() && '🌱 seeder waiting — no seeds or cash',
+    machines.carry.maint >= 1 && '🚜 machines paused — upkeep unpaid',
+    ready > 0 && machines.harvester.length === 0 && `🌾 ${ready} plots ready`,
+  ]
 }
 
 const TOAST_MS = 2000
