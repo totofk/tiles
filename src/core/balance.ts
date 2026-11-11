@@ -567,7 +567,7 @@ export function startTiles(meta: MetaState): number {
  * The 🏆 Legacy deed rows: levels on the meta upgrade table bought with deeds. Level prices 2 / 4 / 8 / 16 / 32
  * (2^level, the research curve); the two one-time keeps are fixed. No row multiplies ⭐, deeds or mining.
  */
-export const DEED_ROW_IDS = ['growTime', 'sellPrice', 'cost', 'energy', 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates'] as const
+export const DEED_ROW_IDS = ['growTime', 'sellPrice', 'cost', 'energy', 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates', 'keepRenown'] as const
 export type DeedRowId = (typeof DEED_ROW_IDS)[number]
 const DEED_MAX_LEVEL: Record<DeedRowId, number> = {
   growTime: 5,
@@ -578,8 +578,9 @@ const DEED_MAX_LEVEL: Record<DeedRowId, number> = {
   workerSpeed: 2,
   keepLicenses: 1,
   keepFirstCertificates: 1,
+  keepRenown: 1,
 }
-const DEED_ONE_TIME_COST: Partial<Record<DeedRowId, number>> = { keepLicenses: 2, keepFirstCertificates: 3 }
+const DEED_ONE_TIME_COST: Partial<Record<DeedRowId, number>> = { keepLicenses: 2, keepFirstCertificates: 3, keepRenown: 3 }
 
 export const deedMaxLevel = (id: DeedRowId): number => DEED_MAX_LEVEL[id]
 
@@ -597,10 +598,33 @@ export function marketDepthGlut(cropId: CropId): number {
   return MARKET_DEPTH_TILES / (CROP_BASE[cropId].growTicks * (1 - MARKET_DECAY))
 }
 
-/** sale price factor at this glut: 1 with no glut, sinking to MARKET_FLOOR at the depth glut */
-export function marketFactor(cropId: CropId, glut: number): number {
-  return Math.max(MARKET_FLOOR, 1 - (0.5 * glut) / marketDepthGlut(cropId))
+/** sale price factor at this glut: 1 with no glut, sinking to the floor (MARKET_FLOOR, or the crop's renown floor) */
+export function marketFactor(cropId: CropId, glut: number, floor = MARKET_FLOOR): number {
+  return Math.max(floor, 1 - (0.5 * glut) / marketDepthGlut(cropId))
 }
+
+// Renown (batch 31, DECISIONS "Batch 31 refined"): every home harvest adds renown to its crop (by hand 2, a worker 1);
+// each tier reached raises that crop's market floor.
+export const RENOWN_BY_HAND = 2
+export const RENOWN_BY_WORKER = 1
+export const RENOWN_TIERS = [250, 1000, 4000]
+export const RENOWN_FLOORS = [0.55, 0.6, 0.7]
+
+export function addRenown(renown: Partial<Record<CropId, number>>, crop: CropId, points: number): Partial<Record<CropId, number>> {
+  return { ...renown, [crop]: (renown[crop] ?? 0) + points }
+}
+
+/** tiers reached (0–3) */
+export const renownTier = (points: number): number => RENOWN_TIERS.filter((t) => points >= t).length
+
+/** the crop's market floor at these points */
+export function renownFloor(points: number): number {
+  const tier = renownTier(points)
+  return tier === 0 ? MARKET_FLOOR : RENOWN_FLOORS[tier - 1]
+}
+
+/** the next tier's threshold; null at the top */
+export const nextRenownTier = (points: number): number | null => RENOWN_TIERS.find((t) => points < t) ?? null
 
 /** ticks until the factor is back at 0.99 with no more sales; 0 when it is at or past it */
 export function marketRecoveryTicks(cropId: CropId, glut: number): number {

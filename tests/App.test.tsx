@@ -5,7 +5,7 @@ import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { ERROR_TEXT } from '../src/app/useGame'
 import { createInitialState, type GameState } from '../src/core/state'
-import { deserialize, serialize } from '../src/save/serialize'
+import { SAVE_VERSION, deserialize, serialize } from '../src/save/serialize'
 import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
 import { encodeSave } from '../src/save/codec'
 import codeV15 from './fixtures/code-v15.txt?raw'
@@ -387,9 +387,9 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v22/)).toBeTruthy()
+    expect(screen.getByText(/Will migrate v15 → v23/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
-    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(22)
+    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(SAVE_VERSION)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)
   })
 })

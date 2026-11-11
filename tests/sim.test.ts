@@ -4130,10 +4130,11 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
 
   // batch 28.1 measured run 1 stopping at plots10 (its gold ore never smelted); batch 29 (task 151e) puts plots10 in
   // smeltsFor and the furnace-kind chooser, so both runs climb — pinned at the measured hours (seeded, so exact)
-  it('run 1 and the vault run climb to harvester3 (batch 29: 62.5 h / 36.3 h)', () => {
+  // batch 31: the vault run 36.3 → 37.9 h — its breadth-first deed spend now also buys Kept renown (3 deeds)
+  it('run 1 and the vault run climb to harvester3 (batch 31: 62.5 h / 37.9 h)', () => {
     const h = [r1.ladder.ladderTicks.harvester3, r3.ladderTicks.harvester3].map((t) => (t === undefined ? null : Math.round((t / HOUR_TICKS) * 10) / 10))
     console.log('PIN28_1c', JSON.stringify({ harvester3H: h }))
-    expect(h).toEqual([62.5, 36.3])
+    expect(h).toEqual([62.5, 37.9])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

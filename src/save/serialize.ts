@@ -22,7 +22,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 22
+export const SAVE_VERSION = 23
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -114,8 +114,12 @@ type FieldsV20 = {
 }
 /** v13–v20 jobs (the Manager joined in v21) */
 type JobV20 = Exclude<WorkerJob, 'manager'>
+/** v22: no renown yet */
+type RunV22 = Omit<GameState['run'], 'renown'>
+/** v18–v22 meta: the deed rows before Kept renown */
+type MetaV22 = Omit<GameState['meta'], 'upgrades'> & { upgrades: Omit<GameState['meta']['upgrades'], 'keepRenown'> }
 /** v21: no 🧺 Ore sorting yet */
-type RunV21 = Omit<GameState['run'], 'oreSort'>
+type RunV21 = Omit<RunV22, 'oreSort'>
 type RunV20 = Omit<RunV21, 'fields' | 'counters' | 'workers'> & {
   fields: FieldsV20
   counters: Omit<Counters, 'contractsByHand'>
@@ -154,12 +158,13 @@ type RunV18 = Omit<RunV20, 'market' | 'fields' | 'workshop'> & {
   fields: Omit<FieldsV20, 'planted'> & { planted: Record<V18CropId, number> }
   workshop: WorkshopV19
 }
-type SaveV18 = { version: 18; savedAtMs: number; state: { meta: GameState['meta']; run: RunV18 } }
-type SaveV19 = { version: 19; savedAtMs: number; state: { meta: GameState['meta']; run: RunV19 } }
-type SaveV20 = { version: 20; savedAtMs: number; state: { meta: GameState['meta']; run: RunV20 } }
-type SaveV21 = { version: 21; savedAtMs: number; state: { meta: GameState['meta']; run: RunV21 } }
-type SaveV22 = { version: 22; savedAtMs: number; state: GameState }
-export type Save = SaveV22
+type SaveV18 = { version: 18; savedAtMs: number; state: { meta: MetaV22; run: RunV18 } }
+type SaveV19 = { version: 19; savedAtMs: number; state: { meta: MetaV22; run: RunV19 } }
+type SaveV20 = { version: 20; savedAtMs: number; state: { meta: MetaV22; run: RunV20 } }
+type SaveV21 = { version: 21; savedAtMs: number; state: { meta: MetaV22; run: RunV21 } }
+type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: RunV22 } }
+type SaveV23 = { version: 23; savedAtMs: number; state: GameState }
+export type Save = SaveV23
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
 const PIPE_COVER_V20 = [0, 60, 150, 300]
 
@@ -470,7 +475,7 @@ function migrateV19(save: SaveV19): SaveV20 {
   // the bag can sit above its cap (the v17 fixture: 61 of 60), so the room is clamped at 0
   const bag = Object.values(run.inventory).reduce((a, b) => a + (b ?? 0), 0)
   const moved = Math.max(0, Math.min(coal, run.bagCapacity - bag))
-  const refund = (coal - moved) * itemSellPrice('coal', meta, run.upgrades.sellPrice)
+  const refund = (coal - moved) * itemSellPrice('coal', { ...meta, upgrades: { ...meta.upgrades, keepRenown: 0 } }, run.upgrades.sellPrice)
   const inventory = moved > 0 || run.inventory.coal !== undefined ? { ...run.inventory, coal: (run.inventory.coal ?? 0) + moved } : run.inventory
   return {
     version: 20,
@@ -584,16 +589,24 @@ function migrateV21(save: SaveV21): SaveV22 {
   return { version: 22, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, oreSort: {} } } }
 }
 
+// v22 → v23: renown (batch 31) seeded from lifetime harvests, which carry across sales — nothing is taken away.
+function migrateV22(save: SaveV22): SaveV23 {
+  const { meta, run } = save.state
+  const renown = Object.fromEntries(Object.entries(run.lifetime.harvests).filter(([, n]) => (n ?? 0) > 0))
+  return { version: 23, savedAtMs: save.savedAtMs, state: { meta: { ...meta, upgrades: { ...meta.upgrades, keepRenown: 0 } }, run: { ...run, renown } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 22) return data as SaveV22
-  if (data.version === 21) return migrateV21(data as SaveV21)
+  if (data.version === 23) return data as SaveV23
+  if (data.version === 22) return migrateV22(data as SaveV22)
+  if (data.version === 21) return migrateV22(migrateV21(data as SaveV21))
   const v20 = toV20(data)
-  return v20 && migrateV21(migrateV20(v20))
+  return v20 && migrateV22(migrateV21(migrateV20(v20)))
 }
 
 /** v1 … v20 up to v20; null for anything else */

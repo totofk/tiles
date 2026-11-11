@@ -77,6 +77,8 @@ export type RunState = {
   orders: Orders
   /** ⭐ held; earned only by completing orders, spent only on ⭐ rows (never bought or sold for cash) */
   stars: number
+  /** renown points per crop (batch 31; absent = 0): home harvests by hand +2, by a worker +1; raises the market floor */
+  renown: Partial<Record<CropId, number>>
 }
 
 /** what an order may ask for: a crop (filled by harvests) or an item (delivered from storage) */
@@ -175,7 +177,7 @@ export type Lifetime = {
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
 export type MultiplierKey = (typeof MULTIPLIER_KEYS)[number]
 /** one meta upgrade per multiplier, plus the batch-20 deed rows; meta stores levels only, every number is in balance.ts */
-export type MetaUpgradeId = MultiplierKey | 'startTiles' | 'workerSpeed' | 'keepLicenses' | 'keepFirstCertificates'
+export type MetaUpgradeId = MultiplierKey | 'startTiles' | 'workerSpeed' | 'keepLicenses' | 'keepFirstCertificates' | 'keepRenown'
 
 /** one sold run in the Legacy history */
 export type RunHistoryEntry = { endedAtTick: number; deeds: number }
@@ -200,7 +202,7 @@ export function createTile(): Tile {
   return { status: 'untilled', growth: 0, moisture: 0, ticksSinceMature: 0 }
 }
 
-const META_UPGRADE_KEYS: readonly MetaUpgradeId[] = [...MULTIPLIER_KEYS, 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates']
+const META_UPGRADE_KEYS: readonly MetaUpgradeId[] = [...MULTIPLIER_KEYS, 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates', 'keepRenown']
 
 export function createInitialMeta(): MetaState {
   return {
@@ -214,7 +216,7 @@ export function createInitialMeta(): MetaState {
 
 /** what a sold run carries into the next one: the Legacy keep rows' licenses and farm certificates, the ⭐-bought
  * order slots, and the lifetime totals (they are Stats totals — and the deed meter reads them) */
-export type RunCarry = { licenses: CropId[]; certificates: WorkerJob[]; orderSlots: number; lifetime: Lifetime }
+export type RunCarry = { licenses: CropId[]; certificates: WorkerJob[]; orderSlots: number; lifetime: Lifetime; renown: Partial<Record<CropId, number>> }
 
 /** a run at tick 0: what a new game starts, and what "Sell the farm" starts after it — honors the start-tiles and
  * energy Legacy rows and the keeps */
@@ -253,6 +255,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
     stars: 0,
+    renown: carry?.renown ?? {},
   }
 }
 

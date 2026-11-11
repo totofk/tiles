@@ -5,6 +5,9 @@ import {
   cropSeedCost,
   digSeedDrop,
   doubleHarvestChance,
+  RENOWN_BY_HAND,
+  RENOWN_BY_WORKER,
+  addRenown,
   handPickedBonus,
   licenseCost,
   seedKeepChance,
@@ -218,7 +221,7 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
         cashDelta: sale.cash,
         counters: { harvests: harvests + 1, sales: sales + crops },
         harvested: t.cropId,
-        run: sale.run,
+        run: { ...sale.run, renown: addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER) },
       }
     },
     energy,

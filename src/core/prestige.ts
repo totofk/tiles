@@ -6,12 +6,14 @@ import { fail, type ActionResult } from './actions'
 import {
   DEED_ROW_IDS,
   PRESTIGE_GATE_DEEDS,
+  RENOWN_TIERS,
   RUN_HISTORY_CAP,
   STARS_PER_DEED,
   deedCost,
   deedMaxLevel,
   deedsFor,
   orderStartSlots,
+  renownTier,
   type DeedRowId,
 } from './balance'
 import { STARTING_CROP } from './data/crops'
@@ -74,6 +76,16 @@ export function sellFarm(state: GameState): ActionResult {
         certificates: nextMeta.upgrades.keepFirstCertificates > 0 ? ['plant', 'water', 'harvest'] : [],
         orderSlots: Math.max(run.orders.slots, orderStartSlots()),
         lifetime: run.lifetime,
+        // Kept renown keeps each crop's reached tier threshold, not its points; tier 0 crops are dropped
+        renown:
+          nextMeta.upgrades.keepRenown > 0
+            ? Object.fromEntries(
+                Object.entries(run.renown).flatMap(([c, p]) => {
+                  const tier = renownTier(p ?? 0)
+                  return tier > 0 ? [[c, RENOWN_TIERS[tier - 1]]] : []
+                }),
+              )
+            : {},
       }),
     },
   }

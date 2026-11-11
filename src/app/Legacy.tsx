@@ -23,6 +23,7 @@ const NAMES: Record<DeedRowId, string> = {
   workerSpeed: 'Quick crews',
   keepLicenses: 'Seed vault',
   keepFirstCertificates: 'Kept certificates',
+  keepRenown: 'Kept renown',
 }
 
 const TIPS: Record<DeedRowId, string> = {
@@ -34,6 +35,7 @@ const TIPS: Record<DeedRowId, string> = {
   workerSpeed: 'Workers and sprinklers act 0.5 s sooner per level.',
   keepLicenses: 'One-time: selling the farm keeps every crop license.',
   keepFirstCertificates: 'One-time: selling the farm keeps the plant, water and harvest certificates.',
+  keepRenown: "One-time: selling the farm keeps each crop's renown tier.",
 }
 
 /** "Grow ×1 → ×0.96"; at the max level only the current value */
@@ -58,6 +60,8 @@ function effect(id: DeedRowId, level: number, meta: MetaState, runLevel: number,
       return 'Crop licenses survive the sale'
     case 'keepFirstCertificates':
       return 'The 3 farm certificates survive the sale'
+    case 'keepRenown':
+      return 'Renown tiers survive the sale'
   }
 }
 

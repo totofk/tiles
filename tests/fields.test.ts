@@ -281,9 +281,12 @@ describe('reapPlot / reapNext (by hand)', () => {
     expect(r.run.lifetime.cashEarned).toBe(r.run.cash)
     expect(r.run.counters).toEqual(s.run.counters)
     expect(r.run.lifetime.harvests).toEqual(s.run.lifetime.harvests)
+    // batch 31: Estate plots give no renown, by hand or by machine
+    expect(r.run.renown).toEqual({})
     // ×1: the same ten units a worker sells
     const worker = fieldsHarvest(s)!
     expect(worker.ok && worker.state.run.cash).toBe(r.run.cash)
+    expect(worker.ok && worker.state.run.renown).toEqual({})
   })
 
   it('reapNext reaps the oldest ready plot; NOTHING_TO_DO with none ready, NO_ENERGY after', () => {
