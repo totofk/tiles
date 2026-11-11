@@ -10,7 +10,6 @@ import {
   machineCost,
   machineMaxTiers,
   machineTilesPerHour,
-  marketFactor,
   pivotCost,
   plotCost,
   plotTiles,
@@ -33,6 +32,7 @@ import {
   pressuredCycle,
 } from '../core/fields'
 import { isOffer } from '../core/orders'
+import { cropFactor } from './marketText'
 import { managerPlan } from '../core/manager'
 import { workerUnpaid } from '../core/workers'
 import type { GameState, Machines } from '../core/state'
@@ -48,7 +48,7 @@ export function estateCropIncomePerHour(state: GameState, k: number): number {
   if (!crop) return 0
   const planted = plots.filter((p) => p.crop === crop).length * plotTiles()
   const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
-  const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, run.market[crop]) - cropSeedCost(crop, meta)
+  const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * cropFactor(state, crop) - cropSeedCost(crop, meta)
   return Math.round((planted * 3600 * net) / cycle)
 }
 
@@ -65,7 +65,7 @@ export function cropOptionText(state: GameState, k: number, crop: CropId): strin
   const others = list.reduce((n, f, i) => (i !== k && f.pivot && f.crop === crop ? n + f.plots.length * plotTiles() : n), 0)
   const income = fieldsCropIncomeCurve(state, crop)
   const m = Math.round(income(others + list[k].plots.length * plotTiles()) - income(others))
-  return `${name} · ≈💰${m}/h · ×${marketFactor(crop, run.market[crop]).toFixed(2)}`
+  return `${name} · ≈💰${m}/h · ×${cropFactor(state, crop).toFixed(2)}`
 }
 
 /** the 💼 Manager row's plan line: "🍓 ×3 fields → order 2 · 🍋 rest" */

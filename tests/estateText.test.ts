@@ -118,6 +118,15 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     expect(cropOptionText(s, 1, 'radish')).toBe(`${R} · ≈💰${m}/h · ×${marketFactor('radish', s.run.market.radish).toFixed(2)}`)
   })
 
+  it('batch 31: cropOptionText uses the renown floor on a glutted crop', () => {
+    const s0 = at({ fields: [field([growing()]), field([empty(), empty()], null)] })
+    const run = { ...s0.run, licenses: ['radish' as const], lifetime: { ...s0.run.lifetime, harvests: { radish: 50 } }, market: { ...s0.run.market, radish: 1e9 } }
+    expect(cropOptionText({ ...s0, run }, 1, 'radish')).toMatch(/×0\.50$/)
+    const famed: GameState = { ...s0, run: { ...run, renown: { radish: 4000 } } }
+    const m = Math.round(fieldsCropIncomePerHour(famed, 'radish', 30) - fieldsCropIncomePerHour(famed, 'radish', 10))
+    expect(cropOptionText(famed, 1, 'radish')).toBe(`${CROP_EMOJI.radish} ${CROPS.radish.name} · ≈💰${m}/h · ×0.70`)
+  })
+
   it('bottleneck 4: sowable plots, no seeder — the cheapest Seeder (certificate gate, then price)', () => {
     const base = at({ fields: [field([growing(), empty()])] })
     expect(estateBottleneck(base).label).toBe('⚠ Sowing')

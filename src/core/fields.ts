@@ -32,7 +32,7 @@ import {
 import { CROP_IDS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { pay } from './mining'
-import { marketSteadyGlut } from './market'
+import { cropFloor, marketSteadyGlut } from './market'
 import type { Field, Fields, GameState, Machines, Plot, RunState } from './state'
 
 export type PlotState = 'empty' | 'growing' | 'ready'
@@ -216,7 +216,8 @@ export function fieldsCropIncomeCurve(state: GameState, crop: CropId): (tiles: n
   const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice)
   const seed = cropSeedCost(crop, meta)
   const homeGlut = marketSteadyGlut(home, hc)
-  const income = (T: number) => (T / fc + home / hc) * 3600 * (sell * marketFactor(crop, marketSteadyGlut(T, fc) + homeGlut) - seed)
+  const floor = cropFloor(run, crop)
+  const income = (T: number) => (T / fc + home / hc) * 3600 * (sell * marketFactor(crop, marketSteadyGlut(T, fc) + homeGlut, floor) - seed)
   const base = income(0)
   return (tiles) => income(tiles) - base
 }
@@ -502,7 +503,7 @@ export function fieldsMarginalIncomePerHour(state: GameState): number {
     if (!fieldsPlantable(run, crop)) continue
     const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
     const glut = run.market[crop] + marketSteadyGlut(1, cycle)
-    const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, glut))
+    const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, glut, cropFloor(run, crop)))
     best = Math.max(best, ((price - cropSeedCost(crop, meta)) * 3600) / cycle)
   }
   return best

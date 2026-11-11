@@ -98,6 +98,19 @@ describe('factor and depth', () => {
     }
   })
 
+  it('batch 31: a renown floor holds a deep glut at 0.55 / 0.6 / 0.7; a sale at lemon renown 1,000 pays round(sell × 0.6)', () => {
+    const deep = marketDepthGlut('lemon') * 100
+    expect([0.55, 0.6, 0.7].map((f) => marketFactor('lemon', deep, f))).toEqual([0.55, 0.6, 0.7])
+    const s = createInitialState()
+    const famed = { ...s, run: { ...s.run, renown: { lemon: 1000 }, market: { ...s.run.market, lemon: deep } } }
+    const sell = cropSellPrice('lemon', s.meta, 0)
+    expect(marketCropPrice(famed, 'lemon', deep)).toBe(Math.round(sell * 0.6))
+    expect(cropSale(famed, 'lemon', 3).cash).toBe(3 * Math.round(sell * 0.6))
+    // with no renown the same glut pays the 0.5 floor, and the steady factor takes the floor too
+    expect(marketCropPrice({ ...famed, run: { ...famed.run, renown: {} } }, 'lemon', deep)).toBe(Math.round(sell * 0.5))
+    expect(marketSteadyFactor('lemon', 10_000, s.meta, 0, 0.7)).toBe(0.7)
+  })
+
   it('depth uses the base grow ticks (fertilizer deepens the glut only through faster harvests) (re-pinned batch 21: depth 240)', () => {
     expect(marketDepthGlut('radish')).toBeCloseTo(240 / (100 * (1 - MARKET_DECAY)), 9)
     expect(marketDepthGlut('lemon')).toBeCloseTo(240 / (360 * (1 - MARKET_DECAY)), 9)

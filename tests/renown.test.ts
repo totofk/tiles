@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, type ActionResult } from '../src/core/actions'
-import { MARKET_FLOOR, cropGrowTicks, deedCost, nextRenownTier, renownFloor, renownTier } from '../src/core/balance'
+import { MARKET_FLOOR, cropGrowTicks, cropSellPrice, deedCost, nextRenownTier, renownFloor, renownTier } from '../src/core/balance'
+import { fieldsCropIncomePerHour, pressuredCycle } from '../src/core/fields'
 import { buyMetaUpgrade, sellFarm } from '../src/core/prestige'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 import { pressTool } from '../src/core/tools'
@@ -46,6 +47,19 @@ describe('renown tiers', () => {
     expect(at(3999)).toEqual([2, 0.6, 4000])
     expect(at(4000)).toEqual([3, 0.7, null])
     expect(at(10000)).toEqual([3, 0.7, null])
+  })
+})
+
+describe('renown in the plan', () => {
+  it('fieldsCropIncomePerHour rises with renown on a glutted crop (2,000 tiles sit on the floor)', () => {
+    const s = createInitialState()
+    const at = (points: number) => fieldsCropIncomePerHour({ ...s, run: { ...s.run, renown: { lemon: points } } }, 'lemon', 2000)
+    const [none, t1, t2, t3] = [0, 250, 1000, 4000].map(at)
+    expect(none).toBeLessThan(t1)
+    expect(t1).toBeLessThan(t2)
+    expect(t2).toBeLessThan(t3)
+    // the 0.5 → 0.7 floor lifts the whole sale part by 0.2 × sell per unit
+    expect(t3 - none).toBeCloseTo((2000 / pressuredCycle(s, 'lemon')) * 3600 * 0.2 * cropSellPrice('lemon', s.meta, 0), 6)
   })
 })
 

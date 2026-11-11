@@ -103,7 +103,7 @@ vi.mock('../src/core/balance', async (importOriginal) => {
   const real = await importOriginal<typeof import('../src/core/balance')>()
   return {
     ...real,
-    marketFactor: (crop: CropId, glut: number) => (market.on ? real.marketFactor(crop, glut) : 1),
+    marketFactor: (crop: CropId, glut: number, floor?: number) => (market.on ? real.marketFactor(crop, glut, floor) : 1),
     certificateUnlock: (job: WorkerJob) => {
       const unlock = real.certificateUnlock(job)
       if (rules.batch13) return unlock
@@ -3486,11 +3486,14 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 28.1 (was [47661, 111447, 150893, 350763, 393223]): the forge's source run swaps its blunt
     // gold pickaxe late (no Au banked), so the forged end state differs
     // re-pinned batch 29 (was [48481, 111346, 149875, 353375, 396138]): the bot smelts gold for plots10 (task 151e)
-    expect(lemon).toEqual([48936, 111499, 151085, 349608, 393965])
+    // re-pinned batch 31 (was [48936, 111499, 151085, 349608, 393965]): renown floor — the source bot's home lemon
+    // renown sits at the top tier, so a glutted lemon market floors at 0.7, not 0.5
+    expect(lemon).toEqual([48729, 113199, 210788, 492685, 550358])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
-    expect(mixed).toEqual([192255, 264135])
+    // re-pinned batch 31 (was [192255, 264135]): renown floor
+    expect(mixed).toEqual([194754, 287402])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -3506,7 +3509,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     console.log('PIN18c', { crossing })
     // re-pinned batch 28 (was 26 tiles-of-ten on cohorts): the label crosses 8 h at plot 6 — plotCost grows 💰10,000 per
     // plot while one more plot's marginal income is one pressured lemon cycle
-    expect(crossing).toBe(5)
+    // re-pinned batch 31 (was 5): renown floor — the floored lemon price raises each plot's marginal income
+    expect(crossing).toBe(8)
   })
 
   it('one planter+harvester pair moves 2 × grow tiles per cycle — the throughput bound and the second pair', () => {
@@ -3524,7 +3528,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // pinned shares over the pipes1 → field-100 window: the miner's coal vs the furnace (old, batch 18: 341 / 0 / 36 with the pump)
     // re-pinned batch 28 (was 382): the pivot2 → 10 plots window; batch 29 (was [355, 0]): the bot now smelts its gold
     // ore for the plots10 pivots in that window (task 151e), so the furnace burns coal there
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([371, 11])
+    // re-pinned batch 31 (was [371, 11]): renown floor — the richer bot reaches the window's purchases sooner
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([367, 12])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -3797,19 +3802,20 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // at 1,000 tiles (20 pressured fields) the workers-only arm is labor-bound and the fleet earns 3.3×
     // re-pinned batch 28.1 (was [151,153] [351,432] [396,1290]): the source run's late blunt-pickaxe swap moves `end`
     // re-pinned batch 29 (was [149,151] [349,429] [392,1286]): the bot smelts gold for plots10 (task 151e), so `end` moves
+    // re-pinned batch 31 (was [149,152] [349,431] [393,1286]): renown floor (the forged lemon market floors at 0.7)
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [149, 152],
-      [349, 431],
-      [393, 1286],
+      [212, 215],
+      [492, 602],
+      [550, 1803],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
-    // batch 29 (was 0.8 / 15.3 / null / 294.8, task 151e moves `end`)
+    // batch 29 (was 0.8 / 15.3 / null / 294.8, task 151e moves `end`); batch 31 (was 0.8 / 18.5 / null / 134.7): renown floor
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
-      ['harvester1', 0.8],
-      ['harvester2', 18.5],
-      ['harvester3', null],
-      ['seeders', 134.7],
+      ['harvester1', 0.5],
+      ['harvester2', 12.9],
+      ['harvester3', 534.8],
+      ['seeders', null],
     ])
     // re-pinned batch 28 (was null / 300 / null / null)
     expect(paysAtN).toEqual([
@@ -4002,10 +4008,11 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
 
   // batch 28.1 measured the vault run stopping at plots10 (its gold ore never smelted); batch 29 (task 151e) puts
   // plots10 in smeltsFor and the furnace-kind chooser, so both sold runs climb — pinned at the measured hours
-  it('both sold runs reach harvester3 (batch 29: 52.7 h / 50.6 h)', () => {
+  // batch 31: 52.7 / 50.6 → 40.2 / 36.2 h — renown floor (the sold runs' home renown floors their gluts)
+  it('both sold runs reach harvester3 (batch 31: 40.2 h / 36.2 h)', () => {
     const h = [r2, r3].map((r) => (r.ladder.ladderTicks.harvester3 === undefined ? null : Math.round((r.ladder.ladderTicks.harvester3 / HOUR_TICKS) * 10) / 10))
     console.log('PIN28_1b', JSON.stringify({ harvester3H: h }))
-    expect(h).toEqual([52.7, 50.6])
+    expect(h).toEqual([40.2, 36.2])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {

@@ -12,6 +12,17 @@ function at(crop: CropId, factor: number, s: GameState = createInitialState()): 
 }
 
 describe('market text', () => {
+  it('batch 31: priceTag "floor" compares against the crop\'s renown floor', () => {
+    const s = createInitialState()
+    const tier2: GameState = { ...s, run: { ...s.run, renown: { lemon: 1000 } } }
+    const base = cropSellPrice('lemon', s.meta, 0)
+    expect(priceTag(at('lemon', 0.4, tier2), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.6)} (60 % floor)`)
+    expect(priceTag(at('lemon', 0.55, tier2), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.6)} (60 % floor)`)
+    // tier 1 (0.55 floor) at a 0.6 market: not on the floor
+    expect(priceTag(at('lemon', 0.6, { ...s, run: { ...s.run, renown: { lemon: 250 } } }), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.6)} (60 %)`)
+    expect(priceTag(at('lemon', 0.55, { ...s, run: { ...s.run, renown: { lemon: 250 } } }), 'lemon')).toBe(`🍋 💰${Math.round(base * 0.55)} (55 % floor)`)
+  })
+
   it('priceTag: the next unit price and factor; ▲▼ vs the last shown factor, "floor" at the bottom (batch 21)', () => {
     const s = createInitialState()
     const base = cropSellPrice('lemon', s.meta, 0)
