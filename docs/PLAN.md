@@ -4807,3 +4807,67 @@ v20 code (Hermes on `72ec00a`) → v21 code: v16 💰458,346 → 💰2,360,041 �
   `tests/estateText.test.ts`: income (now per field, pressured) and ghost row kept · bottleneck 1 "dry pump" → new
   branch 1 "pressure off" · bottleneck 2 "stalled → next Pipes tier" → new branch 6 "pump" · bottlenecks 3/4/5 →
   new 3+4 / 5 / 7 · new branch 2 "dry field" added.
+
+---
+
+## Batch 28.1 — Blunt pickaxe escape (task 158, no save bump)
+
+Found by Hermes while verifying batch 28 (2026-11-11): the batch 20 / 22 sims stop after `plots30` with a blunt gold
+pickaxe and 1 gold bar (batch 28 deviations 4–5). That is a real player soft lock, older than batch 28, which only
+makes it common (each pivot spends 3 Au):
+- `craftPickaxe` (`src/core/mining.ts:78–82`) refuses any tier at or below the one in hand, blunt or not → ALREADY_OWNED;
+- a blunt pickaxe mines by hand (`activePickaxe`, `mining.ts:85–87`), and a gold rock needs an iron pickaxe
+  (`ROCK_PICKAXE`, `balance.ts:116`), so it is mined as stone;
+- repairing gold costs 2 Au (`balance.ts:110`) and gold bars come only from gold ore.
+With fewer than 2 gold bars and no gold ore the player can never mine gold again. The same holds for a blunt iron
+pickaxe with no iron bars and no iron ore (iron rock needs copper). Toon: "แก้บัคก่อน" — fix before batch 28 ships.
+
+Fix (systemic, no special-case gift): **a blunt pickaxe can be replaced by a pickaxe of any other tier.** The player
+pays that tier's normal craft price; the blunt one is gone; mastery xp of every tier stays (`run.mastery`, as today).
+A copper rock needs no pickaxe, so the chain hand → copper → iron → gold always exists.
+
+Worker: **Opus**, `--max-turns 80`. One commit: `fix: batch 28.1 task 158 — blunt pickaxe escape`.
+
+- [ ] 158. **Blunt pickaxe escape.**
+  a) `craftPickaxe(state, tier)` (`mining.ts:76–82`): ALREADY_OWNED when the pickaxe in hand is NOT blunt and its tier
+     ≥ `tier`, or when it IS blunt and its tier = `tier` (repair is the cheaper path for the same tier). Otherwise pay
+     `pickaxeCraftCost(tier)` → `{ tier, durability: pickaxeDurability(tier) }`. Order unchanged after that:
+     NOT_ENOUGH_ITEMS, NO_CASH. Update the comment above it (`mining.ts:76–77`): "A higher tier replaces the pickaxe
+     in hand; a blunt pickaxe can be replaced by any other tier (the way out when its repair is out of reach). Every
+     tier's mastery xp stays in run.mastery."
+  b) Mine card (`src/app/Mine.tsx:378–401`): while the pickaxe is blunt AND `repairPickaxe(state)` fails, show ONE
+     extra button directly under the repair button: the highest tier below the blunt one for which
+     `craftPickaxe(state, t).ok`; if none is affordable, the tier directly below (disabled, small text = its
+     `ERROR_TEXT`). Label: `Craft {PICKAXE_NAMES[t].toLowerCase()} instead ({priceText(pickaxeCraftCost(t, meta))}) —
+     replaces the blunt {PICKAXE_NAMES[blunt].toLowerCase()}`. Same `<button>` + `<small>` shape as the existing craft
+     row. Not shown when the repair is affordable, and never shown for a blunt wooden pickaxe (nothing below it). The
+     existing `offerTier` row is unchanged.
+  c) Tests:
+     - `tests/mining.test.ts` `describe('craftPickaxe')`: blunt gold → iron ok (pays 5 Fe + 💰200, durability 1200, gold
+       mastery xp kept); blunt gold → gold is ALREADY_OWNED; blunt iron → copper ok and → wooden ok; a sharp gold →
+       iron is still ALREADY_OWNED; error order on the blunt path (NOT_ENOUGH_ITEMS before NO_CASH).
+     - `tests/Mine.test.tsx`: blunt gold + 0 Au + 5 Fe + 💰200 shows
+       "Craft iron pickaxe instead" enabled; blunt gold + 0 Au + 0 Fe + 5 Cu + 💰50 shows the copper row; blunt gold
+       with 2 Au shows no extra row; a blunt wooden pickaxe shows no extra row.
+     - Escape pin (`tests/sim.test.ts`, new `describe('batch 28.1: blunt pickaxe escape')`): start from the
+       `tests/fixtures/save-v20.json` state migrated to v21 with the pickaxe set to `{ tier: 'gold', durability: 0 }`,
+       and `goldBar`, `goldOre`, `ironBar`, `ironOre` set to 0. The ladder bot's mine helper (below) reaches a working
+       gold pickaxe again; pin that it does, and print the game-minutes it took (reported, not pinned).
+  d) Sim bot (`tests/sim.test.ts:765–771`, the mine helper): when the pickaxe is blunt, not wooden, and
+     `repairPickaxe` fails, craft the highest lower tier that `craftPickaxe` accepts (bars it already holds); if none,
+     craft wooden (buying wood as it does today). The `goldPickaxe` rung (`sim.test.ts:408`) is the bot's next goal
+     whenever its gold pickaxe was replaced (that is what a player does). Then re-run the batch 20 and batch 22 suites:
+     the two `it.fails` "reach harvester3" pins (`sim.test.ts:3957`, `:4083`) become plain `it` if they now pass; if
+     not, keep `it.fails` with the NEW measured stop and its cause in the title. The batch 18/19 pins must stay green;
+     if one moves, re-pin it with the measured value and list old → new.
+  e) CHANGELOG: ONE entry at the TOP of `CHANGELOG` in `src/app/changelog.ts`, copied verbatim:
+     `{ batch: '28.1', date: '<today, YYYY-MM-DD>', line: 'A blunt pickaxe you cannot repair can now be swapped for a cheaper one, so you can always mine your way back to gold' }`
+  f) Write `## Batch 28.1 results` + `### Deviations` at the TRUE END of `docs/PLAN.md` and tick 158.
+
+Door Problem: got by — the Mine card, only when blunt and the repair is unaffordable; state — the repair button stays
+(disabled, its reason shown) with the craft-instead row under it; failure — none (the copper rung needs no pickaxe);
+offline / prestige / migration — none (no save change); touches — the mine worker uses whatever pickaxe is in hand
+(unchanged), mastery xp per tier (kept).
+
+Still open for Toon (NOT in this batch): batch 28 deviation 2 — the 1,188 game-minute gap pump1 → plots30 (pivots
+3–6 each wait on 3 Au).

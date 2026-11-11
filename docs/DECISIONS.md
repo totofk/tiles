@@ -606,3 +606,12 @@ Full spec in PLAN.md "Batch 28". The calls made while refining (Toon may reject 
 - Measured for the migration pin: on the v20 code every committed fixture (v16–v20) ends 8 h offline with 0 coal and
   all field tiles still growing — the old pump ran dry. The new model must earn at least the old 8 h cash delta per
   fixture (💰439,579–458,346).
+
+## Batch 28.1: a blunt pickaxe can be replaced by any other tier (2026-11-11, Toon: "แก้บัคก่อน")
+
+The batch 28 sims stopped with a blunt gold pickaxe and 1 Au: `craftPickaxe` refused every tier at or below the one in
+hand, a blunt pickaxe mines by hand, hand mining cannot break gold (or iron) rock, and the gold repair costs 2 Au —
+a soft lock older than batch 28. Fix is systemic, not a gift: a blunt pickaxe may be replaced by any OTHER tier at
+its normal craft price (same tier = repair, which is cheaper). Copper rock needs no pickaxe, so hand → copper → iron →
+gold always exists. The Mine card shows the craft-instead row only while the pickaxe is blunt and the repair is
+unaffordable. No save change. Spec: PLAN.md "Batch 28.1" (task 158).
