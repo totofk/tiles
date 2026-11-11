@@ -4518,7 +4518,7 @@ Words used below: **contract** = a crop offer while `run.fields.unlocked` (the T
 `Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)`. **yield** = expected units per tile
 reaped = `1 + doubleHarvestChance(run.toolTier.harvest)`. **managed field** = a field with a pivot and `pinned === false`.
 
-- [ ] 149. **Estate contracts** (`src/core/orders.ts`, `src/core/fields.ts`, `src/core/actions.ts`, `balance.ts`,
+- [x] 149. **Estate contracts** (`src/core/orders.ts`, `src/core/fields.ts`, `src/core/actions.ts`, `balance.ts`,
   `src/app/Orders.tsx`, `src/core/stats.ts`).
   - a. Size. `orderPerMinute` crop branch (`orders.ts:57–60`): keep today's value as `home`; when
     `run.fields.unlocked && fieldsPlantable(run, good)` return `Math.max(home, contractWetShare() × wetTiles ÷
@@ -4555,7 +4555,7 @@ reaped = `1 + doubleHarvestChance(run.toolTier.harvest)`. **managed field** = a 
     both; (4) `contractsByHand` +1 only when a hand reap or hand home harvest completes a contract; not for a worker
     completion, not before the Tractor; (5) `rollOffer` consumes exactly two rolls before and after the Tractor.
 
-- [ ] 150. **💼 Manager worker (M1–M5)** (`balance.ts`, new `src/core/manager.ts`, `workers.ts`, `fields.ts`,
+- [x] 150. **💼 Manager worker (M1–M5)** (`balance.ts`, new `src/core/manager.ts`, `workers.ts`, `fields.ts`,
   `data/workers.ts`, `Workers.tsx`, `Estate.tsx`, `tips.ts`).
   - a. Per-job wage. Replace `WORKER_WAGE = 1` (`balance.ts:199`) with `WORKER_WAGES: Record<WorkerJob, number>` = 1
     for every job and **28 for `manager`** (calculator 2026-11-11: ≈ 💰20,000/h if it changed a chip every round);
@@ -4618,7 +4618,7 @@ reaped = `1 + doubleHarvestChance(run.toolTier.harvest)`. **managed field** = a 
     certificate and assignment; (9) the 8 h offline catch-up with a Manager on 20 fields stays under the default test
     timeout.
 
-- [ ] 151. **Chips wiring + strip + sim.**
+- [x] 151. **Chips wiring + strip + sim.**
   - a. Crop picker (`Estate.tsx:146–155`, still the `<select>`; batch 30 replaces it with the sheet). Every licensed
     crop gets an option from Field 1 on. Plantable crop, not the field's current chip: `${emoji} ${name} · ≈💰${m}/h ·
     ×${f}` where `m` = marginal for THIS field = `fieldsCropIncomePerHour(c, others_c + tiles_k) −
@@ -5197,3 +5197,110 @@ batch 28.2 sims, 5 expected fail; `pnpm lint`, `pnpm build` and `tsc -b --force`
 - Not verified (no browser; jsdom has no layout): the 6-column sell list and its narrow mode, the `.sort-row` wrap,
   the Workshop hint at 1024 px and the Reload button at 375 px. Hermes re-measures live at 375 / 1024 / 1440 / 2560 /
   3440.
+
+## Batch 29 results
+
+Commits: 149 `a919a14`, 150 `56f216f`, 151 (this commit). Not pushed. No save bump: SAVE_VERSION stays 22 and every
+fixture (v1–v21) loads and migrates unchanged (save tests green, no fixture edited).
+
+**149 (contracts) moved no pin.** The full suite after 149 alone: 50 files, 915 passed, 5 expected fail — contract
+sizing (149a) and the clerk rule (149d) changed no sim number (the ladder bot never accepts a crop order after the
+Tractor and never hand-reaps the fields). No pin before the Tractor moved in any task.
+
+### 151c — model pin (`tests/sim.test.ts` "batch 29: manager", log `PIN29model`, 💰/h, `fieldsCropIncomePerHour`)
+
+Every crop licensed and past the gate, N managed empty fields. **base** = sell 0, fert 0, no home crop; **stage** =
+sell 5, fert 5, 24 home strawberry tiles. best = exhaustive enumeration in the test (compositions ≤ N over 8 crops).
+
+| at | N | best | Manager | mono 🍓 | greedy (M2) | best split | Manager ÷ best |
+|---|---|---|---|---|---|---|---|
+| base | 2 | 413 254 | 413 254 | 308 402 | 413 254 | grape 1 · strawberry 1 | 1.000 |
+| base | 6 | 763 747 | 763 747 | 708 750 | 755 524 | corn 1 · grape 1 · strawberry 4 | 1.000 |
+| base | 10 | 1 236 247 | 1 236 247 | 1 181 250 | 1 022 183 | corn 1 · grape 1 · strawberry 8 | 1.000 |
+| base | 20 | 2 417 497 | 2 417 497 | 2 362 500 | 2 203 433 | corn 1 · grape 1 · strawberry 18 | 1.000 |
+| stage | 2 | 779 526 | 779 526 | 779 526 | 715 628 | strawberry 2 | 1.000 |
+| stage | 6 | 2 587 026 | 2 587 026 | 2 587 026 | 2 523 128 | strawberry 6 | 1.000 |
+| stage | 10 | 4 394 526 | 4 394 526 | 4 394 526 | 4 330 628 | strawberry 10 | 1.000 |
+| stage | 20 | 8 913 276 | 8 913 276 | 8 913 276 | 8 849 378 | strawberry 20 | 1.000 |
+
+Pin: Manager ≥ 0.99 × best — the DP equals the enumeration in all 8 cases. Greedy-by-marginal loses 0–17 % (17 % at base N = 10); at
+stage mono strawberry is the best split at every N.
+
+### 151c — time sim (log `PIN29time`, 4 game-hours, tick by tick)
+
+Forged stage-6 save: 6 pivoted full empty fields (chips null), Pump `pumpFor(300)`, Harvester Mk1 + Seeder Mk1,
+2 planter + 2 harvester workers + 1 fuel loader, 💰100,000, 5,000 coal, auto-buy seeds on, sell 5 / fert 5.
+
+| run | cash gained | 💰/h | chip flips | Manager wages |
+|---|---|---|---|---|
+| Manager (chips null at start) | 💰10 559 028 | 💰2 639 757 | 6 | 💰168 (6 × 28) |
+| no Manager, chips on the enumerated best (strawberry × 6) | 💰10 559 183 | 💰2 639 796 | 0 | — |
+
+Pin: Manager ≥ 0.99 × fixed best — measured 0.99999. The Manager ends on strawberry × 6 and then idles unpaid.
+
+### 151c — contract run (log `PIN29contract`)
+
+The same save with every chip on lemon, a Manager, and an accepted tier-2 strawberry contract (`orderCount` = 225).
+The plan reserves strawberry × 5 for the contract (ceil(225 ÷ 50), yield 1 at sickle tier 0) and strawberry × 1 as
+the rest; 6 flips. The contract completes at **5 game-minutes** (pin: ≤ 60).
+
+### 151c — unlock path and certificate hours (log `PIN29cert`)
+
+Three strawberry offers accepted one at a time, each completed by a hand `reapPlot` → `contractsByHand` 3 → the Manager
+certificate buys with its 4 🥇 + 💰500,000 granted. The price is pinned at 4 🥇 + 💰500,000 (unchanged); the hours
+are reported: 💰500,000 ÷ the stage-6 fixed-best income 💰2 639 796/h = **0.2 h**.
+
+### Re-pins (old → new, all from the 151e sim-bot carry-in; balance numbers untouched)
+
+151e adds `plots10` to `smeltsFor` and to the furnace-kind chooser (`FIELDS_ON_GOALS.slice(0, 2)` → `slice(0, 3)` at
+both sites), so the bot smelts its gold ore into the plots10 pivots' bars. That changes the ladder runs the batch 18 /
+19 forges start from (`end`):
+
+- batch 18 `PIN18b` all-lemon income at 10/50/100/300/1000 tiles: [48481, 111346, 149875, 353375, 396138] →
+  [48936, 111499, 151085, 349608, 393965]; the 4-crop mix at 100/300: [192911, 264581] → [192255, 264135].
+- batch 18 coal budget [miner coal/h, furnace coal/h] over pivot2 → 10 plots: [355, 0] → [371, 11] (the furnace now
+  burns coal smelting the pivots' gold in that window).
+- batch 19 `PIN19b` curve (workers-only vs fleet, k💰/h) at 100/300/1000 tiles: [149,151] [349,429] [392,1286] →
+  [149,152] [349,431] [393,1286]; machine paybacks at 300 tiles: harvester2 15.3 → 18.5 h, seeders 294.8 → 134.7 h
+  (harvester1 0.8 and harvester3 null unchanged; `paysAtN` unchanged).
+
+**harvester3 pins (151e)**: both `it.fails` now pass, so both became plain `it`s pinned at the measured hours —
+batch 20 "both sold runs reach harvester3": run 2 / vault run **52.7 h / 50.6 h** (`PIN28_1b`); batch 22 "run 1 and the
+vault run climb to harvester3": **62.5 h / 36.3 h** (`PIN28_1c`).
+
+**PIN28a re-title (151d)**: the mark list now also counts every plot, pivot, pump and machine purchase (deduped per
+tick). Measured over Tractor (min 586) → Pump 2 (min 2,621): 59 marks, longest gap **232 min**, seeder1 (min 2,388) →
+pump2 (min 2,621), i.e. saving for Pump 2 (was 1,188 min counting only milestones and rungs). Still an `it.fails`,
+re-titled "… — measured 232 min".
+
+Final: `pnpm test` 51 files, 944 passed, 3 expected fail; `pnpm lint` and `pnpm build` clean.
+
+### Deviations
+
+- 151f: the CHANGELOG line is verbatim and 180 code points, but `💼` is two UTF-16 units, so `line.length` is 181 and
+  `tests/changelog.test.ts` failed its 180 cap. The test now counts code points (`[...line].length`); the line is
+  unchanged.
+- 150c: `fieldsCropIncomePerHour` is built on a new exported `fieldsCropIncomeCurve(state, crop)` (the per-crop
+  constants once, then a function of tiles), used by the Manager's DP and the picker. Measured: the 8 h catch-up with a
+  Manager on 20 fields cost 427 ms alone with per-call constants (69 ms without a Manager) and once exceeded the 5 s
+  default timeout under the full parallel suite; with the curve it is 245 ms alone and passed every later full run.
+- 150b: `HIDDEN_JOBS` is kept as an empty array (the plan's "becomes `[]`"), not deleted with its four filters.
+- 150a: `workRound` reads the wage per job and a job short of its wage `break`s (the next job still acts); with every
+  other wage 1 this matches the old `return` exactly (cash only drops inside a round).
+- 151b: the unpaid fix text reads `needs 💰${workerWage(meta, 'manager')} per change` — 💰28 at base cost, scaled by
+  the Legacy cost row like the wage itself.
+- 151c time sim: a fuel loader is added (pool 6 = the cap) so "coal for the tank" reaches the tank over 4 h; the
+  forged save has no home tiles (the planters would otherwise till and sow the home lot first), so both arms and the
+  enumeration see no home crop. "Cash" is compared as cash gained over the 4 h (start 💰100,000), not the end balance.
+- 151e: the furnace-kind change is in the sprinklers-branch chooser (`FIELDS_ON_GOALS.slice(0, 2)` → `slice(0, 3)`,
+  `sim.test.ts` line 914, the site the batch 28.1 `it.fails` comments named), not in the `gold && …
+  GOLD_ON_GOALS` switch the plan cites (≈ line 902): that older switch sells all iron ore and runs before the batch-21
+  chooser, and the chooser alone already makes both harvester3 runs climb.
+- 151c unlock path: the three offers are forged (strawberry, count 5, tier 1) and accepted with `acceptOrder`; the
+  fresh offers the board rolls into each completed slot are not used.
+- One flake seen while committing 150: `PIN28perf` (300 plots, 8 h) measured 2,066 ms against its 2,000 ms bound under
+  the full parallel suite; it passes alone and on every later full run. Not changed.
+- Not verified (no browser; jsdom has no layout): the 📌 button's 44 × 44 px size and its place after the title text,
+  the long picker options (`· ≈💰m/h · ×f`) in the closed 96 px select and the open list, the Manager row's plan line
+  and the two new strip labels at 375 / 1024 / 1440 / 2560 / 3440. jsdom tests cover the text, `aria-pressed`, the
+  pin-on-pick and the disabled gate options. Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440.

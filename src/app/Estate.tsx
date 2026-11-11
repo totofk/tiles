@@ -12,7 +12,7 @@ import {
   tankCapCoal,
   valveCost,
 } from '../core/balance'
-import { CROPS, type CropId } from '../core/data/crops'
+import type { CropId } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { isOffer } from '../core/orders'
 import type { GameState, Offer } from '../core/state'
@@ -43,7 +43,7 @@ import type { UiState } from './uiState'
 import { ERROR_TEXT, type Act } from './useGame'
 import { RecipeRow, VALVE_EMOJI } from './Workshop'
 import { buyValve } from '../core/workshop'
-import { estateBottleneck, estateCropIncomePerHour, fleetTilesPerHour, ghostRowPrice, nextReadyText } from './estateText'
+import { cropOptionText, estateBottleneck, estateCropIncomePerHour, fleetTilesPerHour, ghostRowPrice, nextReadyText } from './estateText'
 
 const PUMP_EMOJI = '🚰' // Unicode 6
 const ORDER_EMOJI = '📋' // Unicode 6
@@ -110,7 +110,6 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
   const payback = fieldsPaybackHours(state)
   const pump = run.fields.pump
   const pumpPrice = pumpCost(pump, meta)
-  const crops = run.licenses.filter((c) => fieldsPlantable(run, c))
   const plot = buyPlot(state)
   const cap = pumpFieldCap(pump)
   const pressure = fieldsPressure(run)
@@ -163,8 +162,10 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                 }
               >
                 <option value="">— none —</option>
-                {crops.map((c) => (
-                  <option key={c} value={c}>{`${CROP_EMOJI[c]} ${CROPS[c].name}`}</option>
+                {run.licenses.map((c) => (
+                  <option key={c} value={c} disabled={!fieldsPlantable(run, c)}>
+                    {cropOptionText(state, k, c)}
+                  </option>
                 ))}
               </select>
               {field.pivot ? (

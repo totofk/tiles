@@ -5,6 +5,7 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  fieldsCropHarvests,
   machineCost,
   machineMaxTiers,
   machineTilesPerHour,
@@ -14,10 +15,13 @@ import {
   plotTiles,
   pumpCost,
   pumpFieldCap,
+  workerWage,
   type Price,
 } from '../core/balance'
-import { buyPlot, fieldsOverview, fieldsPressure, pivotsOwned } from '../core/fields'
+import { CROPS, type CropId } from '../core/data/crops'
+import { buyPlot, fieldsCropIncomeCurve, fieldsOverview, fieldsPlantable, fieldsPressure, pivotsOwned } from '../core/fields'
 import { managerPlan } from '../core/manager'
+import { workerUnpaid } from '../core/workers'
 import type { GameState, Machines } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import { priceText } from './Mine'
@@ -33,6 +37,22 @@ export function estateCropIncomePerHour(state: GameState, k: number): number {
   const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
   const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, run.market[crop]) - cropSeedCost(crop, meta)
   return Math.round((planted * 3600 * net) / cycle)
+}
+
+/**
+ * Field k's crop picker option: the current chip short (its numbers are the row's small line); another plantable
+ * crop with its marginal ≈💰/h on THIS field and today's market factor; a licensed crop under the 🏡 gate its progress
+ */
+export function cropOptionText(state: GameState, k: number, crop: CropId): string {
+  const { run } = state
+  const name = `${CROP_EMOJI[crop]} ${CROPS[crop].name}`
+  if (!fieldsPlantable(run, crop)) return `${name} · 🏡 ${run.lifetime.harvests[crop] ?? 0}/${fieldsCropHarvests()}`
+  const list = run.fields.list
+  if (list[k].crop === crop) return name
+  const others = list.reduce((n, f, i) => (i !== k && f.pivot && f.crop === crop ? n + f.plots.length * plotTiles() : n), 0)
+  const income = fieldsCropIncomeCurve(state, crop)
+  const m = Math.round(income(others + list[k].plots.length * plotTiles()) - income(others))
+  return `${name} · ≈💰${m}/h · ×${marketFactor(crop, run.market[crop]).toFixed(2)}`
 }
 
 /** the 💼 Manager row's plan line: "🍓 ×3 fields → order 2 · 🍋 rest" */
@@ -74,7 +94,7 @@ export type EstateChip = { label: string; fix: string }
 
 /**
  * The capacity strip's ONE bottleneck chip (batch 27, task 143c; batch 28, task 148b), first match wins: pressure off
- * → a dry field → no crop picked → sowing (no seeder) → reaping (no harvester) → the pump → land. Each fix that has a
+ * → a dry field → no crop picked (batch 29: none the 💼 Manager will pick) → the Manager unpaid → sowing (no seeder) → reaping (no harvester) → the pump → land. Each fix that has a
  * price also says when it is affordable: "now", a bar shortfall via shortOf ("needs 8🥉 more"), or the cash gap ÷ the
  * rows' ≈💰/h as "≈~N min" / "≈~N h".
  */
@@ -99,9 +119,17 @@ export function estateBottleneck(state: GameState): EstateChip {
     const cost = pivotCost(pivotsOwned(f) + 1, meta)
     return { label: `⚠ Dry — Field ${dry + 1} has no pivot`, fix: `Pivot ${priceText(cost)} · ${afford(cost)}` }
   }
-  // 3. empty plots in a pivoted field with no crop picked
-  const unpicked = f.list.findIndex((field) => field.pivot && field.crop === null && field.plots.some((p) => p.crop === null))
-  if (unpicked >= 0) return { label: `⚠ Sowing — pick a crop for Field ${unpicked + 1}`, fix: 'pick a crop' }
+  // 3. empty plots in a pivoted field with no crop picked, that no working 💼 Manager will pick (batch 29)
+  const managed = run.workers.assigned.manager > 0
+  const waits = (field: (typeof f.list)[number]) => field.pivot && field.crop === null && field.plots.some((p) => p.crop === null)
+  const unpicked = f.list.findIndex((field) => waits(field) && (field.pinned || !managed))
+  if (unpicked >= 0)
+    return {
+      label: `⚠ Sowing — Field ${unpicked + 1} waits for a crop`,
+      fix: run.workers.certificates.includes('manager') ? 'pick a crop or assign the 💼 Manager' : 'pick a crop',
+    }
+  const unpaid = managed && workerUnpaid(state, 'manager') ? f.list.findIndex((field) => waits(field) && !field.pinned) : -1
+  if (unpaid >= 0) return { label: `⚠ Manager unpaid — Field ${unpaid + 1} waits`, fix: `needs 💰${workerWage(meta, 'manager')} per change` }
   // 4. sowable plots, no seeder: nothing is being sown
   if (emptyWet >= 1 && run.fields.machines.seeder.length === 0) {
     const tier = cheapestMissingTier(run.fields.machines.seeder, machineMaxTiers('seeder'))

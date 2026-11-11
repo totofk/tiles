@@ -12,13 +12,14 @@ function parts(batch: string): [number, number] {
 }
 
 describe('CHANGELOG data (batch 24.2, task 133)', () => {
-  // the cap was 160; batch 28's line is fixed verbatim by PLAN.md task 148i at 175 chars (Batch 28 results, Deviations)
+  // the cap was 160; batch 28's line is fixed verbatim by PLAN.md task 148i at 175 chars (Batch 28 results, Deviations).
+  // Chars are code points (batch 29): the verbatim 180-char line's 💼 is two UTF-16 units
   it('batches are unique; dates are ISO and never increase; batch numbers strictly decrease; lines 1–180 chars', () => {
     expect(new Set(CHANGELOG.map((e) => e.batch)).size).toBe(CHANGELOG.length)
     for (const e of CHANGELOG) {
       expect(e.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-      expect(e.line.length).toBeGreaterThan(0)
-      expect(e.line.length).toBeLessThanOrEqual(180)
+      expect([...e.line].length).toBeGreaterThan(0)
+      expect([...e.line].length).toBeLessThanOrEqual(180)
     }
     for (let i = 1; i < CHANGELOG.length; i++) {
       expect(CHANGELOG[i].date <= CHANGELOG[i - 1].date).toBe(true)

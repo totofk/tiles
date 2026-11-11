@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, tankCapCoal } from '../src/core/balance'
-import type { CropId } from '../src/core/data/crops'
+import { CROPS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
-import { estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText } from '../src/app/estateText'
+import { cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText } from '../src/app/estateText'
+import { fieldsCropIncomePerHour } from '../src/core/fields'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { priceText } from '../src/app/Mine'
 
@@ -84,7 +85,37 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
   })
 
   it('bottleneck 3: an empty plot in a pivoted field with no crop picked', () => {
-    expect(estateBottleneck(at({ fields: [field([growing()]), field([empty()], null)] }))).toEqual({ label: '⚠ Sowing — pick a crop for Field 2', fix: 'pick a crop' })
+    expect(estateBottleneck(at({ fields: [field([growing()]), field([empty()], null)] }))).toEqual({ label: '⚠ Sowing — Field 2 waits for a crop', fix: 'pick a crop' })
+  })
+
+  it('batch 29 bottleneck 3: a working Manager picks unpinned fields; pinned ones still wait; unpaid says so', () => {
+    const withManager = (s: GameState, cash: number): GameState => ({
+      ...s,
+      run: {
+        ...s.run,
+        cash,
+        lifetime: { ...s.run.lifetime, harvests: { radish: 50 } },
+        workers: { pool: 1, assigned: { ...s.run.workers.assigned, manager: 1 }, certificates: ['plant', 'harvest', 'manager'] },
+      },
+    })
+    const owned = (s: GameState): GameState => ({ ...s, run: { ...s.run, workers: { ...s.run.workers, certificates: [...s.run.workers.certificates, 'manager'] } } })
+    const fields = [field([growing()]), field([empty()], null)]
+    expect(estateBottleneck(owned(at({ fields }))).fix).toBe('pick a crop or assign the 💼 Manager')
+    expect(estateBottleneck(withManager(at({ fields }), 1_000_000)).label).not.toMatch(/Field 2 waits/)
+    const pinned = [field([growing()]), { ...field([empty()], null), pinned: true }]
+    expect(estateBottleneck(withManager(at({ fields: pinned }), 1_000_000)).label).toBe('⚠ Sowing — Field 2 waits for a crop')
+    expect(estateBottleneck(withManager(at({ fields }), 27))).toEqual({ label: '⚠ Manager unpaid — Field 2 waits', fix: 'needs 💰28 per change' })
+  })
+
+  it('batch 29: cropOptionText — current chip short, marginal ≈💰/h and market factor, the 🏡 gate', () => {
+    const s0 = at({ fields: [field([growing()]), field([empty(), empty()], null)] })
+    const s: GameState = { ...s0, run: { ...s0.run, licenses: ['radish', 'lemon'], lifetime: { ...s0.run.lifetime, harvests: { radish: 50, lemon: 7 } } } }
+    const R = `${CROP_EMOJI.radish} ${CROPS.radish.name}`
+    expect(cropOptionText(s, 0, 'radish')).toBe(R)
+    expect(cropOptionText(s, 0, 'lemon')).toBe(`${CROP_EMOJI.lemon} ${CROPS.lemon.name} · 🏡 7/50`)
+    // field 2 (two plots) on radish while field 1 already shows radish: the marginal over field 1's 10 tiles
+    const m = Math.round(fieldsCropIncomePerHour(s, 'radish', 30) - fieldsCropIncomePerHour(s, 'radish', 10))
+    expect(cropOptionText(s, 1, 'radish')).toBe(`${R} · ≈💰${m}/h · ×${marketFactor('radish', s.run.market.radish).toFixed(2)}`)
   })
 
   it('bottleneck 4: sowable plots, no seeder — the cheapest Seeder (certificate gate, then price)', () => {

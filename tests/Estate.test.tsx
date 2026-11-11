@@ -3,10 +3,10 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, plotCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
-import { fieldsOverview } from '../src/core/fields'
+import { fieldsOverview, fieldsPlantable } from '../src/core/fields'
 import { createInitialState, createMachines, type GameState } from '../src/core/state'
 import { Estate, EstateBar } from '../src/app/Estate'
-import { fleetTilesPerHour } from '../src/app/estateText'
+import { cropOptionText, fleetTilesPerHour } from '../src/app/estateText'
 import type { UiState } from '../src/app/uiState'
 import type { Act } from '../src/app/useGame'
 import { deserialize } from '../src/save/serialize'
@@ -193,6 +193,15 @@ describe('batch 29: 📌 pins and the 💼 Manager on the Estate rows', () => {
       ...base.run,
       workers: { ...base.run.workers, pool: Math.max(base.run.workers.pool, 1), assigned: { ...base.run.workers.assigned, manager: assigned }, certificates: [...base.run.workers.certificates, 'manager'] },
     },
+  })
+
+  it('151a: every licensed crop is an option, its text from cropOptionText, disabled under the 🏡 gate', () => {
+    const s: GameState = { ...base, run: { ...base.run, licenses: [...new Set([...base.run.licenses, 'grape' as const])], lifetime: { ...base.run.lifetime, harvests: { ...base.run.lifetime.harvests, grape: 3 } } } }
+    render(<Estate state={s} act={() => {}} ui={ui} />)
+    const select = screen.getByRole('combobox', { name: 'Field 1 crop' }) as HTMLSelectElement
+    const options = [...select.options].slice(1)
+    expect(options.map((o) => [o.value, o.textContent, o.disabled])).toEqual(s.run.licenses.map((c) => [c, cropOptionText(s, 0, c), !fieldsPlantable(s.run, c)]))
+    expect(options.find((o) => o.value === 'grape')!.textContent).toMatch(/· 🏡 3\/50$/)
   })
 
   it('no 📌 button before the Manager certificate', () => {
