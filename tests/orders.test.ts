@@ -98,7 +98,14 @@ describe('orderCount: tier minutes × what the player makes per minute', () => {
 
   it('batch 19: the Fields standing tiles of the crop count at the same per-tile pace, per crop only (no generator change)', () => {
     const s = withRun({
-      fields: { ...init.run.fields, unlocked: true, count: 130, cohorts: [{ crop: 'radish', count: 40, readyTick: 9999 }, { crop: 'lemon', count: 30, readyTick: 8888 }] },
+      fields: {
+        ...init.run.fields,
+        unlocked: true,
+        list: [
+          { pivot: true, crop: 'radish', pinned: false, plots: [...Array.from({ length: 4 }, () => ({ crop: 'radish' as const, readyTick: 9999 })), { crop: null, readyTick: 0 }] },
+          { pivot: true, crop: 'lemon', pinned: false, plots: Array.from({ length: 3 }, () => ({ crop: 'lemon' as const, readyTick: 8888 })) },
+        ],
+      },
     })
     expect(orderCount(s, 'radish', 0)).toBe(Math.round(orderTierMinutes(0) * ((9 + 40) / RADISH) * 60))
     expect(orderCount(s, 'lemon', 0)).toBe(Math.round(orderTierMinutes(0) * ((9 + 30) / cropGrowTicks('lemon', meta, 0)) * 60))
@@ -249,7 +256,7 @@ describe('crop orders fill from harvests', () => {
         tiles: mixed,
         licenses: ['radish', 'lemon'],
         market: { ...s.run.market, radish: 40, lemon: 5 },
-        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: ['plant', 'water', 'harvest'] },
+        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant', 'water', 'harvest'] },
         orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }] },
       },
     }
@@ -303,7 +310,7 @@ describe('order clerk (worker job)', () => {
       cash: 100,
       mineLicense: true,
       vein: { level: 1, progress: 0, rock: 'stone' },
-      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 1 }, certificates: ['clerk'] },
+      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0 }, certificates: ['clerk'] },
       ...run,
     })
 
@@ -357,7 +364,7 @@ describe('order clerk (worker job)', () => {
       tiles,
       inventory: { stone: 5 },
       market: { ...init.run.market, radish: 30 },
-      workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1 }, certificates: ['harvest', 'clerk'] },
+      workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0 }, certificates: ['harvest', 'clerk'] },
     })
     let single = start
     for (let n = 1; n <= 40; n++) {

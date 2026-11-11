@@ -20,14 +20,17 @@ import { UPGRADES } from './data/upgrades'
 import { dropText, expectedUses, pickaxePreserve } from './mining'
 import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
-import { WORKER_JOBS } from './data/workers'
+import { HIDDEN_JOBS, WORKER_JOBS } from './data/workers'
 import { freeWorkers } from './workers'
+
+const SHOWN_JOBS = WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job))
 
 /** one Stats tab line; `source` = what sets the value (an upgrade level, mastery, …) */
 export type StatRow = { label: string; value: string; source?: string }
 export type Stats = { totals: StatRow[]; multipliers: StatRow[] }
 
-const COUNTER_LABELS: Record<CounterId, string> = {
+/** shown counters; contractsByHand gets its row with the contracts (batch 29) */
+const COUNTER_LABELS: Record<Exclude<CounterId, 'contractsByHand'>, string> = {
   harvests: 'Harvests',
   sales: 'Items sold',
   mines: 'Mine actions',
@@ -73,7 +76,7 @@ export function stats(state: GameState): Stats {
     { label: 'Time played', value: duration(run.tick) },
     { label: 'Cash earned', value: `💰${Math.round(lifetime.cashEarned)}` },
     { label: 'Energy spent', value: `⚡${lifetime.energySpent}` },
-    ...(Object.keys(COUNTER_LABELS) as CounterId[]).map((id) => ({ label: COUNTER_LABELS[id], value: `${run.counters[id]}` })),
+    ...(Object.keys(COUNTER_LABELS) as (keyof typeof COUNTER_LABELS)[]).map((id) => ({ label: COUNTER_LABELS[id], value: `${run.counters[id]}` })),
     ...CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => ({
       label: `${CROPS[id].name} harvests${since}`,
       value: `${lifetime.harvests[id] ?? 0}`,
@@ -121,7 +124,7 @@ export function stats(state: GameState): Stats {
     {
       label: 'Workers',
       value: `${pool} hired · ${freeWorkers(run)} free`,
-      source: WORKER_JOBS.map((job) => `${job} ${assigned[job]}`).join(' · '),
+      source: SHOWN_JOBS.map((job) => `${job} ${assigned[job]}`).join(' · '),
     },
   ]
   return { totals, multipliers }
@@ -161,7 +164,7 @@ export function feedbackSummary(state: GameState): string {
     `licenses ${run.licenses.join(', ')}`,
     `tools ${TOOL_JOBS.map((job) => `${job} Lv${run.tools[job]} tier ${run.toolTier[job]}`).join(', ')}`,
     `pickaxe ${pickaxe ? `${pickaxe.tier} ${pickaxe.durability}` : 'none'}`,
-    `workers ${workers.pool} (${WORKER_JOBS.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
+    `workers ${workers.pool} (${SHOWN_JOBS.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
     `vein Lv${run.vein.level}`,
     `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch}` : 'none'}`,
     `played ${duration(run.tick)}`,

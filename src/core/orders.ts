@@ -27,6 +27,8 @@ import {
 } from './balance'
 import { CROP_IDS, type CropId } from './data/crops'
 import { ITEM_IDS, ORE_IDS, type ItemId } from './data/items'
+// orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
+import { plantedTiles } from './fields'
 import { cropSale } from './market'
 import { minedRock, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
@@ -53,7 +55,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   const { run, meta } = state
   // batch 19: the Fields' standing tiles of the crop produce at the same per-tile pace as the home plot
   if (isCropGood(good)) {
-    const standing = run.fields.cohorts.reduce((n, c) => (c.crop === good ? n + c.count : n), 0)
+    const standing = plantedTiles(run.fields, good)
     return ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
   }
   const ore = barOre(good)

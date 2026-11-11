@@ -4299,7 +4299,7 @@ Rules (every task):
   ×2" or "⛽ empty · ×1"; failure = pressure off, growth ×1, never a stall; worst-case offline loss = the tank's
   content (≤ 8 h of burn), bounded by the tank cap; the valve removes idle burn.
 
-- [ ] 145. **Model + migration v21.**
+- [x] 145. **Model + migration v21.**
   a) `src/core/state.ts` — replace `Cohort` (`:129–130`) and `Fields` (`:138–152`):
      ```ts
      /** one plot = PLOT_TILES tiles; crop null = empty; readyTick = the absolute tick it ripens (ignored when empty) */
@@ -4360,7 +4360,7 @@ Rules (every task):
        the 8 h with 0 coal in storage and every field tile still growing, none ready — the pump ran dry and the
        Fields stood still; under v21 an empty tank still grows at ×1.)
 
-- [ ] 146. **Core: plots, fields, pivots, pumps, whole-plot work** (`src/core/fields.ts` rewrite, `balance.ts`).
+- [x] 146. **Core: plots, fields, pivots, pumps, whole-plot work** (`src/core/fields.ts` rewrite, `balance.ts`).
   a) `balance.ts` — replace the pipe block (`:257–325`), keeping `FIELDS_COST`, `FIELDS_CROP_HARVESTS`, the machine
      block and `fieldTileCost` (used for the plot price):
      ```ts

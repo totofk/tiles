@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Fields } from '../src/app/Fields'
-import { fieldsStats } from '../src/core/fields'
 import { createInitialState, createMachines, type GameState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -14,7 +13,12 @@ function unlocked(run: Partial<GameState['run']> = {}): GameState {
     ...s,
     run: {
       ...s.run,
-      fields: { ...s.run.fields, unlocked: true, count: 60, machines: createMachines() },
+      fields: {
+        ...s.run.fields,
+        unlocked: true,
+        list: [{ pivot: true, crop: 'radish', pinned: false, plots: [{ crop: 'radish', readyTick: 0 }, ...Array.from({ length: 4 }, () => ({ crop: null, readyTick: 0 }))] }],
+        machines: createMachines(),
+      },
       ...run,
     },
   }
@@ -26,12 +30,11 @@ describe('the 🚜 Fields summary card (batch 27, task 143e)', () => {
     expect(container.querySelector('.fields-summary')).toBeNull()
   })
 
-  it('one line — tiles, ready, stalled — and an Open Estate button that calls onOpen', () => {
+  it('one line — plots, ready — and an Open Estate button that calls onOpen', () => {
     let opened = 0
     const state = unlocked()
     render(<Fields state={state} onOpen={() => { opened++ }} />)
-    const { ready, stalled } = fieldsStats(state.run)
-    expect(screen.getByText(`🚜 Fields · 60 tiles · 🌾 ${ready} ready · ⏳ ${stalled} stalled`)).toBeTruthy()
+    expect(screen.getByText('🚜 Fields · 5 plots · 🌾 1 ready')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Open Estate' }))
     expect(opened).toBe(1)
   })

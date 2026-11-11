@@ -201,6 +201,8 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
   // order clerk (batch 14): ⭐ + copper bars after 20 orders completed
   clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
+  // Manager (batch 28 shape, est. — batch 29's sim pins it): cannot unlock in 28, nothing increments contractsByHand yet
+  manager: { price: { goldBar: 4, cash: 500000 }, counter: 'contractsByHand', at: 3 },
 }
 // Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
 // (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.
@@ -254,28 +256,29 @@ export function valveCost(meta: MetaState): Price {
   return scalePrice(VALVE_COST, meta)
 }
 
-// Fields (batch 18, DECISIONS "Fields part 1"): the earned late game — unbounded tile COUNT as an aggregate. The
-// unlock card needs every farm job covered by worker or machine (planter + harvester certificates, ≥ 1 sprinkler);
-// a crop is fields-plantable after FIELDS_CROP_HARVESTS home-plot harvests of it. Field tiles cost
-// FIELDS_TILE_BASE × (count + 1); the pipes tier (task 94) waters PIPE_COVER tiles — tiles beyond the coverage stall
-// (growth paused, never death) and the shared coal pump draws PIPE_COAL_PER_10_TILES per 10 covered tiles per hour.
+// Fields (batch 18, DECISIONS "Fields part 1"; plots, pivots and pumps since batch 28, DECISIONS "Batch 28 refined").
+// The unlock card needs every farm job covered by worker or machine (planter + harvester certificates, ≥ 1
+// sprinkler); a crop is fields-plantable after FIELDS_CROP_HARVESTS home-plot harvests of it. Land comes a plot
+// (PLOT_TILES tiles) at a time, priced as the sum of its tiles at FIELDS_TILE_BASE × (tile index + 1); a field holds
+// FIELD_PLOTS plots and is sowable once its pivot is built; the pump tier caps the wet fields and sizes the coal
+// tank. A full tank grows every pivoted field ×FIELD_PRESSURE; an empty one ×1 — fields never stall or die.
 const FIELDS_TILE_BASE = 100
 const FIELDS_CROP_HARVESTS = 50
-/** tiles one Fields plant action puts in the ground (the player's button and the planter's batch alike) */
-const PLANT_BATCH = 10
-/** tiles one harvester action reaps */
-const HARVEST_BATCH = 10
 // cash parts = 0.5–1.5 h of the batch-18 ladder bot's income at each purchase (pinned in PLAN.md "Batch 18 results")
 const FIELDS_CASH = 10000
 const FIELDS_COST: Price = { ironBar: 10, cash: FIELDS_CASH }
-/** pipe coverage per tier owned (index = pipes): tier 0 = none, so fields planted before pipes simply stall */
-const PIPE_COVER = [0, 60, 150, 300]
-const PIPE_COSTS: ReadonlyArray<Price> = [
-  { copperBar: 8, cash: 10000 },
-  { ironBar: 8, cash: 100000 },
-  { goldBar: 8, cash: 350000 },
+const PLOT_TILES = 10
+const FIELD_PLOTS = 5
+export const FIELD_PRESSURE = 2 // named and displayed: a full tank grows fields ×2
+const PUMP_FIELD_CAP = [2, 6, 12, 20] // index = pump tier owned
+const PUMP_COSTS: ReadonlyArray<Price> = [
+  { copperBar: 8, cash: 500000 }, { ironBar: 8, cash: 1500000 }, { goldBar: 8, cash: 3000000 },
 ]
-const PIPE_COAL_PER_10_TILES = 0.5
+const PIVOT_ITEMS: Price = { goldBar: 3, ironBar: 6, copperBar: 6, cash: 0 }
+const PIVOT_CASH_STEP = 50000 // pivot n costs PIVOT_ITEMS + 50,000 × (n − 1), n = 2…20
+const FIELD_COAL_PER_PLOT_HOUR = 0.5 // was PIPE_COAL_PER_10_TILES
+export const TANK_UNITS_PER_COAL = 7200 // 1 burn unit = 1 plot for 1 tick (0.5 coal / plot / h)
+const REAP_PLOT_ENERGY = 10
 
 export function fieldsCost(meta: MetaState): Price {
   return scalePrice(FIELDS_COST, meta)
@@ -291,43 +294,62 @@ export function fieldsCropHarvests(): number {
   return FIELDS_CROP_HARVESTS
 }
 
-export function plantBatch(): number {
-  return PLANT_BATCH
+/** tiles in one plot (the unit of land and work) */
+export function plotTiles(): number {
+  return PLOT_TILES
 }
 
-export function harvestBatch(): number {
-  return HARVEST_BATCH
+/** plots in one field (the unit of water and crop) */
+export function fieldPlots(): number {
+  return FIELD_PLOTS
 }
 
-/** tiles the owned pipe tiers water (growing tiles beyond it stall) */
-export function pipeCover(pipes: number): number {
-  return PIPE_COVER[Math.min(pipes, PIPE_COVER.length - 1)]
+/** the next plot's price with `plots` owned: the sum of its ten tiles' prices (💰10,000·p + 5,500 at base) */
+export function plotCost(plots: number, meta: MetaState): number {
+  let sum = 0
+  for (let i = 0; i < PLOT_TILES; i++) sum += fieldTileCost(PLOT_TILES * plots + i, meta)
+  return sum
 }
 
-/** the next pipe tier's recipe, null at the top tier */
-export function pipeCost(pipes: number, meta: MetaState): Price | null {
-  const price = PIPE_COSTS[pipes]
+/** pivot n's recipe (n = 1 … 20; the first comes with the Tractor) */
+export function pivotCost(n: number, meta: MetaState): Price {
+  return scalePrice({ ...PIVOT_ITEMS, cash: PIVOT_CASH_STEP * (n - 1) }, meta)
+}
+
+/** the next pump tier's recipe with `pump` owned, null at the top */
+export function pumpCost(pump: number, meta: MetaState): Price | null {
+  const price = PUMP_COSTS[pump]
   return price ? scalePrice(price, meta) : null
 }
 
-/** the top pipe tier's index (pipes 1 … this) */
-export function pipeMaxTiers(): number {
-  return PIPE_COSTS.length
+/** the top pump tier (pump 1 … this are Estate recipes) */
+export function pumpMaxTiers(): number {
+  return PUMP_COSTS.length
 }
 
-export function pipeCoalPer10Tiles(): number {
-  return PIPE_COAL_PER_10_TILES
+/** wet fields (pivots) the owned pump tier feeds */
+export function pumpFieldCap(pump: number): number {
+  return PUMP_FIELD_CAP[Math.min(pump, PUMP_FIELD_CAP.length - 1)]
 }
 
-/** coal the pump accrues per tick for `coveredTiles` covered growing tiles (0.5 / h per 10 tiles) */
-export function pipeCoalPerTick(coveredTiles: number): number {
-  return (coveredTiles * PIPE_COAL_PER_10_TILES) / 10 / 3600
+/** whole coal the tank holds at this pump tier: 8 h of burn at the cap (40 / 120 / 240 / 400) */
+export function tankCapCoal(pump: number): number {
+  return 8 * pumpFieldCap(pump) * FIELD_PLOTS * FIELD_COAL_PER_PLOT_HOUR
 }
 
-// Machines (batch 19, DECISIONS "Fields part 2"): Workshop recipes that work the Fields. A harvester reaps ready
-// cohorts before the harvester workers (machines first, workers fill the gap); a seeder plants whole PLANT_BATCH
-// cohorts through the same seed rules as the planter. Max 1 of each tier; tiers stack. Coal-free — each machine pays
-// MACHINE_MAINT cash per live hour worked (never a % of holdings); watering stays pipes-only. A tier's recipe needs
+export function fieldCoalPerPlotHour(): number {
+  return FIELD_COAL_PER_PLOT_HOUR
+}
+
+/** ⚡ one hand reap of a whole plot costs */
+export function reapPlotEnergy(): number {
+  return REAP_PLOT_ENERGY
+}
+
+// Machines (batch 19, DECISIONS "Fields part 2"; whole plots since batch 28): Workshop recipes that work the Fields. A
+// harvester reaps ready plots before the harvester workers (machines first, workers fill the gap); a seeder sows whole
+// plots through the same seed rules as the planter. Max 1 of each tier; tiers stack. Coal-free — each machine pays
+// MACHINE_MAINT cash per live hour worked (never a % of holdings); watering stays the pivots'. A tier's recipe needs
 // its job's worker certificate first (manual → worker → machine).
 export type MachineKind = 'harvester' | 'seeder'
 const MACHINE_TILES_PER_HOUR: Record<MachineKind, ReadonlyArray<number>> = {

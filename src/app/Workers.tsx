@@ -2,7 +2,7 @@ import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } fro
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { TOOLS, type ToolJob } from '../core/data/tools'
-import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
+import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { isIrrigated } from '../core/workshop'
@@ -21,6 +21,7 @@ export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
   fuel: ITEMS.coal.emoji,
   mine: MINE_EMOJI,
   clerk: BOARD_EMOJI,
+  manager: '💼',
 }
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   plant: `${WORKER_JOB_EMOJI.plant} Plant`,
@@ -30,6 +31,7 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
   mine: `${WORKER_JOB_EMOJI.mine} Mine`,
   clerk: `${WORKER_JOB_EMOJI.clerk} Clerk`,
+  manager: `${WORKER_JOB_EMOJI.manager} Manager`,
 }
 
 /** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
@@ -103,7 +105,7 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
       </summary>
       {/* batch 24: the job rows are one group, hiring another over a divider */}
       <div className="group">
-        {WORKER_JOBS.map((job) => (
+        {WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job)).map((job) => (
           <JobRow key={job} state={state} act={act} job={job} active={worked.some((w) => w.job === job)} />
         ))}
       </div>

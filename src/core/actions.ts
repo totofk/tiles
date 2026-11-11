@@ -64,6 +64,9 @@ export type ActionError =
   | 'NO_STARS'
   | 'NO_DEEDS'
   | 'NO_GAIN'
+  | 'NO_PIVOT'
+  | 'NO_CROP'
+  | 'PUMP_FULL'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 

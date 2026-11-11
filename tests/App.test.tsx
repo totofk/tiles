@@ -3,7 +3,8 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
-import { createInitialState } from '../src/core/state'
+import { ERROR_TEXT } from '../src/app/useGame'
+import { createInitialState, type GameState } from '../src/core/state'
 import { deserialize, serialize } from '../src/save/serialize'
 import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
 import { encodeSave } from '../src/save/codec'
@@ -386,9 +387,9 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v20/)).toBeTruthy()
+    expect(screen.getByText(/Will migrate v15 → v21/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
-    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(20)
+    expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(21)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)
   })
 })
@@ -436,8 +437,9 @@ describe('the Estate surface, two stops (batch 27, task 142; the migrated v19 fi
   it('the fold strip (Home) and the MiniLot (Estate) switch stops', () => {
     load({ stop: 'home' })
     render(<App />)
-    // v19 plants lemon 100, pumpkin 40, chilli 30, nothing ready yet
-    expect(switchBtn(/🚜 Fields ·/).textContent).toBe('🚜 Fields · 🌶️ 30 · 🎃 40 · 🍋 100 · 🌾 0 ready')
+    // v19 plants lemon 100, pumpkin 40, chilli 30, nothing ready yet; the v21 migration returns the 20 tiles the old
+    // pipes stalled (a lemon and a chilli cohort) to the pouch
+    expect(switchBtn(/🚜 Fields ·/).textContent).toBe('🚜 Fields · 🌶️ 20 · 🎃 40 · 🍋 90 · 🌾 0 ready')
     fireEvent.click(switchBtn(/🚜 Fields ·/))
     expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /Home lot —/ }))
@@ -465,26 +467,32 @@ describe('the phone Estate bar + 📋 sheet (batch 27, task 144; jsdom = a 375 p
     localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, ...ui }))
   }
 
-  it('the Estate stop swaps the Tools bar for three buttons; Sow plants the picked crop (lemon 100 → 110)', async () => {
-    load({ stop: 'estate' })
-    render(<App />)
-    const sow = screen.getByRole('button', { name: /🌱 Sow 10 🍋/ }) as HTMLButtonElement
-    expect(sow.disabled).toBe(false)
-    const reap = screen.getByRole('button', { name: /🌾 Reap · \d+/ }) as HTMLButtonElement
-    expect(reap.disabled).toBe(true) // harvesters reap the Fields; hand reaping comes next update
-    expect(screen.getByRole('button', { name: '＋10 tiles' })).toBeTruthy()
-    fireEvent.click(sow)
-    await waitFor(() => expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.fields.planted.lemon).toBe(110))
-  })
-
-  it('Sow is disabled with a pick-a-crop title until a crop is picked', () => {
+  it('the Estate stop swaps the Tools bar for three buttons; Sow sows the next plot (batch 28: whole plots)', async () => {
+    // the migrated v19 holds its empty plots in fields past the 3 pivots its pipes earned: pivot them all here
     const s = deserialize(v19)!.state
-    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, fields: { ...s.run.fields, plantCrop: null } } }, Date.now()))
+    const list = s.run.fields.list.map((f) => ({ ...f, pivot: true }))
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, fields: { ...s.run.fields, list } } }, Date.now()))
     localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, stop: 'estate' }))
     render(<App />)
-    const sow = screen.getByRole('button', { name: '🌱 Sow 10' }) as HTMLButtonElement
+    const sown = (g: GameState) => g.run.fields.list.reduce((n, f) => n + f.plots.filter((p) => p.crop !== null).length, 0)
+    const before = sown(s)
+    const sow = screen.getByRole('button', { name: '🌱 Sow' }) as HTMLButtonElement
+    expect(sow.disabled).toBe(false)
+    expect(screen.getByRole('button', { name: /🌾 Reap · \d+/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '＋ Plot' })).toBeTruthy()
+    fireEvent.click(sow)
+    await waitFor(() => expect(sown(deserialize(localStorage.getItem(SAVE_KEY)!)!.state)).toBe(before + 1))
+  })
+
+  it('Sow is disabled with the error text as its title while no field has a crop picked', () => {
+    const s = deserialize(v19)!.state
+    const list = s.run.fields.list.map((f) => ({ ...f, crop: null }))
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, fields: { ...s.run.fields, list } } }, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ pulledBack: true, stop: 'estate' }))
+    render(<App />)
+    const sow = screen.getByRole('button', { name: '🌱 Sow' }) as HTMLButtonElement
     expect(sow.disabled).toBe(true)
-    expect(sow.title).toBe('pick a crop below')
+    expect(sow.title).toBe(ERROR_TEXT.NOTHING_TO_DO)
   })
 
   it('the 📋 button opens the Orders / Workers / Workshop sheet in the shared Modal; ✕ closes it', () => {
@@ -503,7 +511,7 @@ describe('the phone Estate bar + 📋 sheet (batch 27, task 144; jsdom = a 375 p
   it('before the Tractor, phones are unchanged: no 📋 button, no Estate bar, today’s cards still render below the grid', () => {
     render(<App />)
     expect(screen.queryByRole('button', { name: /📋 Orders/ })).toBeNull()
-    expect(screen.queryByRole('button', { name: /Sow 10/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /🌱 Sow/ })).toBeNull()
     expect(screen.getByText(/Dig for seeds/)).toBeTruthy() // fresh run: DigSeeds + the Workers card are today’s visible cards
     expect(screen.getAllByText(/Workers/).length).toBeGreaterThan(0)
   })

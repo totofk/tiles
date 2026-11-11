@@ -1,25 +1,28 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, energyMax, itemSellPrice } from '../core/balance'
-import type { CropId } from '../core/data/crops'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, plotTiles, pumpFieldCap, tankCapCoal } from '../core/balance'
+import { CROP_IDS, type CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
+import type { WorkerJob } from '../core/data/workers'
 import {
-  createFields,
   createInitialMeta,
   createInitialState,
   createMachines,
   createTile,
   type Counters,
+  type Field,
   type GameState,
   type Lifetime,
   type Loan,
+  type Machines,
   type MultiplierKey,
+  type Plot,
   type Tile,
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 20
+export const SAVE_VERSION = 21
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -97,8 +100,27 @@ type SaveV8 = { version: 8; savedAtMs: number; state: { meta: MetaV11; run: RunV
 type SaveV9 = { version: 9; savedAtMs: number; state: { meta: MetaV11; run: RunV9 } }
 type SaveV10 = { version: 10; savedAtMs: number; state: { meta: MetaV11; run: RunV10 } }
 type JobV11 = JobV10 | 'mine'
-type RunV12 = Omit<GameState['run'], 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers' | 'workshop' | 'fields'> & {
-  counters: Omit<Counters, 'orders'>
+/** the v16–v20 Fields: an aggregate tile count, planted cohorts, pipe tiers and the shared pump's fractional coal */
+type CohortV20 = { crop: CropId; count: number; readyTick: number }
+type FieldsV20 = {
+  unlocked: boolean
+  count: number
+  planted: Record<CropId, number>
+  cohorts: CohortV20[]
+  pipes: number
+  plantCrop: CropId | null
+  coalCarry: number
+  machines: Machines
+}
+/** v13–v20 jobs (the Manager joined in v21) */
+type JobV20 = Exclude<WorkerJob, 'manager'>
+type RunV20 = Omit<GameState['run'], 'fields' | 'counters' | 'workers'> & {
+  fields: FieldsV20
+  counters: Omit<Counters, 'contractsByHand'>
+  workers: { pool: number; assigned: Record<JobV20, number>; certificates: JobV20[] }
+}
+type RunV12 = Omit<RunV20, 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers' | 'workshop' | 'fields'> & {
+  counters: Omit<RunV20['counters'], 'orders'>
   lifetime: Omit<Lifetime, 'ordersCompleted' | 'starsEarned' | 'goldBars' | 'goldBarsSmelted'>
   workers: { pool: number; assigned: Record<JobV11, number>; certificates: JobV11[] }
 }
@@ -107,33 +129,36 @@ type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: Ru
 /** meta from v12 to v17: the five multiplier rows only (batch 20 added the deed rows and the ledger) */
 type MetaV12 = { prestigeCount: number; upgrades: Record<MultiplierKey, number>; legacyMultipliers?: Record<MultiplierKey, number> }
 type SaveV12 = { version: 12; savedAtMs: number; state: { meta: MetaV12; run: RunV12 } }
-type RunV13 = Omit<GameState['run'], 'lifetime' | 'workshop' | 'fields'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
+type RunV13 = Omit<RunV20, 'lifetime' | 'workshop' | 'fields'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
 type SaveV13 = { version: 13; savedAtMs: number; state: { meta: MetaV12; run: RunV13 } }
-type RunV14 = Omit<GameState['run'], 'workshop' | 'fields'>
+type RunV14 = Omit<RunV20, 'workshop' | 'fields'>
 type SaveV14 = { version: 14; savedAtMs: number; state: { meta: MetaV12; run: RunV14 } }
 /** the pre-v20 workshop: sprinklers as coal-burning machines, one hopper each */
 type WorkshopV19 = { built: boolean; hoppers: number[]; valve: boolean }
-type RunV19 = Omit<GameState['run'], 'workshop'> & { workshop: WorkshopV19 }
-type RunV15 = Omit<GameState['run'], 'fields' | 'workshop'> & { workshop: WorkshopV19 }
+type RunV19 = Omit<RunV20, 'workshop'> & { workshop: WorkshopV19 }
+type RunV15 = Omit<RunV20, 'fields' | 'workshop'> & { workshop: WorkshopV19 }
 type SaveV15 = { version: 15; savedAtMs: number; state: { meta: MetaV12; run: RunV15 } }
-type RunV16 = Omit<GameState['run'], 'fields' | 'workshop'> & {
-  fields: Omit<GameState['run']['fields'], 'machines'>
+type RunV16 = Omit<RunV20, 'fields' | 'workshop'> & {
+  fields: Omit<FieldsV20, 'machines'>
   workshop: WorkshopV19
 }
 type SaveV16 = { version: 16; savedAtMs: number; state: { meta: MetaV12; run: RunV16 } }
-type RunV17 = Omit<GameState['run'], 'workshop'> & { workshop: WorkshopV19 }
+type RunV17 = Omit<RunV20, 'workshop'> & { workshop: WorkshopV19 }
 type SaveV17 = { version: 17; savedAtMs: number; state: { meta: MetaV12; run: RunV17 } }
 /** v18's four crops; a v19 run's market / planted tables hold all eight keys */
 type V18CropId = 'radish' | 'chilli' | 'pumpkin' | 'lemon'
-type RunV18 = Omit<GameState['run'], 'market' | 'fields' | 'workshop'> & {
+type RunV18 = Omit<RunV20, 'market' | 'fields' | 'workshop'> & {
   market: Record<V18CropId, number>
-  fields: Omit<GameState['run']['fields'], 'planted'> & { planted: Record<V18CropId, number> }
+  fields: Omit<FieldsV20, 'planted'> & { planted: Record<V18CropId, number> }
   workshop: WorkshopV19
 }
 type SaveV18 = { version: 18; savedAtMs: number; state: { meta: GameState['meta']; run: RunV18 } }
 type SaveV19 = { version: 19; savedAtMs: number; state: { meta: GameState['meta']; run: RunV19 } }
-type SaveV20 = { version: 20; savedAtMs: number; state: GameState }
-export type Save = SaveV20
+type SaveV20 = { version: 20; savedAtMs: number; state: { meta: GameState['meta']; run: RunV20 } }
+type SaveV21 = { version: 21; savedAtMs: number; state: GameState }
+export type Save = SaveV21
+/** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
+const PIPE_COVER_V20 = [0, 60, 150, 300]
 
 export function serialize(state: GameState, savedAtMs: number): string {
   const save: Save = { version: SAVE_VERSION, savedAtMs, state }
@@ -391,7 +416,9 @@ function migrateV14(save: SaveV14): SaveV15 {
 // planter's fields crop is unset (planting sets it) and the shared pump's fractional coal starts at 0.
 function migrateV15(save: SaveV15): SaveV16 {
   const { meta, run } = save.state
-  return { version: 16, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: createFields() } } }
+  const planted = Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>
+  const fields = { unlocked: false, count: 0, planted, cohorts: [], pipes: 0, plantCrop: null, coalCarry: 0 }
+  return { version: 16, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields } } }
 }
 
 // v16 → v17: the throughput machines (batch 19). None bought — every machine purchase is a new buy; the fleet's
@@ -457,12 +484,110 @@ function migrateV19(save: SaveV19): SaveV20 {
   }
 }
 
+// v20 → v21: plots, pivots, pumps and the tank (batch 28, PLAN.md task 145c). Growing cohorts the old pipes did not
+// cover (the prefix rule at the save's tick) were stalled: their tiles go back to the seed pouch. The rest become
+// plots of ten per crop (the last one rounded up, its date the chunk's earliest) and a growing plot keeps half its
+// remaining ticks (the old rule closed 2 per covered tick). Owned land never shrinks; Field 1 and every planted field
+// get a pivot within the pump cap, then more up to the old coverage; the pump draws its tank from storage coal.
+function migrateV20(save: SaveV20): SaveV21 {
+  const { meta, run } = save.state
+  const { fields: old, counters, workers } = run
+  let { seeds, inventory } = run
+  let fields: GameState['run']['fields'] = { unlocked: false, list: [], pump: 0, tank: 0, machines: old.machines }
+  if (old.unlocked) {
+    const { tick } = run
+    seeds = { ...seeds }
+    const budget = PIPE_COVER_V20[Math.min(old.pipes, PIPE_COVER_V20.length - 1)]
+    let covered = 0
+    let stalled = false
+    const kept: CohortV20[] = []
+    for (const c of old.cohorts) {
+      if (c.readyTick <= tick) kept.push(c)
+      else if (!stalled && covered + c.count <= budget) {
+        covered += c.count
+        kept.push(c)
+      } else {
+        stalled = true
+        seeds[c.crop] = (seeds[c.crop] ?? 0) + c.count
+      }
+    }
+    const size = plotTiles()
+    const planted: Plot[] = []
+    for (const crop of CROP_IDS) {
+      const dates = kept
+        .filter((c) => c.crop === crop)
+        .sort((a, b) => a.readyTick - b.readyTick)
+        .flatMap((c) => Array<number>(c.count).fill(c.readyTick))
+      for (let i = 0; i < dates.length; i += size) {
+        const r = dates[i]
+        planted.push({ crop, readyTick: r > tick ? tick + Math.ceil((r - tick) / 2) : r })
+      }
+    }
+    const count = Math.max(Math.ceil(old.count / size), planted.length, 1)
+    const plots = [...planted, ...Array.from({ length: count - planted.length }, (): Plot => ({ crop: null, readyTick: 0 }))]
+    const list: Field[] = []
+    for (let i = 0; i < plots.length; i += fieldPlots()) {
+      const chunk = plots.slice(i, i + fieldPlots())
+      const most = CROP_IDS.reduce<{ crop: CropId | null; n: number }>((best, crop) => {
+        const n = chunk.filter((p) => p.crop === crop).length
+        return n > best.n ? { crop, n } : best
+      }, { crop: null, n: 0 })
+      list.push({ pivot: false, crop: most.n > 0 ? most.crop : old.plantCrop, pinned: false, plots: chunk })
+    }
+    const pump = old.pipes
+    const cap = pumpFieldCap(pump)
+    list[0].pivot = true
+    let pivots = 1
+    for (const f of list.slice(1)) {
+      if (pivots >= cap) break
+      if (f.plots.some((p) => p.crop !== null)) {
+        f.pivot = true
+        pivots++
+      }
+    }
+    const target = Math.min(list.length, cap, Math.ceil(budget / 50))
+    for (const f of list) {
+      if (pivots >= target) break
+      if (!f.pivot) {
+        f.pivot = true
+        pivots++
+      }
+    }
+    const coal = inventory.coal ?? 0
+    const moved = Math.min(tankCapCoal(pump), coal)
+    if (moved > 0) inventory = { ...inventory, coal: coal - moved }
+    fields = { unlocked: true, list, pump, tank: moved * TANK_UNITS_PER_COAL, machines: old.machines }
+  }
+  return {
+    version: 21,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        seeds,
+        inventory,
+        fields,
+        counters: { ...counters, contractsByHand: 0 },
+        workers: { ...workers, assigned: { ...workers.assigned, manager: 0 } },
+      },
+    },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
+  if (data.version === 21) return data as SaveV21
+  const v20 = toV20(data)
+  return v20 && migrateV20(v20)
+}
+
+/** v1 … v20 up to v20; null for anything else */
+function toV20(data: RawSave): SaveV20 | null {
   if (data.version === 20) return data as SaveV20
   if (data.version === 19) return migrateV19(data as SaveV19)
   if (data.version === 18) return migrateV19(migrateV18(data as SaveV18))

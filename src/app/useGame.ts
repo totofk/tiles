@@ -54,6 +54,9 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_STARS: `Not enough ${STAR_EMOJI}`,
   NO_DEEDS: 'Not enough deeds',
   NO_GAIN: 'No deeds to gain yet — play on',
+  NO_PIVOT: 'This field has no pivot — build one to sow it',
+  NO_CROP: 'Pick a crop for this field first',
+  PUMP_FULL: 'The pump feeds no more fields — build the next pump',
 }
 
 export const FIRE_EMOJI = '🔥'

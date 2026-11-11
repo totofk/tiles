@@ -4,27 +4,24 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
-  fieldTileCost,
-  harvestBatch,
   machineCost,
   machineMaxTiers,
   machineTilesPerHour,
   marketFactor,
-  pipeCost,
-  plantBatch,
+  plotCost,
   type Price,
 } from '../core/balance'
-import { CROP_IDS, type CropId } from '../core/data/crops'
-import { fieldsStats } from '../core/fields'
+import type { CropId } from '../core/data/crops'
+import { fieldsOverview, plantedTiles } from '../core/fields'
 import type { GameState, Machines } from '../core/state'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
 
 /** the row's ≈💰/h estimate: planted tiles × cycles per hour × (market-priced sale − seed). An estimate — it
- *  ignores stalls, orders and the sickle's doubles, which is why the UI marks it with ≈ */
+ *  ignores pressure, orders and the sickle's doubles, which is why the UI marks it with ≈ */
 export function estateCropIncomePerHour(state: GameState, crop: CropId): number {
   const { run, meta } = state
-  const planted = run.fields.planted[crop] ?? 0
+  const planted = plantedTiles(run.fields, crop)
   const grow = cropGrowTicks(crop, meta, run.upgrades.fertilizer)
   const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, run.market[crop]) - cropSeedCost(crop, meta)
   return Math.round((planted * 3600 * net) / grow)
@@ -35,10 +32,9 @@ export function estateIncomePerHour(state: GameState): number {
   return state.run.licenses.reduce((sum, c) => sum + estateCropIncomePerHour(state, c), 0)
 }
 
-/** the ghost row's price: the next ten field tiles together */
+/** the ghost row's price: the next plot */
 export function ghostRowPrice(state: GameState): number {
-  const { run, meta } = state
-  return Array.from({ length: 10 }, (_, i) => fieldTileCost(run.fields.count + i, meta)).reduce((a, b) => a + b, 0)
+  return plotCost(fieldsOverview(state.run).plots, state.meta)
 }
 
 /** "next in 3m" / "next in 2h": the nearest ripening, as text (ticks are seconds) */
@@ -59,14 +55,14 @@ function cheapestMissingTier(owned: readonly number[], max: number): number {
 export type EstateChip = { label: string; fix: string }
 
 /**
- * The capacity strip's ONE bottleneck chip (batch 27, task 143c), first match wins:
- * dry pump → stalled pipes → sowing (no seeder) → reaping (no harvester) → land. Each fix that has a price also
- * says when it is affordable: "now", a bar shortfall via shortOf ("needs 8🥉 more"), or the cash gap ÷ the rows'
- * ≈💰/h as "≈~N min" / "≈~N h".
+ * The capacity strip's ONE bottleneck chip (batch 27, task 143c; a plots stopgap until task 148 adds pressure, dry
+ * fields and the pump), first match wins: no crop picked → sowing (no seeder) → reaping (no harvester) → land. Each
+ * fix that has a price also says when it is affordable: "now", a bar shortfall via shortOf ("needs 8🥉 more"), or the
+ * cash gap ÷ the rows' ≈💰/h as "≈~N min" / "≈~N h".
  */
 export function estateBottleneck(state: GameState): EstateChip {
   const { run, meta } = state
-  const { free, growing, stalled, ready } = fieldsStats(run)
+  const { emptyWet, ready } = fieldsOverview(run)
   const afford = (cost: Price): string => {
     const short = shortOf(cost, run)
     if (short.length === 0) return 'now'
@@ -75,16 +71,11 @@ export function estateBottleneck(state: GameState): EstateChip {
     const hours = estateIncomePerHour(state) > 0 ? (cost.cash - run.cash) / estateIncomePerHour(state) : Infinity
     return hours < 1 ? `≈~${Math.max(1, Math.round((hours * 60)))} min` : `≈~${Math.round(hours)} h`
   }
-  // 1. a dry pump pauses all growth
-  if (growing > 0 && (run.inventory.coal ?? 0) < 1) return { label: '⚠ Coal — the pump is dry, growth paused', fix: 'mine or buy coal' }
-  // 2. tiles beyond the pipes' coverage wait
-  if (stalled > 0) {
-    const price = pipeCost(run.fields.pipes, meta)
-    return { label: `⚠ Pipes — ${stalled} tiles wait`, fix: price ? `Pipes Lv${run.fields.pipes + 1} ${priceText(price)} · ${afford(price)}` : 'max pipes' }
-  }
-  // 3. free land, no seeder: nothing is being sown
-  if (free >= plantBatch() && run.fields.machines.seeder.length === 0) {
-    if (run.fields.plantCrop === null) return { label: `⚠ Sowing — ${free} tiles empty`, fix: 'pick a crop to Plant' }
+  // 1. empty plots in a pivoted field with no crop picked
+  const unpicked = run.fields.list.findIndex((f) => f.pivot && f.crop === null && f.plots.some((p) => p.crop === null))
+  if (unpicked >= 0) return { label: `⚠ Sowing — pick a crop for Field ${unpicked + 1}`, fix: 'pick a crop' }
+  // 2. sowable plots, no seeder: nothing is being sown
+  if (emptyWet >= 1 && run.fields.machines.seeder.length === 0) {
     const tier = cheapestMissingTier(run.fields.machines.seeder, machineMaxTiers('seeder'))
     const cost = machineCost('seeder', tier, meta)
     const fix = run.workers.certificates.includes('plant')
@@ -92,8 +83,8 @@ export function estateBottleneck(state: GameState): EstateChip {
       : `Seeder Mk${tier} needs the plant certificate`
     return { label: '⚠ Sowing', fix }
   }
-  // 4. ready tiles, no harvester to reap them
-  if (ready >= harvestBatch() && run.fields.machines.harvester.length === 0) {
+  // 3. ready plots, no harvester to reap them
+  if (ready >= 1 && run.fields.machines.harvester.length === 0) {
     const tier = cheapestMissingTier(run.fields.machines.harvester, machineMaxTiers('harvester'))
     const cost = machineCost('harvester', tier, meta)
     const fix = run.workers.certificates.includes('harvest')
@@ -101,12 +92,7 @@ export function estateBottleneck(state: GameState): EstateChip {
       : `Harvester Mk${tier} needs the harvest certificate`
     return { label: `⚠ Reaping — ${ready} ready`, fix }
   }
-  // 5. nothing blocks: the next land is the move
+  // 4. nothing blocks: the next land is the move
   const ghost = { cash: ghostRowPrice(state) }
-  return { label: '✓ Land — next 10 tiles', fix: `＋10 tiles 💰${ghost.cash} · ${afford(ghost)}` }
-}
-
-/** every licensed crop with an Estate row, in CROP_IDS order (task 143a) */
-export function estateRowCrops(state: GameState): CropId[] {
-  return CROP_IDS.filter((c) => state.run.licenses.includes(c))
+  return { label: '✓ Land — next plot', fix: `＋ Plot 💰${ghost.cash} · ${afford(ghost)}` }
 }

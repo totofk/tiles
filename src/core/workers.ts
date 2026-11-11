@@ -57,6 +57,8 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
   clerk: clerkAction,
+  // batch 29 gives the Manager its work; until then it idles unpaid
+  manager: () => null,
 }
 
 /**

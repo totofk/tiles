@@ -177,7 +177,7 @@ describe('harvest', () => {
     expect(next.run.tiles[0]).toMatchObject({ status: 'tilled', growth: 0, ticksSinceMature: 0 })
     expect(next.run.tiles[0].cropId).toBeUndefined()
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
-    expect(next.run.counters).toEqual({ harvests: 1, sales: 1, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 })
+    expect(next.run.counters).toEqual({ harvests: 1, sales: 1, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0, contractsByHand: 0 })
   })
   it('applies the sellPrice upgrade (+10 % per level)', () => {
     const s = withTile(mature, { upgrades: { ...createInitialState().run.upgrades, sellPrice: 2 } })

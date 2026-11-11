@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
-import { fieldsStats } from '../core/fields'
+import type { CropId } from '../core/data/crops'
+import { fieldsOverview, plantedTiles } from '../core/fields'
 import type { GameState } from '../core/state'
 import { Estate, EstateBar } from './Estate'
 import { CROP_EMOJI } from './FarmGrid'
@@ -136,9 +137,9 @@ export function Surface({ state, act, ui, setUi, banner, farmRef, phone, plantin
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stop, both])
 
-  const planted = state.run.fields.planted
-  const standing = state.run.licenses.filter((c) => (planted[c] ?? 0) > 0)
-  const ready = fieldsStats(state.run).ready
+  const planted = (c: CropId) => plantedTiles(state.run.fields, c)
+  const standing = state.run.licenses.filter((c) => planted(c) > 0)
+  const ready = fieldsOverview(state.run).ready
   const lot = (
     <div className="home-block" ref={homeRef}>
       <MiniLot state={state} onOpen={() => go('home')} />
@@ -169,7 +170,7 @@ export function Surface({ state, act, ui, setUi, banner, farmRef, phone, plantin
         {stop === 'home' && planting}
         {stop === 'home' && (
           <button className="fold-strip" onClick={() => go('estate')}>
-            {`${ESTATE_EMOJI} Fields${standing.map((c) => ` · ${CROP_EMOJI[c]} ${planted[c]}`).join('')} · ${READY_EMOJI} ${ready} ready`}
+            {`${ESTATE_EMOJI} Fields${standing.map((c) => ` · ${CROP_EMOJI[c]} ${planted(c)}`).join('')} · ${READY_EMOJI} ${ready} ready`}
           </button>
         )}
       </div>

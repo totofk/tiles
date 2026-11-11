@@ -1,77 +1,86 @@
-import type { ActionResult } from '../core/actions'
-import { cropSeedCost, fieldTileCost, fieldsCropHarvests, machineCost, machineMaintPerHour, machineMaxTiers, machineTilesPerHour, pipeCoalPer10Tiles, pipeCost, pipeCover, plantBatch } from '../core/balance'
-import { CROPS } from '../core/data/crops'
+import { fieldPlots, machineCost, machineMaintPerHour, machineMaxTiers, machineTilesPerHour, pivotCost, pumpCost, pumpFieldCap, tankCapCoal } from '../core/balance'
+import { CROPS, type CropId } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { isOffer } from '../core/orders'
 import type { GameState, Offer } from '../core/state'
-import { buyField, buyMachine, buyPipes, fieldsPaybackHours, fieldsPlantable, fieldsStats, plantFields, stopFieldsPlant } from '../core/fields'
+import {
+  buildPivot,
+  buyMachine,
+  buyPlot,
+  buyPump,
+  fieldsOverview,
+  fieldsPaybackHours,
+  fieldsPlantable,
+  pivotsOwned,
+  plotState,
+  reapNext,
+  reapPlot,
+  setFieldCrop,
+  sowNext,
+  sowPlot,
+} from '../core/fields'
 import { CROP_EMOJI } from './FarmGrid'
 import { goodEmoji } from './Orders'
 import { priceTag } from './marketText'
 import { priceText } from './Mine'
 import type { UiState } from './uiState'
-import type { Act } from './useGame'
+import { ERROR_TEXT, type Act } from './useGame'
 import { RecipeRow } from './Workshop'
-import { estateBottleneck, estateCropIncomePerHour, estateRowCrops, fleetTilesPerHour, ghostRowPrice, nextReadyText } from './estateText'
+import { estateBottleneck, estateCropIncomePerHour, fleetTilesPerHour, ghostRowPrice, nextReadyText } from './estateText'
 
-const PIPES_EMOJI = '🚰' // Unicode 6
+const PUMP_EMOJI = '🚰' // Unicode 6
 const ORDER_EMOJI = '📋' // Unicode 6
 const WATER_EMOJI = '💧' // Unicode 6
 const SEEDER_EMOJI = '🌱' // Unicode 6
 const HARVESTER_EMOJI = '🌾' // Unicode 6
-const HOME_EMOJI = '🏡' // Unicode 6
 const MACHINE_NAMES = { harvester: 'Harvester', seeder: 'Seeder' } as const
 const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
 
-/** the ghost row's action (task 143b, shared with the phone bar in 144): up to ten tiles in ONE act, stopping at
- *  the first tile the run cannot afford — a partial buy (i > 0) still succeeds */
-export function buyTenFields(s: GameState): ActionResult {
-  let cur = s
-  for (let i = 0; i < 10; i++) {
-    const r = buyField(cur)
-    if (!r.ok) return i === 0 ? r : { ok: true, state: cur }
-    cur = r.state
-  }
-  return { ok: true, state: cur }
-}
-
 /**
- * The phone Estate stop's tool bar (batch 27, task 144): Sow / Reap / ＋10 tiles where the 🧰 Tools bar sits on the
- * Home stop. Reap stays disabled — harvesters reap the Fields, hand reaping comes next update.
+ * The phone Estate stop's tool bar (batch 27, task 144; plots since batch 28): Sow / Reap / ＋ Plot where the 🧰 Tools
+ * bar sits on the Home stop.
  */
 export function EstateBar({ state, act }: { state: GameState; act: Act }) {
-  const picked = state.run.fields.plantCrop
-  const ready = fieldsStats(state.run).ready
+  const sow = sowNext(state)
   return (
-    <>
-      <div className="tools estate-tools">
-        <button
-          disabled={picked === null || !plantFields(state, picked).ok}
-          title={picked === null ? 'pick a crop below' : undefined}
-          onClick={() => picked !== null && act((s) => plantFields(s, picked))}
-        >
-          {`🌱 Sow 10${picked ? ` ${CROP_EMOJI[picked]}` : ''}`}
-        </button>
-        <button disabled title="Harvesters reap the Fields — hand reaping comes next update">
-          {`🌾 Reap · ${ready}`}
-        </button>
-        <button disabled={!buyField(state).ok} onClick={() => act(buyTenFields)}>
-          ＋10 tiles
-        </button>
-      </div>
-      <p className="estate-hint">Harvesters reap the Fields — hand reaping comes next update</p>
-    </>
+    <div className="tools estate-tools">
+      <button disabled={!sow.ok} title={sow.ok ? undefined : ERROR_TEXT[sow.error]} onClick={() => act(sowNext)}>
+        🌱 Sow
+      </button>
+      <button disabled={!reapNext(state).ok} onClick={() => act(reapNext)}>
+        {`🌾 Reap · ${fieldsOverview(state.run).ready}`}
+      </button>
+      <button disabled={!buyPlot(state).ok} onClick={() => act(buyPlot)}>
+        ＋ Plot
+      </button>
+    </div>
   )
 }
 
+/** the field's oldest ready plot and its first empty one (-1 = none) */
+function fieldTargets(state: GameState, k: number): { ready: number; empty: number; readyCount: number; next: number | null } {
+  const { run } = state
+  const plots = run.fields.list[k].plots
+  let ready = -1
+  let next: number | null = null
+  plots.forEach((p, j) => {
+    const st = plotState(p, run.tick)
+    if (st === 'ready' && (ready < 0 || p.readyTick < plots[ready].readyTick)) ready = j
+    if (st === 'growing') next = Math.min(next ?? Infinity, p.readyTick - run.tick)
+  })
+  const readyCount = plots.filter((p) => plotState(p, run.tick) === 'ready').length
+  return { ready, empty: plots.findIndex((p) => p.crop === null), readyCount, next }
+}
+
 /**
- * The 🚜 Estate stop's content (batch 27, task 143): a capacity strip, the MiniLot, one row per licensed crop,
- * the ghost row (the next ten tiles), the next pipe tier and the machines behind a closed details.
+ * The 🚜 Estate stop's content (batch 27, task 143; plots since batch 28 — a bare stopgap, task 148 lays it out): a
+ * capacity strip, the MiniLot, one row per field (crop chip, Sow / Build pivot, Reap), the next plot and pump, and
+ * the machines behind a closed details.
  */
 export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui: UiState; lot?: React.ReactNode }) {
   const { run, meta } = state
   if (!run.fields.unlocked) return null
-  const { free, covered, ready } = fieldsStats(run)
+  const { emptyWet, ready, wetFields } = fieldsOverview(run)
   const seederRate = fleetTilesPerHour(run.fields.machines, 'seeder')
   const harvesterRate = fleetTilesPerHour(run.fields.machines, 'harvester')
   // the first accepted unfinished order, if any
@@ -79,45 +88,56 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
   const chip = estateBottleneck(state)
   const ghost = ghostRowPrice(state)
   const payback = fieldsPaybackHours(state)
-  const pipePrice = pipeCost(run.fields.pipes, meta)
-  const pipeCoverNext = pipeCover(run.fields.pipes + 1)
-  const firstTile = fieldTileCost(run.fields.count, meta)
-  const batch = plantBatch()
+  const pump = run.fields.pump
+  const pumpPrice = pumpCost(pump, meta)
+  const crops = run.licenses.filter((c) => fieldsPlantable(run, c))
+  const plot = buyPlot(state)
   return (
     <div className="estate">
       <div className="capacity-strip" role="group" aria-label="Fields at a glance">
-        <span className="estate-chip">{`${WATER_EMOJI} ${covered}/${pipeCover(run.fields.pipes)} watered`}</span>
-        <span className="estate-chip">{`${SEEDER_EMOJI} ${seederRate}/h · ${free} empty`}</span>
+        <span className="estate-chip">{`${WATER_EMOJI} ${wetFields}/${pumpFieldCap(pump)} fields wet`}</span>
+        <span className="estate-chip">{`${SEEDER_EMOJI} ${seederRate}/h · ${emptyWet} plots to sow`}</span>
         <span className="estate-chip">{`${HARVESTER_EMOJI} ${harvesterRate}/h · ${ready} ready`}</span>
         {order && <span className="estate-chip">{`${ORDER_EMOJI} ${goodEmoji(order.good)} ${order.done}/${order.count}`}</span>}
         <span className={`estate-chip${chip.label.startsWith('✓') ? '' : ' estate-chip-warn'}`}>{`${chip.label} — ${chip.fix}`}</span>
       </div>
       {lot}
       <div className="estate-rows">
-        {estateRowCrops(state).map((id) => {
-          const plantable = fieldsPlantable(run, id)
-          const tiles = run.fields.planted[id] ?? 0
-          const cohorts = run.fields.cohorts.filter((c) => c.crop === id)
-          const readyC = cohorts.filter((c) => c.readyTick <= run.tick).reduce((n, c) => n + c.count, 0)
-          const next = cohorts.filter((c) => c.readyTick > run.tick).map((c) => c.readyTick - run.tick).sort((a, b) => a - b)[0] ?? null
+        {run.fields.list.map((field, k) => {
+          const t = fieldTargets(state, k)
           return (
-            <div className="estate-row" key={id}>
+            <div className="estate-row" key={k}>
               <span>
-                {`${CROP_EMOJI[id]} ${CROPS[id].name} · ${tiles} tiles (${readyC} ready${next !== null ? `, next in ${nextReadyText(next)}` : ''})`}
-                {plantable ? (
-                  <small>{`≈💰${estateCropIncomePerHour(state, id)}/h · ${priceTag(state, id, ui.priceShown[id])}`}</small>
+                {`Field ${k + 1} · ${field.crop ? CROP_EMOJI[field.crop] : '—'} · ${field.plots.length}/${fieldPlots()} plots (${t.readyCount} ready${t.next !== null ? `, next in ${nextReadyText(t.next)}` : ''})`}
+                {!field.pivot ? (
+                  <small>no pivot — cannot sow</small>
                 ) : (
-                  <small>{`${HOME_EMOJI} ${run.lifetime.harvests[id] ?? 0}/${fieldsCropHarvests()} home harvests · ${priceTag(state, id, ui.priceShown[id])}`}</small>
+                  field.crop && <small>{`≈💰${estateCropIncomePerHour(state, field.crop)}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</small>
                 )}
               </span>
-              {run.fields.plantCrop === id ? (
-                <button onClick={() => act((s) => stopFieldsPlant(s))}>Stop</button>
+              <select
+                aria-label={`Field ${k + 1} crop`}
+                value={field.crop ?? ''}
+                onChange={(e) => act((s) => setFieldCrop(s, k, (e.target.value || null) as CropId | null))}
+              >
+                <option value="">— none —</option>
+                {crops.map((c) => (
+                  <option key={c} value={c}>{`${CROP_EMOJI[c]} ${CROPS[c].name}`}</option>
+                ))}
+              </select>
+              {field.pivot ? (
+                <button disabled={t.empty < 0 || !sowPlot(state, k, t.empty).ok} onClick={() => act((s) => sowPlot(s, k, t.empty))}>
+                  Sow
+                </button>
               ) : (
-                <button disabled={!plantable || !plantFields(state, id).ok} onClick={() => act((s) => plantFields(s, id))}>
-                  {`Plant ${batch}`}
-                  <small className="recipe-price">{`no ⚡ · 🌱 ×${batch} 💰${batch * cropSeedCost(id, meta)}`}</small>
+                <button disabled={!buildPivot(state, k).ok} onClick={() => act((s) => buildPivot(s, k))}>
+                  Build pivot
+                  <small className="recipe-price">{priceText(pivotCost(pivotsOwned(run.fields) + 1, meta))}</small>
                 </button>
               )}
+              <button disabled={t.ready < 0 || !reapPlot(state, k, t.ready).ok} onClick={() => act((s) => reapPlot(s, k, t.ready))}>
+                Reap ⚡10
+              </button>
             </div>
           )
         })}
@@ -127,21 +147,22 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
           <div className="group">
             <h3>Expand</h3>
             <div className="recipe-row ghost-row">
-              <span>{`＋ 10 tiles 💰${ghost}${payback > 0 ? ` · ~${payback} h payback` : ''}`}</span>
-              <button disabled={!buyField(state).ok} onClick={() => act(buyTenFields)}>
+              <span>{`＋ Plot 💰${ghost}${payback > 0 ? ` · ~${payback} h payback` : ''}`}</span>
+              <button disabled={!plot.ok} onClick={() => act(buyPlot)}>
                 Buy
-                {run.cash < firstTile && <small>{`needs 💰⁠${firstTile - run.cash} more`}</small>}
+                {!plot.ok && plot.error === 'PUMP_FULL' && <small>{`needs Pump Lv${pump + 1}`}</small>}
+                {!plot.ok && plot.error === 'NO_CASH' && <small>{`needs 💰⁠${ghost - run.cash} more`}</small>}
               </button>
             </div>
-            {pipePrice && (
+            {pumpPrice && (
               <div className="recipe-row">
                 <span>
-                  {`${PIPES_EMOJI} Pipes Lv${run.fields.pipes + 1}`}
-                  <small>{`waters ${pipeCoverNext} tiles · ${(pipeCoalPer10Tiles() * pipeCoverNext) / 10}${ITEMS.coal.emoji}/h from the pump`}</small>
+                  {`${PUMP_EMOJI} Pump Lv${pump + 1}`}
+                  <small>{`waters ${pumpFieldCap(pump + 1)} fields · tank ${tankCapCoal(pump + 1)} ${ITEMS.coal.emoji}`}</small>
                 </span>
-                <button disabled={!buyPipes(state).ok} onClick={() => act((s) => buyPipes(s))}>
+                <button disabled={!buyPump(state).ok} onClick={() => act(buyPump)}>
                   Build
-                  <small className="recipe-price">{priceText(pipePrice)}</small>
+                  <small className="recipe-price">{priceText(pumpPrice)}</small>
                 </button>
               </div>
             )}

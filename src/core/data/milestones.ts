@@ -1,12 +1,15 @@
 // Identity and predicates only; every threshold number is a count already defined elsewhere
 // (tiles, cash tiers excepted — they are the milestone itself). `trackingStarted` is written by the save v12
 // migration, never by recordMilestones.
+import { plotTiles } from '../balance'
 import type { RunState } from '../state'
 import { CROPS, CROP_IDS, type CropId } from './crops'
 import { PICKAXE_TIERS } from './items'
 import { STAR_EMOJI } from './orders'
 import { TOOLS, TOOL_JOBS, type ToolJob } from './tools'
-import { WORKER_JOBS, type WorkerJob } from './workers'
+import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from './workers'
+
+const fieldPlotsOwned = (r: RunState): number => r.fields.list.reduce((n, f) => n + f.plots.length, 0)
 
 export type MilestoneId =
   | 'firstHarvest'
@@ -70,7 +73,7 @@ export const MILESTONES: readonly Milestone[] = [
   ),
   ...TOOL_JOBS.map((job): Milestone => ({ id: `copper${capitalize(job)}`, label: TOOLS[job].tiers[0], when: (r) => r.toolTier[job] >= 1 })),
   ...TOOL_JOBS.map((job): Milestone => ({ id: `iron${capitalize(job)}`, label: TOOLS[job].tiers[1], when: (r) => r.toolTier[job] >= 2 })),
-  ...WORKER_JOBS.map((job): Milestone => ({ id: `cert${capitalize(job)}`, label: `${capitalize(job)} certificate`, when: (r) => r.workers.certificates.includes(job) })),
+  ...WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job)).map((job): Milestone => ({ id: `cert${capitalize(job)}`, label: `${capitalize(job)} certificate`, when: (r) => r.workers.certificates.includes(job) })),
   { id: 'hire2', label: '2 workers', when: (r) => r.workers.pool >= 2 },
   { id: 'hire4', label: '4 workers', when: (r) => r.workers.pool >= 4 },
   { id: 'hire6', label: '6 workers', when: (r) => r.workers.pool >= 6 },
@@ -86,9 +89,10 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'valve', label: 'Smart valve', when: (r) => r.workshop.valve },
   // batch 18: the Fields unlocked, then tile counts
   { id: 'fieldsUnlocked', label: 'Fields unlocked', when: (r) => r.fields.unlocked },
-  { id: 'firstField', label: 'First field', when: (r) => r.fields.count >= 1 },
-  { id: 'fields100', label: '100 fields', when: (r) => r.fields.count >= 100 },
-  { id: 'fields500', label: '500 fields', when: (r) => r.fields.count >= 500 },
+  // batch 28: land comes in plots of plotTiles() tiles; the ids keep their meaning (a plot, then owned tiles)
+  { id: 'firstField', label: 'First field', when: (r) => fieldPlotsOwned(r) >= 1 },
+  { id: 'fields100', label: '100 fields', when: (r) => fieldPlotsOwned(r) * plotTiles() >= 100 },
+  { id: 'fields500', label: '500 fields', when: (r) => fieldPlotsOwned(r) * plotTiles() >= 500 },
   // batch 19: the throughput machines (a tier bought, not just affordable)
   { id: 'harvester1', label: 'Harvester Mk1', when: (r) => r.fields.machines.harvester.includes(1) },
   { id: 'seeder1', label: 'Seeder Mk1', when: (r) => r.fields.machines.seeder.includes(1) },

@@ -99,7 +99,7 @@ export type Pickaxe = { tier: PickaxeTier; durability: number }
  * sales = units sold for cash (each harvest sells 1 crop); mines = mine actions; digs = soil digs for seeds;
  * bars = copper bars collected from the furnace tray; orders = orders completed
  */
-export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number; bars: number; orders: number }
+export type Counters = { harvests: number; sales: number; mines: number; digs: number; waters: number; plants: number; bars: number; orders: number; contractsByHand: number }
 export type CounterId = keyof Counters
 
 /**
@@ -126,8 +126,11 @@ export type Furnace = {
  */
 export type Workshop = { built: boolean; beds: boolean[]; valve: boolean }
 
-/** one Fields planting action: `count` tiles of `crop` ripening at `readyTick` (stalled cohorts' readyTick pauses) */
-export type Cohort = { crop: CropId; count: number; readyTick: number }
+/** one plot = PLOT_TILES tiles; crop null = empty; readyTick = the absolute tick it ripens (ignored when empty) */
+export type Plot = { crop: CropId | null; readyTick: number }
+/** one field = up to FIELD_PLOTS plots; pivot = wet (sowable); crop = the chip (what gets sown next); pinned =
+ *  the Manager leaves it alone (batch 29) */
+export type Field = { pivot: boolean; crop: CropId | null; pinned: boolean; plots: Plot[] }
 
 /**
  * The batch-19 throughput machines: owned tiers per kind (max 1 of each, tiers stack) and the fleet's fractional
@@ -136,21 +139,11 @@ export type Cohort = { crop: CropId; count: number; readyTick: number }
 export type Machines = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number } }
 
 /**
- * The 🚜 Fields (batch 18): unlocked once, then field tiles are bought one at a time (count). cohorts hold the
- * planted tiles (planted per crop is derived from them); pipes = the watering tiers (coverage beyond it stalls);
- * plantCrop = the crop the planter works here ("stop" clears it); coalCarry = the shared pump's fractional coal;
- * machines = the batch-19 harvester/seeder tiers and their accumulators.
+ * The 🚜 Fields (batch 18, plots since batch 28): unlocked once, then land is bought a plot at a time into fields of
+ * up to five. pump = owned tier (0 = the Tractor's); tank = burn units, TANK_UNITS_PER_COAL per coal (integers,
+ * exact); machines = the batch-19 harvester/seeder tiers and their accumulators.
  */
-export type Fields = {
-  unlocked: boolean
-  count: number
-  planted: Record<CropId, number>
-  cohorts: Cohort[]
-  pipes: number
-  plantCrop: CropId | null
-  coalCarry: number
-  machines: Machines
-}
+export type Fields = { unlocked: boolean; list: Field[]; pump: number; tank: number; machines: Machines }
 
 /**
  * cashEarned = harvest and sale income (never loans); bars = bars collected; harvests = per crop; wagesPaid = cash;
@@ -230,7 +223,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     tiles: Array.from({ length: startTiles(meta) }, createTile),
     licenses: carry?.licenses ?? [STARTING_CROP],
     upgrades: { energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 },
-    counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0 },
+    counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0, contractsByHand: 0 },
     tick: 0,
     mineLicense: false,
     pickaxe: null,
@@ -252,7 +245,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     tools: { water: 0, harvest: 0, plant: 0 },
     toolN: { water: 1, harvest: 1, plant: 1 },
     toolTier: { water: 0, harvest: 0, plant: 0 },
-    workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0 }, certificates: carry?.certificates ?? [] },
+    workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: carry?.certificates ?? [] },
     market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
@@ -275,18 +268,9 @@ export function createWorkshop(): Workshop {
   return { built: false, beds: [false, false, false, false], valve: false }
 }
 
-/** fields not yet unlocked: no tiles, no cohorts, no pipes, no plant crop, no accrued coal */
+/** fields not yet unlocked: no fields, the Tractor's pump tier, an empty tank */
 export function createFields(): Fields {
-  return {
-    unlocked: false,
-    count: 0,
-    planted: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
-    cohorts: [],
-    pipes: 0,
-    plantCrop: null,
-    coalCarry: 0,
-    machines: createMachines(),
-  }
+  return { unlocked: false, list: [], pump: 0, tank: 0, machines: createMachines() }
 }
 
 /** no machines bought; the fleet's accumulators start empty */
