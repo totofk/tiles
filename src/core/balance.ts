@@ -134,6 +134,16 @@ const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
   { stone: 0.55, coal: 0.2, copperOre: 0.15, ironOre: 0.1 },
   { stone: 0.5, coal: 0.2, copperOre: 0.12, ironOre: 0.1, goldOre: 0.08 },
 ]
+/** the kinds a vein drops: the 🧺 Ore sorting rows */
+export const MINE_DROP_IDS = ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre'] as const satisfies ReadonlyArray<ItemId>
+export type MineDropId = (typeof MINE_DROP_IDS)[number]
+// every convenience costs some of what it eases, priced in what is in surplus at that stage (DECISIONS 'Batch 28.2')
+const ORE_SORT_ITEMS: Record<MineDropId, number> = { stone: 30, coal: 15, copperOre: 15, ironOre: 15, goldOre: 10 }
+// cash part = 0.5 h of the batch-16 ladder bot's income in its first hour on vein Lv3 (PLAN.md "Batch 28.2 results"):
+// 0.5 × its measured 12 842 💰/h, rounded to 💰500
+const ORE_SORT_CASH = 6500
+/** 🧺 Ore sorting opens at this vein level */
+const ORE_SORT_VEIN_LEVEL = 3
 // cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the iron tools are done (PLAN.md "Batch 16 results"):
 // 0.53 h of its measured 14 118 💰/h in the vein-Lv4 phase, rounded to 💰500
 const GOLD_VEIN_CASH = 7500
@@ -813,6 +823,15 @@ export function masteredPreserveBonus(): number {
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+/** price to unlock Sell on dig for one kind: some of that kind plus the cash part */
+export function oreSortUnlockCost(kind: MineDropId, meta: MetaState): Price {
+  return scalePrice({ [kind]: ORE_SORT_ITEMS[kind], cash: ORE_SORT_CASH }, meta)
+}
+
+export function oreSortVeinLevel(): number {
+  return ORE_SORT_VEIN_LEVEL
 }
 
 export function veinMaxLevel(): number {

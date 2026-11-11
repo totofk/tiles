@@ -7,6 +7,8 @@ import {
   masteryMaxLevel,
   mineHits,
   mineLicenseCost,
+  oreSortUnlockCost,
+  oreSortVeinLevel,
   pickaxeCraftCost,
   pickaxeDurability,
   pickaxeRepairCost,
@@ -21,6 +23,7 @@ import {
   veinNeedsPickaxe,
   veinUpgradeCost,
   woodCost,
+  type MineDropId,
   type Price,
 } from './balance'
 import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
@@ -118,19 +121,21 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 // (mastery level before this action's xp), else loses 1 durability; at 0 it goes blunt (kept, mines by hand until
 // repaired). Only pickaxe actions earn mastery xp. A rock that needs a better pickaxe than the active one (iron: copper
 // or better) is mined as a stone rock: stone's hits, drops stone. The mine worker presses it with `energy` 0.
+// A rock whose kind is set to Sell on dig never fails BAG_FULL: its drop is stored and sold at once (sellItem).
 export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
-  if (bagCount(run) >= run.bagCapacity) return fail('BAG_FULL')
-  if (run.energy < energy) return fail('NO_ENERGY')
   const pickaxe = activePickaxe(run)
   const rock = minedRock(run.vein.rock, pickaxe?.tier ?? null)
+  const sell = (run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell'
+  if (!sell && bagCount(run) >= run.bagCapacity) return fail('BAG_FULL')
+  if (run.energy < energy) return fail('NO_ENERGY')
   const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
   const drop = hits >= rockHits(rock)
   const [keep, afterKeep] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
   const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
-  return withRun(state, {
+  const mined = withRun(state, {
     energy: run.energy - energy,
     rngState,
     pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
@@ -140,6 +145,24 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
     lifetime: addLifetime(run, energy, 0),
     ...(pickaxe && gainMastery(run, pickaxe.tier)),
   })
+  return drop && sell && mined.ok ? sellItem(mined.state, rock, 1) : mined
+}
+
+// 🧺 Ore sorting: unlock pays the kind's price. Order: NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED,
+// NOT_ENOUGH_ITEMS, NO_CASH. No energy; the kind starts on Keep.
+export function unlockOreSort(state: GameState, kind: MineDropId): ActionResult {
+  const { run } = state
+  if (!run.mineLicense) return fail('NO_MINE_LICENSE')
+  if (run.vein.level < oreSortVeinLevel()) return fail('LOCKED')
+  if (run.oreSort[kind]) return fail('ALREADY_OWNED')
+  return pay(state, oreSortUnlockCost(kind, state.meta), { oreSort: { ...run.oreSort, [kind]: 'keep' } })
+}
+
+/** Keep ↔ Sell on dig for an unlocked kind; free, no energy; LOCKED when the kind is not unlocked */
+export function setOreSort(state: GameState, kind: MineDropId, mode: 'keep' | 'sell'): ActionResult {
+  const { run } = state
+  if (!run.oreSort[kind]) return fail('LOCKED')
+  return withRun(state, { oreSort: { ...run.oreSort, [kind]: mode } })
 }
 
 // Repair pays the tier's repair price (wood, copper bars). Order: NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_ITEMS, NO_CASH.

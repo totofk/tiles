@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, energyMax, orderStartSlots, startTiles } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
@@ -41,6 +41,8 @@ export type RunState = {
   storageLevel: number
   /** rock = what the current rock drops (rolled when the previous one broke); progress = hits into it */
   vein: { level: number; progress: number; rock: ItemId }
+  /** 🧺 Ore sorting per vein drop: a missing kind is locked; 'sell' sells it the moment it is dug */
+  oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>
   furnace: Furnace
   workshop: Workshop
   fields: Fields
@@ -231,6 +233,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     bagCapacity: BAG_CAPACITY_START,
     storageLevel: 0,
     vein: { level: 0, progress: 0, rock: 'stone' },
+    oreSort: {},
     furnace: createFurnace(),
     workshop: createWorkshop(),
     fields: createFields(),

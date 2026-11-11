@@ -22,7 +22,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 21
+export const SAVE_VERSION = 22
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -114,7 +114,9 @@ type FieldsV20 = {
 }
 /** v13–v20 jobs (the Manager joined in v21) */
 type JobV20 = Exclude<WorkerJob, 'manager'>
-type RunV20 = Omit<GameState['run'], 'fields' | 'counters' | 'workers'> & {
+/** v21: no 🧺 Ore sorting yet */
+type RunV21 = Omit<GameState['run'], 'oreSort'>
+type RunV20 = Omit<RunV21, 'fields' | 'counters' | 'workers'> & {
   fields: FieldsV20
   counters: Omit<Counters, 'contractsByHand'>
   workers: { pool: number; assigned: Record<JobV20, number>; certificates: JobV20[] }
@@ -155,8 +157,9 @@ type RunV18 = Omit<RunV20, 'market' | 'fields' | 'workshop'> & {
 type SaveV18 = { version: 18; savedAtMs: number; state: { meta: GameState['meta']; run: RunV18 } }
 type SaveV19 = { version: 19; savedAtMs: number; state: { meta: GameState['meta']; run: RunV19 } }
 type SaveV20 = { version: 20; savedAtMs: number; state: { meta: GameState['meta']; run: RunV20 } }
-type SaveV21 = { version: 21; savedAtMs: number; state: GameState }
-export type Save = SaveV21
+type SaveV21 = { version: 21; savedAtMs: number; state: { meta: GameState['meta']; run: RunV21 } }
+type SaveV22 = { version: 22; savedAtMs: number; state: GameState }
+export type Save = SaveV22
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
 const PIPE_COVER_V20 = [0, 60, 150, 300]
 
@@ -575,15 +578,22 @@ function migrateV20(save: SaveV20): SaveV21 {
   }
 }
 
+// v21 → v22: 🧺 Ore sorting (batch 28.2), every kind locked: the same play as before.
+function migrateV21(save: SaveV21): SaveV22 {
+  const { meta, run } = save.state
+  return { version: 22, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, oreSort: {} } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 21) return data as SaveV21
+  if (data.version === 22) return data as SaveV22
+  if (data.version === 21) return migrateV21(data as SaveV21)
   const v20 = toV20(data)
-  return v20 && migrateV20(v20)
+  return v20 && migrateV21(migrateV20(v20))
 }
 
 /** v1 … v20 up to v20; null for anything else */

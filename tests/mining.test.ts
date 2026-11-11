@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { nextRandom, type ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
+  MINE_DROP_IDS,
   itemSellPrice,
+  oreSortUnlockCost,
   masteryThresholds,
   mineHits,
   mineLicenseCost,
@@ -34,7 +36,10 @@ import {
   pickaxePreserve,
   repairPickaxe,
   sellItem,
+  setOreSort,
+  unlockOreSort,
 } from '../src/core/mining'
+import { sellFarm } from '../src/core/prestige'
 import { createInitialState, type GameState } from '../src/core/state'
 
 function withRun(run: Partial<GameState['run']>): GameState {
@@ -490,5 +495,83 @@ describe('sellItem', () => {
   })
   it('wood resells below its buy price', () => {
     expect(itemSellPrice('wood', meta, 0)).toBeLessThan(woodCost(meta))
+  })
+})
+
+describe('🧺 ore sorting (batch 28.2)', () => {
+  const meta = createInitialState().meta
+  const vein3 = { level: 3, progress: 0, rock: 'stone' as const }
+  const price = oreSortUnlockCost('stone', meta)
+  const ready = (run: Partial<GameState['run']> = {}) =>
+    withRun({ mineLicense: true, vein: vein3, cash: price.cash, inventory: { stone: 30 }, bagCapacity: 60, ...run })
+
+  it('unlock pays the kind in itself plus the cash part and starts on Keep', () => {
+    expect(price).toEqual({ stone: 30, cash: price.cash })
+    expect(MINE_DROP_IDS.map((k) => oreSortUnlockCost(k, meta)[k])).toEqual([30, 15, 15, 15, 10])
+    const next = okState(unlockOreSort(ready(), 'stone'))
+    expect(next.run.oreSort).toEqual({ stone: 'keep' })
+    expect([next.run.cash, next.run.inventory.stone]).toEqual([0, 0])
+  })
+
+  it('errors in order: NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH', () => {
+    const err = (s: GameState) => unlockOreSort(s, 'stone')
+    expect(err(ready({ mineLicense: false, vein: { ...vein3, level: 2 }, oreSort: { stone: 'keep' }, inventory: {}, cash: 0 }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
+    expect(err(ready({ vein: { ...vein3, level: 2 }, oreSort: { stone: 'keep' }, inventory: {}, cash: 0 }))).toEqual({ ok: false, error: 'LOCKED' })
+    expect(err(ready({ oreSort: { stone: 'keep' }, inventory: {}, cash: 0 }))).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(err(ready({ inventory: { stone: 29 }, cash: 0 }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(err(ready({ cash: price.cash - 1 }))).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+
+  it('a locked kind cannot be toggled; an unlocked one flips for free', () => {
+    expect(setOreSort(ready(), 'coal', 'sell')).toEqual({ ok: false, error: 'LOCKED' })
+    const s = ready({ oreSort: { coal: 'keep' }, energy: 0 })
+    const next = okState(setOreSort(s, 'coal', 'sell'))
+    expect(next.run.oreSort).toEqual({ coal: 'sell' })
+    expect([next.run.cash, next.run.energy]).toEqual([s.run.cash, 0])
+  })
+
+  // by hand on a stone rock 1 hit in: this press breaks it
+  const full = (mode: 'keep' | 'sell') =>
+    withRun({ mineLicense: true, vein: { ...vein3, progress: 1 }, cash: 0, inventory: { stone: 20 }, bagCapacity: 20, oreSort: { stone: mode } })
+
+  it('a Sell stone drop on a full storage sells it: + its sell price, sales + 1, storage unchanged', () => {
+    const s = full('sell')
+    const next = okState(dig(s))
+    expect(next.run.cash).toBe(itemSellPrice('stone', meta, 0))
+    expect(next.run.counters).toMatchObject({ sales: s.run.counters.sales + 1, mines: s.run.counters.mines + 1 })
+    expect(next.run.lifetime.cashEarned).toBe(s.run.lifetime.cashEarned + itemSellPrice('stone', meta, 0))
+    expect(next.run.inventory).toEqual(s.run.inventory)
+  })
+
+  it('a Keep kind on a full storage still fails BAG_FULL', () => {
+    expect(dig(full('keep'))).toEqual({ ok: false, error: 'BAG_FULL' })
+  })
+
+  it('Sell and Keep runs make identical rolls (same rocks, rng and pickaxe wear)', () => {
+    const run = (mode: 'keep' | 'sell') => {
+      let s = withRun({ mineLicense: true, vein: vein3, energy: 100, bagCapacity: 500, oreSort: { stone: mode }, pickaxe: { tier: 'copper', durability: 200 } })
+      for (let i = 0; i < 60; i++) s = okState(dig(s))
+      return s.run
+    }
+    const [keep, sell] = [run('keep'), run('sell')]
+    expect([sell.vein, sell.rngState, sell.pickaxe, sell.counters.mines]).toEqual([keep.vein, keep.rngState, keep.pickaxe, keep.counters.mines])
+    expect(keep.inventory.stone).toBeGreaterThan(0)
+    expect(sell.inventory.stone ?? 0).toBe(0)
+    expect(sell.counters.sales).toBe(keep.inventory.stone)
+  })
+
+  it('prestige clears oreSort', () => {
+    const s = createInitialState()
+    const gate: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        oreSort: { stone: 'sell', coal: 'keep' },
+        lifetime: { ...s.run.lifetime, cashEarned: 640_000 },
+        workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
+        workshop: { built: true, beds: [true, false, false, false], valve: false },
+      },
+    }
+    expect(okState(sellFarm(gate)).run.oreSort).toEqual({})
   })
 })
