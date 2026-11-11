@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { buySeeds, digForSeeds, setAutoBuySeeds } from '../core/actions'
+import { buySeeds, digForSeeds, selectCrop, setAutoBuySeeds } from '../core/actions'
 import { cropSeedCost, digSeedDrop } from '../core/balance'
 import { CROPS, CROP_IDS } from '../core/data/crops'
 import type { GameState } from '../core/state'
@@ -38,7 +38,20 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
               <Info text={TIPS.pouch} />
             </span>
             {[1, 10].map((n) => (
-              <button key={n} disabled={!buySeeds(state, id, n).ok} onClick={() => act((s) => buySeeds(s, id, n))}>
+              // batch 31.1 (task 166d): a manual buy of another crop's seeds also makes it the crop to plant
+              <button
+                key={n}
+                disabled={!buySeeds(state, id, n).ok}
+                onClick={() =>
+                  act(
+                    (s) => {
+                      const r = buySeeds(s, id, n)
+                      return r.ok && s.run.plantCrop !== id ? selectCrop(r.state, id) : r
+                    },
+                    (prev) => (prev.run.plantCrop !== id ? `Now planting ${CROP_EMOJI[id]} ${CROPS[id].name}` : null),
+                  )
+                }
+              >
                 Buy ×{n} <small>💰{price(n * cropSeedCost(id, meta))}</small>
               </button>
             ))}

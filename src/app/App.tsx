@@ -12,7 +12,7 @@ import { HAND_PICKED, cropFactor } from './marketText'
 import { Mine } from './Mine'
 import { Modal } from './Modal'
 import { Orders } from './Orders'
-import { availableKeys, isBadgeTab } from './badges'
+import { BADGE_TABS, availableKeys, isBadgeTab, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { Surface } from './Surface'
 import { Tools } from './Tools'
@@ -68,18 +68,23 @@ export default function App() {
   // a remembered 🌾 Farm shows 🛒 Shop where there is no Farm tab
   const shown = tabs.find((t) => t.id === tab) ?? tabs[0]
   const avail = availableKeys(state)
-  const unseen = (t: PanelTabId) => (isBadgeTab(t) ? avail[t].filter((k) => !ui.seen[t].includes(k)) : [])
-  const badge = (t: PanelTabId) => !(panelOnScreen && shown.id === t) && unseen(t).length > 0
-  // opening a tab (or keeping it open while something new appears) marks what it shows as seen;
-  // set during render, guarded, so it re-renders once and never on a tick with nothing new
   const open = shown.id
-  const fresh = panelOnScreen ? unseen(open) : []
-  if (fresh.length > 0 && isBadgeTab(open))
+  // a badge tab's content is on screen: a panel tab while open; batch 31.1 (task 166b) 🌱 Farm / ⛏️ Mine — on phones
+  // while that view is open, wider while the card is shown (the farm cards sit in the 🌾 Farm panel tab beside it)
+  const onScreen = (t: BadgeTab) =>
+    t === 'mine' ? !phone || view === 'mine' : t === 'farm' && (phone || !farmTab) ? !phone || view === 'farm' : panelOnScreen && open === t
+  const unseen = (t: BadgeTab) => avail[t].filter((k) => !ui.seen[t].includes(k))
+  const badge = (t: string) => isBadgeTab(t) && !onScreen(t) && unseen(t).length > 0
+  // showing a tab (or keeping it shown while something new appears) marks what it shows as seen;
+  // set during render, guarded, so it re-renders once and never on a tick with nothing new
+  const fresh = BADGE_TABS.filter((t) => onScreen(t) && unseen(t).length > 0)
+  if (fresh.length > 0)
     setUi((u) => {
-      const add = fresh.filter((k) => !u.seen[open].includes(k))
-      return add.length ? { ...u, seen: { ...u.seen, [open]: [...u.seen[open], ...add] } } : u
+      const seen = { ...u.seen }
+      for (const t of fresh) seen[t] = [...seen[t], ...unseen(t).filter((k) => !seen[t].includes(k))]
+      return fresh.some((t) => seen[t].length > u.seen[t].length) ? { ...u, seen } : u
     })
-  const dot = (t: PanelTabId) => badge(t) && <span className="badge-dot" aria-hidden="true" />
+  const dot = (t: string) => badge(t) && <span className="badge-dot" aria-hidden="true" />
 
   // batch 21: while price tags are on screen, remember the factor each showed, so the next render trends ▲▼ against
   // it; deferred past paint (in a timer callback), so this render's arrow is what the player sees, and
@@ -128,8 +133,8 @@ export default function App() {
   const grid = <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
   const Panel = shown.Panel
   const mobileTabs = [
-    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: false },
-    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: false },
+    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: dot('farm') },
+    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: dot('mine') },
     ...tabs.map((t) => ({
       label: t.label,
       dot: dot(t.id),

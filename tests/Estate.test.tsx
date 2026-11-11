@@ -37,7 +37,7 @@ afterEach(cleanup)
 
 /** the Tractor state: the v19 fixture migrated through the save code (Fields unlocked, 40 plots in 8 fields, pump 2) */
 const base = deserialize(v19)!.state
-const ui: UiState = { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: true, seen: { shop: [], upgrades: [] }, priceShown: {} }
+const ui: UiState = { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: true, seen: { shop: [], upgrades: [], farm: [], mine: [] }, priceShown: {} }
 
 /** renders against a mutable `cur` so an act is visible on the next render (the App loop, miniaturised); toasts as useGame */
 function setup(state: GameState) {

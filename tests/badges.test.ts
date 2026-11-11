@@ -9,7 +9,23 @@ const withRun = (run: Partial<GameState['run']>): GameState => {
 
 describe('availableKeys', () => {
   it('fresh game: only the unlocked energy upgrades', () => {
-    expect(availableKeys(createInitialState())).toEqual({ shop: [], upgrades: ['energyMax', 'energyRegen'] })
+    expect(availableKeys(createInitialState())).toEqual({ shop: [], upgrades: ['energyMax', 'energyRegen'], farm: [], mine: [] })
+  })
+
+  it('batch 31.1: farm / mine keys — a certificate unlocked, then affordable; the order board; a pickaxe tier above the one held', () => {
+    const s = createInitialState()
+    const tools = { ...s.run.tools, harvest: 3 }
+    const counters = { ...s.run.counters, harvests: 40, bars: 10 }
+    const locked = withRun({ tools })
+    expect([availableKeys(locked).farm, availableKeys(locked).mine]).toEqual([[], []])
+    const unlocked = availableKeys(withRun({ tools, counters, cash: 0 }))
+    expect([unlocked.farm, unlocked.mine]).toEqual([['cert:harvest'], ['cert:ore']])
+    const rich = availableKeys(withRun({ tools, counters, cash: 1e6, inventory: { stone: 50, coal: 50, copperBar: 50, wood: 50 }, orders: { ...s.run.orders, unlocked: true } }))
+    expect(rich.farm).toEqual(['cert:harvest', 'cert:harvest:buy', 'orders'])
+    expect(rich.mine.slice(0, 2)).toEqual(['cert:ore', 'cert:ore:buy'])
+    expect(rich.mine).toContain('pick:wooden')
+    const held = availableKeys(withRun({ cash: 1e6, inventory: { wood: 50, copperBar: 50 }, pickaxe: { tier: 'copper', durability: 100 } }))
+    expect(held.mine.filter((k) => k.startsWith('pick:'))).not.toContain('pick:wooden')
   })
 
   it('affordable licenses, tiles and upgrade levels carry their level, so the next level is news again', () => {

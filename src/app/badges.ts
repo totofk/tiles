@@ -1,16 +1,19 @@
 import { buyUpgrade } from '../core/actions'
 import { CROP_IDS } from '../core/data/crops'
+import { PICKAXE_TIERS } from '../core/data/items'
+import type { WorkerJob } from '../core/data/workers'
 import { TOOL_JOBS } from '../core/data/tools'
 import { UPGRADE_IDS } from '../core/data/upgrades'
 import { TILE_CAP, licenseCost, mineLicenseCost, tileCost, toolMaxLevel, toolUnlock, upgradeUnlocked } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
 import { buildWorkshop } from '../core/workshop'
 import { unlockFields } from '../core/fields'
-import { buyStorage, upgradeVein } from '../core/mining'
+import { buyStorage, craftPickaxe, upgradeVein } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyToolTier, buyTool } from '../core/tools'
+import { buyCertificate, certificateUnlocked } from '../core/workers'
 
-export const BADGE_TABS = ['shop', 'upgrades'] as const
+export const BADGE_TABS = ['shop', 'upgrades', 'farm', 'mine'] as const
 export type BadgeTab = (typeof BADGE_TABS)[number]
 export const isBadgeTab = (t: string): t is BadgeTab => (BADGE_TABS as readonly string[]).includes(t)
 
@@ -51,5 +54,15 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
     if (buyStorage(state).ok) upgrades.push(`storage@${run.storageLevel}`)
     if (upgradeVein(state).ok) upgrades.push(`vein@${run.vein.level}`)
   }
-  return { shop, upgrades }
+
+  // batch 31.1 (task 166a): the 🌱 Farm and ⛏️ Mine nav items — certificates (unlocked, then affordable), the order
+  // board, and a pickaxe tier above the one held
+  const certs = (jobs: readonly WorkerJob[]) =>
+    jobs.flatMap((job) =>
+      run.workers.certificates.includes(job) || !certificateUnlocked(run, job) ? [] : [`cert:${job}`, ...(buyCertificate(state, job).ok ? [`cert:${job}:buy`] : [])],
+    )
+  const farm = [...certs(['plant', 'water', 'harvest', 'clerk', 'manager']), ...(run.orders.unlocked ? ['orders'] : [])]
+  const heldTier = run.pickaxe ? PICKAXE_TIERS.indexOf(run.pickaxe.tier) : -1
+  const mine = [...certs(['ore', 'fuel', 'mine']), ...PICKAXE_TIERS.filter((t, i) => i > heldTier && craftPickaxe(state, t).ok).map((t) => `pick:${t}`)]
+  return { shop, upgrades, farm, mine }
 }

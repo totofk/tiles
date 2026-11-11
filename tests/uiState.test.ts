@@ -32,7 +32,7 @@ describe('parseUi', () => {
       toolsOpen: true,
       stop: 'estate',
       pulledBack: false,
-      seen: { shop: [], upgrades: [] },
+      seen: { shop: [], upgrades: [], farm: [], mine: [] },
       priceShown: {},
     })
   })
@@ -61,19 +61,18 @@ describe('parseUi', () => {
   })
 
   it('a value from before badges (no seen) loads with nothing seen; a broken seen list falls back per tab', () => {
-    expect(parseUi(JSON.stringify({ view: 'mine', tab: 'bank', collapsed: false })).seen).toEqual({ shop: [], upgrades: [] })
-    expect(parseUi(JSON.stringify({ seen: { shop: ['tile:9', 3], upgrades: ['energyMax'] } })).seen).toEqual({
-      shop: [],
-      upgrades: ['energyMax'],
-    })
-    expect(parseUi(JSON.stringify({ seen: 'all' })).seen).toEqual({ shop: [], upgrades: [] })
+    const none = { shop: [], upgrades: [], farm: [], mine: [] }
+    expect(parseUi(JSON.stringify({ view: 'mine', tab: 'bank', collapsed: false })).seen).toEqual(none)
+    // batch 31.1: a tiles.ui from before the 🌱 Farm / ⛏️ Mine dots (no farm / mine lists) loads with them empty
+    expect(parseUi(JSON.stringify({ seen: { shop: ['tile:9', 3], upgrades: ['energyMax'] } })).seen).toEqual({ ...none, upgrades: ['energyMax'] })
+    expect(parseUi(JSON.stringify({ seen: 'all' })).seen).toEqual(none)
   })
 })
 
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, stop: 'home', pulledBack: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'] }, priceShown: { radish: 0.95 } }
+    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, stop: 'home', pulledBack: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'], farm: ['orders'], mine: ['pick:copper'] }, priceShown: { radish: 0.95 } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)

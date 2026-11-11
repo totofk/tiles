@@ -11,8 +11,7 @@ import { Bar } from './Bar'
 import { Modal } from './Modal'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
-import { WORKER_JOB_EMOJI } from './Workers'
-import type { Act } from './useGame'
+import { WORKER_JOB_EMOJI, type Act } from './useGame'
 
 export const CROP_EMOJI: Record<CropId, string> = {
   radish: '🥕',

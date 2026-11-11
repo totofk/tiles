@@ -1,6 +1,4 @@
 import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
-import { ITEMS } from '../core/data/items'
-import { BOARD_EMOJI } from '../core/data/orders'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { CounterId, GameState } from '../core/state'
@@ -12,29 +10,7 @@ import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
 import { TIPS, WORKER_TIPS } from './tips'
-import { MINE_EMOJI, PLANT_EMOJI, type Act } from './useGame'
-
-/** the job's icon: its row label and the pop on a tile a farm worker acts on */
-export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
-  plant: PLANT_EMOJI,
-  water: '💧',
-  harvest: '🌾',
-  ore: ITEMS.copperOre.emoji,
-  fuel: ITEMS.coal.emoji,
-  mine: MINE_EMOJI,
-  clerk: BOARD_EMOJI,
-  manager: '💼',
-}
-export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
-  plant: `${WORKER_JOB_EMOJI.plant} Plant`,
-  water: `${WORKER_JOB_EMOJI.water} Water`,
-  harvest: `${WORKER_JOB_EMOJI.harvest} Harvest`,
-  ore: `${WORKER_JOB_EMOJI.ore} Ore`,
-  fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
-  mine: `${WORKER_JOB_EMOJI.mine} Mine`,
-  clerk: `${WORKER_JOB_EMOJI.clerk} Clerk`,
-  manager: `${WORKER_JOB_EMOJI.manager} Manager`,
-}
+import { WORKER_JOB_EMOJI, WORKER_JOB_LABEL, type Act } from './useGame'
 
 /** a locked row's gate counter as words where its id would read raw (other counters keep their id) */
 const GATE_LABEL: Partial<Record<CounterId, string>> = { contractsByHand: 'contracts delivered' }

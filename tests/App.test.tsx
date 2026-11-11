@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { ERROR_TEXT } from '../src/app/useGame'
+import { plant } from '../src/core/actions'
+import { cropGrowTicks } from '../src/core/balance'
 import { createInitialState, type GameState } from '../src/core/state'
 import { SAVE_VERSION, deserialize, serialize } from '../src/save/serialize'
 import { IMPORT_BACKUP_KEY, RESET_BACKUP_KEY, SAVE_KEY } from '../src/save/storage'
@@ -76,6 +78,61 @@ describe('mobile tab bar', () => {
   })
 })
 
+describe('batch 31.1 task 166: 🌱 Farm / ⛏️ Mine dots, the unlock toast, a seed buy switches the crop (jsdom = phone)', () => {
+  const hasDot = (el: HTMLElement) => el.querySelector('.badge-dot') !== null
+  const toastText = () => screen.queryByRole('status')?.textContent ?? null
+
+  it('a certificate reaching its unlock lights the 🌱 Farm dot and toasts once; opening Farm clears it', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const s = createInitialState()
+      const ripe = { status: 'planted' as const, cropId: 'radish' as const, growth: cropGrowTicks('radish', s.meta, 0), moisture: 0, ticksSinceMature: 0 }
+      const run = { ...s.run, tiles: [ripe, ...s.run.tiles.slice(1)], tools: { ...s.run.tools, harvest: 3 }, counters: { ...s.run.counters, harvests: 39 } }
+      localStorage.setItem(SAVE_KEY, serialize({ ...s, run }, Date.now()))
+      localStorage.setItem(UI_KEY, JSON.stringify({ view: 'mine', pulledBack: true }))
+      render(<App />)
+      expect(hasDot(mobileTab(/Farm/))).toBe(false)
+      fireEvent.click(screen.getByRole('button', { name: /Mature — harvest!/ }))
+      expect(toastText()).toBe('New worker: 🌾 Harvest')
+      expect(hasDot(mobileTab(/Farm/))).toBe(true)
+      expect(hasDot(mobileTab(/Mine/))).toBe(false)
+      fireEvent.click(mobileTab(/Farm/))
+      expect(hasDot(mobileTab(/Farm/))).toBe(false)
+      expect(JSON.parse(localStorage.getItem(UI_KEY)!).seen.farm).toEqual(['cert:harvest'])
+      // once: the toast times out, and the next commit (a loan) does not raise it again
+      act(() => vi.advanceTimersByTime(2500))
+      expect(toastText()).toBeNull()
+      fireEvent.click(mobileTab(/Bank/))
+      fireEvent.click(screen.getByRole('button', { name: /Borrow/ }))
+      expect(toastText()).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // the 🥕 Carrot's id is `radish`
+  it('buying carrot seeds while pumpkin is selected switches to carrot and toasts', () => {
+    const s = createInitialState()
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 100, licenses: ['radish', 'pumpkin'], plantCrop: 'pumpkin' } }, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'panel', tab: 'shop', pulledBack: true }))
+    render(<App />)
+    const carrot = () => screen.getByRole('button', { name: /^🥕 Carrotseed/ })
+    const buyCarrot = () => within(screen.getAllByText(/Carrot/).map((el) => el.closest<HTMLElement>('.item-row')).find(Boolean)!).getByRole('button', { name: /^Buy ×1 / })
+    expect(pressed(carrot())).toBe(false)
+    fireEvent.click(buyCarrot())
+    expect(pressed(carrot())).toBe(true)
+    expect(toastText()).toBe('Now planting 🥕 Carrot')
+  })
+
+  it('auto-buy (planting with an empty pouch) never switches the crop to plant', () => {
+    const s = createInitialState()
+    const tilled = { ...s.run.tiles[0]!, status: 'tilled' as const }
+    const r = plant({ ...s, run: { ...s.run, tiles: [tilled, ...s.run.tiles.slice(1)], licenses: ['radish', 'pumpkin'], plantCrop: 'pumpkin', seeds: {}, autoBuySeeds: true } }, 0, 'radish')
+    if (!r.ok) throw new Error(r.error)
+    expect([r.state.run.tiles[0]!.cropId, r.state.run.plantCrop]).toEqual(['radish', 'pumpkin'])
+  })
+})
+
 describe('badge dot on Shop / Upgrades (jsdom = mobile layout)', () => {
   const hasDot = (el: HTMLElement) => el.querySelector('.badge-dot') !== null
 
@@ -136,7 +193,7 @@ describe('persisted UI state (tiles.ui)', () => {
       toolsOpen: true,
       stop: 'estate',
       pulledBack: false,
-      seen: { shop: [], upgrades: [] },
+      seen: { shop: [], upgrades: [], farm: [], mine: [] },
       priceShown: {},
     })
 

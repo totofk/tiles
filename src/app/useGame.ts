@@ -3,12 +3,13 @@ import type { ActionError, ActionResult } from '../core/actions'
 import { fireUnitTicks, plotTiles, upgradeUnlocked, workerActionTicks } from '../core/balance'
 import { fieldsOverview, fieldsPressure, nextSowTarget } from '../core/fields'
 import { ITEMS } from '../core/data/items'
-import { STAR_EMOJI } from '../core/data/orders'
+import { BOARD_EMOJI, STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
+import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import { createInitialState, type GameState } from '../core/state'
 import { sellFarm } from '../core/prestige'
 import { step } from '../core/step'
-import { ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
+import { certificateUnlocked, ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
 import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
 import { encodeSave } from '../save/codec'
 import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
@@ -66,6 +67,28 @@ export const FIRE_EMOJI = '🔥'
 export const PLANT_EMOJI = '🌱'
 /** the mine worker's icon (Workers row, Mine button pop, away banner; Unicode 5.2) */
 export const MINE_EMOJI = '⛏️'
+
+/** the job's icon: its Workers row label, the pop on a tile a farm worker acts on, the unlock toast */
+export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
+  plant: PLANT_EMOJI,
+  water: '💧',
+  harvest: '🌾',
+  ore: ITEMS.copperOre.emoji,
+  fuel: ITEMS.coal.emoji,
+  mine: MINE_EMOJI,
+  clerk: BOARD_EMOJI,
+  manager: '💼',
+}
+export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
+  plant: `${WORKER_JOB_EMOJI.plant} Plant`,
+  water: `${WORKER_JOB_EMOJI.water} Water`,
+  harvest: `${WORKER_JOB_EMOJI.harvest} Harvest`,
+  ore: `${WORKER_JOB_EMOJI.ore} Ore`,
+  fuel: `${WORKER_JOB_EMOJI.fuel} Fuel`,
+  mine: `${WORKER_JOB_EMOJI.mine} Mine`,
+  clerk: `${WORKER_JOB_EMOJI.clerk} Clerk`,
+  manager: `${WORKER_JOB_EMOJI.manager} Manager`,
+}
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the
  * planters planted, miners' presses, fire burnt, copper and iron bars smelted, workers' wages; each only when non-zero)
@@ -172,11 +195,14 @@ export function useGame() {
   // counters only grow inside a run, so a locked → unlocked transition toasts exactly once
   const commit = useCallback(
     (s: GameState) => {
-      const prev = stateRef.current.run.counters
+      const before = stateRef.current.run
+      const prev = before.counters
       const fresh = UPGRADE_IDS.filter((id) => upgradeUnlocked(id, s.run.counters) && !upgradeUnlocked(id, prev))
+      const hires = WORKER_JOBS.filter((job) => certificateUnlocked(s.run, job) && !certificateUnlocked(before, job))
       stateRef.current = s
       setState(s)
       if (fresh.length) showToast(`New upgrade: ${fresh.map((id) => UPGRADES[id].name).join(', ')}`)
+      if (hires.length) showToast(`New worker: ${hires.map((job) => WORKER_JOB_LABEL[job]).join(', ')}`)
     },
     [showToast],
   )

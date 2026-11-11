@@ -37,7 +37,7 @@ export const DEFAULT_UI: UiState = {
   toolsOpen: true,
   stop: 'estate',
   pulledBack: false,
-  seen: { shop: [], upgrades: [] },
+  seen: { shop: [], upgrades: [], farm: [], mine: [] },
   priceShown: {},
 }
 
