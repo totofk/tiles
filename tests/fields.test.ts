@@ -34,6 +34,7 @@ import {
   fieldsPlantAction,
   fillTank,
   machinesAct,
+  pinField,
   pivotsOwned,
   plantedTiles,
   plotState,
@@ -203,6 +204,18 @@ describe('setFieldCrop: the field chip', () => {
     expect(r.run.fields.list[0].plots).toEqual([lemon(999)]) // standing plots finish as they are
     expect(r.run.cash).toBe(s.run.cash)
     expect(ok(setFieldCrop(r, 0, null)).run.fields.list[0].crop).toBeNull()
+  })
+})
+
+describe('batch 29: pinField', () => {
+  it('order LOCKED, BAD_TILE; toggles pinned, free, chip and plots untouched', () => {
+    expect(pinField(init, 0)).toEqual({ ok: false, error: 'LOCKED' })
+    const s = withFields([field([lemon(999)], 'lemon')])
+    expect(pinField(s, 1)).toEqual({ ok: false, error: 'BAD_TILE' })
+    const pinned = ok(pinField(s, 0))
+    expect(pinned.run.fields.list[0]).toEqual({ ...s.run.fields.list[0], pinned: true })
+    expect(pinned.run.cash).toBe(s.run.cash)
+    expect(ok(pinField(pinned, 0)).run.fields.list[0].pinned).toBe(false)
   })
 })
 

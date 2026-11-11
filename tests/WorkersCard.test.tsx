@@ -35,6 +35,26 @@ const certified = (pool: number, water = 0, harvest = 0) => ({
   workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
 })
 
+describe('batch 29: the 💼 Manager row', () => {
+  const managerRow = () => screen.getByText('💼 Manager').closest('.worker-row') as HTMLElement
+
+  it('locked: the gate reads "contracts by hand 1/3"', () => {
+    setup({}, { contractsByHand: 1 })
+    expect(managerRow().textContent).toContain('contracts by hand 1/3')
+  })
+
+  it('owned, assigned and the fields unlocked: the plan line; with no wet field "no wet fields to manage"', () => {
+    const fields = { ...createInitialState().run.fields, unlocked: true, list: [{ pivot: false, crop: null, pinned: false, plots: [{ crop: null, readyTick: 0 }] }] }
+    setup({ fields, workers: { pool: 1, assigned: { ...createInitialState().run.workers.assigned, manager: 1 }, certificates: ['manager'] } })
+    expect(managerRow().querySelector('small')!.textContent).toBe('no wet fields to manage')
+  })
+
+  it('owned, none assigned: no plan line', () => {
+    setup({ workers: { pool: 1, assigned: createInitialState().run.workers.assigned, certificates: ['manager'] } })
+    expect(managerRow().querySelector('small')).toBeNull()
+  })
+})
+
 describe('👷 Workers card', () => {
   it('a fresh run: free 0 / 0, both certificates with their price and gate progress, no hire button', () => {
     setup({})
@@ -103,10 +123,10 @@ describe('👷 Workers card', () => {
     expect(summary()).toBe('👷 Workers · free 0 / 2unpaid')
   })
 
-  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine, then Clerk; the plant certificate shows its price and gate', () => {
+  it('rows follow the farm loop, Plant / Water / Harvest, then the furnace jobs, then Mine, then Clerk, then the Manager; the plant certificate shows its price and gate', () => {
     setup({}, { plants: 12 })
     const labels = [...document.querySelectorAll('.worker-row > span:first-child')].map((s) => s.childNodes[2]!.textContent)
-    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine', '📋 Clerk'])
+    expect(labels).toEqual(['🌱 Plant', '💧 Water', '🌾 Harvest', `${ITEMS.copperOre.emoji} Ore`, `${ITEMS.coal.emoji} Fuel`, '⛏️ Mine', '📋 Clerk', '💼 Manager'])
     // the clerk certificate is priced in ⭐ + copper bars + cash and gated by orders completed
     const clerk = screen.getByText('📋 Clerk').closest('.worker-row') as HTMLElement
     expect(clerk.textContent).toContain('orders 0/20')

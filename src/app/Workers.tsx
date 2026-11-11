@@ -3,9 +3,10 @@ import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from '../core/data/workers'
-import type { GameState } from '../core/state'
+import type { CounterId, GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { isIrrigated } from '../core/workshop'
+import { managerPlanText } from './estateText'
 import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
 import { priceText } from './Mine'
@@ -34,6 +35,9 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   manager: `${WORKER_JOB_EMOJI.manager} Manager`,
 }
 
+/** a locked row's gate counter as words where its id would read raw (other counters keep their id) */
+const GATE_LABEL: Partial<Record<CounterId, string>> = { contractsByHand: 'contracts by hand' }
+
 /** the row's ⓘ text; the harvester's also says workers sell at ×1 (hand-picked is the player's) */
 const jobTip = (job: WorkerJob) => (job === 'harvest' ? `${WORKER_TIPS.harvest} Workers sell at ×1; what you harvest yourself sells at ${HAND_PICKED}.` : WORKER_TIPS[job])
 
@@ -51,7 +55,7 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
     const itemCount = Object.values(items).reduce((n, k) => n + (k ?? 0), 0)
     // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
     const missing = [
-      run.counters[counter] < at && `${counter} ${run.counters[counter]}/${at}`,
+      run.counters[counter] < at && `${GATE_LABEL[counter] ?? counter} ${run.counters[counter]}/${at}`,
       run.vein.level < vein && `vein Lv${vein}`,
       toolLevel < tool && `needs ${WORKER_JOB_EMOJI[job]} ${TOOLS[job as ToolJob].names[tool - 1]} (tool Lv${tool})`,
       itemCount > run.bagCapacity && `needs 📦 ${itemCount} storage`,
@@ -77,6 +81,7 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
       <span>
         {dot} {WORKER_JOB_LABEL[job]}
         {nothingToWater && <small>nothing to water — reassign</small>}
+        {job === 'manager' && run.workers.assigned.manager > 0 && run.fields.unlocked && <small>{managerPlanText(state)}</small>}
       </span>
       <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
         −

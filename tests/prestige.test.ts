@@ -79,6 +79,21 @@ describe('sellFarm', () => {
     expect(sale.state.run.workers.certificates).toEqual(['plant', 'water', 'harvest'])
   })
 
+  it('drops the 💼 Manager certificate, its assignment and contractsByHand, even with the keep rows', () => {
+    const meta = { ...createInitialState().meta, upgrades: { ...createInitialState().meta.upgrades, keepFirstCertificates: 1 } }
+    const g = atGate()
+    const run = {
+      ...g.run,
+      counters: { ...g.run.counters, contractsByHand: 3 },
+      workers: { pool: 1, assigned: { ...g.run.workers.assigned, manager: 1 }, certificates: [...g.run.workers.certificates, 'manager' as const] },
+    }
+    const sale = sellFarm({ meta, run })
+    expect(sale.ok).toBe(true)
+    if (!sale.ok) return
+    expect(sale.state.run.workers.certificates).not.toContain('manager')
+    expect([sale.state.run.workers.assigned.manager, sale.state.run.counters.contractsByHand]).toEqual([0, 0])
+  })
+
   it('caps the run history at RUN_HISTORY_CAP entries, newest last', () => {
     const old = Array.from({ length: 20 }, (_, i) => ({ endedAtTick: i, deeds: 1 }))
     const s: GameState = { meta: { ...atGate().meta, runs: old }, run: atGate().run }

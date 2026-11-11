@@ -190,6 +190,37 @@ export function setFieldCrop(state: GameState, field: number, crop: CropId | nul
   return withRun(state, { fields: { ...f, list: f.list.map((x, i) => (i === field ? { ...x, crop } : x)) } })
 }
 
+// 📌 toggles the field's pin (the 💼 Manager never writes a pinned field). Free. Order: LOCKED, BAD_TILE.
+export function pinField(state: GameState, field: number): ActionResult {
+  const f = state.run.fields
+  if (!f.unlocked) return fail('LOCKED')
+  if (!isIndex(field, f.list.length)) return fail('BAD_TILE')
+  return withRun(state, { fields: { ...f, list: f.list.map((x, i) => (i === field ? { ...x, pinned: !x.pinned } : x)) } })
+}
+
+/**
+ * Steady net 💰/h that `tiles` field tiles of `crop` add on the pressured cycle (batch 29, the Manager's plan and the
+ * crop picker): the home lot's tiles of that crop share the market, and the home-only income is subtracted. No live
+ * glut, so the plan never chases its own sales. Unrounded.
+ */
+export function fieldsCropIncomePerHour(state: GameState, crop: CropId, tiles: number): number {
+  return fieldsCropIncomeCurve(state, crop)(tiles)
+}
+
+/** fieldsCropIncomePerHour for one crop as a function of `tiles`, its constants computed once (the Manager's DP) */
+export function fieldsCropIncomeCurve(state: GameState, crop: CropId): (tiles: number) => number {
+  const { run, meta } = state
+  const fc = pressuredCycle(state, crop)
+  const hc = cropGrowTicks(crop, meta, run.upgrades.fertilizer)
+  const home = run.tiles.filter((t) => t.cropId === crop).length
+  const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice)
+  const seed = cropSeedCost(crop, meta)
+  const homeGlut = marketSteadyGlut(home, hc)
+  const income = (T: number) => (T / fc + home / hc) * 3600 * (sell * marketFactor(crop, marketSteadyGlut(T, fc) + homeGlut) - seed)
+  const base = income(0)
+  return (tiles) => income(tiles) - base
+}
+
 /**
  * Sows one whole plot with its field's chip crop. All-or-nothing: ten seeds in the pouch, or auto-buy on and the cash
  * for the missing ones; then the dibber's seed-keep rolls per tile (only above the basic tier). No energy. The plot

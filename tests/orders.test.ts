@@ -335,7 +335,7 @@ describe('order clerk (worker job)', () => {
     const once = workersAct(s)
     expect(once.run.inventory.coal).toBe(0)
     expect(once.run.counters.orders).toBe(1)
-    expect(once.run.lifetime.wagesPaid).toBe(workerWage(meta))
+    expect(once.run.lifetime.wagesPaid).toBe(workerWage(meta, 'clerk'))
     // next action: lemon is neither planted nor "Crop to plant" → skipped; the fresh slot-1 offer is checked next
     const plantedLemon = { ...once, run: { ...once.run, plantCrop: 'lemon' as const, tick: 5 } }
     const twice = workersAct(plantedLemon)

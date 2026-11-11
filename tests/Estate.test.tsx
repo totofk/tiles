@@ -185,3 +185,39 @@ describe('the machine rows behind the Estate closed details (moved from the 🚜
     expect(mrow(/Harvester Mk1/).textContent).toContain('1800 tiles/h')
   })
 })
+
+describe('batch 29: 📌 pins and the 💼 Manager on the Estate rows', () => {
+  const withManager = (assigned: number): GameState => ({
+    ...base,
+    run: {
+      ...base.run,
+      workers: { ...base.run.workers, pool: Math.max(base.run.workers.pool, 1), assigned: { ...base.run.workers.assigned, manager: assigned }, certificates: [...base.run.workers.certificates, 'manager'] },
+    },
+  })
+
+  it('no 📌 button before the Manager certificate', () => {
+    render(<Estate state={base} act={() => {}} ui={ui} />)
+    expect(screen.queryByRole('button', { name: /^Pin Field/ })).toBeNull()
+  })
+
+  it('once owned each row has a 📌 toggle inside its title span, aria-pressed follows the pin', () => {
+    const t = setup(withManager(0))
+    const pin = screen.getByRole('button', { name: 'Pin Field 1' })
+    expect(pin.closest('.estate-row > span')).toBeTruthy()
+    expect(pin.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(pin)
+    expect(t.cur.run.fields.list[0].pinned).toBe(true)
+    expect(screen.getByRole('button', { name: 'Pin Field 1' }).getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('a hand pick while a Manager is assigned pins the field; with none assigned it does not', () => {
+    for (const assigned of [1, 0]) {
+      const t = setup(withManager(assigned))
+      const select = screen.getByRole('combobox', { name: 'Field 1 crop' }) as HTMLSelectElement
+      const other = [...select.options].find((o) => !o.disabled && o.value !== '' && o.value !== select.value)!
+      fireEvent.change(select, { target: { value: other.value } })
+      expect([t.cur.run.fields.list[0].crop, t.cur.run.fields.list[0].pinned]).toEqual([other.value, assigned === 1])
+      cleanup()
+    }
+  })
+})

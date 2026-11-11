@@ -3,5 +3,5 @@
 // then the Manager (batch 28 shape, batch 29 work); this is also the order they act in and the Workers card's rows.
 export const WORKER_JOBS = ['plant', 'water', 'harvest', 'ore', 'fuel', 'mine', 'clerk', 'manager'] as const
 export type WorkerJob = (typeof WORKER_JOBS)[number]
-/** jobs the UI does not show yet (the Workers card rows, the certificate milestone rows); batch 29 empties it */
-export const HIDDEN_JOBS: readonly WorkerJob[] = ['manager']
+/** jobs the UI does not show yet (the Workers card rows, the certificate milestone rows); empty since batch 29 */
+export const HIDDEN_JOBS: readonly WorkerJob[] = []

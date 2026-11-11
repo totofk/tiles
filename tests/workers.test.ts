@@ -20,7 +20,7 @@ import {
 import type { CropId } from '../src/core/data/crops'
 import type { ItemId } from '../src/core/data/items'
 import { bagCount, dig } from '../src/core/mining'
-import type { WorkerJob } from '../src/core/data/workers'
+import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { collectBars } from '../src/core/furnace'
 import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -178,7 +178,7 @@ describe('workersAct / step: workers', () => {
     expect(next.run.tiles[1].moisture).toBe(0.05)
     expect(next.run.tiles[3].status).toBe('tilled')
     expect(next.run.tiles[2].status).toBe('planted')
-    expect(next.run.cash).toBe(100 + sell - 2 * workerWage(meta))
+    expect(next.run.cash).toBe(100 + sell - workerWage(meta, 'water') - workerWage(meta, 'harvest'))
     expect(next.run.energy).toBe(4)
     expect(next.run.counters).toMatchObject({ waters: 1, harvests: 1, sales: 1 })
     expect(next.run.lifetime).toMatchObject({ wagesPaid: 2, energySpent: 0, cashEarned: sell, harvests: { pumpkin: 1 } })
@@ -297,7 +297,7 @@ describe('workerTargets (task 60)', () => {
   it('no cash for a wage, no target: nothing is ringed; furnace workers never ring a tile', () => {
     expect(workerTargets(farm([growing(0), ripe(1)], { cash: 0 }))).toEqual([])
     // one wage left: the waterer acts first, the harvester cannot pay
-    expect(workerTargets(farm([growing(0), ripe(1)], { cash: workerWage(meta) }))).toEqual([{ job: 'water', tile: 0 }])
+    expect(workerTargets(farm([growing(0), ripe(1)], { cash: workerWage(meta, 'water') }))).toEqual([{ job: 'water', tile: 0 }])
     const loaders = withRun({ cash: 100, ...workers(2, 0, 0, ['ore', 'fuel'], 1, 1), furnace: { ...createFurnace(), built: true }, inventory: { coal: 3 } })
     expect(workerTargets(loaders)).toEqual([])
   })
@@ -384,7 +384,8 @@ const ALL: WorkerJob[] = ['water', 'harvest', 'ore', 'fuel']
 function smeltery(f: Partial<Furnace>, inventory: GameState['run']['inventory'], { ore = 0, fuel = 0, cash = 100 } = {}): GameState {
   return withRun({ cash, inventory, furnace: { ...createFurnace(), built: true, ...f }, ...workers(ore + fuel, 0, 0, ALL, ore, fuel) })
 }
-const wage = workerWage(meta)
+// ore, fuel and mine share the 1-cash wage
+const wage = workerWage(meta, 'ore')
 
 describe('furnace loaders: certificates', () => {
   it('ore loader 🥉3 + 💰100 after 10 bars collected; fuel loader 🥉8 + 💰200 after 30', () => {
@@ -512,7 +513,7 @@ describe('plant worker: workersAct', () => {
     expect(next.run.tiles[1]).toMatchObject({ status: 'planted', cropId: 'pumpkin', growth: 0 })
     expect(next.run.tiles[0].status).toBe('untilled')
     expect(next.run.seeds.pumpkin).toBe(2)
-    expect(next.run).toMatchObject({ cash: 50 - workerWage(meta), energy: 4, counters: { plants: 1 } })
+    expect(next.run).toMatchObject({ cash: 50 - workerWage(meta, 'plant'), energy: 4, counters: { plants: 1 } })
     expect(next.run.lifetime).toMatchObject({ wagesPaid: 1, workerPlants: 1, energySpent: 0 })
     // the same as the player's plant with no energy, plus the wage
     const manual = okState(plant(s, 1, 'pumpkin', 0))
@@ -530,7 +531,7 @@ describe('plant worker: workersAct', () => {
   it('auto-buy on and an empty pouch: buys the one seed at the seed price, like the player', () => {
     const next = workersAct(planterFarm([empty], { cash: 50 }))
     expect(next.run.tiles[0].cropId).toBe('pumpkin')
-    expect(next.run.cash).toBe(50 - SEED('pumpkin') - workerWage(meta))
+    expect(next.run.cash).toBe(50 - SEED('pumpkin') - workerWage(meta, 'plant'))
   })
 
   it('auto-buy off and an empty pouch: idles unpaid, and does not till ahead either', () => {
@@ -542,11 +543,11 @@ describe('plant worker: workersAct', () => {
   })
 
   it('never goes below 0: a seed that would leave less than the wage idles the planter (unpaid badge)', () => {
-    const short = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta) - 1 })
+    const short = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta, 'plant') - 1 })
     expect(workersAct(short)).toBe(short)
     expect(workerUnpaid(short, 'plant')).toBe(true)
     expect(step(short, 600).run.cash).toBe(short.run.cash)
-    const exact = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta) })
+    const exact = planterFarm([empty], { cash: SEED('pumpkin') + workerWage(meta, 'plant') })
     expect(workersAct(exact).run.cash).toBe(0)
     expect(workerUnpaid(exact, 'plant')).toBe(false)
     // poorer still (cannot buy the seed): idle and still flagged unpaid
@@ -713,5 +714,11 @@ describe('workerActivity (batch 24.1, task 132)', () => {
 
   it('an idle round reports nothing', () => {
     expect(workerActivity(smeltery({}, { copperOre: 1 }, { ore: 1 }))).toEqual([])
+  })
+})
+
+describe('batch 29: per-job wages', () => {
+  it('the 💼 Manager earns 💰28 per action, every other job 💰1', () => {
+    expect(WORKER_JOBS.map((job) => [job, workerWage(meta, job)])).toEqual(WORKER_JOBS.map((job) => [job, job === 'manager' ? 28 : 1]))
   })
 })

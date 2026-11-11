@@ -673,6 +673,17 @@ button:disabled {
 .estate-row > span > small {
   display: block;
 }
+/* the 📌 pin toggle after the field title (batch 29): a 44 px square, faded while off */
+.estate-row .pin {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  margin-left: var(--s1);
+}
+.estate-row .pin[aria-pressed='false'] {
+  opacity: 0.45;
+}
 /* the ghost row's Buy button: dashed like a +1 Field slot */
 .ghost-row button {
   border-style: dashed;

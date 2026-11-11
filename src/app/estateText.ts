@@ -17,7 +17,9 @@ import {
   type Price,
 } from '../core/balance'
 import { buyPlot, fieldsOverview, fieldsPressure, pivotsOwned } from '../core/fields'
+import { managerPlan } from '../core/manager'
 import type { GameState, Machines } from '../core/state'
+import { CROP_EMOJI } from './FarmGrid'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
 
@@ -31,6 +33,16 @@ export function estateCropIncomePerHour(state: GameState, k: number): number {
   const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
   const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, run.market[crop]) - cropSeedCost(crop, meta)
   return Math.round((planted * 3600 * net) / cycle)
+}
+
+/** the 💼 Manager row's plan line: "🍓 ×3 fields → order 2 · 🍋 rest" */
+export function managerPlanText(state: GameState): string {
+  const { contracts, rest } = managerPlan(state)
+  const parts = [
+    ...contracts.map(({ crop, fields, slot }) => `${CROP_EMOJI[crop]} ×${fields.length} field${fields.length === 1 ? '' : 's'} → order ${slot + 1}`),
+    ...(rest.length === 1 ? [`${CROP_EMOJI[rest[0].crop]} rest`] : rest.map(({ crop, fields }) => `${CROP_EMOJI[crop]} ×${fields.length}`)),
+  ]
+  return parts.length > 0 ? parts.join(' · ') : 'no wet fields to manage'
 }
 
 /** the sum of the field rows' ≈💰/h: the time-to-afford divisor */

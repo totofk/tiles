@@ -26,6 +26,7 @@ import {
   fieldsPlantable,
   fieldsPressure,
   fillTank,
+  pinField,
   pivotsOwned,
   plotState,
   reapNext,
@@ -51,6 +52,7 @@ const SEEDER_EMOJI = '🌱' // Unicode 6
 const HARVESTER_EMOJI = '🌾' // Unicode 6
 const TANK_EMOJI = '⛽' // Unicode 5.2
 const BEYOND_EMOJI = '🚱' // Unicode 6
+const PIN_EMOJI = '📌' // Unicode 6
 const MACHINE_NAMES = { harvester: 'Harvester', seeder: 'Seeder' } as const
 const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
 
@@ -115,6 +117,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
   const opens = run.fields.list.every((field) => field.plots.length >= fieldPlots()) ? run.fields.list.length + 1 : 0
   const fill = fillTank(state)
   const room = Math.floor((tankCapCoal(pump) * TANK_UNITS_PER_COAL - run.fields.tank) / TANK_UNITS_PER_COAL)
+  const managerOwned = run.workers.certificates.includes('manager')
   return (
     <div className="estate">
       <div className="capacity-strip" role="group" aria-label="Fields at a glance">
@@ -137,6 +140,11 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
             <div className="estate-row" key={k}>
               <span>
                 {`Field ${k + 1} · ${field.crop ? CROP_EMOJI[field.crop] : '—'} · ${field.plots.length}/${fieldPlots()} plots (${t.readyCount} ready${t.next !== null ? `, next in ${nextReadyText(t.next)}` : ''})`}
+                {managerOwned && (
+                  <button className="pin" aria-pressed={field.pinned} aria-label={`Pin Field ${k + 1}`} onClick={() => act((s) => pinField(s, k))}>
+                    {PIN_EMOJI}
+                  </button>
+                )}
                 {!field.pivot ? (
                   <small>no pivot — cannot sow</small>
                 ) : (
@@ -146,7 +154,13 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
               <select
                 aria-label={`Field ${k + 1} crop`}
                 value={field.crop ?? ''}
-                onChange={(e) => act((s) => setFieldCrop(s, k, (e.target.value || null) as CropId | null))}
+                onChange={(e) =>
+                  act((s) => {
+                    // a hand pick while a Manager works pins the field, so the Manager does not flip it back
+                    const picked = setFieldCrop(s, k, (e.target.value || null) as CropId | null)
+                    return picked.ok && s.run.workers.assigned.manager > 0 && !s.run.fields.list[k].pinned ? pinField(picked.state, k) : picked
+                  })
+                }
               >
                 <option value="">— none —</option>
                 {crops.map((c) => (

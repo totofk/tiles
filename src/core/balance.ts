@@ -190,13 +190,14 @@ const TOOL_TIER_COST: ReadonlyArray<Price> = [
 
 // Workers v1 (batch 8, DECISIONS "Workers v1"): hire k (pool k − 1 → k) costs HIRE_BASE × HIRE_GROWTH^(k − 1), pool
 // capped; the hire button needs HIRE_UNLOCK. A job takes workers once its certificate is bought (needs its unlock
-// counter). Every WORKER_ACTION_TICKS each assigned worker does one action of its job, paid WORKER_WAGE at that moment.
+// counter). Every WORKER_ACTION_TICKS each assigned worker does one action of its job, paid its WORKER_WAGES at that moment.
 const WORKER_HIRE_BASE = 150
 const WORKER_HIRE_GROWTH = 1.7
 const WORKER_POOL_CAP = 6
 const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harvests', at: 30 }
 const WORKER_ACTION_TICKS = 5
-const WORKER_WAGE = 1
+// batch 29: the Manager's 💰28 per chip it changes (calculator 2026-11-11: ≈ 💰20,000/h if it changed one every round)
+const WORKER_WAGES: Record<WorkerJob, number> = { plant: 1, water: 1, harvest: 1, ore: 1, fuel: 1, mine: 1, clerk: 1, manager: 28 }
 // `vein` = the vein level that must be owned as well; `tool` = the job's farm-tool level that must be owned (batch 13:
 // a worker replaces a press, so the press comes first at its top level)
 const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number; vein?: number; tool?: number }> = {
@@ -211,7 +212,7 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
   // order clerk (batch 14): ⭐ + copper bars after 20 orders completed
   clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
-  // Manager (batch 28 shape, est. — batch 29's sim pins it): cannot unlock in 28, nothing increments contractsByHand yet
+  // Manager (batch 29): 3 contracts completed by hand; the price is pinned by the batch 29 sim (certificate hours)
   manager: { price: { goldBar: 4, cash: 500000 }, counter: 'contractsByHand', at: 3 },
 }
 // Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
@@ -960,9 +961,9 @@ export function workerActsAt(tick: number, every: number): boolean {
   return Math.floor(tick / every) > Math.floor((tick - 1) / every)
 }
 
-/** cash per worker action */
-export function workerWage(meta: MetaState): number {
-  return Math.round(WORKER_WAGE * multiplier(meta, 'cost'))
+/** cash per action of a worker on this job */
+export function workerWage(meta: MetaState, job: WorkerJob): number {
+  return Math.round(WORKER_WAGES[job] * multiplier(meta, 'cost'))
 }
 
 export function digSeedDrop(): { crop: CropId; chance: number } {

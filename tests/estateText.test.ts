@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, tankCapCoal } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
-import { estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, nextReadyText } from '../src/app/estateText'
+import { estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText } from '../src/app/estateText'
+import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { priceText } from '../src/app/Mine'
 
 /** a Tractor-era run forged from a fresh state: one field per entry of `fields`, a full Pump-0 tank, machines and cash
@@ -116,5 +117,20 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     expect(chip.fix).toBe(`＋ Plot 💰${ghostRowPrice(clear)} · now`)
     const gap = { ...clear, run: { ...clear.run, cash: 1 } }
     expect(estateBottleneck(gap).fix).toMatch(new RegExp(`^＋ Plot 💰${ghostRowPrice(clear)} · ≈~\\d+ (min|h)$`))
+  })
+})
+
+describe('batch 29: managerPlanText', () => {
+  const R = CROP_EMOJI.radish
+  const radishReady = (s: GameState): GameState => ({ ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, harvests: { radish: 50 } } } })
+  it('no managed field → "no wet fields to manage"; one rest crop → "rest"', () => {
+    expect(managerPlanText(radishReady(at({ fields: [{ ...field([empty()]), pinned: true }] })))).toBe('no wet fields to manage')
+    expect(managerPlanText(radishReady(at({ fields: [field([empty()], null), field([empty()], null)] })))).toBe(`${R} rest`)
+  })
+  it('a contract part first: "×1 field → order 2", joined with " · "', () => {
+    const s = radishReady(at({ fields: [field([empty()], null), field([empty()], null)] }))
+    const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true }]
+    const withOrder = { ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } }
+    expect(managerPlanText(withOrder)).toBe(`${R} ×1 field → order 2 · ${R} rest`)
   })
 })

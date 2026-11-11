@@ -12,8 +12,9 @@ import {
   workerWage,
 } from './balance'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
-import { fieldsHarvest, fieldsPlantAction, fillTank } from './fields'
+import { fieldsHarvest, fieldsPlantAction, fillTank, setFieldCrop } from './fields'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
+import { managerPlan } from './manager'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction, clerkTarget } from './orders'
 import type { GameState, RunState } from './state'
@@ -59,8 +60,13 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
   clerk: clerkAction,
-  // batch 29 gives the Manager its work; until then it idles unpaid
-  manager: () => null,
+  // batch 29: one chip per action, the first managed field (index order) off the plan; nothing to change → idle
+  manager: (s) => {
+    if (!s.run.fields.unlocked) return null
+    const { target } = managerPlan(s)
+    const k = s.run.fields.list.findIndex((f, i) => f.pivot && !f.pinned && f.crop !== target[i])
+    return k < 0 ? null : setFieldCrop(s, k, target[k])
+  },
 }
 
 /**
@@ -100,22 +106,22 @@ export type WorkTouch = { job: WorkerJob; tile?: number; slot?: number }
 /** the worker's action, or null when it has nothing to do or the wage would not be left after it (a bought seed) */
 function paidAction(state: GameState, job: WorkerJob): { result: { ok: true; state: GameState }; tile?: number } | null {
   const a = workerAction(state, job)
-  return a?.result.ok && a.result.state.run.cash >= workerWage(state.meta) ? { result: a.result, tile: a.tile } : null
+  return a?.result.ok && a.result.state.run.cash >= workerWage(state.meta, job) ? { result: a.result, tile: a.tile } : null
 }
 
 /**
- * One round of every assigned worker, job by job in WORKER_JOBS order, each paying the wage at its action; a worker
- * with nothing to do idles unpaid, and the round stops when cash < wage (never debt). A planter whose seed would leave
+ * One round of every assigned worker, job by job in WORKER_JOBS order, each paying its job's wage at its action; a
+ * worker with nothing to do idles unpaid, and a job idles when cash < its wage (never debt). A planter whose seed would leave
  * less than the wage idles too. `touched` = every job that acted, in action order — the farm job's tile, the clerk's
  * order slot, no location for the furnace and mine jobs. Returns the same state object when nobody acts.
  */
 function workRound(state: GameState): { state: GameState; touched: WorkTouch[] } {
-  const wage = workerWage(state.meta)
   const touched: WorkTouch[] = []
   let s = state
   for (const job of WORKER_JOBS) {
+    const wage = workerWage(state.meta, job)
     for (let k = 0; k < s.run.workers.assigned[job]; k++) {
-      if (s.run.cash < wage) return { state: s, touched }
+      if (s.run.cash < wage) break
       const a = paidAction(s, job)
       if (!a) break
       if (a.tile !== undefined && isTileJob(job)) touched.push({ job, tile: a.tile })
@@ -212,7 +218,7 @@ export function workerUnpaid(state: GameState, job: WorkerJob): boolean {
   const a = workerAction(state, job)
   if (!a) return false
   if (!a.result.ok) return a.result.error === 'NO_CASH'
-  return state.run.cash < workerWage(state.meta) || !paidAction(state, job)
+  return state.run.cash < workerWage(state.meta, job) || !paidAction(state, job)
 }
 
 /**
