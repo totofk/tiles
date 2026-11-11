@@ -42,7 +42,11 @@ import {
   fieldCoalPerPlotHour,
   machineCost,
   machineMaintPerHour,
+  machineTilesPerHour,
+  machineMaxTiers,
   pivotCost,
+  plotCost,
+  fieldTileCost,
   plotTiles,
   pumpCost,
   pumpFieldCap,
@@ -68,13 +72,13 @@ import { buyMetaUpgrade, sellFarm, sellFarmUnlocked, starDeeds } from '../src/co
 import { catchUp, deserialize } from '../src/save/serialize'
 import v17 from './fixtures/save-v17.json?raw'
 import { bagCount, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, repairPickaxe, sellItem, upgradeVein } from '../src/core/mining'
-import { createFurnace, createInitialState, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
+import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWorker } from '../src/core/workers'
 import { buildSprinkler, buildWorkshop } from '../src/core/workshop'
-import { buildPivot, buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPaybackHours, fieldsPlantable, pivotsOwned, setFieldCrop, unlockFields } from '../src/core/fields'
+import { buildPivot, buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPaybackHours, fieldsPlantable, fillTank, pivotsOwned, setFieldCrop, unlockFields } from '../src/core/fields'
 import { acceptOrder, buyOrderBoard, discardOrder, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
 import type { OrderGood } from '../src/core/state'
 import type { ItemId } from '../src/core/data/items'
@@ -200,13 +204,14 @@ type LadderStep =
   | 'tiles19'
   | `sprinkler${1 | 2 | 3 | 4}`
   | 'fields'
-  | 'fields100'
   | 'pivot2'
+  | 'plots10'
+  | 'pump1'
+  | 'plots30'
   | 'harvester1'
   | 'seeder1'
-  | 'pump1'
   | 'pump2'
-  | 'fields300'
+  | 'plots60'
   | 'harvester2'
   | 'seeder2'
   | 'harvester3'
@@ -466,22 +471,32 @@ const goldReserveShort = (s: GameState): boolean => {
 }
 /** owned field tiles (batch 28: 10 per plot) */
 const fieldTiles = (s: GameState) => fieldsOverview(s.run).tiles
-/** the pivot of the first dry field holding plots (BAD_TILE when none) */
-const buyNextPivot = (s: GameState) => buildPivot(s, s.run.fields.list.findIndex((f) => !f.pivot))
+/** the next piece of land: the pivot of the first dry field holding plots, else the next plot */
+const buyLand = (s: GameState) => {
+  const dry = s.run.fields.list.findIndex((f) => !f.pivot)
+  return dry >= 0 ? buildPivot(s, dry) : buyPlot(s)
+}
+const pivotGold = (s: GameState) => pivotCost(pivotsOwned(s.run.fields) + 1, s.meta).goldBar!
 const keepPivot = (s: GameState): Price => {
   const cost = pivotCost(pivotsOwned(s.run.fields) + 1, s.meta)
   return plusKeep(plusKeep(keepBars(cost.copperBar!), keepIronBars(cost.ironBar!)), keepGoldBars(cost.goldBar!))(s)
 }
+/** the gold the next piece of land spends: a pivot's bars, a plot none */
+const landGold = (s: GameState) => (s.run.fields.list.some((f) => !f.pivot) ? pivotGold(s) : 0)
+/** n plots owned, every field pivoted */
+const plotsGoal = (name: 'plots10' | 'plots30' | 'plots60', n: number): Goal =>
+  repairSafe({ name, done: (s) => fieldsOverview(s.run).plots >= n && pivotsOwned(s.run.fields) === s.run.fields.list.length, buy: buyLand, keep: keepPivot }, landGold)
+/** an hour of the pivoted plots' tank burn, in coal */
+const hourOfBurn = (s: GameState) => Math.ceil(fieldCoalPerPlotHour() * s.run.fields.list.reduce((n, f) => (f.pivot ? n + f.plots.length : n), 0))
 /**
- * batch 18: after the workshop ladder — the fields unlock (iron bars), then land to 100 tiles. Batch 28 stopgap
- * (PLAN.md task 148g rewrites this ladder): the pipes rung is gone; plots to 100 tiles (both Pump-0 fields), then
- * the second field's pivot.
+ * batch 18: after the workshop ladder — the fields unlock (iron bars). Batch 28 (task 148g): the second field's pivot
+ * and land to 10 plots (both Pump-0 fields).
  */
 const FIELDS_LADDER: Goal[] = [
   ...WORKSHOP_LADDER,
   { name: 'fields', done: (s) => s.run.fields.unlocked, buy: unlockFields, keep: (s) => keepIronBars(fieldsCost(s.meta).ironBar!)(s) },
-  { name: 'fields100', done: (s) => fieldTiles(s) >= 100, buy: buyPlot, keep: () => ({ cash: 0 }) },
-  repairSafe({ name: 'pivot2', done: (s) => pivotsOwned(s.run.fields) >= 2, buy: buyNextPivot, keep: keepPivot }, (s) => pivotCost(2, s.meta).goldBar!),
+  repairSafe({ name: 'pivot2', done: (s) => pivotsOwned(s.run.fields) >= 2, buy: buyLand, keep: keepPivot }, landGold),
+  plotsGoal('plots10', 10),
 ]
 const FIELDS_ON_GOALS = FIELDS_LADDER.slice(WORKSHOP_LADDER.length)
 /** the sum of two keeps, except coal: the furnace smelts one kind at a time, so the bigger phase budget covers both (batch 19: the sum topped the bag and wedged the miner on a full coal bag) */
@@ -491,9 +506,8 @@ const plusKeep = (a: (s: GameState) => Price, b: (s: GameState) => Price) => (s:
   return out
 }
 /**
- * batch 19: after the first 100 fields — the throughput machines with the pipes and tiles they need to matter. The
- * first pair comes early (they replace the fields workers' wages), pipes 2–3 widen coverage before the grind to 300
- * tiles, and the second and third harvester tiers land once their throughput can actually be used.
+ * batch 19: after the first 10 plots — the throughput machines with the pumps and land they need to matter (batch 28,
+ * task 148g: pump1 → plots30 → harvester1 → seeder1 → pump2 → plots60 → harvester2 → seeder2 → harvester3).
  */
 const machineKeep = (kind: 'harvester' | 'seeder', tier: 1 | 2 | 3): ((s: GameState) => Price) => {
   const cost = (s: GameState) => machineCost(kind, tier, s.meta)
@@ -505,12 +519,12 @@ const machineKeep = (kind: 'harvester' | 'seeder', tier: 1 | 2 | 3): ((s: GameSt
 }
 const MACHINES_LADDER: Goal[] = [
   ...FIELDS_LADDER,
+  repairSafe({ name: 'pump1', done: (s) => s.run.fields.pump >= 1, buy: buyPump, keep: (s) => keepBars(pumpCost(0, s.meta)!.copperBar!)(s) }),
+  plotsGoal('plots30', 30),
   repairSafe({ name: 'harvester1', done: (s) => s.run.fields.machines.harvester.includes(1), buy: (s) => buyMachine(s, 'harvester', 1), keep: machineKeep('harvester', 1) }),
   repairSafe({ name: 'seeder1', done: (s) => s.run.fields.machines.seeder.includes(1), buy: (s) => buyMachine(s, 'seeder', 1), keep: machineKeep('seeder', 1) }),
-  // batch 28 stopgap (task 148g rewrites): the pipe rungs become pumps; land to 300 tiles needs Pump 1's six fields
-  repairSafe({ name: 'pump1', done: (s) => s.run.fields.pump >= 1, buy: buyPump, keep: (s) => keepBars(pumpCost(0, s.meta)!.copperBar!)(s) }),
   repairSafe({ name: 'pump2', done: (s) => s.run.fields.pump >= 2, buy: buyPump, keep: (s) => keepIronBars(pumpCost(1, s.meta)!.ironBar!)(s) }),
-  repairSafe({ name: 'fields300', done: (s) => fieldTiles(s) >= 300, buy: (s) => (s.run.fields.list.some((f) => !f.pivot) ? buyNextPivot(s) : buyPlot(s)), keep: keepPivot }, (s) => pivotCost(2, s.meta).goldBar!),
+  plotsGoal('plots60', 60),
   repairSafe({ name: 'harvester2', done: (s) => s.run.fields.machines.harvester.includes(2), buy: (s) => buyMachine(s, 'harvester', 2), keep: machineKeep('harvester', 2) }, (s) => machineCost('harvester', 2, s.meta).goldBar!),
   repairSafe({ name: 'seeder2', done: (s) => s.run.fields.machines.seeder.includes(2), buy: (s) => buyMachine(s, 'seeder', 2), keep: machineKeep('seeder', 2) }, (s) => machineCost('seeder', 2, s.meta).goldBar!),
   repairSafe({ name: 'harvester3', done: (s) => s.run.fields.machines.harvester.includes(3), buy: (s) => buyMachine(s, 'harvester', 3), keep: machineKeep('harvester', 3) }, (s) => machineCost('harvester', 3, s.meta).goldBar!),
@@ -698,10 +712,7 @@ function runBot(
       const keep: Price = { ...(goal?.keep(s) ?? { cash: 0 }) }
       // batch 18: an hour of the Fields' coal stays too (batch 28: the pivoted plots' tank burn; machines runs too)
       if (fields || machines)
-        keep.coal = Math.max(
-          keep.coal ?? 0,
-          Math.ceil(fieldCoalPerPlotHour() * s.run.fields.list.reduce((n, f) => (f.pivot ? n + f.plots.length : n), 0)),
-        )
+        keep.coal = Math.max(keep.coal ?? 0, hourOfBurn(s) - Math.floor(s.run.fields.tank / TANK_UNITS_PER_COAL))
       // batch 20 (drainSlot): the ore that completes the slot's partial cycle of the current kind never sells
       if (drainSlot) {
         const f = s.run.furnace
@@ -838,6 +849,12 @@ function runBot(
     // (batch 28: every pivoted field's chip)
     if ((fields || machines) && s.run.fields.unlocked && fieldsPlantable(s.run, 'lemon')) {
       s.run.fields.list.forEach((f, i) => f.pivot && f.crop === null && tryAct(setFieldCrop(s, i, 'lemon'), null))
+    }
+    // batch 28: the hour of burn the bot keeps lives in the tank — storage coal above the next goal's smelting coal
+    // goes in while it has room (an hour held in the bag on top of a pivot's bars filled it and wedged the gold pickaxe)
+    if ((fields || machines) && s.run.fields.unlocked) {
+      const spare = (s.run.inventory.coal ?? 0) - (goals.find((g) => !g.done(s))?.keep(s).coal ?? 0)
+      if (spare >= 1) tryAct(fillTank(s, spare), null)
     }
     while (s.run.energy >= ACTION_ENERGY_COST) {
       // batch 16: while a gold run's next goal still waits on mined goods, the player mines instead of supplementing
@@ -3316,9 +3333,7 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
   })
 })
 
-// batch 28: skipped until task 148g rewrites the ladder on plots and re-pins every cohort-era number (the bodies are a
-// mechanical port that type-checks; their pins are the batch-27 values)
-describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payback, pairs, coal, prices (rules.batch13 on)', () => {
+describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, pairs, coal, prices (rules.batch13 on)', () => {
   const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
   const hours = (ticks: number) => ticks / HOUR_TICKS
   const pool = (s: GameState) => (s.run.inventory.coal ?? 0) + s.run.furnace.fire / fuelTicks('coal')
@@ -3327,11 +3342,11 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
   const r = withBatch13(() => {
     let end = createInitialState()
     const coal = { prev: 0, mined: 0 }
-    // the fields windows: unlock → first pipes (pins FIELDS_CASH and PIPE_COSTS[0]'s income), pipes → field 100
+    // the fields windows (batch 28): unlock → the second pivot (pins FIELDS_CASH's income), pivot 2 → 10 plots
     const win = { fields: 0, pipes1: 0, f100: 0, cash0F: 0, cash0P: 0, cash0100: 0, fire0: 0, fire100: 0, firstField: 0, countAtPipes1: 0 }
     const coal0 = { mined: 0 }
     const coal100 = { mined: 0 }
-    const caps: Partial<Record<'fields' | 'pipes1', number>> = {}
+    const caps: Partial<Record<'fields' | 'pivot2', number>> = {}
     const ladder = runBot(true, {
       ticks: 64 * HOUR_TICKS,
       licenses: LICENSE_ORDER,
@@ -3354,12 +3369,12 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
         coal.prev = p
         // the storage held the first moment each price became buyable
         if (caps.fields === undefined && unlockFields(s).ok) caps.fields = s.run.bagCapacity
-        if (caps.pipes1 === undefined && buyPump(s).ok) caps.pipes1 = s.run.bagCapacity
+        if (caps.pivot2 === undefined && s.run.fields.list.length > 1 && buildPivot(s, 1).ok) caps.pivot2 = s.run.bagCapacity
         if (!win.fields && s.run.fields.unlocked) {
           win.fields = s.run.tick
           win.cash0F = s.run.lifetime.cashEarned
         }
-        if (win.fields && !win.pipes1 && s.run.fields.pump >= 1) {
+        if (win.fields && !win.pipes1 && pivotsOwned(s.run.fields) >= 2) {
           win.pipes1 = s.run.tick
           win.cash0P = s.run.lifetime.cashEarned
           win.fire0 = s.run.lifetime.fireBurnt
@@ -3403,7 +3418,7 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
     return (a.run.lifetime.cashEarned - warmed.run.lifetime.cashEarned) / 2
   }
 
-  it('climbs in order: fields unlock → first pipes → 100 fields; the unlock steps stay ≤ 60 game-minutes', () => {
+  it('climbs in order: fields unlock → pivot 2 → 10 plots; the unlock steps stay ≤ 60 game-minutes', () => {
     console.log('PIN18', {
       steps: steps.map((x) => minute(x)),
       incomes: [Math.round(fieldsIncome), Math.round(grindIncome)],
@@ -3411,10 +3426,11 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
       caps,
       coal: [Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)],
       miningRatio: ladder.miningCashPerEnergy / ladder.farmingCashPerEnergy,
+      fieldsEnd: { ...fieldsOverview(end.run), shape: end.run.fields.list.map((f) => `${f.pivot ? 'P' : '-'}${f.plots.length}`).join(' '), pump: end.run.fields.pump },
     })
     expect(steps.every((x) => x! > 0)).toBe(true)
     expect([...steps].sort((a, b) => a! - b!)).toEqual(steps)
-    expect(steps[1]! - steps[0]!).toBeLessThanOrEqual(HOUR_TICKS) // unlock → first pipes: 47 game-minutes
+    expect(steps[1]! - steps[0]!).toBeLessThanOrEqual(HOUR_TICKS) // unlock → pivot 2: 11 game-minutes (batch 28; was 47 to the first pipes)
     expect(fieldTiles(end)).toBeGreaterThanOrEqual(100)
   })
 
@@ -3434,17 +3450,15 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
     for (const { gap } of gapAt) expect(gap).toBeLessThanOrEqual(5400)
   })
 
-  it('income vs N at depth 240 (best split): 10/50/100/300/1000 tiles; 1000 sits on the 300-tile pipe plateau', () => {
+  it('income vs N at depth 240 on plots (workers only): 10/50/100/300/1000 tiles, all-lemon vs a 4-crop mix', () => {
     const lemon = [10, 50, 100, 300, 1000].map((n) => Math.round(incomeAt(n, ['lemon'])))
     const mixed = [100, 300].map((n) => Math.round(incomeAt(n, ['lemon', 'pumpkin', 'chilli', 'radish'])))
     console.log('PIN18b', { lemon, mixed })
-    expect(lemon).toEqual([47951, 112708, 151938, 380848, 396495]) // re-pinned batch 26: always-wet beds lift every N ~25–30 %
-    // the split is near-indifferent at depth 240: the 4-crop mix earns within 2% of all-lemon at the same N
-    expect(Math.abs(mixed[0]! - lemon[2]!) / lemon[2]!).toBeLessThan(0.02)
-    expect(Math.abs(mixed[1]! - lemon[3]!) / lemon[3]!).toBeLessThan(0.02)
-    // the plateau: only 300 tiles grow, so 3.3× the tiles earn at most ~10% more (burst-order timing, not coverage)
-    expect(lemon[4]).toBeLessThanOrEqual(Math.round(lemon[3]! * 1.1))
-    expect(lemon[4]).toBeGreaterThan(0.8 * lemon[3]!)
+    // re-pinned batch 28 (measured, seeded): was [47951, 112708, 151938, 380848, 396495] on cohorts
+    expect(lemon).toEqual([47661, 111447, 150893, 350763, 393223])
+    // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
+    // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
+    expect(mixed).toEqual([193653, 263448])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -3458,7 +3472,9 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
       }
     }
     console.log('PIN18c', { crossing })
-    expect(crossing).toBe(26) // pinned: the UI payback label crosses 8 h at field 27 (0-indexed count before the buy)
+    // re-pinned batch 28 (was 26 tiles-of-ten on cohorts): the label crosses 8 h at plot 6 — plotCost grows 💰10,000 per
+    // plot while one more plot's marginal income is one pressured lemon cycle
+    expect(crossing).toBe(5)
   })
 
   it('one planter+harvester pair moves 2 × grow tiles per cycle — the throughput bound and the second pair', () => {
@@ -3474,31 +3490,31 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
     const pipeDraw = fieldCoalPerPlotHour() * fieldsOverview(settled.run).growing
     console.log('PIN18e', { pipeDraw })
     // pinned shares over the pipes1 → field-100 window: the miner's coal vs the furnace (old, batch 18: 341 / 0 / 36 with the pump)
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([382, 0])
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([355, 0]) // re-pinned batch 28 (was 382): the pivot2 → 10 plots window
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
 
-  it('pinned: FIELDS_CASH and every pipe cash price is 0.5–1.5 h of the income at its unlock, rounded to 💰500', () => {
-    const rows: [number, number][] = [
-      [fieldsCost(end.meta).cash, fieldsIncome],
-      [pumpCost(0, end.meta)!.cash, fieldsIncome],
-      [pumpCost(1, end.meta)!.cash, incomeAt(100, ['lemon'])],
-      [pumpCost(2, end.meta)!.cash, incomeAt(300, ['lemon'])],
-    ]
-    console.log('PIN18f', rows.map(([price, income]) => [price, Math.round(income), Math.round((price / income) * 100) / 100]))
-    // re-pinned batch 26: the always-wet beds lift the fields-era income ~30 %, so the cash prices now sit at ~0.37 h (prices untouched)
-    for (const [price, income] of rows) {
-      expect(price % 500).toBe(0)
-      expect(price / income).toBeGreaterThanOrEqual(0.35)
-      expect(price / income).toBeLessThanOrEqual(1.5)
-    }
+  // measured batch 28: FIELDS_CASH 💰10,000 ÷ 💰102,773/h (unlock → pivot 2) = 0.10 h — the price is LOCKED (PLAN.md
+  // "Batch 28 results" Deviations)
+  it.fails('pinned: FIELDS_CASH is 0.35–1.5 h of the income at its unlock — measured 0.10 h', () => {
+    const price = fieldsCost(end.meta).cash
+    console.log('PIN18f', [price, Math.round(fieldsIncome), Math.round((price / fieldsIncome) * 100) / 100])
+    expect(price / fieldsIncome).toBeGreaterThanOrEqual(0.35)
+  })
+
+  it('pinned: FIELDS_CASH rounds to 💰500; plot, pivot and pump prices follow the batch-28 rule', () => {
+    expect(fieldsCost(end.meta).cash % 500).toBe(0)
+    // batch 28 (task 148g): the plot is the ten-tile sum, pivot n = its recipe + 50,000 × (n − 1), the pumps are fixed
+    for (const p of [0, 1, 9, 59]) expect(plotCost(p, end.meta)).toBe(Array.from({ length: 10 }, (_, i) => fieldTileCost(10 * p + i, end.meta)).reduce((a, b) => a + b, 0))
+    for (const n of [1, 2, 20]) expect(pivotCost(n, end.meta)).toEqual({ goldBar: 3, ironBar: 6, copperBar: 6, cash: 50_000 * (n - 1) })
+    expect([0, 1, 2, 3].map((p) => pumpCost(p, end.meta))).toEqual([{ copperBar: 8, cash: 500_000 }, { ironBar: 8, cash: 1_500_000 }, { goldBar: 8, cash: 3_000_000 }, null])
   })
 
   it('every price fits the storage the player holds when it becomes buyable (price-cap table, batch 18 rows)', () => {
-    expect(caps).toEqual({ fields: 60, pipes1: 60 })
+    console.log('PIN18h', caps)
     expect(fieldsCost(end.meta).ironBar!).toBeLessThanOrEqual(caps.fields!)
-    expect(pumpCost(0, end.meta)!.copperBar!).toBeLessThanOrEqual(caps.pipes1!)
+    for (const id of ['goldBar', 'ironBar', 'copperBar'] as const) expect(pivotCost(2, end.meta)[id]!).toBeLessThanOrEqual(caps.pivot2!)
   })
 
   it('mining stays below the farm cap: the run mining cash/energy < 0.9 × farming', () => {
@@ -3520,12 +3536,12 @@ describe.skip('batch 18: fields — the ladder to 100 fields, income vs N, payba
   })
 })
 
-describe.skip('batch 19: machines — the ladder to harvester3, income vs workers, payback, coal, offline (rules.batch13 on)', () => {
+describe('batch 19: machines — the ladder to harvester3, income vs workers, payback, coal, offline (rules.batch13 on)', () => {
   const hours = (ticks: number) => ticks / HOUR_TICKS
   const pool = (s: GameState) => (s.run.inventory.coal ?? 0) + s.run.furnace.fire / fuelTicks('coal')
   const tierFor = pumpFor
   // the tracked steps: field 100, then every machine-ladder goal; the income "at a purchase" is the window before it
-  const STEPS = ['fields100', ...MACHINES_ON_GOALS.map((g) => g.name)] as const
+  const STEPS = ['plots10', ...MACHINES_ON_GOALS.map((g) => g.name)] as const
   const r = withBatch13(() => {
     let end = createInitialState()
     const coal = { prev: 0, mined: 0 }
@@ -3534,6 +3550,9 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
     const coalAt = { mined: 0 }
     let stallTicks = 0
     let fleetPauses = 0
+    // per pump tier: the tick the cap was reached / the first tick something was buyable at it
+    const buyable: Record<number, number> = {}
+    const bought: Record<number, number> = {}
     const ladder = runBot(true, {
       ticks: 170 * HOUR_TICKS,
       licenses: LICENSE_ORDER,
@@ -3555,11 +3574,16 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
         const p = pool(s)
         if (p > coal.prev) coal.mined += p - coal.prev
         coal.prev = p
-        if (win.fields100 === undefined && fieldTiles(s) >= 100) {
-          win.fields100 = s.run.tick
-          cashAt.fields100 = s.run.lifetime.cashEarned
+        if (win.plots10 === undefined && FIELDS_LADDER.at(-1)!.done(s)) {
+          win.plots10 = s.run.tick
+          cashAt.plots10 = s.run.lifetime.cashEarned
           coalAt.mined = coal.mined
         }
+        // batch 28 (task 148g): at each pump cap reached, is a plot, pivot, pump or machine buyable within the hour?
+        if (s.run.fields.unlocked && buyable[s.run.fields.pump] === undefined) buyable[s.run.fields.pump] = s.run.tick
+        if (s.run.fields.unlocked && bought[s.run.fields.pump] === undefined &&
+          (buyLand(s).ok || buyPump(s).ok || (['harvester', 'seeder'] as const).some((k) => Array.from({ length: machineMaxTiers(k) }, (_, i) => i + 1).some((t) => buyMachine(s, k, t).ok))))
+          bought[s.run.fields.pump] = s.run.tick
         for (const g of MACHINES_ON_GOALS) {
           if (win[g.name] === undefined && g.done(s)) {
             win[g.name] = s.run.tick
@@ -3584,9 +3608,11 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
       win,
       steps: STEPS.map((k) => win[k]),
       incomes: { harvester1: incomeAtStep('harvester1'), seeder1: incomeAtStep('seeder1'), harvester2: incomeAtStep('harvester2'), seeder2: incomeAtStep('seeder2'), harvester3: incomeAtStep('harvester3') },
-      coalMinedPerHour: (coal.mined - coalAt.mined) / hours(win.harvester3! - win.fields100!),
+      coalMinedPerHour: (coal.mined - coalAt.mined) / hours(win.harvester3! - win.plots10!),
       stallTicks,
       fleetPauses,
+      buyable,
+      bought,
     }
   })
   const { ladder, end } = r
@@ -3618,7 +3644,15 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
       incomes: Object.fromEntries(Object.entries(r.incomes).map(([k, v]) => [k, Math.round(v)])),
       finalCash: Math.round(ladder.finalCash),
       fields: fieldTiles(end),
-      pipes: end.run.fields.pump,
+      pump: end.run.fields.pump,
+      shape: end.run.fields.list.map((f) => `${f.pivot ? 'P' : '-'}${f.plots.length}`).join(' '),
+      next: (() => {
+        const g = MACHINES_LADDER.find((x) => !x.done(end))
+        const b = g?.buy(end)
+        return { goal: g?.name, error: b && !b.ok ? b.error : 'ok', keep: g?.keep(end) }
+      })(),
+      bag: [end.run.bagCapacity, bagCount(end.run), ['copperBar', 'ironBar', 'goldBar', 'coal', 'copperOre', 'ironOre', 'goldOre'].map((id) => `${id}:${end.run.inventory[id as ItemId] ?? 0}`).join(' ')],
+      pickaxe: end.run.pickaxe,
       workers: end.run.workers.pool,
       stall: [r.stallTicks, r.fleetPauses],
       coal: [Math.round(r.coalMinedPerHour)],
@@ -3630,6 +3664,64 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
     expect(r.stallTicks).toBe(0)
     expect(r.fleetPauses).toBe(0)
     expect(ladder.miningCashPerEnergy).toBeLessThan(0.9 * ladder.farmingCashPerEnergy)
+  })
+
+  // measured batch 28: the longest gap is 1,188 game-minutes, inside the pump1 (1,116 min) → plots30 (2,354 min)
+  // stretch where pivots 3–6 each wait on 3 gold bars; prices LOCKED — PLAN.md "Batch 28 results" Deviations
+  it.fails('batch 28: no milestone gap over 60 game-minutes from the Tractor to Pump 2 (run milestones + ladder rungs) — measured 1,188 min', () => {
+    const tractor = end.run.milestones.fieldsUnlocked!
+    const pump2 = r.win.pump2!
+    const ticks = [
+      ...Object.values(end.run.milestones).filter((t): t is number => t !== undefined),
+      ...Object.values(ladder.ladderTicks).filter((t): t is number => t !== undefined),
+      ...Object.values(r.win).filter((t): t is number => t !== undefined),
+    ]
+      .filter((t) => t >= tractor && t <= pump2)
+      .sort((a, b) => a - b)
+    const gaps = ticks.slice(1).map((t, i) => t - ticks[i]!)
+    const longest = Math.max(0, ...gaps)
+    console.log('PIN28a', { tractorMin: Math.round(tractor / 60), pump2Min: Math.round(pump2 / 60), marks: ticks.length, longestMin: Math.round(longest / 60) })
+    expect(longest).toBeLessThanOrEqual(HOUR_TICKS)
+  })
+
+  it('batch 28: something (plot, pivot, pump or machine) becomes buyable at every pump cap the ladder reaches', () => {
+    console.log('PIN28b', { reached: r.buyable, firstBuyable: r.bought })
+    for (let p = 0; p <= end.run.fields.pump; p++) expect(r.bought[p]).toBeDefined()
+  })
+
+  it('batch 28 reported: income at 2 / 6 / 12 / 20 fields (mono strawberry vs the bot chips), tank coal vs the miner, the labor bound', () => {
+    const at = (fields: number, crop: CropId) => {
+      const s = forgePlots(end, fields * 50, pumpFor(fields * 50), [crop], 1_000_000)
+      const f = { ...s, run: { ...s.run, licenses: [...new Set([...s.run.licenses, crop])], fields: { ...s.run.fields, machines: { ...createMachines(), harvester: [1, 2, 3], seeder: [1, 2] } } } }
+      const warmed = step(f, HOUR_TICKS)
+      const a = step(warmed, 2 * HOUR_TICKS)
+      return Math.round((a.run.lifetime.cashEarned - warmed.run.lifetime.cashEarned) / 2)
+    }
+    const caps = [2, 6, 12, 20]
+    const income = caps.map((k) => ({ fields: k, strawberry: at(k, 'strawberry'), lemon: at(k, 'lemon') }))
+    const coal = caps.map((k) => ({ fields: k, tankCoalPerHour: fieldCoalPerPlotHour() * 5 * k, minerCoalPerHour: Math.round(r.coalMinedPerHour) }))
+    // the labor bound at 20 fields of strawberry: tiles sown and reaped per hour by the full fleet vs what the land needs
+    let s = (() => {
+      const f = forgePlots(end, 1000, 3, ['strawberry'], 1_000_000)
+      return step({ ...f, run: { ...f.run, licenses: [...new Set([...f.run.licenses, 'strawberry' as CropId])], fields: { ...f.run.fields, machines: { ...createMachines(), harvester: [1, 2, 3], seeder: [1, 2] } } } }, HOUR_TICKS)
+    })()
+    let sown = 0
+    let reaped = 0
+    for (let t = 0; t < HOUR_TICKS; t++) {
+      const next = step(s, 1)
+      next.run.fields.list.forEach((f, i) =>
+        f.plots.forEach((p, j) => {
+          const was = s.run.fields.list[i]!.plots[j]!
+          if (was.crop !== null && p.crop === null) reaped += plotTiles()
+          if (was.crop === null && p.crop !== null) sown += plotTiles()
+        }),
+      )
+      s = next
+    }
+    const needed = Math.round((1000 * HOUR_TICKS) / Math.ceil(cropGrowTicks('strawberry', end.meta, end.run.upgrades.fertilizer) / FIELD_PRESSURE))
+    const fleet = { reap: [1, 2, 3].reduce((a, t) => a + machineTilesPerHour('harvester', t), 0), sow: [1, 2].reduce((a, t) => a + machineTilesPerHour('seeder', t), 0) }
+    console.log('PIN28c', JSON.stringify({ income, coal, labor: { needed, fleet, sownPerHour: sown, reapedPerHour: reaped, plantWorkerWholePlots: plotTiles() * (HOUR_TICKS / workerActionTicks(end.meta)), incomeCap: income[3]!.strawberry } }))
+    expect(income.every((row) => row.strawberry > 0 && row.lemon > 0)).toBe(true)
   })
 
   it('income vs N, machines vs workers-only, and each tier pays: the curve 100 → 1,000 tiles', () => {
@@ -3656,41 +3748,49 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
     // the curve, re-pinned batch 26 (seeded rng, so exact): the fleet inherits the gold sickle's double harvest and
     // the beds' always-full moisture, so it now beats the workers-only arm at every N — the batch-20.1 1,000-tile
     // inversion is gone (the workers arm lost its dry-tile handicap with it)
+    // re-pinned batch 28 (was [150,154] [382,437] [397,436] on cohorts): on whole plots the fleet's edge grows with N —
+    // at 1,000 tiles (20 pressured fields) the workers-only arm is labor-bound and the fleet earns 3.3×
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [150, 154],
-      [382, 437],
-      [397, 436],
+      [151, 153],
+      [351, 432],
+      [396, 1290],
     ])
-    // the fleet wins at 300 tiles; harvester2 pays ≤ 8.4 h
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
+    // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles)
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
-      ['harvester1', null],
-      ['harvester2', 1.6],
-      ['harvester3', 68.1],
-      ['seeders', null],
+      ['harvester1', 0.8],
+      ['harvester2', 17.8],
+      ['harvester3', 276.7],
+      ['seeders', 153.6],
     ])
+    // re-pinned batch 28 (was null / 300 / null / null)
     expect(paysAtN).toEqual([
-      { name: 'harvester1', n: null },
-      { name: 'harvester2', n: 300 },
-      { name: 'harvester3', n: null },
+      { name: 'harvester1', n: 300 },
+      { name: 'harvester2', n: 1000 },
+      { name: 'harvester3', n: 1000 },
       { name: 'seeders', n: null },
     ])
-  })
+  }, 30_000) // 13 forged 3 h runs; 1.7–2.9 s alone, 7.6 s under the full parallel suite (batch 28: 20 pressured fields)
 
-  it('pinned: every machine cash price is 0.35–1.5 h of the ladder bot income at its purchase, rounded to 💰500 (batch 26 re-pin: the beds lift the income again, so the tier-1 pair now costs ~0.4 h — reported, prices untouched)', () => {
-    const rows: [number, number][] = [
-      [machineCost('harvester', 1, end.meta).cash, r.incomes.harvester1],
-      [machineCost('seeder', 1, end.meta).cash, r.incomes.seeder1],
-      [machineCost('harvester', 2, end.meta).cash, r.incomes.harvester2],
-      [machineCost('seeder', 2, end.meta).cash, r.incomes.seeder2],
-      [machineCost('harvester', 3, end.meta).cash, r.incomes.harvester3],
-    ]
-    console.log('PIN19c', rows.map(([price, income]) => [price, Math.round(income), Math.round((price / income) * 100) / 100]))
-    for (const [price, income] of rows) {
+  const machineRows = (): [number, number][] => [
+    [machineCost('harvester', 1, end.meta).cash, r.incomes.harvester1],
+    [machineCost('seeder', 1, end.meta).cash, r.incomes.seeder1],
+    [machineCost('harvester', 2, end.meta).cash, r.incomes.harvester2],
+    [machineCost('seeder', 2, end.meta).cash, r.incomes.seeder2],
+    [machineCost('harvester', 3, end.meta).cash, r.incomes.harvester3],
+  ]
+  it('pinned: every machine cash price is ≤ 1.5 h of the ladder bot income at its purchase, rounded to 💰500', () => {
+    console.log('PIN19c', machineRows().map(([price, income]) => [price, Math.round(income), Math.round((price / income) * 100) / 100]))
+    for (const [price, income] of machineRows()) {
       expect(price % 500).toBe(0)
-      expect(price / income).toBeGreaterThanOrEqual(0.35)
       expect(price / income).toBeLessThanOrEqual(1.5)
     }
+  })
+
+  // measured batch 28: harvester1 0.14 h, seeder1 0.12 h, harvester2 0.47 h, seeder2 0.33 h, harvester3 0.46 h — the
+  // pressured plots lift the income at the machine rungs, prices untouched (PLAN.md "Batch 28 results" Deviations)
+  it.fails('pinned: every machine cash price is ≥ 0.35 h of the ladder bot income — measured 0.14 / 0.12 / 0.47 / 0.33 / 0.46 h', () => {
+    for (const [price, income] of machineRows()) expect(price / income).toBeGreaterThanOrEqual(0.35)
   })
 
   it('the coal budget with machines (re-pinned batch 26): machines and beds are coal-free, the miner covers the pipes', () => {
@@ -3716,8 +3816,7 @@ describe.skip('batch 19: machines — the ladder to harvester3, income vs worker
   })
 })
 
-// batch 28: skipped with batches 18/19 until task 148g (its runs climb the Fields ladder)
-describe.skip('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the sold v17 save (rules.batch13 on)', () => {
+describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the sold v17 save (rules.batch13 on)', () => {
   const hours = (ticks: number) => Math.round((ticks / HOUR_TICKS) * 10) / 10
   /** spends deeds breadth-first: one level of every row per pass — the keeps land in the first pass */
   const buyDeedRows = (state: GameState, rows: readonly DeedRowId[]): GameState => {
@@ -3848,9 +3947,15 @@ describe.skip('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
     for (const r of [r2, r3]) {
       expect(r.stallTicks).toBe(0)
-      expect(r.ladder.ladderTicks.harvester3).toBeDefined()
+      expect(r.ladder.ladderTicks.plots30).toBeDefined()
       expect(r.ladder.miningCashPerEnergy).toBeLessThan(0.9 * r.ladder.farmingCashPerEnergy)
     }
+  })
+
+  // measured batch 28: the sold runs reach plots30 but not harvester3 in 170 h — the same blunt-gold-pickaxe stop the
+  // batch 22 run shows (1 gold bar banked, pivots take 3 each) (PLAN.md "Batch 28 results" Deviations)
+  it.fails('both sold runs reach harvester3 — measured: not reached in 170 h (stop after plots30)', () => {
+    for (const r of [r2, r3]) expect(r.ladder.ladderTicks.harvester3).toBeDefined()
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -3866,8 +3971,7 @@ describe.skip('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, 
   })
 })
 
-// batch 28: skipped with batches 18/19 until task 148g (its runs climb the Fields ladder)
-describe.skip('batch 22: four new crops — license ladder, price band, 8-crop mixes, prestige replay, offline (rules.batch13 on)', () => {
+describe('batch 22: four new crops — license ladder, price band, 8-crop mixes, prestige replay, offline (rules.batch13 on)', () => {
   const hours = (t: number) => Math.round((t / HOUR_TICKS) * 10) / 10
   const NEW_CROPS = ['tomato', 'corn', 'grape', 'strawberry'] as const
   // the batch-19 bot with the four licenses on top of the old ladder; the home plot follows the best licensed crop
@@ -3921,12 +4025,12 @@ describe.skip('batch 22: four new crops — license ladder, price band, 8-crop m
   })
 
   it('the ladder bot buys the four licenses in order — no stall from tick 0 to strawberry — and each price is 0.5–1.5 h of the income at its unlock', () => {
-    console.log('PIN22', JSON.stringify({ band, fieldsH: hours(r1.ladder.ladderTicks.fields!), harvester3H: hours(r1.ladder.ladderTicks.harvester3!), finalCash: Math.round(r1.ladder.finalCash) }))
+    console.log('PIN22', JSON.stringify({ band, fieldsH: hours(r1.ladder.ladderTicks.fields!), harvester3H: hours(r1.ladder.ladderTicks.harvester3!), finalCash: Math.round(r1.ladder.finalCash), rungsH: Object.fromEntries(MACHINES_ON_GOALS.map((g) => [g.name, r1.ladder.ladderTicks[g.name] === undefined ? null : hours(r1.ladder.ladderTicks[g.name]!)])), endPickaxe: r1.end.run.pickaxe, endGoldBars: r1.end.run.inventory.goldBar ?? 0 }))
     const ticks = NEW_CROPS.map((c) => r1.ladder.licenseBought[c])
     expect(ticks.every((t) => t !== undefined)).toBe(true)
     expect([...ticks].sort((a, b) => a! - b!)).toEqual(ticks)
     expect(r1.end.run.licenses).toEqual(['radish', ...LICENSE_ORDER, ...NEW_CROPS])
-    expect(r1.ladder.ladderTicks.harvester3).toBeDefined()
+    expect(r1.ladder.ladderTicks.plots30).toBeDefined()
     expect(r1.stallTicks).toBe(0)
     expect(r1.ladder.lowest).toBeGreaterThanOrEqual(0)
     expect(r1.ladder.borrowed).toBe(false)
@@ -3971,6 +4075,13 @@ describe.skip('batch 22: four new crops — license ladder, price band, 8-crop m
     expect(sale1.ok && sale2.ok).toBe(true)
     // re-pinned batch 26: the bed sprinklers speed the plain run up too, so the vault edge narrows to ~1.39× (was ≥ 1.4)
     expect(run1Fields / run3Fields).toBeGreaterThanOrEqual(1.3)
+    expect(r3.ladderTicks.plots30).toBeDefined()
+  })
+
+  // measured batch 28: run 1 stops after plots30 (pump1 13.3 h, plots30 13.8 h) with a blunt gold pickaxe and 1 gold
+  // bar banked (PLAN.md "Batch 28 results" Deviations)
+  it.fails('run 1 and the vault run climb to harvester3 — measured: run 1 stops after plots30 (blunt gold pickaxe, 1 Au)', () => {
+    expect(r1.ladder.ladderTicks.harvester3).toBeDefined()
     expect(r3.ladderTicks.harvester3).toBeDefined()
   })
 

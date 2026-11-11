@@ -61,7 +61,7 @@ export const TIPS = {
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
   furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
   workshop: 'A shed for sprinklers. Build one on each bed\'s socket ⛲: that bed never needs water again. Bought once; it needs the deepest vein.',
-  fields: 'Endless extra land past your home plot. A field tile is bought one at a time and worked by your planter and harvester in batches, no energy from you; their harvests sell on the market and can fill orders. Pipes water the first tiles; crops beyond the pipes wait, they never die.',
+  fields: 'Endless extra land past your home plot. Land comes in plots of ten tiles, five plots to a field; a field needs a pivot to be sown and the pump decides how many fields it waters. Your planter, harvester and machines work whole plots, or reap one by hand. Keep the coal tank full and fields grow twice as fast; an empty tank slows them, they never die.',
   hire: 'Adds one worker to your pool; put them on a job with + and −. Workers act on their own clock without your energy, also while you are away. Each action costs a small wage, paid only when they work; with no cash they wait. Each hire costs more than the last, up to a cap.',
 }
 

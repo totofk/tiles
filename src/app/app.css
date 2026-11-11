@@ -1127,9 +1127,6 @@ details > summary:focus-visible {
   grid-template-columns: subgrid;
   align-items: center;
 }
-.gauge-row > .gauge-note {
-  grid-column: 1 / -1; /* "⏳ N beyond pipes", "stalled" on its own line */
-}
 .gauge-row > small {
   text-align: right;
   font-variant-numeric: tabular-nums;

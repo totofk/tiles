@@ -6,7 +6,7 @@ import { SPRINKLER_EMOJI } from '../core/workshop'
 import { priceText } from './Mine'
 import type { Act } from './useGame'
 
-const VALVE_EMOJI = '🎛️' // Unicode 7
+export const VALVE_EMOJI = '🎛️' // Unicode 7
 
 /** one token per material the recipe is short of, the TierTool "needs 🟨2 💰2500 more" pattern */
 export function shortOf(cost: Price, run: GameState['run']): string[] {
@@ -73,7 +73,7 @@ export function Workshop({ state }: { state: GameState; act: Act }) {
             {workshop.valve && (
               <div className="recipe-row">
                 <span>
-                  {VALVE_EMOJI} Smart valve<small>gets a job when Fields get pressure</small>
+                  {VALVE_EMOJI} Smart valve<small>no idle burn in the Fields</small>
                 </span>
                 <span className="owned-badge">✓ Built</span>
               </div>

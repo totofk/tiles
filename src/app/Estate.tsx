@@ -1,4 +1,17 @@
-import { fieldPlots, machineCost, machineMaintPerHour, machineMaxTiers, machineTilesPerHour, pivotCost, pumpCost, pumpFieldCap, tankCapCoal } from '../core/balance'
+import {
+  FIELD_PRESSURE,
+  TANK_UNITS_PER_COAL,
+  fieldPlots,
+  machineCost,
+  machineMaintPerHour,
+  machineMaxTiers,
+  machineTilesPerHour,
+  pivotCost,
+  pumpCost,
+  pumpFieldCap,
+  tankCapCoal,
+  valveCost,
+} from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { isOffer } from '../core/orders'
@@ -11,6 +24,8 @@ import {
   fieldsOverview,
   fieldsPaybackHours,
   fieldsPlantable,
+  fieldsPressure,
+  fillTank,
   pivotsOwned,
   plotState,
   reapNext,
@@ -25,7 +40,8 @@ import { priceTag } from './marketText'
 import { priceText } from './Mine'
 import type { UiState } from './uiState'
 import { ERROR_TEXT, type Act } from './useGame'
-import { RecipeRow } from './Workshop'
+import { RecipeRow, VALVE_EMOJI } from './Workshop'
+import { buyValve } from '../core/workshop'
 import { estateBottleneck, estateCropIncomePerHour, fleetTilesPerHour, ghostRowPrice, nextReadyText } from './estateText'
 
 const PUMP_EMOJI = '🚰' // Unicode 6
@@ -33,6 +49,8 @@ const ORDER_EMOJI = '📋' // Unicode 6
 const WATER_EMOJI = '💧' // Unicode 6
 const SEEDER_EMOJI = '🌱' // Unicode 6
 const HARVESTER_EMOJI = '🌾' // Unicode 6
+const TANK_EMOJI = '⛽' // Unicode 5.2
+const BEYOND_EMOJI = '🚱' // Unicode 6
 const MACHINE_NAMES = { harvester: 'Harvester', seeder: 'Seeder' } as const
 const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
 
@@ -73,9 +91,9 @@ function fieldTargets(state: GameState, k: number): { ready: number; empty: numb
 }
 
 /**
- * The 🚜 Estate stop's content (batch 27, task 143; plots since batch 28 — a bare stopgap, task 148 lays it out): a
- * capacity strip, the MiniLot, one row per field (crop chip, Sow / Build pivot, Reap), the next plot and pump, and
- * the machines behind a closed details.
+ * The 🚜 Estate stop's content (batch 27, task 143; plots since batch 28, task 148): a capacity strip, the MiniLot,
+ * one row per field the pump waters (crop chip, Sow / Build pivot, Reap) and one collapsed row for the rest, the
+ * Expand group (next plot, pump, fill tank, smart valve), and the machines behind a closed details.
  */
 export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui: UiState; lot?: React.ReactNode }) {
   const { run, meta } = state
@@ -92,10 +110,20 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
   const pumpPrice = pumpCost(pump, meta)
   const crops = run.licenses.filter((c) => fieldsPlantable(run, c))
   const plot = buyPlot(state)
+  const cap = pumpFieldCap(pump)
+  const pressure = fieldsPressure(run)
+  const opens = run.fields.list.every((field) => field.plots.length >= fieldPlots()) ? run.fields.list.length + 1 : 0
+  const fill = fillTank(state)
+  const room = Math.floor((tankCapCoal(pump) * TANK_UNITS_PER_COAL - run.fields.tank) / TANK_UNITS_PER_COAL)
   return (
     <div className="estate">
       <div className="capacity-strip" role="group" aria-label="Fields at a glance">
-        <span className="estate-chip">{`${WATER_EMOJI} ${wetFields}/${pumpFieldCap(pump)} fields wet`}</span>
+        <span className="estate-chip">{`${WATER_EMOJI} ${wetFields}/${cap} fields wet`}</span>
+        <span className={`estate-chip${pressure ? '' : ' estate-chip-warn'}`}>
+          {pressure
+            ? `${TANK_EMOJI} ${Math.floor(run.fields.tank / TANK_UNITS_PER_COAL)}/${tankCapCoal(pump)} · ×${FIELD_PRESSURE}`
+            : `${TANK_EMOJI} empty · ×1`}
+        </span>
         <span className="estate-chip">{`${SEEDER_EMOJI} ${seederRate}/h · ${emptyWet} plots to sow`}</span>
         <span className="estate-chip">{`${HARVESTER_EMOJI} ${harvesterRate}/h · ${ready} ready`}</span>
         {order && <span className="estate-chip">{`${ORDER_EMOJI} ${goodEmoji(order.good)} ${order.done}/${order.count}`}</span>}
@@ -103,7 +131,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
       </div>
       {lot}
       <div className="estate-rows">
-        {run.fields.list.map((field, k) => {
+        {run.fields.list.slice(0, cap).map((field, k) => {
           const t = fieldTargets(state, k)
           return (
             <div className="estate-row" key={k}>
@@ -112,7 +140,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                 {!field.pivot ? (
                   <small>no pivot — cannot sow</small>
                 ) : (
-                  field.crop && <small>{`≈💰${estateCropIncomePerHour(state, field.crop)}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</small>
+                  field.crop && <small>{`≈💰${estateCropIncomePerHour(state, k)}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</small>
                 )}
               </span>
               <select
@@ -141,13 +169,18 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
             </div>
           )
         })}
+        {run.fields.list.length > cap && (
+          <div className="estate-row">
+            <span>{`Fields ${cap + 1}–${run.fields.list.length} · ${BEYOND_EMOJI} beyond Pump ${pump}`}</span>
+          </div>
+        )}
       </div>
       <div className="recipe-wrap">
         <div className="recipe-grid">
           <div className="group">
             <h3>Expand</h3>
             <div className="recipe-row ghost-row">
-              <span>{`＋ Plot 💰${ghost}${payback > 0 ? ` · ~${payback} h payback` : ''}`}</span>
+              <span>{`＋ Plot 💰${ghost}${opens ? ` · opens Field ${opens}` : ''}${payback > 0 ? ` · ~${payback} h payback` : ''}`}</span>
               <button disabled={!plot.ok} onClick={() => act(buyPlot)}>
                 Buy
                 {!plot.ok && plot.error === 'PUMP_FULL' && <small>{`needs Pump Lv${pump + 1}`}</small>}
@@ -165,6 +198,29 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                   <small className="recipe-price">{priceText(pumpPrice)}</small>
                 </button>
               </div>
+            )}
+            <div className="recipe-row">
+              <span>
+                {`${TANK_EMOJI} Fill tank`}
+                <small>{`+${Math.max(0, Math.min(room, run.inventory.coal ?? 0))} ${ITEMS.coal.emoji} from storage`}</small>
+              </span>
+              <button disabled={!fill.ok} title={fill.ok ? undefined : ERROR_TEXT[fill.error]} onClick={() => act(fillTank)}>
+                Fill
+              </button>
+            </div>
+            {run.workshop.built && !run.workshop.valve && (
+              <RecipeRow
+                state={state}
+                act={act}
+                emoji={VALVE_EMOJI}
+                name="Smart valve"
+                verb="Build"
+                cost={valveCost(meta)}
+                effect="pivots burn coal only while a plot grows"
+                owned={false}
+                ownedText=""
+                buy={buyValve}
+              />
             )}
           </div>
         </div>

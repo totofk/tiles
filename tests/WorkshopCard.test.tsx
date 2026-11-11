@@ -96,7 +96,7 @@ describe('🔧 Workshop card (batch 26)', () => {
     cleanup()
     setup({ workshop: { built: true, beds: NO_BEDS, valve: true } })
     expect(row(/Smart valve/).querySelector('.owned-badge')!.textContent).toBe('✓ Built')
-    expect(row(/Smart valve/).textContent).toContain('gets a job when Fields get pressure')
+    expect(row(/Smart valve/).textContent).toContain('no idle burn in the Fields')
   })
 
   it('sits below 👷 Workers in the mobile farm column', () => {

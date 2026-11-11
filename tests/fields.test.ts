@@ -44,7 +44,7 @@ import {
   sowPlot,
   unlockFields,
 } from '../src/core/fields'
-import type { CropId } from '../src/core/data/crops'
+import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Machines, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
 import { catchUp } from '../src/save/serialize'
@@ -281,6 +281,29 @@ describe('reapPlot / reapNext (by hand)', () => {
     expect(reapNext(withFields([field([lemon(99)])], { tick: 10 }))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(reapNext({ ...s, run: { ...s.run, energy: 0 } })).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
+
+  it('a reaped plot fills an accepted order first at the order price, exactly like a home-plot harvest', () => {
+    const orders = { unlocked: true, slots: 1, offers: [{ good: 'lemon' as const, count: 3, done: 0, tier: 0, accepted: true }] }
+    const s = withFields([field([lemon(900)])], { cash: 0, tick: 1000, orders })
+    const r = fieldsHarvest(s)
+    if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
+    expect(r.state.run.lifetime.ordersCompleted).toBe(1)
+    // 3 units at the order price (110 × 1.1) beat the market's glutted 110s
+    const market = fieldsHarvest(withFields([field([lemon(900)])], { cash: 0, tick: 1000 }))!
+    expect(market.ok && r.state.run.cash > market.state.run.cash).toBe(true)
+  })
+
+  it('a gold sickle rolls the double harvest per tile, by hand and by the worker; a basic sickle keeps the RNG', () => {
+    const at = (harvest: number) => withFields([field([lemon(900)])], { cash: 0, tick: 1000, energy: 10, toolTier: { ...init.run.toolTier, harvest } })
+    const gold = at(3)
+    const hand = ok(reapPlot(gold, 0, 0))
+    const worker = fieldsHarvest(gold)!
+    const basic = ok(reapPlot(at(0), 0, 0))
+    expect(hand.run.rngState).not.toBe(gold.run.rngState)
+    expect(worker.ok && worker.state.run.rngState).not.toBe(gold.run.rngState)
+    expect(basic.run.rngState).toBe(at(0).run.rngState)
+    expect(hand.run.cash).toBeGreaterThanOrEqual(basic.run.cash)
+  })
 })
 
 describe('helpers', () => {
@@ -290,6 +313,17 @@ describe('helpers', () => {
     expect(fieldsOverview(s.run)).toEqual({ plots: 6, tiles: 60, fields: 3, wetFields: 2, empty: 3, emptyWet: 1, growing: 2, ready: 1 })
     expect([plantedTiles(s.run.fields, 'lemon'), plantedTiles(s.run.fields, 'pumpkin'), plantedTiles(s.run.fields, 'radish')]).toEqual([20, 10, 0])
     expect(pivotsOwned(s.run.fields)).toBe(2)
+  })
+
+  it('a fresh run starts locked with nothing owned or planted', () => {
+    expect(init.run.fields).toEqual({ unlocked: false, list: [], pump: 0, tank: 0, machines: createMachines() })
+    expect(fieldsOverview(init.run)).toEqual({ plots: 0, tiles: 0, fields: 0, wetFields: 0, empty: 0, emptyWet: 0, growing: 0, ready: 0 })
+    expect(CROP_IDS.map((c) => plantedTiles(init.run.fields, c))).toEqual(CROP_IDS.map(() => 0))
+  })
+
+  it('the Fields are inert while locked, with or without plots', () => {
+    const locked = { ...init, run: { ...init.run, fields: { ...init.run.fields, list: [field([lemon(10), lemon(999)])] } } }
+    expect(step(locked, 3).run.fields).toEqual(locked.run.fields)
   })
 
   it('marginal income runs on the pressured cycle; the payback = plotCost ÷ (10 × marginal per tile)', () => {
@@ -353,6 +387,16 @@ describe('machinesAct on whole plots', () => {
     expect(step(idle, 600).run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0 })
   })
 
+  it('the harvester rolls the best sickle double harvest per tile; a basic sickle rolls nothing', () => {
+    const at = (harvest: number) =>
+      withFields([field([lemon(50)])], { tick: 100, cash: 0, toolTier: { ...init.run.toolTier, harvest } }, { machines: fleet({ harvester: [3], carry: { harvest: 10, plant: 0, maint: 0 } }) })
+    const gold = machinesAct(at(3))
+    const basic = machinesAct(at(0))
+    expect([sown(gold), sown(basic)]).toEqual([0, 0])
+    expect(gold.run.rngState).not.toBe(at(3).run.rngState)
+    expect(basic.run.rngState).toBe(at(0).run.rngState)
+  })
+
   it('machines first, workers fill the gap: with one ready plot the machine takes it and the worker idles unpaid', () => {
     const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
     const base = withFields([field([lemon(4)])], {
@@ -396,6 +440,12 @@ describe('buyMachine', () => {
     expect([machineMaxTiers('harvester'), machineMaxTiers('seeder')]).toEqual([3, 2])
     expect([1, 2, 3].map((t) => machineTilesPerHour('harvester', t))).toEqual([1800, 3600, 7200])
     expect([1, 2, 3].map((t) => machineMaintPerHour(t))).toEqual([60, 120, 240])
+    expect([1, 2].map((t) => machineTilesPerHour('seeder', t))).toEqual([1800, 3600])
+    expect(machineCost('harvester', 1, init.meta)).toEqual({ ironBar: 12, cash: machineCost('harvester', 1, init.meta).cash })
+    expect(machineCost('harvester', 2, init.meta)).toEqual({ ironBar: 24, goldBar: 4, cash: machineCost('harvester', 2, init.meta).cash })
+    expect(machineCost('harvester', 3, init.meta)).toEqual({ goldBar: 12, cash: machineCost('harvester', 3, init.meta).cash })
+    expect(machineCost('seeder', 1, init.meta)).toEqual({ ironBar: 12, cash: machineCost('seeder', 1, init.meta).cash })
+    expect(machineCost('seeder', 2, init.meta)).toEqual({ ironBar: 24, goldBar: 4, cash: machineCost('seeder', 2, init.meta).cash })
     expect(buyMachine(init, 'harvester', 1)).toEqual({ ok: false, error: 'LOCKED' })
     const s = withFields(undefined, { cash: 1e6, inventory: { ironBar: 12 } })
     const r = ok(buyMachine(s, 'harvester', 1))

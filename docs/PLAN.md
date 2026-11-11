@@ -4452,7 +4452,7 @@ Rules (every task):
      Pump-3 tank (400 coal) stay at ×2 for every one of the 28,800 offline ticks and end at tank 0; the same farm
      with an empty tank ripens everything at ×1; step(s, n) = n × step(s, 1) with the tank crossing empty mid-run.
 
-- [ ] 148. **Minimal Fields UI on the new model + sim + CHANGELOG.** (`src/app` only besides the sim)
+- [x] 148. **Minimal Fields UI on the new model + sim + CHANGELOG.** (`src/app` only besides the sim)
   a) Capacity strip (`Estate.tsx:88–94`): `💧 {wetFields}/{pumpFieldCap} fields wet`;
      `⛽ {floor(tank/U)}/{tankCapCoal} · ×2` when the last tick had pressure, else `⛽ empty · ×1` (warn style);
      `🌱 {seeder rate}/h · {emptyWet} plots to sow`; `🌾 {harvester rate}/h · {ready} ready`; the order chip and the
@@ -4723,3 +4723,87 @@ centre column at any width; both stops side by side at 2560 / 3440 (774 / 1214 p
 pulledBack set on first load; the 📋 sheet opens Orders / Workers / Workshop at 375; 1024 Home stop and pre-Tractor
 1024 pair at 52–53 px with no scroll and no cell overflow; 1440 pre-Tractor unchanged at 95 px, 375 at 104 px.
 Not seen by eye: the FLIP and pull-back motion (the state flips; the animation was not filmed).
+
+## Batch 28 results
+
+Commits: `47ac3e5` (tasks 145 + 146 together — the v21 shape change does not compile without the core rewrite),
+`52f2c51` (task 147), the task 148 commit. `pnpm test` 889 passed + 5 expected fail (`it.fails`, listed below),
+`pnpm lint` and `pnpm build` green; `npx tsc -b --force` clean.
+
+### 8 h fixture earnings (task 145e, `tests/save.test.ts`, `step(s, OFFLINE_CAP_TICKS)` cash delta, measured)
+v20 code (Hermes on `72ec00a`) → v21 code: v16 💰458,346 → 💰2,360,041 · v17 💰446,798 → 💰2,586,662 · v18 💰442,797 →
+💰2,176,245 · v19 💰441,238 → 💰2,154,702 · v20 💰439,579 → 💰1,819,686. Every fixture v1–v20 migrates; none loses value.
+
+### Sim re-pins (task 148g, `tests/sim.test.ts`, seeded, measured; balance numbers untouched)
+- Ladder: `fields` → `pivot2` + `plots10` → `pump1` → `plots30` → `harvester1` → `seeder1` → `pump2` → `plots60` →
+  `harvester2` → `seeder2` → `harvester3`. The bot sets each pivoted field's chip to lemon and keeps an hour of tank
+  burn: storage coal above the next goal's smelting coal goes into the tank; it sells no coal while tank + storage hold
+  less than an hour.
+- Batch 18 ladder: unlock 586.1 min → pivot 2 597.3 min (11 min, ≤ 60 ✓; was 47 min to the first pipes) → 10 plots
+  889 min. Pin 26b holds (≤ 90 game-minutes to the Tractor).
+- Income vs N, workers only, all-lemon 10/50/100/300/1000 tiles: [47951, 112708, 151938, 380848, 396495] →
+  [47661, 111447, 150893, 350763, 393223]; the 4-crop mix at 100/300: was within 2 % of lemon → [193653, 263448].
+- Payback label crosses 8 h: tile-count 26 → plot count 5.
+- Coal over the window: miner / furnace coal/h [382, 0] → [355, 0]; the tank burn at 30 plots 12.5 coal/h.
+- Price caps: fields 60 / pivot2 60 (was pipes1 60); every pivot bar (3 Au / 6 Fe / 6 Cu) ≤ 60.
+- Batch 19 curve (workers / full fleet, k💰/h) at 100 / 300 / 1000 tiles: [150,154] [382,437] [397,436] →
+  [151,153] [351,432] [396,1290]. Payback at 300 tiles h1 / h2 / h3 / seeders: null / 1.6 / 68.1 / null →
+  0.8 / 17.8 / 276.7 / 153.6. Pays on the 8 h bar at N: null / 300 / null / null → 300 / 1000 / 1000 / null.
+- Batch 19 ladder (170 h): plots10 890 min, pump1 1116, plots30 2354, harvester1 2367, seeder1 2391, pump2 2622, then
+  plots60 → harvester3; no stall tick, no fleet pause. Machine income at purchase (💰/h): harvester1 348,163,
+  seeder1 416,932, harvester2 531,713, seeder2 754,108, harvester3 763,110.
+- Something is buyable at every pump cap reached (pump 0 / 1 / 2 reached at tick 35,169 / 66,992 / 157,322, first
+  buy possible at 35,836 / 69,861 / 160,381).
+- Batch 20: fields unlock 9.6 / 7.1 / 6.1 h (speedup 1.3× / 1.6×); batch 22: fields unlock 8.7 / 6.2 h (1.4×).
+
+### Reported (printed, not pinned — `PIN28c`)
+- Income/h with the full fleet, mono strawberry vs the bot's lemon chips: 2 fields 💰596,528 vs 💰152,900 · 6 fields
+  💰1,713,549 vs 💰431,585 · 12 fields 💰3,382,868 vs 💰848,100 · 20 fields 💰5,491,698 vs 💰1,290,108.
+- Tank coal/h vs the miner's coal/h (batch 19 run, 589/h): 2 fields 5 · 6 fields 15 · 12 fields 30 · 20 fields 50.
+- Labor bound at 20 fields of strawberry: the land needs 7,500 tiles/h sown AND 7,500 reaped (15,000 together); the
+  fleet's rated 12,600 reap + 5,400 sow; measured 6,170 sown and 6,160 reaped per hour (the seeders bind); a planter
+  worker on whole plots 7,200/h. Income at that bound 💰5,491,698/h.
+
+### Deviations
+- Tasks 145 and 146 share one commit (`47ac3e5`): the v21 `Fields` type does not compile with the old core, and the
+  per-task commit rule needs green gates.
+- `it.fails` with the measured value (the numbers are fixed by the plan/LOCKED; never changed to pass):
+  1. FIELDS_CASH 0.35–1.5 h of the income at its unlock — measured 0.10 h (💰10,000 ÷ 💰102,773/h).
+  2. No milestone gap > 60 game-minutes from the Tractor to Pump 2 — measured 1,188 min, inside pump1 → plots30
+     (pivots 3–6 each wait on 3 gold bars).
+  3. Every machine cash price ≥ 0.35 h of the income at its purchase — measured 0.14 / 0.12 / 0.47 / 0.33 / 0.46 h.
+  4. Batch 20: both sold runs reach harvester3 in 170 h — not reached; they stop after plots30.
+  5. Batch 22: run 1 and the vault run climb to harvester3 — run 1 stops after plots30 (pump1 13.3 h, plots30 13.8 h)
+     with a blunt gold pickaxe and 1 gold bar banked. Pivots spend 3 Au each; a blunt gold pickaxe mines nothing and
+     repairs only with 2 Au. A bot buffer of one extra repair before each pivot was tried and made batch 19 wedge too —
+     reverted. Worth a design look (a pivot recipe without gold, or a repair path for a blunt gold pickaxe).
+- The sim bot's tank rule: "keeps an hour of tank burn in storage" was read as tank + storage together. An hour held in
+  the bag on top of a pivot's bars filled it (59/60) and wedged batch 19 at 41 plots.
+- `tests/changelog.test.ts` line cap raised 160 → 180: the batch-28 line is fixed verbatim (175 chars).
+- The batch 19 curve test got a 30 s timeout (1.7–2.9 s alone, 7.6 s under the full parallel suite).
+- The bottleneck chip's branch 2 (dry field) fires only while the pump has a pivot left to give
+  (`pivotsOwned < pumpFieldCap`); otherwise a migrated save with 60 fields would point at Field 21's pivot forever.
+- Branch 6 at the top pump reads `⚠ Pump — Field 21 needs Pump Lv4` / `max pump` (the label is the plan's template).
+- `⛽ … · ×2` reads `fieldsPressure(run)` (can the tank pay this tick's burn), not a stored "last tick" flag.
+- Purity grep: `src/save/storage.ts:26` `wallClock = () => Date.now()` is a hit, pre-existing since 2026-11-07
+  (`3556eec`), outside batch 28.
+- Not verified (no browser, jsdom only): layout of the field rows, the collapsed row, the Fill tank and valve rows and
+  the phone bar at 375 / 1024 / 1440. Hermes checks live.
+- Tests removed in `47ac3e5` and their fate. `tests/fields.test.ts` (old title → fate):
+  balance (pipe tiers, batches) → rewritten as the plot/pivot/pump balance test · unlockFields → "the Tractor gift" ·
+  buyField → buyPlot tests (per-tile buying is gone) · plantFields order → setFieldCrop + sowPlot orders · plants a
+  cohort of 10 → sowPlot all-or-nothing · pouch seeds + dibber + partial cohort → dibber per tile + all-or-nothing
+  (partial sowing is gone) · "stop" clears the plant crop → setFieldCrop null (the global plantCrop is gone) ·
+  fieldsHarvest reaps HARVEST_BATCH of the oldest cohort → the worker reaps the oldest plot whole · **fills an accepted
+  order first → restored** · **gold sickle per tile → restored (hand + worker)** · covered cohorts grow / strict
+  prefix / no pipes stalls / pump coal draw → gone with pipes (replaced by the task 147 pressure tests) · **inert while
+  locked → restored** · planter plants a Fields batch / harvester reaps cohorts / planter idles → the three
+  whole-plot worker tests · fields100 milestone → the milestone-ids test · marginal income + payback → the pressured
+  helper test · step identity over cohorts → step identity over plots · buyPipes → buyPump · coverage is what buyPipes
+  buys → gone · **fresh run starts locked → restored** · fieldsStats prefix rule → gone (fieldsStats deleted) ·
+  **machines balance → restored into the buyMachine test (seeder rates, recipe shapes)** · harvester exact tile rate +
+  sickle → the whole-plot carry test + **restored sickle-per-tile machine test** · machines-first / maintenance (idle
+  part now in the carry test) → kept.
+  `tests/estateText.test.ts`: income (now per field, pressured) and ghost row kept · bottleneck 1 "dry pump" → new
+  branch 1 "pressure off" · bottleneck 2 "stalled → next Pipes tier" → new branch 6 "pump" · bottlenecks 3/4/5 →
+  new 3+4 / 5 / 7 · new branch 2 "dry field" added.

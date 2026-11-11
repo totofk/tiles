@@ -30,12 +30,19 @@ describe('the 🚜 Fields summary card (batch 27, task 143e)', () => {
     expect(container.querySelector('.fields-summary')).toBeNull()
   })
 
-  it('one line — plots, ready — and an Open Estate button that calls onOpen', () => {
+  it('one line — plots, ready, pressure — and an Open Estate button that calls onOpen', () => {
     let opened = 0
     const state = unlocked()
     render(<Fields state={state} onOpen={() => { opened++ }} />)
-    expect(screen.getByText('🚜 Fields · 5 plots · 🌾 1 ready')).toBeTruthy()
+    // an empty tank cannot pay the pivot's 5 plots: ×1
+    expect(screen.getByText('🚜 Fields · 5 plots · 🌾 1 ready · ⛽ ×1')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Open Estate' }))
     expect(opened).toBe(1)
+  })
+
+  it('a tank that pays the burn shows ⛽ ×2', () => {
+    const s = unlocked()
+    render(<Fields state={{ ...s, run: { ...s.run, fields: { ...s.run.fields, tank: 5 } } }} onOpen={() => {}} />)
+    expect(screen.getByText('🚜 Fields · 5 plots · 🌾 1 ready · ⛽ ×2')).toBeTruthy()
   })
 })
