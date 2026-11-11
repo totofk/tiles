@@ -4431,7 +4431,7 @@ Rules (every task):
      192 / 300 plots × 8 h each < 2,000 ms with step identity — build the 192/300-plot states directly (60 fields, as a
      migrated save holds them; only 20 are pivoted).
 
-- [ ] 147. **Pressure: the tank, the valve's new job, the loader.** (`fieldsAct`, `workshop.ts`, `workers.ts`)
+- [x] 147. **Pressure: the tank, the valve's new job, the loader.** (`fieldsAct`, `workshop.ts`, `workers.ts`)
   a) `fieldsAct` per tick (still after the workers, `step.ts:62`): burning plots = without the valve every plot in a
      field with a pivot (empty ones too); with the valve only growing plots in a field with a pivot. If
      `tank ≥ burning`: `tank −= burning` and pressure is on; else the tank is left as it is and pressure is off.

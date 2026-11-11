@@ -122,7 +122,7 @@ export type Furnace = {
 /**
  * The workshop (batch 17, bed sockets since batch 26): built once, then one permanent sprinkler per bed socket.
  * beds = one socket per bed (4 = SPRINKLER_MAX); a built bed's six tiles hold full water forever, no coal. valve =
- * the one-time smart valve (inert until Fields get pressure, batch 28; an owned valve stays owned).
+ * the one-time smart valve (batch 28: the Fields' pivots burn tank coal only for growing plots).
  */
 export type Workshop = { built: boolean; beds: boolean[]; valve: boolean }
 

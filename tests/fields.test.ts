@@ -32,6 +32,7 @@ import {
   fieldsOverview,
   fieldsPaybackHours,
   fieldsPlantAction,
+  fillTank,
   machinesAct,
   pivotsOwned,
   plantedTiles,
@@ -401,6 +402,101 @@ describe('buyMachine', () => {
     expect(r.run.fields.machines.harvester).toEqual([1])
     expect(r.run.cash).toBe(1e6 - machineCost('harvester', 1, init.meta).cash)
     expect(buyMachine(r, 'harvester', 1)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+  })
+})
+
+describe('pressure: the tank, the valve, the loader (task 147)', () => {
+  const U = TANK_UNITS_PER_COAL
+  const HALF = Math.ceil(LEMON / FIELD_PRESSURE)
+  /** odd ticks in [a, b) */
+  const oddIn = (a: number, b: number) => Math.floor(b / 2) - Math.floor(a / 2)
+
+  it('a paid tank keeps ×2: a plot sown at t ripens at t + ceil(grow / 2), one burn unit per plot per tick', () => {
+    const s = ok(sowPlot(withFields([field([empty(), empty()])], { tick: 10 }, { tank: 1000 }), 0, 0))
+    const after = step(s, HALF)
+    expect(after.run.fields.list[0].plots[0]).toEqual(lemon(10 + HALF))
+    expect(plotState(after.run.fields.list[0].plots[0], after.run.tick)).toBe('ready')
+    expect(after.run.fields.tank).toBe(1000 - 2 * HALF) // valve off: the empty plot burns too
+  })
+
+  it('an empty tank grows ×1 exactly: readyTick moves 1 later on every odd tick while growing, burns nothing', () => {
+    const s = ok(sowPlot(withFields([field([empty()])], { tick: 10 }, { tank: 0 }), 0, 0))
+    const t100 = step(s, 100) // ticks 10 … 109: 50 odd ones
+    expect(t100.run.fields.list[0].plots[0].readyTick).toBe(10 + HALF + 50)
+    expect(t100.run.fields.tank).toBe(0)
+    const done = step(s, LEMON + 2)
+    const p = done.run.fields.list[0].plots[0]
+    expect(plotState(p, done.run.tick)).toBe('ready')
+    expect(p.readyTick).toBe(10 + HALF + oddIn(10, p.readyTick)) // t + ceil(grow / 2) + the odd ticks passed (= t + 359)
+  })
+
+  it('valve on: empty and ready plots burn nothing; valve off: they burn; a dry field burns nothing and grows ×1', () => {
+    const plots = [lemon(999), empty(), lemon(1)]
+    const valve = (on: boolean) => withFields([field(plots), field([lemon(999)], 'lemon', false)], { tick: 10, workshop: { built: true, beds: [true, false, false, false], valve: on } }, { tank: 10 })
+    expect(step(valve(true), 1).run.fields.tank).toBe(9)
+    expect(step(valve(false), 1).run.fields.tank).toBe(7)
+    // tick 11 is odd: the dry field's growing plot slips one tick, the pressured one does not
+    const two = step(valve(true), 2)
+    expect(two.run.fields.list.map((f) => f.plots[0].readyTick)).toEqual([999, 1000])
+    // a tank short of the whole burn pays nothing: pressure off, tank kept
+    const short = withFields([field([lemon(999), lemon(999)])], { tick: 11 }, { tank: 1 })
+    expect(step(short, 1).run.fields).toMatchObject({ tank: 1, list: [{ plots: [lemon(1000), lemon(1000)] }] })
+  })
+
+  it('fillTank: order LOCKED, NOTHING_TO_DO (room < 1 coal), NOT_ENOUGH_ITEMS; moves whole coal up to the room', () => {
+    expect(fillTank(init)).toEqual({ ok: false, error: 'LOCKED' })
+    const s = withFields(undefined, { inventory: { coal: 100 } }, { tank: 30 * U + 5 })
+    const r = ok(fillTank(s))
+    expect([r.run.inventory.coal, r.run.fields.tank]).toEqual([91, 39 * U + 5]) // room = floor((40·U − 30·U − 5) / U) = 9
+    expect(fillTank(r)).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+    expect(fillTank({ ...s, run: { ...s.run, inventory: {} } })).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    const few = ok(fillTank({ ...s, run: { ...s.run, inventory: { coal: 3 } } }))
+    expect([few.run.inventory.coal, few.run.fields.tank]).toEqual([0, 33 * U + 5])
+  })
+
+  it('the fuel loader: the furnace first, then one coal into the tank, then idle', () => {
+    const loader = (furnace: Partial<GameState['run']['furnace']>, tank: number, coal = 5) =>
+      withFields(undefined, {
+        tick: 5,
+        inventory: { coal },
+        furnace: { ...init.run.furnace, ...furnace },
+        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 1, mine: 0, clerk: 0, manager: 0 }, certificates: ['fuel'] },
+      }, { tank })
+    const furnace = step(loader({ built: true, fire: 0 }, 0), 1)
+    expect([furnace.run.inventory.coal, furnace.run.fields.tank, furnace.run.lifetime.wagesPaid]).toEqual([4, 0, 1])
+    const tank = step(loader({ built: false }, 0), 1)
+    // one coal in at the worker tick, then Field 1's empty plot burns its unit (valve off)
+    expect([tank.run.inventory.coal, tank.run.fields.tank, tank.run.lifetime.wagesPaid]).toEqual([4, U - 1, 1])
+    const full = step(loader({ built: false }, 40 * U), 1)
+    expect([full.run.inventory.coal, full.run.lifetime.wagesPaid]).toEqual([5, 0])
+  })
+
+  /** 20 pivoted fields × 5 plots growing far beyond 8 h, Pump 3, valve off */
+  const bigFarm = (tank: number) =>
+    withFields(Array.from({ length: 20 }, () => field(Array.from({ length: 5 }, () => lemon(1e9)))), { tick: 0 }, { pump: 3, tank })
+
+  it('pin: a full Pump-3 tank (400 coal) holds ×2 for every one of the 28,800 offline ticks and ends at 0', () => {
+    const s = bigFarm(tankCapCoal(3) * U)
+    const after = step(s, 28_800)
+    expect(after.run.fields.tank).toBe(0)
+    expect(after.run.fields.list.every((f) => f.plots.every((p) => p.readyTick === 1e9))).toBe(true) // never slowed
+  }, 60_000)
+
+  it('pin: the same farm with an empty tank ripens everything at ×1', () => {
+    const sown = withFields(Array.from({ length: 20 }, () => field(Array.from({ length: 5 }, () => lemon(HALF)))), { tick: 0 }, { pump: 3, tank: 0 })
+    const after = step(sown, LEMON + 2)
+    const r = HALF + oddIn(0, LEMON - 1) // 180 + 179 = 359: the full grow time, ×1
+    expect(r).toBe(LEMON - 1)
+    expect(after.run.fields.list.every((f) => f.plots.every((p) => p.readyTick === r && plotState(p, after.run.tick) === 'ready'))).toBe(true)
+  })
+
+  it('pin: step(s, n) = n × step(s, 1) with the tank crossing empty mid-run', () => {
+    const s = bigFarm(100 * 300)
+    let one = s
+    for (let i = 0; i < 600; i++) one = step(one, 1)
+    expect(step(s, 600)).toEqual(one)
+    expect(one.run.fields.tank).toBe(0)
+    expect(one.run.fields.list[0].plots[0].readyTick).toBe(1e9 + 150) // 300 paid ticks, then 150 odd of the next 300
   })
 })
 

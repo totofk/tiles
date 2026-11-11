@@ -1,8 +1,8 @@
 // Workshop + bed sprinklers (batch 17, permanent bed sockets since batch 26, DECISIONS "Workshop + sprinklers").
 // A sprinkler is built on a bed's socket, is permanent, and its six tiles always hold full water — no upkeep, no
-// coal. The smart valve sits inert until Fields get pressure (batch 28).
+// coal. The smart valve stops the Fields' idle burn (batch 28).
 import { fail, type ActionResult } from './actions'
-import { sprinklerCost, sprinklerMax, workshopCost, workshopVeinLevel } from './balance'
+import { sprinklerCost, sprinklerMax, valveCost, workshopCost, workshopVeinLevel } from './balance'
 import { pay } from './mining'
 import type { GameState, RunState } from './state'
 
@@ -33,8 +33,12 @@ export function buildSprinkler(state: GameState, bed: number): ActionResult {
   return pay(state, sprinklerCost(state.meta), { workshop: { ...run.workshop, beds: run.workshop.beds.map((b, i) => (i === bed ? true : b)) } })
 }
 
-// Inert until batch 28 (Fields pressure): unbuilt valves cannot be bought, and an owned valve stays owned.
+// The smart valve (batch 28): the Fields' pivots burn tank coal only for growing plots. One-time.
+// Order: NO_WORKSHOP, LOCKED (Fields not unlocked), ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH.
 export function buyValve(state: GameState): ActionResult {
-  void state // the argument is kept for the batch-28 signature
-  return fail('LOCKED')
+  const { run } = state
+  if (!run.workshop.built) return fail('NO_WORKSHOP')
+  if (!run.fields.unlocked) return fail('LOCKED')
+  if (run.workshop.valve) return fail('ALREADY_OWNED')
+  return pay(state, valveCost(state.meta), { workshop: { ...run.workshop, valve: true } })
 }

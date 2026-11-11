@@ -222,8 +222,8 @@ export const FURNACE_UPGRADE_IDS = Object.keys(FURNACE_UPGRADES) as FurnaceUpgra
 
 // Workshop (batch 17, permanent bed sockets since batch 26, DECISIONS "Workshop + sprinklers"): a Shop card once
 // vein Lv4 is owned. A sprinkler is built once on a bed's socket (SPRINKLER_MAX beds, six tiles each) and keeps
-// those tiles at full water forever — no coal, no upkeep, no moving or selling. The one-time smart valve is inert
-// until Fields get pressure (batch 28). Workshop goods are never orderable.
+// those tiles at full water forever — no coal, no upkeep, no moving or selling. The one-time smart valve stops the
+// Fields' idle burn: pivots burn tank coal only for growing plots (batch 28). Workshop goods are never orderable.
 const WORKSHOP_VEIN_LEVEL = 4
 const SPRINKLER_MAX = 4
 // cash parts = 0.5–1.5 h of the batch-17 ladder bot's income at each purchase (pinned in PLAN.md "Batch 17 results")

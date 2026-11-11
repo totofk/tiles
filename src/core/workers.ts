@@ -12,7 +12,7 @@ import {
   workerWage,
 } from './balance'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
-import { fieldsHarvest, fieldsPlantAction } from './fields'
+import { fieldsHarvest, fieldsPlantAction, fillTank } from './fields'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction, clerkTarget } from './orders'
@@ -36,7 +36,7 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 /**
  * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of the
  * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
- * (coal only: wood stays for pickaxe repairs; batch 28 gives it the Fields tank too). Miner: one press of the Mine button with no energy (the active pickaxe's
+ * (coal only: wood stays for pickaxe repairs), else one coal into the Fields tank when it has room (batch 28). Miner: one press of the Mine button with no energy (the active pickaxe's
  * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
  * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
  * do, so the worker idles unpaid.
@@ -53,7 +53,9 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
   fuel: (s) => {
     const f = s.run.furnace
-    return f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1 ? addFuel(s, 'coal', 1) : null
+    if (f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1) return addFuel(s, 'coal', 1)
+    const tank = fillTank(s, 1)
+    return tank.ok ? tank : null
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
   clerk: clerkAction,

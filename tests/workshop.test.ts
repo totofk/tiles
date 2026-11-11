@@ -99,11 +99,18 @@ describe('buildSprinkler', () => {
 })
 
 describe('buyValve', () => {
-  it('sits LOCKED until batch 28 — with or without the workshop, owned or not', () => {
-    expect(buyValve({ ...init, run: { ...init.run, inventory: { goldBar: 2 }, cash: 99999 } })).toEqual({ ok: false, error: 'LOCKED' })
+  it('batch 28: order NO_WORKSHOP, LOCKED (Fields not unlocked), ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH; pays 2 Au + cash', () => {
+    const fields = { ...init.run.fields, unlocked: true }
+    expect(buyValve({ ...init, run: { ...init.run, fields, inventory: { goldBar: 2 }, cash: 99999 } })).toEqual({ ok: false, error: 'NO_WORKSHOP' })
     expect(buyValve(withWorkshop(NO_BEDS, [], { inventory: { goldBar: 2 }, cash: 99999 }))).toEqual({ ok: false, error: 'LOCKED' })
-    const owned = withWorkshop([true, false, false, false], [], { workshop: { built: true, beds: [true, ...NO_BEDS.slice(1)], valve: true } })
-    expect(buyValve(owned)).toEqual({ ok: false, error: 'LOCKED' })
+    const ready = withWorkshop(NO_BEDS, [], { fields, inventory: { goldBar: 2 }, cash: 99999 })
+    expect(buyValve({ ...ready, run: { ...ready.run, workshop: { ...ready.run.workshop, valve: true } } })).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(buyValve({ ...ready, run: { ...ready.run, inventory: { goldBar: 1 } } })).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyValve({ ...ready, run: { ...ready.run, cash: valveCost(init.meta).cash - 1 } })).toEqual({ ok: false, error: 'NO_CASH' })
+    const r = buyValve(ready)
+    if (!r.ok) throw new Error(r.error)
+    expect([r.state.run.workshop.valve, r.state.run.inventory.goldBar, r.state.run.cash]).toEqual([true, 0, 99999 - valveCost(init.meta).cash])
+    expect(r.state.run.milestones.valve).toBe(r.state.run.tick)
   })
 })
 

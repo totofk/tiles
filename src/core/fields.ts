@@ -6,6 +6,7 @@
 import { fail, nextRandom, withRun, type ActionResult } from './actions'
 import {
   FIELD_PRESSURE,
+  TANK_UNITS_PER_COAL,
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
@@ -24,6 +25,7 @@ import {
   pumpFieldCap,
   reapPlotEnergy,
   seedKeepChance,
+  tankCapCoal,
   type MachineKind,
 } from './balance'
 import { CROP_IDS, type CropId } from './data/crops'
@@ -319,12 +321,60 @@ export function fieldsPlantAction(state: GameState): ActionResult | null {
   return sowNext(state)
 }
 
+/** plots the pivots burn this tick: every plot in a pivoted field, or with the smart valve only the growing ones */
+function burningPlots(run: RunState): number {
+  let n = 0
+  for (const field of run.fields.list)
+    if (field.pivot) for (const p of field.plots) if (!run.workshop.valve || plotState(p, run.tick) === 'growing') n++
+  return n
+}
+
+/** the tank pays this tick's burn: pivoted fields grow ×FIELD_PRESSURE (the UI's "×2"), else every field ×1 */
+export function fieldsPressure(run: RunState): boolean {
+  return run.fields.tank >= burningPlots(run)
+}
+
 /**
- * One tick of the Fields (inside step, after the workers). Plots ripen on their absolute readyTick, so nothing moves
- * here yet; the tank's pressure lands in task 147.
+ * One tick of the Fields (inside step, after the workers). Plots ripen on their absolute readyTick, sown at the
+ * pressured pace; the tank pays the pivots' burn (one unit per burning plot) whole or not at all. Unpaid — or in a
+ * field with no pivot — a growing plot's readyTick moves 1 later on every odd tick, which nets ×1. Fields never stall
+ * and never die. Returns the same state when nothing burns and nothing slows.
  */
 export function fieldsAct(state: GameState): GameState {
-  return state
+  const { run } = state
+  const f = run.fields
+  if (!f.unlocked) return state
+  const burning = burningPlots(run)
+  const pressure = f.tank >= burning
+  const tank = pressure ? f.tank - burning : f.tank
+  let slowed = false
+  const list =
+    run.tick % 2 === 1
+      ? f.list.map((field) => {
+          if (field.pivot && pressure) return field
+          if (!field.plots.some((p) => plotState(p, run.tick) === 'growing')) return field
+          slowed = true
+          return { ...field, plots: field.plots.map((p) => (plotState(p, run.tick) === 'growing' ? { ...p, readyTick: p.readyTick + 1 } : p)) }
+        })
+      : f.list
+  if (tank === f.tank && !slowed) return state
+  return { ...state, run: { ...run, fields: { ...f, tank, list } } }
+}
+
+/**
+ * Moves whole coal from storage into the tank, up to its room and `max` (the fuel loader moves one). No energy.
+ * Order: LOCKED, NOTHING_TO_DO (room for less than one coal), NOT_ENOUGH_ITEMS (no coal in storage).
+ */
+export function fillTank(state: GameState, max = Infinity): ActionResult {
+  const { run } = state
+  const f = run.fields
+  if (!f.unlocked) return fail('LOCKED')
+  const room = Math.floor((tankCapCoal(f.pump) * TANK_UNITS_PER_COAL - f.tank) / TANK_UNITS_PER_COAL)
+  if (room < 1) return fail('NOTHING_TO_DO')
+  const coal = run.inventory.coal ?? 0
+  if (coal < 1) return fail('NOT_ENOUGH_ITEMS')
+  const moved = Math.min(room, coal, max)
+  return withRun(state, { inventory: { ...run.inventory, coal: coal - moved }, fields: { ...f, tank: f.tank + moved * TANK_UNITS_PER_COAL } })
 }
 
 // ─── Machines (batch 19) ───────────────────────────────────────────────────────────────────────────────────────
