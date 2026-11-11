@@ -60,11 +60,7 @@ export function Workshop({ state }: { state: GameState; act: Act }) {
   return (
     <details className="workers">
       <summary>{`🔧 Workshop · ${SPRINKLER_EMOJI} ${n}/${sprinklerMax()} beds`}</summary>
-      <div className="group gauge-grid">
-        <div className="gauge-row">
-          <span>{`${SPRINKLER_EMOJI} ${n}/${sprinklerMax()} beds — the water worker retires at 4/4`}</span>
-        </div>
-      </div>
+      <p className="hint">{`${SPRINKLER_EMOJI} ${n}/${sprinklerMax()} beds — the water worker retires at 4/4`}</p>
       <div className="recipe-wrap">
         <div className="recipe-grid">
           <div className="group">

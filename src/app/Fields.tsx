@@ -13,7 +13,7 @@ export function Fields({ state, onOpen }: { state: GameState; onOpen: () => void
   const { plots, ready } = fieldsOverview(run)
   return (
     <div className="fields-summary">
-      <span>{`${FIELDS_EMOJI} Fields · ${plots} plots · ${READY_EMOJI} ${ready} ready · ⛽ ×${fieldsPressure(run) ? FIELD_PRESSURE : 1}`}</span>
+      <span>{`${FIELDS_EMOJI} Fields · ${plots} plot${plots === 1 ? '' : 's'} · ${READY_EMOJI} ${ready} ready · ⛽ ×${fieldsPressure(run) ? FIELD_PRESSURE : 1}`}</span>
       <button onClick={onOpen}>Open Estate</button>
     </div>
   )

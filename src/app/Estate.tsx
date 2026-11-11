@@ -124,7 +124,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
             ? `${TANK_EMOJI} ${Math.floor(run.fields.tank / TANK_UNITS_PER_COAL)}/${tankCapCoal(pump)} · ×${FIELD_PRESSURE}`
             : `${TANK_EMOJI} empty · ×1`}
         </span>
-        <span className="estate-chip">{`${SEEDER_EMOJI} ${seederRate}/h · ${emptyWet} plots to sow`}</span>
+        <span className="estate-chip">{`${SEEDER_EMOJI} ${seederRate}/h · ${emptyWet} plot${emptyWet === 1 ? '' : 's'} to sow`}</span>
         <span className="estate-chip">{`${HARVESTER_EMOJI} ${harvesterRate}/h · ${ready} ready`}</span>
         {order && <span className="estate-chip">{`${ORDER_EMOJI} ${goodEmoji(order.good)} ${order.done}/${order.count}`}</span>}
         <span className={`estate-chip${chip.label.startsWith('✓') ? '' : ' estate-chip-warn'}`}>{`${chip.label} — ${chip.fix}`}</span>

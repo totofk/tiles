@@ -76,14 +76,17 @@ describe('🔧 Workshop card (batch 26)', () => {
     cleanup()
     setup({ workshop: { built: true, beds: [true, true, false, false], valve: false } })
     expect(summary()).toBe(`🔧 Workshop · ${SPRINKLER_EMOJI} 2/${sprinklerMax()} beds`)
-    expect(row(new RegExp(`${SPRINKLER_EMOJI} 2/4 beds —`)).textContent).toBe(`${SPRINKLER_EMOJI} 2/4 beds — the water worker retires at 4/4`)
+    // batch 28.2: a plain hint line (no bar, no count), so no max-content gauge column overflows the card at 1024 px
+    const line = screen.getByText(`${SPRINKLER_EMOJI} 2/4 beds — the water worker retires at 4/4`)
+    expect([line.tagName, line.className]).toEqual(['P', 'hint'])
+    expect(document.querySelector('details.workers .gauge-row')).toBeNull()
   })
 
-  it('two groups — the one-line gauge group, then one Build grid with an h3, a hint and no buy buttons', () => {
+  it('the one-line hint, then one Build grid with an h3, a hint and no buy buttons', () => {
     setup({ workshop: { built: true, beds: [true], valve: false } as GameState['run']['workshop'] })
     const card = document.querySelector('details.workers')!
     const groups = [...card.children].filter((c) => c.tagName === 'DIV')
-    expect(groups.map((g) => g.className)).toEqual(['group gauge-grid', 'recipe-wrap'])
+    expect(groups.map((g) => g.className)).toEqual(['recipe-wrap'])
     const build = card.querySelector('.recipe-grid')!
     expect([...build.querySelectorAll('h3')].map((h) => h.textContent)).toEqual(['Build'])
     expect(build.querySelector('.hint')!.textContent).toBe(`Build on a bed's socket ${SPRINKLER_EMOJI} on the farm`)

@@ -44,6 +44,21 @@ describe('the 🚜 Estate stop (batch 27, task 143; plots since batch 28, task 1
     expect(screen.getByText(`🌾 ${fleetTilesPerHour(base.run.fields.machines, 'harvester')}/h · ${ready} ready`)).toBeTruthy()
   })
 
+  it.each([
+    [1, '1 plot to sow'],
+    [2, '2 plots to sow'],
+  ])('batch 28.2: the seeder chip counts %i empty wet plot(s) as "%s"', (n, label) => {
+    // every plot growing, then n empty plots in Field 1 (it always has its pivot)
+    const list = base.run.fields.list.map((f, i) => ({
+      ...f,
+      plots: f.plots.map((_, j) => (i === 0 && j < n ? { crop: null, readyTick: 0 } : { crop: 'radish' as const, readyTick: base.run.tick + 999_999 })),
+    }))
+    const s = { ...base, run: { ...base.run, fields: { ...base.run.fields, list } } }
+    expect(fieldsOverview(s.run).emptyWet).toBe(n)
+    render(<Estate state={s} act={() => {}} ui={ui} />)
+    expect(screen.getByText(`🌱 ${fleetTilesPerHour(s.run.fields.machines, 'seeder')}/h · ${label}`)).toBeTruthy()
+  })
+
   it('the crop chip goes through setFieldCrop, Sow through sowPlot; a dry field shows Build pivot instead of Sow', () => {
     const list = base.run.fields.list.map((f, i) => (i === 0 ? { ...f, crop: null, plots: f.plots.map(() => ({ crop: null, readyTick: 0 })) } : f))
     const t = setup({ ...base, run: { ...base.run, fields: { ...base.run.fields, list } } })

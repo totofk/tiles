@@ -40,6 +40,13 @@ describe('the 🚜 Fields summary card (batch 27, task 143e)', () => {
     expect(opened).toBe(1)
   })
 
+  it('batch 28.2: one plot reads "1 plot"', () => {
+    const s = unlocked()
+    const list = s.run.fields.list.map((f, i) => (i === 0 ? { ...f, plots: f.plots.slice(0, 1) } : f))
+    render(<Fields state={{ ...s, run: { ...s.run, fields: { ...s.run.fields, list } } }} onOpen={() => {}} />)
+    expect(screen.getByText(/^🚜 Fields · 1 plot · /)).toBeTruthy()
+  })
+
   it('a tank that pays the burn shows ⛽ ×2', () => {
     const s = unlocked()
     render(<Fields state={{ ...s, run: { ...s.run, fields: { ...s.run.fields, tank: 5 } } }} onOpen={() => {}} />)

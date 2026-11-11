@@ -323,6 +323,12 @@ button:disabled {
 .banner button {
   min-height: 32px;
   min-width: 44px;
+  /* batch 28.2: the label never overflows its button at 375 px; the text beside it wraps instead */
+  flex: none;
+  white-space: nowrap;
+}
+.banner > span {
+  min-width: 0;
 }
 /* cross-tab freeze (task 117): amber, not blue — the game is paused, only Reload proceeds */
 .banner-freeze {
@@ -1557,11 +1563,6 @@ details > summary:focus-visible {
 }
 .sort-row > button {
   min-height: 44px;
-}
-.hint {
-  margin: 0;
-  font-size: 13px;
-  color: #555;
 }
 .item-name {
   min-width: 0;
