@@ -6537,7 +6537,7 @@ v24 code). Never edit any file in tests/fixtures.
   - You have no browser: list what you could not verify under `### Deviations` (Hermes re-measures live at 375 / 1024 /
     1440 / 2560 / 3440).
 
-- [ ] 180. **Sim: the bot uses molds; scenarios A / B; re-pins; changelog.**
+- [x] 180. **Sim: the bot uses molds; scenarios A / B; re-pins; changelog.**
   - Bot policy (`tests/sim.test.ts`; the kind switch is `:906–967`, `ladderTicks.ironPicked / goldPicked` at
     `:679, 909, 914`): the bot no longer picks a kind. It buys the iron mold when the next ladder goal needs iron bars
     (where it called `setOreKind(s, 'ironOre')`) and the gold mold where it called `setOreKind(s, 'goldOre')`; rename
@@ -6576,3 +6576,119 @@ v24 code). Never edit any file in tests/fixtures.
   Migration gives all three molds (the gold slot keeps ore 4, progress 12), so nothing is lost and all three kinds smelt
   at once from the first tick. Every new row starts at Lv0 for veterans too; their cash parts are ~1.5 % of the save's
   cash, so bars gate them (🥈6–10 / 🥇4–8 per row).
+
+## Batch 33 results
+
+Commits: task 177 `5a248dca`, task 178 `7e2eb763`, task 179 `b7c976ba`, task 180 (this commit). Save v25
+(`migrateV24`); every fixture v1 … v24 migrates (tests/save.test.ts "save v25: furnace molds"). Measured with
+`npx vitest run tests/sim.test.ts --silent=false` (log lines `PIN33a`, `PIN33a2`, `PIN33b`, `PIN33max`); "before" =
+the same scenario test run on the unchanged code (`7b993993`) at the start of task 177.
+
+### Scenario A — fresh player, tick 0 → harvester3 (`PIN33a`, the batch-19 170 h ladder run)
+
+| Measure | Before | After |
+| --- | --- | --- |
+| Ladder end (harvester3), game-min | 8,794.4 | 8,837.6 |
+| First iron bar, game-min | 95.2 | 105.7 |
+| First gold bar, game-min | 232.5 | 288.8 |
+| Iron kind picked / iron mold bought, game-min | 92.8 (free switch) | 103.4 (mold) |
+| Gold kind picked / gold mold bought, game-min | 228.8 (free switch) | 285.3 (mold) |
+| Longest gap tick 0 → ladder end | plots30 → harvester1, 3,137.8 min (ends at 4,407.4) | plots30 → harvester1, 3,157.3 min (ends at 4,456.2) |
+| Held the tick before that purchase (harvester1 = 🥈12 💰50,000) | 💰48,989 🥉6 🥈12 🥇3 | 💰49,953 🥉6 🥈12 🥇3 |
+| What bound it | cash (bars already held) | cash (bars already held) |
+
+Guards (all hold): batch-16 gold ladder gaps [1.3, 29.6, 48.3, 26.3, 32.8] game-min (was [1.5, 31.4, 15.3, 24.4, 33]),
+every gap ≤ 60; PIN26b longest gap workshop → Tractor 51.4 game-min (fieldsUnlocked, ≤ 90); batch-18 unlock → pivot 2
+17.7 game-min (≤ 60); batch 11/12/13 ladder longest gap vein Lv3 → iron pickaxe 20.4 game-min (was certPlant 12.6);
+batch 15 iron-tool gaps [20.3, 36.5, 33.2] (was [8.1, 28, 33.5]); batch 17 workshop gaps ≤ 35.7.
+
+### Scenario A2 — hand player, no workers (`PIN33a2`)
+
+From a copper-only furnace on vein Lv3 holding ⛰️20, 🔶20, ⚫10 and 💰6,500: hand load / fuel / collect makes 🥉10 in the
+copper mold and buys the iron mold at game-minute 10.0 (cash 0, nothing left over). Reachable; no soft lock.
+
+### Scenario B — the real v24 save, migrated, 2 game-hours with its own workers (`PIN33b`)
+
+| Measure | Before (one kind: gold) | After (three molds) |
+| --- | --- | --- |
+| Copper bars / h | 0 | 0 |
+| Iron bars / h | 0 | 1.5 |
+| Gold bars / h | 0 | 0 |
+| Fire burnt / h (ticks) | 0 | 60 |
+
+The save has no miner and almost no ore (🔶4 🔷6 🌟4, no coal): after the migration the ore loader loads the iron mold
+from storage and it smelts; the gold mold keeps the old slot's ore 4 (progress 12) and stays short of its 6-ore cycle,
+exactly as before (see Deviations). Every new row's cash part (💰6,500 / 💰7,500) is 1.5–1.7 % of the save's 💰447,910,
+asserted < 2 % — bars gate veterans.
+
+### Max-furnace pin (`PIN33max`)
+
+One mold per kind, fire cap Lv4, batch Lv4 (5 bars), speed Lv2, tray Lv2, slot Lv2, fire kept full, 8 game-hours:
+copper 468.75 bars/h (by construction, asserted), iron 234.375 bars/h, gold 156.25 bars/h; fire 16,875 ticks/h =
+281.25 coal/h.
+
+### Re-pins (cause for every one: "molds: every kind smelts at once")
+
+- Batch 11 ladder: iron mold 5246 (was ironPicked 4647), first iron bar 5385 (4825), iron pickaxe 5868 (5307), mine
+  certificate 6468 (5907); [finalCash, wages, workerMines, ironBarsSmelted] [7014, 1167, 143, 16] (was [14581, 1213,
+  247, 20]). Batch 11 iron bench plain120 / smart120 / plain600 / smart600 [23, 289, 462, 8] / [23, 288, 460, 0] /
+  [15, 202, 322, 48] / [12, 166, 251, 0] (was [29, 447, 572, 2] / [29, 436, 560, 0] / [12, 199, 282, 69] / [11, 159,
+  203, 0]). Batch 11 offline [346, 27, 3, 72908, 3592] (was [871, 42, 8, 72860, 3610]).
+- Batch 12: market off 7014 / 6468 (was 14581 / 5907), market on 6839 / 6468 (was 14020 / 5943); no-stall
+  [34, certMine 6468, ironPickaxe 1221] (was [34, certMine 5907, certPlant 757]).
+- Batch 13: mine certificate bought 113.8 (was 104.7); [5818, ironPickaxe 1206] (was [13529, certPlant 764]).
+- Batch 15: mine certificate 113.8 (104.7), gaps [20.3, 36.5, 33.2], done 203.8 (174.3); phase { 90, 19420, 12, 45, 30 }
+  (was { 69.6, 20459, 12, 34, 29 }); cash part 0.515 h (was 0.489, now back over the 0.5 floor); the "bot never waits"
+  bound ≤ 30 ticks (was ≤ 2; see Deviations).
+- Batch 16: steps [231.4, 232.7, 262.3, 310.5, 336.8, 369.6] (was [207.5, 209, 240.4, 255.7, 280.1, 313.1]); first gold
+  bar 298.5 (243.7); vein phase 30.8 min at 💰16,219/h (32.8 at 15,003); gold phase 107.3 min at 💰16,729/h 7 bars/h
+  (72.8 at 18,013, 11); final cash 87048 (101262); vein cash part 0.462 h (was 0.5).
+- Batch 17: steps [376.1, 396.6, 420.8, 420.8, 443.3, 444.2, 479.9] (was [316.9 … 468.2]), gaps [20.5, 24.2, 0, 22.5, 1,
+  35.7], incomes [21539, 26421, 28430] (was [22750, 24575, 29026]), cash 540267 (567566); workshop / sprinkler cash
+  parts 0.395 / 0.303 h (was 0.374 / 0.326); coal [483, 7] (was [478, 7]).
+- Batch 18: lemon income vs N [42814, 83952, 83952, 83952, 83952] (was [42020, 81507 …]); mix [75980, 64046] (was
+  [75745, 63677]); coal [977, 11] (was [982, 11]).
+- Batch 19: curve [81,209] [81,599] [81,755] (was [81,211] [81,598] [81,758]); marginal payback harvester2 null (was
+  1623.4, its delta is now −1,001/h), harvester3 4545.5 (363.6).
+- Batch 20: vault speed-up 1.68× / 1.4× (was 1.33× / 1.2×, back over the 1.4× floor); harvester3 105 / 100.1 h (was
+  105.6 / 101).
+- Batch 22: license cash parts [0.5, 0.54, 0.35, 0.38] h (was [0.49, 0.57, 0.43, 0.53]); harvester3 107.5 / 72.5 h (was
+  108.1 / 73.6).
+- Batch 28.2: the vein-Lv3 hour's income 💰14,470/h (was 14,227); ORE_SORT_CASH still rounds to 💰6,500.
+- Unchanged by task 178: orderPool / orderPerMinute moved no sim pin (the order sims start from vein-Lv4 saves or the
+  ladder end, which own every mold).
+
+### Deviations
+
+- No browser: the per-mold furnace card is verified only by jsdom render tests (tests/Mine.test.tsx: one mold row and no
+  picker, the Iron mold row and buying it, Collect all with n bars, the LOCKED batch line, the summary). Not verified:
+  layout, wrapping and the new `.furnace-mold` dashed separator at 375 / 1024 / 1440 / 2560 / 3440 — Hermes re-measures
+  live. Three molds open make the Smelt group about three times taller; the card is collapsible, but 375 px scroll
+  length was not measured.
+- Scenario B, gold: the v24 save's gold slot (ore 4 of a 6-ore cycle at batch Lv2, 🌟4 in storage) still does not smelt
+  after the migration. The ore loader only loads a whole cycle (storage ≥ 6), the same rule as before, so the residue
+  is not new and nothing is taken away; it starts as soon as the player loads 2 more gold ore by hand or the miner
+  brings some. Not changed (the loader rule is task 178's, fixed by the plan).
+- Batch 15 "the bot never waits": the iron harvest tool's cash became ready at game-minute 170.1 and the bot bought it at
+  170.6 (29 ticks), over the old ≤ 2-tick bound; the buy waits for the bot's next mining round while the player farms.
+  Not one of the blocker guards; re-pinned to ≤ 30 ticks.
+- Cash-part floors now under target (exact pins, not blocker guards; prices are LOCKED): vein Lv4 💰7,500 = 0.462 h of the
+  vein-phase income (floor 0.5); sprinkler 0.303 h (floor 0.35, was already 0.326); grape and strawberry licenses 0.35 h
+  and 0.38 h (floor 0.5). The batch-15 iron tool (0.515 h) and the vault speed-up (1.68×) moved back over theirs.
+- Sim bot, beyond the mold purchase (needed to keep the old flows working, documented in tests/sim.test.ts): while an
+  iron / gold mold is not owned, the goals that smelt that kind keep the mold's price (its bars with their ore and coal,
+  and its stone), so mining does not sell it; with an ore loader on, once the iron mold is owned the copper ore in
+  storage sells before each tick during the iron goals (the old furnace was on iron there). Measured with that sale
+  switched off (batch 11–15 suites, reverted): the iron ladder ticks are identical (iron mold 5246 … mine certificate
+  6468), but the ladder end holds 🥉32 instead of 🥉16 (storage 40/50 vs 26/50), the batch-11 8 h offline miner stops at
+  tick 186 instead of 346, and the batch-15 iron tools land at 134.6 / 177.3 / 214.9 game-min instead of 134.1 / 170.6 /
+  203.8; no guard fails either way. `fuelForOre` (the player's coal top-up under an ore loader) now sums every owned
+  mold's cycles at its own coal per cycle, less the lit fire in coal: identical to before for copper alone, more coal
+  once an iron or gold mold counts. The kind-choosing logic of the sprinkler phase is gone (every short kind smelts in
+  its own mold); the residue top-up stays, per mold.
+- Task boundaries: the ore loader rule (178), the away-text tray sum (178) and a compile-only copper-mold Mine card
+  landed with task 177, because removing `oreKind` / `ore` / `ready` from `Furnace` broke them; 178 and 179 then did the
+  rest of their lists.
+- The `fire`, `fireWasted` and `fireBurnt` values can now hold fractions (speed burns 1.25 / 1.5625 per tick). Every
+  place that shows them rounds already: the furnace summary and fire line (`Math.ceil` units), the welcome-back "fire
+  burnt" (`Math.ceil`) and Stats "Fire wasted" (`Math.ceil`); the fire gauge is a fraction bar.

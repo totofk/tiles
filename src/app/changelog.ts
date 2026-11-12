@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '33', date: '2026-11-13', line: "The furnace has molds: buy iron and gold molds to smelt every ore at once, each with its own tray. New upgrades: speed, bigger trays and ore slots, a bigger fire, Collect all." },
   { batch: '32.2', date: '2026-11-13', line: "Estate workers now work a plot one tile at a time and share the progress with your machines. The next plot shows how far along it is (3/10). Buttons ripple when pressed." },
   { batch: '32', date: '2026-11-12', line: "Mine: keep every pickaxe on a rack, mastered pickaxes find more ore, strong presses break several rocks, Keep N sells only the excess, and sickles find seeds. 💼 Manager now ⭐20" },
   { batch: '31.1', date: '2026-11-12', line: "Money reads easier (💰1.5M), the HUD shows income and wages per hour, new workers light up 🌱 Farm and ⛏️ Mine, and the 💼 Manager unlocks after 10 contracts — harvesters count" },

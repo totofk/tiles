@@ -27,6 +27,8 @@ import {
   licenseCost,
   furnaceCost,
   furnaceTrayCap,
+  furnaceSpeedRate,
+  batchBars,
   moldPrice,
   mineLicenseCost,
   orderBonus,
@@ -539,7 +541,7 @@ const FIELDS_LADDER: Goal[] = [
   plotsGoal('plots10', 10),
 ]
 const FIELDS_ON_GOALS = FIELDS_LADDER.slice(WORKSHOP_LADDER.length)
-/** the sum of two keeps, except coal: the furnace smelts one kind at a time, so the bigger phase budget covers both (batch 19: the sum topped the bag and wedged the miner on a full coal bag) */
+/** the sum of two keeps, except coal: the bigger phase budget covers both (batch 19: the sum topped the bag and wedged the miner on a full coal bag; kept as is with molds, batch 33) */
 const plusKeep = (a: (s: GameState) => Price, b: (s: GameState) => Price) => (s: GameState): Price => {
   const out = a(s)
   for (const [id, n] of Object.entries(b(s)) as [keyof Price, number][]) out[id] = id === 'coal' ? Math.max(out[id] ?? 0, n) : (out[id] ?? 0) + n
@@ -647,9 +649,10 @@ function runBot(
      */
     planter?: boolean
     /**
-     * batch 11 (with planter): IRON_LADDER; while an iron goal is next and the furnace is still on copper, the bot sells
-     * the copper ore in storage before each tick (so the ore loader stops loading it), collects the tray, and picks iron
-     * once the slot and tray are empty; the mine worker, once certified, gets one worker like a loader
+     * batch 11 (with planter): IRON_LADDER; while an iron goal is next the bot buys the iron mold (batch 33; the goal
+     * keeps its price until then), and with an ore loader on it sells the copper ore in storage before each tick once
+     * the mold is in (so the loader does not fill storage with copper bars); the mine worker, once certified, gets one
+     * worker like a loader
      */
     iron?: boolean
     /**
@@ -658,13 +661,13 @@ function runBot(
      */
     ironTools?: boolean
     /**
-     * batch 16 (with ironTools): GOLD_LADDER; while a gold goal is next and the furnace is still on iron, the bot
-     * sells the iron ore in storage, collects the tray, and picks gold once the slot and tray are empty
+     * batch 16 (with ironTools): GOLD_LADDER; while a gold goal is next the bot buys the gold mold (batch 33; the goal
+     * keeps its price until then)
      */
     gold?: boolean
     /**
-     * batch 17 (with gold): WORKSHOP_LADDER; the furnace smelts the bar kind the next goal is still short of
-     * (copper → iron → gold, switching once a kind is banked); a fuel loader and a miner join the staff (the ore
+     * batch 17 (with gold): WORKSHOP_LADDER; every bar kind the next goal is still short of smelts in its own mold at
+     * once (batch 33; before, one kind at a time); a fuel loader and a miner join the staff (the ore
      * loader stays off — hand-smelting keeps the keep's cap); once the machines cover every tile, the water
      * workers move to planting; the bag keeps an hour of pump coal beyond the goal's needs
      */
@@ -689,9 +692,9 @@ function runBot(
     /** batch 20: the prestige sim's run 2 starts from a sold state (createFreshRun already shaped it) */
     initial?: GameState
     /**
-     * batch 20: completes the furnace slot's partial cycle before an ore-kind switch — the hand-smelt loads
-     * smeltOre units but a cycle takes smeltOre × batchBars, and once the surplus ore is sold the residue can never
-     * finish, so setOreKind stays NOT_EMPTY forever (the prestige sim's run 2 wedged on 1 copper ore for 150 h)
+     * batch 20: never sells the ore that completes a mold's partial cycle — the hand-smelt loads smeltOre units but a
+     * cycle takes smeltOre × batchBars, and once the surplus ore is sold the residue can never finish (the prestige
+     * sim's run 2 wedged on 1 copper ore for 150 h when a residue blocked the old kind switch)
      */
     drainSlot?: boolean
     /** receives the state at the cut-off */
@@ -716,7 +719,7 @@ function runBot(
   let storageAffordable: number | undefined
   let storageBought: number | undefined
   let veinBought: number | undefined
-  // batch 28.1: set once the bot swapped a blunt pickaxe for a lower tier; the pickaxe rungs then pick the furnace's kind
+  // batch 28.1: set once the bot swapped a blunt pickaxe for a lower tier; the pickaxe rungs then smelt their kind
   let swapped = false
   // net cash and energy per activity; licenses are one-off capital and excluded from both
   const farm = { cash: 0, energy: 0 }
@@ -3911,8 +3914,6 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       ladderEndMin: min(endTick),
       firstIronBarMin: min(t.firstIronBar),
       firstGoldBarMin: min(t.firstGoldBar),
-      ironPickedMin: min(t.ironPicked),
-      goldPickedMin: min(t.goldPicked),
       ironMoldMin: min(t.ironMold),
       goldMoldMin: min(t.goldMold),
       longest: { closedBy: longest.id, after: longest.from, gapMin: min(longest.gap), atMin: min(longest.tick) },
@@ -4638,12 +4639,72 @@ describe('batch 32.2: estate worker speed — scenario B, the real v23 save migr
 })
 
 describe('batch 33: scenario B — the real v24 save, migrated, 2 game-hours with its own workers (report)', () => {
-  it('reports bars/h per kind and fire burnt/h', () => {
+  it('reports bars/h per kind and fire burnt/h; every new row\'s cash part is < 2 % of the save\'s cash (bars gate veterans)', () => {
     const start = deserialize(v24)!.state
     const s = step(start, 2 * HOUR_TICKS)
     const per = (k: 'barsSmelted' | 'ironBarsSmelted' | 'goldBarsSmelted' | 'fireBurnt') => (s.run.lifetime[k] - start.run.lifetime[k]) / 2
     console.log('PIN33b', JSON.stringify({ barsPerHour: { copper: per('barsSmelted'), iron: per('ironBarsSmelted'), gold: per('goldBarsSmelted') }, fireBurntPerHour: per('fireBurnt'), furnace: s.run.furnace }))
     expect(per('fireBurnt')).toBeGreaterThanOrEqual(0)
+    const rows = (['fireCap', 'batch', 'speed', 'tray', 'slot', 'collectAll'] as const).flatMap((id) =>
+      Array.from({ length: furnaceUpgradeMaxLevel(id) }, (_, l) => furnaceUpgradeCost(id, l, start.meta)!).filter((p) => p.cash >= 6500),
+    )
+    for (const p of [...rows, moldPrice('ironOre', start.meta), moldPrice('goldOre', start.meta)]) expect(p.cash / start.run.cash).toBeLessThan(0.02)
+  }, 120_000)
+})
+
+describe('batch 33: scenario A2 — a hand player (no workers) on a copper-only furnace can buy the iron mold', () => {
+  it('🥉10 ⛰️20 💰6,500: every item comes from the copper mold and the vein; no soft lock', () => {
+    const init = createInitialState()
+    let s: GameState = {
+      ...init,
+      run: { ...init.run, cash: 6500, bagCapacity: 50, vein: { level: 3, progress: 0, rock: 'stone' }, furnace: { ...createFurnace(), built: true }, inventory: { stone: 20, copperOre: 20, coal: 10 } },
+    }
+    let tick = 0
+    while (!s.run.furnace.molds.ironOre && tick < HOUR_TICKS) {
+      for (const act of [(x: GameState) => collectBars(x, 'copperOre'), (x: GameState) => loadOre(x, 'copperOre'), (x: GameState) => addFuel(x, 'coal'), (x: GameState) => buyMold(x, 'ironOre')]) {
+        const r = act(s)
+        if (r.ok) s = r.state
+      }
+      s = step(s, 1)
+      tick++
+    }
+    console.log('PIN33a2', JSON.stringify({ moldAtMin: Math.round((tick / 60) * 10) / 10, left: s.run.inventory }))
+    expect(s.run.furnace.molds.ironOre).toBeDefined()
+    expect(s.run.cash).toBe(0)
+  })
+})
+
+describe('batch 33: max-furnace pin — one mold per kind, every level at max, fire kept full, 8 game-hours', () => {
+  it('bars/h per kind: copper 468.75 by construction (batch 5 × speed 1.5625), iron and gold reported', () => {
+    const init = createInitialState()
+    const empty = { ore: 0, progress: 0, ready: 0 }
+    let s: GameState = {
+      ...init,
+      run: {
+        ...init.run,
+        bagCapacity: 1e7,
+        inventory: { copperOre: 1e6, ironOre: 1e6, goldOre: 1e6, coal: 1e6 },
+        furnace: { built: true, fire: 0, smart: true, levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 }, molds: { copperOre: empty, ironOre: empty, goldOre: empty }, collectAll: true },
+      },
+    }
+    const ticks = 8 * HOUR_TICKS
+    for (let t = 0; t < ticks; t++) {
+      for (const kind of ORE_IDS) {
+        const l = loadOre(s, kind)
+        if (l.ok) s = l.state
+      }
+      const all = collectMolds(s)
+      if (all.ok) s = all.state
+      const f = addFuel(s, 'coal')
+      if (f.ok) s = f.state
+      s = step(s, 1)
+    }
+    const h = ticks / HOUR_TICKS
+    const perHour = { copper: s.run.lifetime.barsSmelted / h, iron: s.run.lifetime.ironBarsSmelted / h, gold: s.run.lifetime.goldBarsSmelted / h }
+    console.log('PIN33max', JSON.stringify({ ...perHour, fireBurntPerHour: s.run.lifetime.fireBurnt / h, coalPerHour: s.run.lifetime.fireBurnt / fuelTicks('coal') / h }))
+    expect(perHour.copper).toBe((batchBars(4) * HOUR_TICKS * furnaceSpeedRate(2)) / barTicks('copperOre'))
+    expect(perHour.copper).toBe(468.75)
+    expect([perHour.iron, perHour.gold]).toEqual([234.375, 156.25])
   }, 120_000)
 })
 
