@@ -5,6 +5,7 @@ import {
   cropSeedCost,
   digSeedDrop,
   doubleHarvestChance,
+  seedDropChance,
   RENOWN_BY_HAND,
   RENOWN_BY_WORKER,
   addRenown,
@@ -210,7 +211,10 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
     (t) => {
       const { run } = state
       const { harvests, sales } = run.counters
-      const { hit, rngState } = tierRoll(run, run.toolTier.harvest, doubleHarvestChance(run.toolTier.harvest))
+      const tier = run.toolTier.harvest
+      const { hit, rngState: afterDouble } = tierRoll(run, tier, doubleHarvestChance(tier))
+      // batch 32: then the sickle's seed roll (tier 0 rolls nothing), +1 seed of the crop into the pouch
+      const { hit: seed, rngState } = tierRoll({ ...run, rngState: afterDouble }, tier, seedDropChance(tier))
       const crops = hit ? 2 : 1
       // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
       // is hand-picked, a worker's (energy 0) is not
@@ -221,7 +225,11 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
         cashDelta: sale.cash,
         counters: { harvests: harvests + 1, sales: sales + crops },
         harvested: t.cropId,
-        run: { ...sale.run, renown: addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER) },
+        run: {
+          ...sale.run,
+          renown: addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER),
+          seeds: seed ? { ...sale.run.seeds, [t.cropId!]: (sale.run.seeds[t.cropId!] ?? 0) + 1 } : sale.run.seeds,
+        },
       }
     },
     energy,

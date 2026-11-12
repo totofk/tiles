@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '32', date: '2026-11-12', line: "Mine: keep every pickaxe on a rack, mastered pickaxes find more ore, strong presses break several rocks, Keep N sells only the excess, and sickles find seeds. 💼 Manager now ⭐20" },
   { batch: '31.1', date: '2026-11-12', line: "Money reads easier (💰1.5M), the HUD shows income and wages per hour, new workers light up 🌱 Farm and ⛏️ Mine, and the 💼 Manager unlocks after 10 contracts — harvesters count" },
   { batch: '31', date: '2026-11-12', line: "Renown: every home harvest builds that crop's renown, and a hand harvest counts double. At 250 / 1,000 / 4,000 renown its market price never drops below 55 / 60 / 70 %" },
   { batch: '30', date: '2026-11-11', line: 'Estate map: each field is now a row of plot squares (1 square = 10 tiles). Tap an empty plot to sow, a ready one to reap; tap the field to pick its crop or build its pivot' },

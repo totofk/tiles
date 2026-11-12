@@ -118,8 +118,9 @@ describe('pressTool', () => {
             .reduce((acc, i) => okState(manual[job](acc, i)), s)
           expect(r.state).toEqual(expected)
           expect(r.done).toBe(r.wanted)
-          // one draw per harvested / planted tile at tier 1, none at tier 0 or for watering
-          const draws = tier === 1 && job !== 'water' ? r.done : 0
+          // at tier 1: two draws per harvested tile (double, then the batch-32 seed drop), one per planted tile; none at
+          // tier 0 or for watering
+          const draws = tier === 1 && job !== 'water' ? r.done * (job === 'harvest' ? 2 : 1) : 0
           expect(r.state.run.rngState).toBe(advance(s.run.rngState, draws))
         }
   })
@@ -178,16 +179,18 @@ describe('tool material tiers (copper batch 7.1, iron batch 15)', () => {
     expect(toolTargets(withRun([growing(0), growing(1)]), 'water')).toEqual([0])
   })
 
-  it('copper harvest: one draw; r < 10 % sells 2 crops (sales +2, cash ×2), still one harvest', () => {
+  it('copper harvest: two draws; r < 10 % sells 2 crops (sales +2, cash ×2), still one harvest; then the seed roll (batch 32)', () => {
     // walk the PRNG to the first double and the first single
     let s = withRun([ripe(0)], { toolTier: copper })
     const outcomes = new Set<number>()
     for (let k = 0; k < 60 && outcomes.size < 2; k++) {
-      const [r, next] = nextRandom(s.run.rngState)
+      const [r, afterDouble] = nextRandom(s.run.rngState)
+      const [seedRoll, next] = nextRandom(afterDouble)
       const after = okState(harvest(s, 0)).run
       const crops = r < 0.1 ? 2 : 1
       outcomes.add(crops)
       expect(after.rngState).toBe(next)
+      expect(after.seeds.radish ?? 0).toBe((s.run.seeds.radish ?? 0) + (seedRoll < 0.1 ? 1 : 0))
       expect(after.cash - s.run.cash).toBe(crops * sell)
       expect(after.counters).toMatchObject({ harvests: s.run.counters.harvests + 1, sales: s.run.counters.sales + crops })
       expect(after.lifetime.harvests.radish).toBe((s.run.lifetime.harvests.radish ?? 0) + 1)

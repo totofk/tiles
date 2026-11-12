@@ -1,5 +1,6 @@
 import {
   doubleHarvestChance,
+  seedDropChance,
   energyMax,
   energyRegenPerTick,
   fireUnitTicks,
@@ -51,7 +52,7 @@ const pct = (f: number) => `${Math.round(f * 100)} %`
 /** what the job's material tier does to each of its actions */
 const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
   water: (t) => `waters to ${waterMoisture(t)} (${times(waterMoisture(t) / waterMoisture(0))} moist time)`,
-  harvest: (t) => `${pct(doubleHarvestChance(t))} double harvest`,
+  harvest: (t) => `${pct(doubleHarvestChance(t))} double harvest · ${pct(seedDropChance(t))} seed`,
   plant: (t) => `${pct(seedKeepChance(t))} seed kept`,
 }
 

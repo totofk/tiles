@@ -11,6 +11,7 @@ import {
   cropSeedCost,
   cropSellPrice,
   doubleHarvestChance,
+  seedDropChance,
   fieldPlots,
   fieldsCost,
   fieldsCropHarvests,
@@ -291,18 +292,28 @@ export function nextReapTarget(run: RunState): [number, number] | null {
 }
 
 /**
- * Reaps one whole plot (the caller checked it is ready): the best sickle's double harvest rolls per tile, the crop
+ * Reaps one whole plot (the caller checked it is ready): the best sickle's double harvest and seed drop roll per tile
+ * (seeds go to the pouch), the crop
  * sells through harvestSale (accepted orders first, then the market). Home counters and lifetime.harvests stay
  * untouched (the 50-harvest gate keeps its meaning); `energy` is the hand reap's cost (0 for workers and machines).
  */
 function reapAt(state: GameState, field: number, plot: number, energy: number): RunState {
   const { run } = state
   const crop = run.fields.list[field].plots[plot].crop!
+  const tier = run.toolTier.harvest
   let { rngState } = run
   let units = 0
+  let seeds = 0
   for (let k = 0; k < plotTiles(); k++) {
-    const [r, next] = run.toolTier.harvest > 0 ? nextRandom(rngState) : [0, rngState]
-    units += r < doubleHarvestChance(run.toolTier.harvest) ? 2 : 1
+    if (tier === 0) {
+      units += 1
+      continue
+    }
+    const [r, afterDouble] = nextRandom(rngState)
+    const [s, next] = nextRandom(afterDouble)
+    units += r < doubleHarvestChance(tier) ? 2 : 1
+    // batch 32: the seed roll per tile, after the double roll
+    if (s < seedDropChance(tier)) seeds++
     rngState = next
   }
   // batch 29: the player's own reap pays ×1.25 into accepted orders only; its market units sell at ×1
@@ -314,6 +325,7 @@ function reapAt(state: GameState, field: number, plot: number, energy: number): 
     energy: run.energy - energy,
     lifetime: { ...sale.run.lifetime, cashEarned: sale.run.lifetime.cashEarned + sale.cash, energySpent: sale.run.lifetime.energySpent + energy },
     fields: withPlot(run.fields, field, plot, emptyPlot()),
+    seeds: seeds > 0 ? { ...sale.run.seeds, [crop]: (sale.run.seeds[crop] ?? 0) + seeds } : sale.run.seeds,
   }
 }
 

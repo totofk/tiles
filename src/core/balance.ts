@@ -183,6 +183,8 @@ const TOOL_N_RATIO = 1 / 3
 // same for every job; tier t needs tier t − 1 of the job. No gold can: iron is the last watering can.
 const WATER_MOISTURE = [1, 2, 4]
 const DOUBLE_HARVEST = [0, 0.1, 0.2, 0.3]
+/** batch 32: per harvested tile, the sickle's chance of one seed of the crop into the pouch (index = sickle tier) */
+const SEED_DROP = [0, 0.1, 0.2, 0.3]
 const SEED_KEEP = [0, 0.2, 0.35, 0.5]
 // cash part = 0.5–1.5 h of the batch-15 ladder bot's income when the mine certificate lands (PLAN.md "Batch 15 results")
 const IRON_TOOL_CASH = 10000
@@ -959,6 +961,10 @@ export function waterMoisture(tier: number): number {
 /** chance a harvest with this sickle tier yields 2 crops */
 export function doubleHarvestChance(tier: number): number {
   return DOUBLE_HARVEST[tier]
+}
+
+export function seedDropChance(tier: number): number {
+  return SEED_DROP[tier]
 }
 
 /** chance a planting with this dibber tier keeps its seed */

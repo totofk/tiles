@@ -19,8 +19,10 @@ import {
   pumpFieldCap,
   pumpMaxTiers,
   reapPlotEnergy,
+  seedDropChance,
   tankCapCoal,
 } from '../src/core/balance'
+import { nextRandom } from '../src/core/actions'
 import {
   buildPivot,
   buyMachine,
@@ -287,6 +289,23 @@ describe('reapPlot / reapNext (by hand)', () => {
     const worker = fieldsHarvest(s)!
     expect(worker.ok && worker.state.run.cash).toBe(r.run.cash)
     expect(worker.ok && worker.state.run.renown).toEqual({})
+  })
+
+  it('batch 32: the sickle finds seeds per reaped tile — two draws per tile (double, then seed), none with the basic sickle', () => {
+    const gold = withFields([field([lemon(5)])], { tick: 10, energy: 10, toolTier: { water: 0, harvest: 3, plant: 0 }, seeds: { lemon: 1 } })
+    let rng = gold.run.rngState
+    let seeds = 0
+    for (let k = 0; k < plotTiles(); k++) {
+      const [, afterDouble] = nextRandom(rng)
+      const [roll, next] = nextRandom(afterDouble)
+      if (roll < seedDropChance(3)) seeds++
+      rng = next
+    }
+    const r = ok(reapPlot(gold, 0, 0))
+    expect([seedDropChance(3), r.run.rngState, r.run.seeds.lemon]).toEqual([0.3, rng, 1 + seeds])
+    const basic = withFields([field([lemon(5)])], { tick: 10, energy: 10 })
+    const b = ok(reapPlot(basic, 0, 0))
+    expect([b.run.rngState, b.run.seeds]).toEqual([basic.run.rngState, basic.run.seeds])
   })
 
   it('reapNext reaps the oldest ready plot; NOTHING_TO_DO with none ready, NO_ENERGY after', () => {

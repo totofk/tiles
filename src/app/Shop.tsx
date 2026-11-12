@@ -11,6 +11,7 @@ import {
   toolCost,
   toolNMax,
   doubleHarvestChance,
+  seedDropChance,
   seedKeepChance,
   toolTierCost,
   toolTierMax,
@@ -52,7 +53,7 @@ type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => v
 /** what one material tier does to each action of the job */
 const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
   water: (t) => `moisture ${waterMoisture(t)}`,
-  harvest: (t) => `${Math.round(doubleHarvestChance(t) * 100)} % double`,
+  harvest: (t) => `${Math.round(doubleHarvestChance(t) * 100)} % double · ${Math.round(seedDropChance(t) * 100)} % seed`,
   plant: (t) => `${Math.round(seedKeepChance(t) * 100)} % seed kept`,
 }
 /** the bar each tier is made from (index 0 = tier 1) */
