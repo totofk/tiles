@@ -715,3 +715,30 @@ Spec: PLAN.md "Batch 31.1" (tasks 163–166), no save bump. Calls made while ref
 - The sold-run sim pin shipped as ≥ 1.4× faster to the fields unlock (`tests/sim.test.ts:3977–3999`); the 1.8× in
   the batch 20 prestige entry above is superseded.
 - Worker rework (unique hires with traits) recorded as docs/IDEAS.md §8.
+
+## Batch 32 refined: Manager ⭐20 + Mine QoL (2026-11-12, Hermes against `ef663a1`)
+
+Toon (Discord thread 1570171044218536097): "32.1 Manager ปรับเป็น 20 ⭐", then "เอาเป็น task แรกของ 32 แล้วปล่อย 32
+เลย". So the Manager certificate price change (⭐40 → ⭐20, 🥇4 and 💰1.5M unchanged) is batch 32's first task, not a
+separate 32.1. Batch 31.1's sims showed ⭐ is not what blocks a fresh player (⭐18 but 🥇0 at the 10th contract); the
+re-pinned sim reports it again.
+
+Scope (accepted earlier, renumbered from "batch 25 / save v20"): pickaxe rack, mastery → more ore, hit carry-over,
+gold pickaxe strong-but-fragile, Keep N, sickle seed drop, hierarchy asserts → reports; plus the 2026-11-12
+new-player feedback items 1 (pickaxe card under Dig) and 4 (Sell on dig as a readable table).
+
+Hermes's calls while refining (Toon may reject by number):
+1. Bars stay out of ore sorting and Keep N (they never auto-sell): `docs/research/star-toys.md:123` rule 14 —
+   storage is the only brake on away income. The 2026-11-09 draft had bars join the sort list; this replaces it.
+2. Keep N = one purchase (🥈10 🥇5 💰7,000; 💰 = 0.5 × 14,118 💰/h measured in the batch-16 vein-Lv4 phase), then a
+   per-kind "keep up to N" stepper (step 10, 0 … storage) on each kind checked Sell on dig. N = 0 is today's Sell on
+   dig, so nothing changes for a player who never sets it.
+3. Sorting is one table in 🧺 Ore sorting (Unlock button / Sell on dig checkbox / keep-up-to stepper); the toggle
+   column leaves the item grid.
+4. Crafting a pickaxe selects it. The miner worker uses the selected pickaxe and never switches by itself; repair
+   stays manual. The batch-28.1 "craft a lower tier instead" escape is replaced by the rack row.
+5. A press that fills storage mid-way leaves the rock unbroken at full progress; that press's remaining hits are lost.
+6. Seed drop rolls per harvested tile on Fields too (a 10-tile plot → ~3 seeds with a gold sickle; sowing takes 10).
+7. Migration scales an owned gold pickaxe's durability by 600 / 6500 (Toon's-style save: 3800 → 351).
+8. Mine card order: Dig → Pickaxe → vein → furnace → wood → items → 🧺 Ore sorting.
+- **Renumbered:** none. Batch 32 keeps save v24; batch 33 (furnace molds) and later batches keep their numbers.

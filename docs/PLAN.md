@@ -5788,3 +5788,138 @@ SAVE_VERSION stays 23; no fixture edited; the only balance change is the Manager
   replaced it, and (b) a vault run toasted a certificate it already owned. The fix (one joined toast; owned
   certificates skipped; a test for the owned case) is a separate `fix: batch 31.1 task 166` commit, not folded in,
   because history is not rewritten here.
+
+## Batch 32 — Manager ⭐20 + Mine QoL: pickaxe rack, mastery ore, hit carry-over, Keep N, sickle seeds (tasks 167–172, save v23 → v24)
+
+Runs on save v23 (batch 31 / 31.1). Bumps to **v24**. Sources: DECISIONS "Batch 32 refined" (end of file);
+`docs/DECISIONS.md` "Minor-feedback layout pass" + "Batch 28.2" (ore sorting, Keep N kept for this batch); Toon's
+2026-11-12 new-player feedback (pickaxe card far from Dig; the Keep ↔ Sell on dig toggle is unreadable).
+Two scenarios (rule 0a): (A) fresh player from tick 0 (the ladder bot); (B) veteran with a migrated save —
+`tests/fixtures/save-v23.json` (NEW: a real save written by the live v23 build: 💰444,106, vein Lv4, storage Lv4 / 60,
+a gold pickaxe at 3800 / 6500, mastery wooden 400 / copper 700 / iron 1300 / gold 310, mastered [wooden], every kind
+locked in 🧺 Ore sorting, harvesters [1, 2], no miners).
+Every task keeps one commit. The sim suites re-pin: carry-over, mastery ore weights and the sickle seed roll all move
+the RNG stream and the mine output, so every pin that moves is re-pinned old → new with its cause in the results.
+
+- [ ] 167. **Manager certificate ⭐40 → ⭐20** (core number, no shape change)
+  - a. `CERTIFICATES.manager` (`src/core/balance.ts:216`): price `{ goldBar: 4, stars: 20, cash: 1500000 }`. Counter
+    and `at: 10` unchanged. Toon's call (2026-11-12): "Manager ปรับเป็น 20 ⭐".
+  - b. Tests that pin the old price: `tests/workers.test.ts:129,132`, `tests/sim.test.ts:4471,4489`,
+    `tests/WorkersCard.test.tsx:48,50` (`🥇4 ⭐20 💰1.5M`), the PIN311b scenario-B test (`tests/sim.test.ts:4338`
+    title, `:4344` `stars ≥ 20`). `tests/orders.test.ts:289` is board state, not the price — leave it.
+  - c. Report in the results (scenario A, the 31.1 PIN311a run): ⭐ and 🥇 held at the 10th contract, and whether the
+    certificate is buyable within 48 game-hours now. Report only; no new pin.
+- [ ] 168. **Pickaxe rack + gold pickaxe "strong but fragile"** (core + save v24 + minimal UI)
+  - a. State (`src/core/state.ts:36`): remove `pickaxe: Pickaxe | null`; add
+    `rack: Partial<Record<PickaxeTier, number>>` (durability per OWNED tier; 0 = blunt, still owned) and
+    `selectedPickaxe: PickaxeTier | null` (the tier in hand). New run (`state.ts:233`): `rack: {}`,
+    `selectedPickaxe: null`. Prestige resets both (run state, like today). The `Pickaxe` type stays for helpers.
+  - b. Helpers in `src/core/mining.ts`: `heldPickaxe(run): Pickaxe | null` (selected tier + its durability, blunt
+    included), `activePickaxe(run)` = held and durability > 0 (same meaning as today, `mining.ts:91–93`),
+    `bestPickaxeTier(run)` = highest tier on the rack, any durability. Callers: `stats.ts:97` → `heldPickaxe`;
+    `orders.ts:51`, `data/milestones.ts:63`, `app/badges.ts:65` and the `upgradeVein` NO_IRON_PICKAXE check
+    (`mining.ts:205`: rack has iron or gold) → `bestPickaxeTier`; `workers.ts:61` keeps `activePickaxe` (the miner
+    uses the selected pickaxe; it never switches by itself). Grep `src/` and `tests/` for `.pickaxe` /
+    `pickaxe:` — `tests/sim.test.ts` (183, 279, 349, 406, 421, 483, 778–797, 1381), `mining.test.ts`,
+    `Mine.test.tsx`, `save.test.ts`, `stats`/`milestones`/`badges`/`orders`/`workers` tests.
+  - c. Actions. `craftPickaxe(state, tier)`: ALREADY_OWNED when `tier` is on the rack (any durability); else pays as
+    today, adds `rack[tier] = durability`, and selects it. `selectPickaxe(state, tier)`: NO_PICKAXE when not on the
+    rack; free, no energy; a blunt one may be selected (mines by hand). `repairPickaxe(state, tier = selected)`:
+    NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_ITEMS, NO_CASH (same order as `mining.ts:168–175`), repairs that tier only.
+    The batch-28.1 "craft a lower tier instead" escape (`Mine.tsx:327–330, 400–406`) is removed: the rack row is
+    the way out (select another owned tier, or craft an unowned one).
+  - d. Gold pickaxe (`balance.ts:110`): `hits: 8`, `durability: 600` (iron 1200). Lifetime ≈ 706 presses at mastery
+    Lv0 with 3 mastered tiers (600 / 0.85), 3000 at Lv10 (preserve cap 0.8). Preserve and its cap are unchanged.
+    The balance test "each tier's durability beats the previous tier's Lv10 lifetime" keeps wooden → copper → iron
+    and exempts gold with a comment (strong but fragile, DECISIONS "Batch 32 refined").
+  - e. Save v24 (`src/save/serialize.ts`): `SAVE_VERSION = 24`, `SaveV23` type, `migrateV23: SaveV23 → SaveV24`
+    chained in `migrate()` (`serialize.ts:602–610`; every older path ends in `migrateV23(...)`). Migration:
+    `rack = pickaxe ? { [pickaxe.tier]: d } : {}`, `selectedPickaxe = pickaxe?.tier ?? null`, where `d` = the old
+    durability, except gold: `d = round(old × 600 / 6500)`, at least 1 when old > 0 (50 % stays 50 %; a sharp
+    pickaxe stays sharp). Also adds 169/171's fields (`keepN: false`, `oreKeep: {}`) so the batch has ONE bump. The
+    v23 fixture migrates: gold 3800 → 351, selected gold, cash/tiles/licenses/mastery unchanged. Add
+    `tests/fixtures/save-v23.json` to the every-fixture migration test (`tests/save.test.ts:24` pattern).
+  - f. Minimal UI here (169 lays it out): a rack row of owned tiers (select buttons) so the game stays playable.
+  - g. Tests: craft adds to the rack and selects; crafting an owned tier fails ALREADY_OWNED; select a blunt tier →
+    dig mines by hand; repair repairs the named tier only; the miner worker uses the selected tier; vein Lv4 opens
+    with iron on the rack while copper is selected; v23 fixture → v24 numbers above.
+- [ ] 169. **Mine card: pickaxe under Dig, rack row, sorting table** (src/app, items 1 + 4 of the new-player feedback)
+  - a. `Mine.tsx` order (today Dig :346, vein :365, furnace :387, pickaxe :393–438): h2 → Dig → (Sell all when full)
+    → **Pickaxe group** → vein → furnace → Buy wood → item grid → 🧺 Ore sorting.
+  - b. Pickaxe group: (1) rack row, one button per owned tier in `PICKAXE_TIERS` order, `aria-pressed` = selected,
+    label `PICKAXE_NAMES[t]`, `<small>` `{durability}/{max}` or `blunt`, plus ` ✓` when mastered; (2) the selected
+    pickaxe's status line + durability Bar (today :409–415) or the repair button when blunt (today :396–399);
+    (3) craft row: one button per tier NOT on the rack that is offered — wooden always, copper once the furnace is
+    built, iron / gold once the vein drops their ore (today's `offerTier` rule, `Mine.tsx:324–325`, applied to every
+    unowned tier) — `Craft {name} ({priceText})`; (4) the selected tier's mastery line + Bar; badge text
+    `Mastered ✓ +5 % durability · +10 % ore · all pickaxes` (numbers from `masteredPreserveBonus()` and 170's
+    `masteredOreBonus()`).
+  - c. Item grid (`Mine.tsx:445–481`): drop the sort-toggle column and the "unlocked kind keeps its ×0 row" rule
+    (rows with n > 0 only). Remove the `.sort-toggle` CSS (`app.css:1664–1681`) and give `.mine-grid` its 5 columns.
+  - d. 🧺 Ore sorting group (visible from vein Lv3, `oreSortVeinLevel()`, ALWAYS shown then — today it hides once all
+    are unlocked): one table, a row per `MINE_DROP_IDS` kind: name (+ `<small>` unlock price when locked) | locked →
+    `Unlock` button; unlocked → a checkbox labelled `Sell on dig` (`aria-label="Sell {name} on dig"`, 44 px tap
+    target) | once Keep N is owned (171) → `keep up to` stepper `− N +` (disabled while the box is unchecked). Then
+    the Keep N buy row (171d). Hint text: `Checked kinds sell the moment you dig them past the amount you keep, so
+    the miner never stops on a full storage.`
+  - e. Columns at 375 (Mine column 344 px): `minmax(0, 1fr) 96px 120px`, 8 px gap; stepper = 44 + 32 + 44. jsdom
+    cannot measure: list under `### Deviations`; Hermes measures live at 375 / 1024 / 1440 / 2560 / 3440.
+  - f. Tests (`Mine.test.tsx`): pickaxe group renders between Dig and the vein; rack row selects; craft row lists
+    unowned offered tiers only; the sorting table shows Unlock for locked kinds and a checkbox for unlocked ones;
+    the checkbox calls `setOreSort`.
+- [ ] 170. **Mastery finds more ore + hit carry-over** (core)
+  - a. `balance.ts`: `MASTERED_ORE_BONUS = 0.1`; `masteredOreBonus()`; `veinWeights(level, mastered)` = the level's
+    `VEIN_DROPS` with copperOre / ironOre / goldOre × (1 + 0.1 × mastered) and stone reduced by the added weight
+    (coal unchanged). Vein Lv4, 4 mastered → Cu 0.168 / Fe 0.14 / Au 0.112 / stone 0.38 / coal 0.2 (test this).
+    `veinDrops(level)` stays (which kinds a level has: `Mine.tsx:68`, `:317`, `orders.ts:51`). `dig` rolls from
+    `veinWeights(run.vein.level, run.masteredTiers.length)`; `dropText(level, mastered)` shows the same weights.
+  - b. Hit carry-over in `dig` (`mining.ts:125–149`). Checks unchanged (NO_MINE_LICENSE, BAG_FULL on the first rock
+    unless its kind is Sell, NO_ENERGY); one preserve roll per press, before any break (as today); durability −1 and
+    mastery +1 per press. Then: `hits = progress + mineHits(tier)`; loop: `rock = minedRock(vein.rock, tier)`,
+    `need = rockHits(rock)`; if `hits < need` → `progress = hits`, stop. Else the rock breaks: its drop is stored, or
+    sold at once (171's rule); when it must be stored and storage is full, the rock stays unbroken with
+    `progress = need` and the rest of the press's hits are lost (the next press fails BAG_FULL until there is room,
+    then breaks it at once). On a break: one `nextRandom` for the next rock (as today), `hits −= need`, loop.
+    One press can break several rocks (gold pickaxe 8 hits = 4 stone rocks). `counters.mines` +1 per press.
+  - c. Tests: copper (3 hits) on stone (2) leaves 1 hit on the next rock; gold on stone breaks 4 and rolls 4 rocks;
+    full storage mid-press keeps the rock at full progress and loses the rest; a Sell kind mid-press never stops;
+    mastered weights at Lv4.
+- [ ] 171. **Keep N** (core + UI row; shape landed in 168e)
+  - a. State: `keepN: boolean` (bought) and `oreKeep: Partial<Record<MineDropId, number>>` (amount to keep per kind,
+    missing = 0). Migration: `keepN: false`, `oreKeep: {}`.
+  - b. `buyKeepN(state)`: NO_MINE_LICENSE, LOCKED (vein below `oreSortVeinLevel()`), ALREADY_OWNED,
+    NOT_ENOUGH_ITEMS, NO_CASH. Price `KEEP_N_PRICE = { ironBar: 10, goldBar: 5, cash: 7000 }` via `scalePrice`
+    (💰 = 0.5 × the batch-16 ladder bot's measured 14,118 💰/h in the vein-Lv4 phase, `balance.ts:147–148`, rounded
+    to 💰500). `setOreKeep(state, kind, n)`: LOCKED unless Keep N is owned and the kind is unlocked; BAD_AMOUNT
+    unless 0 ≤ n ≤ `run.bagCapacity` and a whole number. Step in the UI: 10.
+  - c. Dig rule for a kind set to Sell: the drop is stored while `inventory[kind] < oreKeep[kind]` AND storage has
+    room; otherwise it is sold at once (`sellItem`, as today). A Sell kind still never fails BAG_FULL. With Keep N
+    not bought (or N = 0) the behaviour is exactly today's Sell on dig.
+  - d. UI: the 🧺 table's third column (169d) appears once owned; the buy row `🧺 Keep N — keep some of each checked
+    kind, sell only the excess — {priceText}` with `Buy` (disabled reason = the action's error) until owned.
+  - e. Bars are NOT in the sort list and never auto-sell (`docs/research/star-toys.md:123`, rule 14: storage is the
+    only brake on away income). `MINE_DROP_IDS` stays the 5 vein drops.
+  - f. Tests: keep 20 stone → the 21st stone sells; full storage below N → sells; N = 0 = today's Sell on dig; buy
+    order of errors; setOreKeep bounds; Keep N price ≤ storage capacity at vein Lv3 (15 items ≤ 50).
+- [ ] 172. **Sickle finds seeds + sim re-pin + hierarchy asserts become reports** (core, sim)
+  - a. `balance.ts`: `SEED_DROP = [0, 0.1, 0.2, 0.3]` by sickle tier, `seedDropChance(tier)`. One extra roll per
+    harvested TILE, after the double-harvest roll, only when `toolTier.harvest > 0` (tier 0 keeps its exact PRNG
+    sequence, like `tierRoll`, `actions.ts:136–141`): hit → +1 seed of that crop to `run.seeds` (the pouch is
+    outside storage, `state.ts:59`). Sites: `actions.ts:202–229` `harvest` (hand, `tools.ts:23` bulk, the harvest
+    worker `workers.ts:32`) and `fields.ts:298–318` `reapAt` per tile (hand reap `:328`, harvester machine `:357`,
+    `:475`). `manager.ts:23` planning is unchanged.
+  - b. Texts: `Shop.tsx:55` → `{double} % double · {seed} % seed`; `stats.ts:54` → `… double harvest · … seed`.
+  - c. Sim bots (`tests/sim.test.ts`): pickaxe helpers move to the rack (`craftPickaxe` selects; the bot selects the
+    best SHARP tier on the rack before mining, repairs a blunt tier when it can pay, never sells bars to repair).
+    Report per scenario: (A) ladder bot — game-minutes of each mine rung before → after, gold-pickaxe repairs per
+    game-hour, bars/h; the existing no-stall gap caps must hold (correctness guard). (B) v23 fixture → v24 with one
+    miner hired and assigned for 2 game-hours: drops/h and 💰/h before → after (gold 351 durability, carry-over,
+    ×1.1 ore from the mastered wooden tier).
+  - d. The hierarchy asserts `tests/sim.test.ts:1697, 2326, 2807, 3066` (mining < farming) become `console.log`
+    reports (DECISIONS:486, design stance 2026-11-09). Only correctness guards stay hard: no stall gap, nothing
+    negative, prices ≤ storage capacity, saves migrate, sell ≤ inputs − 1.
+  - e. Every pin that moves: re-pin old → new with the cause (carry-over / mastery weights / seed roll / gold
+    durability / Manager ⭐20) in `## Batch 32 results`.
+- CHANGELOG (top of `src/app/changelog.ts`, verbatim):
+  "Mine: keep every pickaxe on a rack, mastered pickaxes find more ore, strong presses break several rocks, Keep N
+  sells only the excess, and sickles find seeds. 💼 Manager now ⭐20" (join the two lines with one space)
