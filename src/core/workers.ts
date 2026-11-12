@@ -77,6 +77,7 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     const k = s.run.fields.list.findIndex((f, i) => f.pivot && !f.pinned && f.crop !== target[i])
     return k < 0 ? null : setFieldCrop(s, k, target[k])
   },
+  stoker: () => null,
 }
 
 /**

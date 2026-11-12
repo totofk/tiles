@@ -457,7 +457,7 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v25/)).toBeTruthy()
+    expect(screen.getByText(/Will migrate v15 → v26/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(SAVE_VERSION)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)

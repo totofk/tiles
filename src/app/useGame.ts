@@ -77,6 +77,7 @@ export const WORKER_JOB_EMOJI: Record<WorkerJob, string> = {
   mine: MINE_EMOJI,
   clerk: BOARD_EMOJI,
   manager: '💼',
+  stoker: FIRE_EMOJI,
 }
 export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   plant: `${WORKER_JOB_EMOJI.plant} Plant`,
@@ -87,6 +88,7 @@ export const WORKER_JOB_LABEL: Record<WorkerJob, string> = {
   mine: `${WORKER_JOB_EMOJI.mine} Mine`,
   clerk: `${WORKER_JOB_EMOJI.clerk} Clerk`,
   manager: `${WORKER_JOB_EMOJI.manager} Manager`,
+  stoker: `${WORKER_JOB_EMOJI.stoker} Stoker`,
 }
 /**
  * The welcome-back banner: the catch-up summary, then what changed between the state before and after it (crops the

@@ -123,7 +123,7 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
 
   it('a ready-cell tap is the hand reap: it completes an accepted contract and counts contractsByHand', () => {
     const crop = base.run.fields.list[0].crop! // a fields-plantable crop, so its order is a contract
-    const offers = [{ good: crop, count: 1, done: 0, tier: 1, accepted: true }]
+    const offers = [{ good: crop, count: 1, done: 0, tier: 1, accepted: true, stars: 2 }]
     const t = tick(withFields([field([plot(crop, 5)], true, crop)], { energy: 50, orders: { ...base.run.orders, unlocked: true, slots: 1, offers } }))
     const before = t.cur.run.counters.contractsByHand
     fireEvent.click(cell(`Field 1 plot 1 · ${CROPS[crop].name} ready — reap ⚡10`))

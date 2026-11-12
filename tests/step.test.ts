@@ -86,7 +86,7 @@ describe('step', () => {
     const s = createInitialState()
     const tilled = s.run.tiles.map((t, i): Tile => ({ ...t, status: i < 6 ? 'planted' : 'tilled', cropId: i < 6 ? 'lemon' : undefined, growth: i < 6 ? 300 : 0, moisture: 1 }))
     const market = { ...s.run.market, radish: 900, chilli: 100, pumpkin: 10, lemon: 500 }
-    const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }
+    const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }
     const withAll: GameState = {
       ...s,
       run: {

@@ -214,7 +214,7 @@ const WORKER_POOL_CAP = 6
 const WORKER_HIRE_UNLOCK: { counter: CounterId; at: number } = { counter: 'harvests', at: 30 }
 const WORKER_ACTION_TICKS = 5
 // batch 29: the Manager's 💰28 per chip it changes (calculator 2026-11-11: ≈ 💰20,000/h if it changed one every round)
-const WORKER_WAGES: Record<WorkerJob, number> = { plant: 1, water: 1, harvest: 1, ore: 1, fuel: 1, mine: 1, clerk: 1, manager: 28 }
+const WORKER_WAGES: Record<WorkerJob, number> = { plant: 1, water: 1, harvest: 1, ore: 1, fuel: 1, mine: 1, clerk: 1, manager: 28, stoker: 1 }
 // `vein` = the vein level that must be owned as well; `tool` = the job's farm-tool level that must be owned (batch 13:
 // a worker replaces a press, so the press comes first at its top level)
 const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: number; vein?: number; tool?: number }> = {
@@ -231,6 +231,8 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
   // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32
   manager: { price: { goldBar: 4, stars: 20, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
+  // Stoker (batch 34): bought in the ⭐ Favours sheet; its gate adds stokerReady (fuel certificate, the bar ladder done)
+  stoker: { price: { stars: 15, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 },
 }
 // batch 33: cash part of the copper-bar furnace rows (tray Lv1, ore slot Lv1, iron mold, Collect all) = 0.5 h of the
 // measured vein-Lv3 income (💰12,842/h, PLAN.md "Batch 28.2 results", the same figure as ORE_SORT_CASH)
@@ -493,11 +495,14 @@ const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; bonus: number;
   bonus: 0.1,
   slots: 2,
 }
-const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: number }> = [
-  { minutes: 5, weight: 0.5, stars: 1 },
-  { minutes: 10, weight: 0.35, stars: 2 },
-  { minutes: 20, weight: 0.15, stars: 4 },
+const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number }> = [
+  { minutes: 5, weight: 0.5 },
+  { minutes: 10, weight: 0.35 },
+  { minutes: 20, weight: 0.15 },
 ]
+// batch 34 (option A): an order pays this many ⭐ per minute of production it really consumes at the player's full
+// output (item orders at the board rate), fractional ⭐ kept
+const ORDER_STARS_PER_MINUTE = 0.2
 // batch 29: after the Tractor a crop order (a 🚜 contract) is sized by this share of the wet tiles' pressured output
 const CONTRACT_WET_SHARE = 0.15
 const ORDER_ROCKS_PER_MIN = 12
@@ -543,9 +548,9 @@ export function orderTierMinutes(tier: number): number {
   return ORDER_TIERS[tier].minutes
 }
 
-/** ⭐ for completing an order of this tier */
-export function orderTierStars(tier: number): number {
-  return ORDER_TIERS[tier].stars
+/** ⭐ an order pays per minute of the player's full output it asks for */
+export function orderStarsPerMinute(): number {
+  return ORDER_STARS_PER_MINUTE
 }
 
 /** the tier a roll r in [0, 1) lands on, by weight */

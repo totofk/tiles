@@ -20,8 +20,8 @@ import {
   orderCooldownTicks,
   orderRocksPerMin,
   orderStartSlots,
+  orderStarsPerMinute,
   orderTierMinutes,
-  orderTierStars,
   rollOrderTier,
 } from '../src/core/balance'
 import { MILESTONES } from '../src/core/data/milestones'
@@ -59,7 +59,7 @@ const withRun = (run: Partial<RunState>): GameState => ({ ...init, run: { ...ini
 const board = (offers: RunState['orders']['offers'], run: Partial<RunState> = {}): GameState =>
   withRun({ orders: { unlocked: true, slots: offers.length, offers }, ...run })
 
-const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 10, done: 0, tier: 0, accepted: true, ...o })
+const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 10, done: 0, tier: 0, accepted: true, stars: 1, ...o })
 const RADISH = cropGrowTicks('radish', meta, 0)
 const ripe: Tile = { status: 'planted', cropId: 'radish', growth: RADISH, moisture: 0, ticksSinceMature: 0 }
 /** batch 32.2: a worker's Fields reap that finishes the plot (its 10th tile on the shared counter) */
@@ -161,6 +161,42 @@ describe('rollOffer', () => {
   })
 })
 
+/** the first offer rolled from seeds 1, 2, … that `want` accepts */
+function rolled(s: GameState, want: (o: Offer) => boolean): Offer {
+  for (let seed = 1; seed < 2000; seed++) {
+    const [o] = rollOffer(s, seed)
+    if (want(o)) return o
+  }
+  throw new Error('no such roll')
+}
+
+describe('batch 34: order ⭐ = 0.2 × the production-minutes the order consumes', () => {
+  it('at home a 5-minute crop order pays ⭐1 and a 20-minute one ⭐4 (± the rounding of the count)', () => {
+    const s = withRun({})
+    const rate = (9 / RADISH) * 60
+    for (const [tier, stars] of [[0, 1], [2, 4]] as const) {
+      const o = rolled(s, (x) => x.tier === tier)
+      expect(o.stars).toBe((0.2 * o.count) / rate)
+      expect(Math.abs(o.stars - stars)).toBeLessThanOrEqual((0.2 * 0.5) / rate)
+    }
+  })
+
+  it('an item order clamped to half the storage pays 0.2 × count ÷ the board rate', () => {
+    const s = withRun({ mineLicense: true, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 40 })
+    const o = rolled(s, (x) => x.good === 'copperOre' && x.tier === 2)
+    expect(o.count).toBe(20) // 36 clamped to 40 / 2
+    expect(o.stars).toBe((0.2 * 20) / orderPerMinute(s, 'copperOre'))
+  })
+
+  it('3 orders of ⭐0.4 add ⭐1 and leave starsFrac 0.2, lifetime ⭐ +1', () => {
+    let s = board([0, 1, 2].map(() => offer({ good: 'stone', count: 1, stars: 0.4 })), { inventory: { stone: 3 } })
+    for (const slot of [0, 1, 2]) s = okState(deliverOrder(s, slot))
+    expect(s.run.stars).toBe(1)
+    expect(s.run.starsFrac).toBeCloseTo(0.2, 9)
+    expect(s.run.lifetime.starsEarned).toBe(1)
+  })
+})
+
 describe('buyOrderBoard', () => {
   const ready = withRun({ cash: 500, inventory: { stone: 15 }, counters: { ...init.run.counters, sales: 50 } })
 
@@ -202,15 +238,15 @@ describe('accept / discard / deliver', () => {
   })
 
   it('deliver moves the rest of an accepted item order from storage at 0 energy, pays base × bonus, completes it', () => {
-    const s = board([offer({ good: 'stone', count: 8, tier: 1 }), offer({ accepted: false })], { inventory: { stone: 9 }, energy: 0 })
+    const s = board([offer({ good: 'stone', count: 8, tier: 1, stars: 2 }), offer({ accepted: false })], { inventory: { stone: 9 }, energy: 0 })
     const done = okState(deliverOrder(s, 0))
     const cash = Math.round(8 * itemSellPrice('stone', meta, 0) * orderBonus())
     expect(done.run.inventory.stone).toBe(1)
     expect(done.run.cash).toBe(s.run.cash + cash)
     expect(done.run.lifetime.cashEarned).toBe(cash)
-    expect(done.run.stars).toBe(orderTierStars(1))
+    expect(done.run.stars).toBe(2)
     expect(done.run.counters.orders).toBe(1)
-    expect(done.run.lifetime).toMatchObject({ ordersCompleted: 1, starsEarned: orderTierStars(1) })
+    expect(done.run.lifetime).toMatchObject({ ordersCompleted: 1, starsEarned: 2 })
     // the slot holds a fresh offer; the other one is untouched
     expect(done.run.orders.offers[0]).toMatchObject({ done: 0, accepted: false })
     expect(done.run.orders.offers[1]).toEqual(s.run.orders.offers[1])
@@ -260,10 +296,10 @@ describe('crop orders fill from harvests', () => {
     }
   })
 
-  it('the last unit completes the order: ⭐ by tier, a fresh offer; extra units go to the market', () => {
-    const s = board([offer({ count: 2, done: 1, tier: 2 })], { tiles })
+  it('the last unit completes the order: the offer\'s ⭐, a fresh offer; extra units go to the market', () => {
+    const s = board([offer({ count: 2, done: 1, tier: 2, stars: 4 })], { tiles })
     const next = okState(harvest(s, 0, 0))
-    expect(next.run.stars).toBe(orderTierStars(2))
+    expect(next.run.stars).toBe(4)
     expect(next.run.counters.orders).toBe(1)
     expect(next.run.orders.offers[0]).toMatchObject({ done: 0, accepted: false })
     expect(next.run.market.radish).toBe(0)
@@ -284,7 +320,7 @@ describe('crop orders fill from harvests', () => {
         tiles: mixed,
         licenses: ['radish', 'lemon'],
         market: { ...s.run.market, radish: 40, lemon: 5 },
-        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant', 'water', 'harvest'] },
+        workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'water', 'harvest'] },
         orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }] },
       },
     }
@@ -338,7 +374,7 @@ describe('order clerk (worker job)', () => {
       cash: 100,
       mineLicense: true,
       vein: { level: 1, progress: 0, rock: 'stone' },
-      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0 }, certificates: ['clerk'] },
+      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0, stoker: 0 }, certificates: ['clerk'] },
       ...run,
     })
 
@@ -392,7 +428,7 @@ describe('order clerk (worker job)', () => {
       tiles,
       inventory: { stone: 5 },
       market: { ...init.run.market, radish: 30 },
-      workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0 }, certificates: ['harvest', 'clerk'] },
+      workers: { pool: 2, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 1, manager: 0, stoker: 0 }, certificates: ['harvest', 'clerk'] },
     })
     let single = start
     for (let n = 1; n <= 40; n++) {
@@ -476,6 +512,16 @@ describe('batch 29: 🚜 estate contracts', () => {
     expect([done.run.counters.orders, done.run.counters.contractsByHand]).toEqual([1, 0])
   })
 
+  it('batch 34: a contract pays ⭐ for the minutes of the WHOLE wet output its count is (≈ 0.15 × the old tier ⭐)', () => {
+    const s = estate()
+    const o = rolled(s, (x) => x.good === 'lemon' && x.tier === 2)
+    const grow = cropGrowTicks('lemon', meta, 0)
+    const full = (9 / grow) * 60 + (WET / Math.ceil(grow / FIELD_PRESSURE)) * 60
+    expect(o.stars).toBe((orderStarsPerMinute() * o.count) / full)
+    expect(o.stars).toBeLessThan(0.2 * 4)
+    expect(o.stars).toBeGreaterThan(0.1 * 4)
+  })
+
   it('rollOffer consumes exactly two rolls before and after the Tractor', () => {
     const twoRolls = nextRandom(nextRandom(12345)[1])[1]
     const s = estate()
@@ -488,7 +534,7 @@ describe('batch-14 milestones', () => {
   it('board bought, first order, 10 ⭐ earned', () => {
     const ids = MILESTONES.map((m) => m.id)
     expect(ids).toEqual(expect.arrayContaining(['orderBoard', 'firstOrder', 'stars10', 'certClerk']))
-    const before = board([offer({ good: 'stone', count: 1, tier: 2 })], { inventory: { stone: 1 }, lifetime: { ...init.run.lifetime, starsEarned: 8 } })
+    const before = board([offer({ good: 'stone', count: 1, tier: 2, stars: 4 })], { inventory: { stone: 1 }, lifetime: { ...init.run.lifetime, starsEarned: 8 } })
     const after = okState(deliverOrder(before, 0))
     expect(after.run.milestones).toMatchObject({ firstOrder: 0, stars10: 0 })
     const bought = okState(buyOrderBoard(withRun({ cash: 500, inventory: { stone: 10 }, counters: { ...init.run.counters, sales: 50 }, tick: 77 })))

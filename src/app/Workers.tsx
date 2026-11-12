@@ -87,7 +87,8 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
       </summary>
       {/* batch 24: the job rows are one group, hiring another over a divider */}
       <div className="group">
-        {WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job)).map((job) => (
+        {/* batch 34: the Stoker's certificate is bought in ⭐ Favours, so its row shows only once owned */}
+        {WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job) && (job !== 'stoker' || run.workers.certificates.includes(job))).map((job) => (
           <JobRow key={job} state={state} act={act} job={job} active={worked.some((w) => w.job === job)} />
         ))}
       </div>

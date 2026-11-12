@@ -1,7 +1,8 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, pickaxeDurability, plotTiles, pumpFieldCap, tankCapCoal } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, pickaxeDurability, plotTiles, pumpFieldCap, tankCapCoal, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
+import type { MilestoneId } from '../core/data/milestones'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
 import type { WorkerJob } from '../core/data/workers'
@@ -12,19 +13,22 @@ import {
   createTile,
   type Counters,
   type Field,
-  type Furnace,
+  type Fields,
   type GameState,
   type Lifetime,
   type Loan,
   type Machines,
+  type Mold,
   type MultiplierKey,
+  type OrderGood,
   type Pickaxe,
   type Plot,
   type Tile,
+  type Workshop,
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 25
+export const SAVE_VERSION = 26
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -114,8 +118,63 @@ type FieldsV20 = {
   coalCarry: number
   machines: Machines
 }
+/** v21–v25 jobs (the Stoker joined in v26) */
+type JobV25 = Exclude<WorkerJob, 'stoker'>
 /** v13–v20 jobs (the Manager joined in v21) */
-type JobV20 = Exclude<WorkerJob, 'manager'>
+type JobV20 = Exclude<JobV25, 'manager'>
+/** v14–v25: an offer without its own ⭐ (paid by tier: TIER_STARS_V25) */
+type OfferV25 = { good: OrderGood; count: number; done: number; tier: number; accepted: boolean }
+/** v25: molds, no stoking */
+type FurnaceV25 = {
+  built: boolean
+  fire: number
+  smart: boolean
+  levels: { fireCap: number; batch: number; speed: number; tray: number; slot: number }
+  molds: Partial<Record<OreId, Mold>>
+  collectAll: boolean
+}
+/** v25: the run before ⭐ Favours (no starsFrac / favours, no Stoker, offers without ⭐, furnace without stoking) */
+type RunV25 = {
+  cash: number
+  energy: number
+  tiles: Tile[]
+  licenses: CropId[]
+  upgrades: Record<UpgradeId, number>
+  counters: Counters
+  tick: number
+  mineLicense: boolean
+  rack: Partial<Record<PickaxeTier, number>>
+  selectedPickaxe: PickaxeTier | null
+  inventory: Partial<Record<ItemId, number>>
+  bagCapacity: number
+  storageLevel: number
+  vein: { level: number; progress: number; rock: ItemId }
+  oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>
+  keepN: boolean
+  oreKeep: Partial<Record<MineDropId, number>>
+  furnace: FurnaceV25
+  workshop: Workshop
+  fields: Fields
+  lifetime: Lifetime
+  mastery: Partial<Record<PickaxeTier, number>>
+  masteredTiers: PickaxeTier[]
+  rngState: number
+  loan: Loan | null
+  seeds: Partial<Record<CropId, number>>
+  autoBuySeeds: boolean
+  plantCrop: CropId
+  tools: Record<ToolJob, number>
+  toolN: Record<ToolJob, number>
+  toolTier: Record<ToolJob, number>
+  workers: { pool: number; assigned: Record<JobV25, number>; certificates: JobV25[] }
+  market: Record<CropId, number>
+  milestones: Partial<Record<MilestoneId, number>>
+  orders: { unlocked: boolean; slots: number; offers: (OfferV25 | { cooldownTicks: number })[] }
+  stars: number
+  renown: Partial<Record<CropId, number>>
+}
+/** the ⭐ a v25 offer's tier paid (frozen here: batch 34 pays ⭐ per production-minute) */
+const TIER_STARS_V25 = [1, 2, 4]
 /** v10–v24: one ore slot and one tray of one kind, two furnace upgrades */
 type FurnaceV24 = {
   built: boolean
@@ -128,7 +187,7 @@ type FurnaceV24 = {
   levels: { fireCap: number; batch: number }
 }
 /** v24: the furnace before molds */
-type RunV24 = Omit<GameState['run'], 'furnace'> & { furnace: FurnaceV24 }
+type RunV24 = Omit<RunV25, 'furnace'> & { furnace: FurnaceV24 }
 /** v23: one pickaxe in hand, no rack, no Keep N */
 type RunV23 = Omit<RunV24, 'rack' | 'selectedPickaxe' | 'keepN' | 'oreKeep'> & { pickaxe: Pickaxe | null }
 /** v22: no renown yet */
@@ -182,8 +241,9 @@ type SaveV21 = { version: 21; savedAtMs: number; state: { meta: MetaV22; run: Ru
 type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: RunV22 } }
 type SaveV23 = { version: 23; savedAtMs: number; state: { meta: GameState['meta']; run: RunV23 } }
 type SaveV24 = { version: 24; savedAtMs: number; state: { meta: GameState['meta']; run: RunV24 } }
-type SaveV25 = { version: 25; savedAtMs: number; state: GameState }
-export type Save = SaveV25
+type SaveV25 = { version: 25; savedAtMs: number; state: { meta: GameState['meta']; run: RunV25 } }
+type SaveV26 = { version: 26; savedAtMs: number; state: GameState }
+export type Save = SaveV26
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -643,7 +703,7 @@ function migrateV24(save: SaveV24): SaveV25 {
   const { meta, run } = save.state
   const { oreKind, ore, progress, ready, levels, ...furnace } = run.furnace
   const empty = { ore: 0, progress: 0, ready: 0 }
-  const molds: Furnace['molds'] = { copperOre: { ...empty } }
+  const molds: FurnaceV25['molds'] = { copperOre: { ...empty } }
   if (furnace.built && run.vein.level >= IRON_VEIN_V24) molds.ironOre = { ...empty }
   if (furnace.built && run.vein.level >= GOLD_VEIN_V24) molds.goldOre = { ...empty }
   molds[oreKind] = { ore, progress, ready }
@@ -654,19 +714,43 @@ function migrateV24(save: SaveV24): SaveV25 {
   }
 }
 
+// v25 → v26 (batch 34): ⭐ Favours. Every offer keeps the ⭐ its tier showed (TIER_STARS_V25, never fewer); no
+// fractional ⭐, no Favours bought (Bunkhouse 0, no Seam survey), no Stoker on the job, the furnace not stoked. ⭐,
+// cash, inventory, upgrades and furnace levels unchanged.
+function migrateV25(save: SaveV25): SaveV26 {
+  const { meta, run } = save.state
+  const offers = run.orders.offers.map((o) => ('good' in o ? { ...o, stars: TIER_STARS_V25[o.tier] ?? 0 } : o))
+  return {
+    version: 26,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        orders: { ...run.orders, offers },
+        starsFrac: 0,
+        favours: { bunkhouse: 0, seam: false, aim: null },
+        workers: { ...run.workers, assigned: { ...run.workers.assigned, stoker: 0 } },
+        furnace: { ...run.furnace, stoked: 0 },
+      },
+    },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 25) return data as SaveV25
-  if (data.version === 24) return migrateV24(data as SaveV24)
-  if (data.version === 23) return migrateV24(migrateV23(data as SaveV23))
-  if (data.version === 22) return migrateV24(migrateV23(migrateV22(data as SaveV22)))
-  if (data.version === 21) return migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))
+  if (data.version === 26) return data as SaveV26
+  if (data.version === 25) return migrateV25(data as SaveV25)
+  if (data.version === 24) return migrateV25(migrateV24(data as SaveV24))
+  if (data.version === 23) return migrateV25(migrateV24(migrateV23(data as SaveV23)))
+  if (data.version === 22) return migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))
+  if (data.version === 21) return migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))
   const v20 = toV20(data)
-  return v20 && migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))
+  return v20 && migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

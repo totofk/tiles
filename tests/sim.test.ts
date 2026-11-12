@@ -1334,7 +1334,7 @@ function runCropBot(
   tileCount = createInitialState().run.tiles.length,
 ) {
   const init = createInitialState()
-  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }
+  const jobs = { plant: 0, ...assigned, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }
   const workers = { pool: jobs.plant + jobs.water + jobs.harvest, assigned: jobs, certificates: [...WORKER_JOBS] }
   const tiles = [...init.run.tiles, ...Array.from({ length: tileCount - init.run.tiles.length }, createTile)]
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, toolTier, workers, tiles } }
@@ -1789,7 +1789,7 @@ type Loaders = { ore?: boolean; fuel?: boolean }
 /** a built furnace at base levels with ore and coal in a roomy storage and cash for wages; loaders certified + staffed */
 function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
   const init = createInitialState()
-  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0, clerk: 0, manager: 0 }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0, clerk: 0, manager: 0, stoker: 0 }
   const furnace = { ...createFurnace(), built: true, fire, smart, levels: { ...createFurnace().levels, fireCap } }
   const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
   return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
@@ -1970,7 +1970,7 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
-    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1, mine: 0, clerk: 0, manager: 0 })
+    expect(end.run.workers.assigned).toEqual({ plant: 0, water: 2, harvest: 2, ore: 1, fuel: 1, mine: 0, clerk: 0, manager: 0, stoker: 0 })
     expect(fireBurnt).toBe(barsSmelted * barTicks())
     expect(fireWasted).toBe(0)
   })
@@ -2214,7 +2214,7 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
 /** vein Lv3, storage Lv3, a fresh iron pickaxe and a furnace on iron, with a miner (and the two loaders) staffed */
 function ironWorks({ smart = false, loaders = true }: { smart?: boolean; loaders?: boolean }): GameState {
   const init = createInitialState()
-  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1, clerk: 0, manager: 0 }
+  const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1, clerk: 0, manager: 0, stoker: 0 }
   const furnace = { ...createFurnace(), built: true, smart, molds: { ...createFurnace().molds, ironOre: { ore: 0, progress: 0, ready: 0 } } }
   const workers = { pool: assigned.ore + assigned.fuel + 1, assigned, certificates: ['ore', 'fuel', 'mine'] as WorkerJob[] }
   return {
@@ -2572,7 +2572,7 @@ const ATTENTIVE_ENERGY_PER_MIN = 4
 function staffedLemon(attentive: boolean, toolTier = createInitialState().run.toolTier, ticks = MARKET_TICKS) {
   const init = createInitialState()
   const tiles = [...init.run.tiles, ...Array.from({ length: TILE_CAP - init.run.tiles.length }, createTile)]
-  const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }
+  const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }
   const workers = { pool: 3, assigned, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: ['radish', 'lemon'], plantCrop: 'lemon', toolTier, workers, tiles } }
   let budget = 0
@@ -2621,9 +2621,9 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
       onEnd: (s) => (end = s),
     })
     const minute = (tick: number | undefined) => (tick === undefined ? null : Math.round((tick / 60) * 10) / 10)
-    // the order clerk (batch 14) and the Manager (batch 28/29) are not on the batch-13 ladder
+    // the order clerk (batch 14), the Manager (batch 28/29) and the Stoker (batch 34) are not on the batch-13 ladder
     const certificates = Object.fromEntries(
-      WORKER_JOBS.filter((job): job is Exclude<WorkerJob, 'clerk' | 'manager'> => job !== 'clerk' && job !== 'manager').map((job) => [
+      WORKER_JOBS.filter((job): job is Exclude<WorkerJob, 'clerk' | 'manager' | 'stoker'> => job !== 'clerk' && job !== 'manager' && job !== 'stoker').map((job) => [
         job,
         {
           unlocked: minute(ladder.certUnlocked[job]?.tick),
@@ -2747,7 +2747,7 @@ function orderFarm(crop: CropId, tileCount: number, perJob: number, board: boole
   const tiles = [...init.run.tiles, ...Array.from({ length: tileCount - init.run.tiles.length }, createTile)]
   const n = perJob
   const staffed = n > 0
-  const assigned = { plant: n, water: n, harvest: n, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }
+  const assigned = { plant: n, water: n, harvest: n, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }
   const workers = { pool: 3 * n, assigned, certificates: [...WORKER_JOBS] }
   let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: [...new Set<CropId>(['radish', crop])], plantCrop: crop, workers, tiles } }
   if (board) {
@@ -3463,7 +3463,7 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
         licenses: ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'] as CropId[],
         lifetime: { ...s.run.lifetime, harvests: Object.fromEntries(CROP_IDS.map((c) => [c, 50])) },
         workshop: { built: true, beds: [true, true, true, true], valve: false },
-        workers: { pool: 6, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0 }, certificates: ['plant', 'harvest', 'fuel', 'mine'] as WorkerJob[] },
+        workers: { pool: 6, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest', 'fuel', 'mine'] as WorkerJob[] },
       },
     }
   })
@@ -3708,7 +3708,7 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
 
   it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms, step(s, n) identity', () => {
     const forged = forge(end, 1000, 3, ['lemon', 'pumpkin', 'chilli', 'radish'])
-    const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0 } } } }
+    const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
     const t0 = Date.now()
     catchUp(big, 8 * HOUR_TICKS * 1000)
     const ms = Date.now() - t0
@@ -4149,7 +4149,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
 
   it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms, step(s, n) identity', () => {
     const forged = forge(3000, FLEETS.full, ['lemon', 'pumpkin', 'chilli', 'radish'])
-    const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0 } } } }
+    const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
     const t0 = Date.now()
     catchUp(big, 8 * HOUR_TICKS * 1000)
     const ms = Date.now() - t0
@@ -4802,7 +4802,7 @@ describe('batch 33: max-furnace pin — one mold per kind, every level at max, f
         ...init.run,
         bagCapacity: 1e7,
         inventory: { copperOre: 1e6, ironOre: 1e6, goldOre: 1e6, coal: 1e6 },
-        furnace: { built: true, fire: 0, smart: true, levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 }, molds: { copperOre: empty, ironOre: empty, goldOre: empty }, collectAll: true },
+        furnace: { built: true, fire: 0, smart: true, levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 }, molds: { copperOre: empty, ironOre: empty, goldOre: empty }, collectAll: true, stoked: 0 },
       },
     }
     const ticks = 8 * HOUR_TICKS
@@ -4947,7 +4947,7 @@ describe('batch 29: manager', () => {
 
   it('contract run: chips on lemon, an accepted tier-2 strawberry contract completes within 60 game-minutes', () => {
     const base = stage6(true, Array(6).fill('lemon'))
-    const offer = { good: 'strawberry' as const, count: orderCount(base, 'strawberry', 2), done: 0, tier: 2, accepted: true }
+    const offer = { good: 'strawberry' as const, count: orderCount(base, 'strawberry', 2), done: 0, tier: 2, accepted: true, stars: 4 }
     const s0: GameState = { ...base, run: { ...base.run, orders: { ...base.run.orders, unlocked: true, offers: [offer] } } }
     const plan = managerPlan(s0)
     let s = s0
@@ -4967,7 +4967,7 @@ describe('batch 29: manager', () => {
   // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M; ⭐20 batch 32
   it('unlock path: 7 delivered + 3 hand reaps → contractsByHand 10 → the Manager certificate buys; 💰1.5M in stage-6 hours', () => {
     const ready = { crop: 'strawberry' as const, readyTick: 0 }
-    const offer = (good: CropId) => ({ good, count: 5, done: 0, tier: 1, accepted: false })
+    const offer = (good: CropId) => ({ good, count: 5, done: 0, tier: 1, accepted: false, stars: 2 })
     let s: GameState = {
       ...at(true, [{ ...emptyField('strawberry'), plots: Array.from({ length: fieldPlots() }, () => ({ ...ready })) }], 0, false),
       meta: init.meta,

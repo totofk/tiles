@@ -19,8 +19,8 @@ import {
   orderRerollStars,
   orderRocksPerMin,
   orderSlotStars,
+  orderStarsPerMinute,
   orderTierMinutes,
-  orderTierStars,
   oreBar,
   rollOrderTier,
   veinDrops,
@@ -78,14 +78,29 @@ export function orderCount(state: GameState, good: OrderGood, tier: number): num
   return isCropGood(good) ? n : Math.max(1, Math.min(n, orderItemCap(state.run.bagCapacity)))
 }
 
-/** a fresh offer from the pool (two rolls: good, then tier) and the next rng state */
+/**
+ * The player's full output of `good` per minute, the basis of an order's ⭐ (batch 34, calc34 §2 fullRatePerMin without
+ * double harvests): crops = the home tiles plus, after the Tractor for a crop the fields can sow, the WHOLE wet output;
+ * items and bars = orderPerMinute (the board rate; bars include the speed rate).
+ */
+export function orderFullRate(state: GameState, good: OrderGood): number {
+  const { run, meta } = state
+  if (!isCropGood(good)) return orderPerMinute(state, good)
+  const home = (run.tiles.length / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+  return run.fields.unlocked && fieldsPlantable(run, good) ? home + (wetTiles(run.fields) / pressuredCycle(state, good)) * 60 : home
+}
+
+/** a fresh offer from the pool (two rolls: good, then tier) and the next rng state; its ⭐ = ⭐ per minute × the
+ * minutes of full output its count is (unrounded, so a bag-clamped item order or a contract pays less) */
 export function rollOffer(state: GameState, rngState: number): [Offer, number] {
   const pool = orderPool(state.run)
   const [a, afterGood] = nextRandom(rngState)
   const [b, next] = nextRandom(afterGood)
   const good = pool[Math.floor(a * pool.length)]
   const tier = rollOrderTier(b)
-  return [{ good, count: orderCount(state, good, tier), done: 0, tier, accepted: false }, next]
+  const count = orderCount(state, good, tier)
+  const rate = orderFullRate(state, good)
+  return [{ good, count, done: 0, tier, accepted: false, stars: rate > 0 ? (orderStarsPerMinute() * count) / rate : 0 }, next]
 }
 
 /** cash one unit of an item order pays on delivery: its base value × the bonus; a bar (batch 34) its own sell price ×
@@ -102,7 +117,8 @@ export function cropOrderPrice(state: GameState, crop: CropId, bonus = 1): numbe
 }
 
 /**
- * `n` more units into the offer at `slot`. At its count the order completes: ⭐ by tier, counters.orders and the
+ * `n` more units into the offer at `slot`. At its count the order completes: the offer's ⭐ (whole part to the
+ * balance and lifetime, fraction to starsFrac), counters.orders and the
  * lifetime totals +1, and a fresh offer is rolled into the slot. A completed contract also counts contractsByHand
  * (batch 31.1: "contracts delivered", whoever reaped the last units).
  */
@@ -115,11 +131,14 @@ function fillOrder(state: GameState, slot: number, n: number): GameState {
     run: { ...run, ...extra, orders: { ...run.orders, offers: run.orders.offers.map((s, i) => (i === slot ? next : s)) } },
   })
   if (done < offer.count) return withSlot({ ...offer, done })
-  const stars = orderTierStars(offer.tier)
+  // whole ⭐ go to the balance, the fraction waits in starsFrac (the epsilon keeps 3 × 0.4 + 0.2 from flooring to 0)
+  const total = run.starsFrac + offer.stars
+  const stars = Math.floor(total + 1e-9)
   const [fresh, rngState] = rollOffer(state, run.rngState)
   return withSlot(fresh, {
     rngState,
     stars: run.stars + stars,
+    starsFrac: Math.max(0, total - stars),
     counters: {
       ...run.counters,
       orders: run.counters.orders + 1,

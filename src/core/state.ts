@@ -81,16 +81,23 @@ export type RunState = {
   milestones: Partial<Record<MilestoneId, number>>
   /** the 📋 Noticeboard (batch 14) */
   orders: Orders
-  /** ⭐ held; earned only by completing orders, spent only on ⭐ rows (never bought or sold for cash) */
+  /** ⭐ held (whole); earned only by completing orders, spent only on ⭐ rows (never bought or sold for cash) */
   stars: number
+  /** 0 ≤ x < 1: the fractional ⭐ earned by orders, not yet whole (batch 34) */
+  starsFrac: number
+  /** ⭐ Favours bought that live outside the existing ladders (batch 34): Bunkhouse levels, the Seam survey and its aim */
+  favours: Favours
   /** renown points per crop (batch 31; absent = 0): home harvests by hand +2, by a worker +1; raises the market floor */
   renown: Partial<Record<CropId, number>>
 }
 
 /** what an order may ask for: a crop (filled by harvests) or an item (delivered from storage) */
 export type OrderGood = CropId | ItemId
-/** tier indexes the balance order tiers (minutes, ⭐); an accepted crop order takes every harvest of its crop */
-export type Offer = { good: OrderGood; count: number; done: number; tier: number; accepted: boolean }
+/** tier indexes the balance order tiers (minutes); stars = the ⭐ it pays, set when rolled (fractional, batch 34); an
+ * accepted crop order takes every harvest of its crop */
+export type Offer = { good: OrderGood; count: number; done: number; tier: number; accepted: boolean; stars: number }
+/** batch 34: bunkhouse = ⭐ pool-cap levels; seam = the Seam survey owned; aim = the ore it aims at (null = none) */
+export type Favours = { bunkhouse: number; seam: boolean; aim: OreId | null }
 /** a slot holds an offer, or counts down to its next one after a discard */
 export type OrderSlot = Offer | { cooldownTicks: number }
 /** offers has one entry per owned slot once the board is bought (empty before) */
@@ -130,6 +137,8 @@ export type Furnace = {
   levels: { fireCap: number; batch: number; speed: number; tray: number; slot: number }
   molds: Partial<Record<OreId, Mold>>
   collectAll: boolean
+  /** ticks of stoking left (batch 34): while > 0 every smelting mold runs ×STOKER.speed at ×STOKER.fire per bar */
+  stoked: number
 }
 
 /**
@@ -262,11 +271,13 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     tools: { water: 0, harvest: 0, plant: 0 },
     toolN: { water: 1, harvest: 1, plant: 1 },
     toolTier: { water: 0, harvest: 0, plant: 0 },
-    workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: carry?.certificates ?? [] },
+    workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: carry?.certificates ?? [] },
     market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
     stars: 0,
+    starsFrac: 0,
+    favours: { bunkhouse: 0, seam: false, aim: null },
     renown: carry?.renown ?? {},
   }
 }
@@ -285,6 +296,7 @@ export function createFurnace(): Furnace {
     levels: { fireCap: 0, batch: 0, speed: 0, tray: 0, slot: 0 },
     molds: { copperOre: { ore: 0, progress: 0, ready: 0 } },
     collectAll: false,
+    stoked: 0,
   }
 }
 

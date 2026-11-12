@@ -56,7 +56,7 @@ function okState(r: ActionResult): GameState {
 }
 
 const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[] = ['water', 'harvest'], ore = 0, fuel = 0, plant = 0, mine = 0) => ({
-  workers: { pool, assigned: { plant, water, harvest, ore, fuel, mine, clerk: 0, manager: 0 }, certificates },
+  workers: { pool, assigned: { plant, water, harvest, ore, fuel, mine, clerk: 0, manager: 0, stoker: 0 }, certificates },
 })
 
 describe('workers: balance', () => {
@@ -140,7 +140,7 @@ describe('assignWorker', () => {
     const certified = withRun(workers(2, 0, 0, ['water']))
     const one = okState(assignWorker(certified, 'water', 1))
     const two = okState(assignWorker(one, 'water', 1))
-    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ plant: 0, water: 2, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, 0])
+    expect([two.run.workers.assigned, freeWorkers(two.run)]).toEqual([{ plant: 0, water: 2, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, 0])
     expect(assignWorker(two, 'water', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const back = okState(assignWorker(two, 'water', -1))
     expect([back.run.workers.assigned.water, freeWorkers(back.run)]).toEqual([1, 1])
@@ -151,7 +151,7 @@ describe('assignWorker', () => {
     const s = withRun(workers(1, 1, 0))
     expect(assignWorker(s, 'harvest', 1)).toEqual({ ok: false, error: 'NO_FREE_WORKER' })
     const moved = okState(assignWorker(okState(assignWorker(s, 'water', -1)), 'harvest', 1))
-    expect(moved.run.workers.assigned).toEqual({ plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 })
+    expect(moved.run.workers.assigned).toEqual({ plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 })
   })
 })
 
@@ -736,7 +736,7 @@ describe('mine worker: workersAct', () => {
 
 describe('new runs', () => {
   it('start with no workers, no certificates and no wages paid', () => {
-    expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: [] })
+    expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
     expect([init.run.plantCrop, init.run.lifetime.workerPlants, init.run.lifetime.workerMines]).toEqual(['radish', 0, 0])
   })

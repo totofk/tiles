@@ -24,6 +24,7 @@ import v21 from './fixtures/save-v21.json?raw'
 import v22 from './fixtures/save-v22.json?raw'
 import v23 from './fixtures/save-v23.json?raw'
 import v24 from './fixtures/save-v24.json?raw'
+import v25 from './fixtures/save-v25.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, renownFloor } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
@@ -139,20 +140,20 @@ function asV23Run({ rack, selectedPickaxe, keepN, oreKeep, ...run }: Save['state
 const V24_FURNACE = noFurnace.furnace
 /** a v25 furnace back in the v24 shape: the one mold holding ore, progress or bars is the old slot (copper when none);
  *  every other mold is empty, and the batch-33 levels and Collect all are at their start */
-function asV24Furnace({ molds, levels: { speed, tray, slot, ...levels }, collectAll, ...f }: Save['state']['run']['furnace']) {
-  expect([speed, tray, slot, collectAll]).toEqual([0, 0, 0, false])
+function asV24Furnace({ molds, levels: { speed, tray, slot, ...levels }, collectAll, stoked, ...f }: Save['state']['run']['furnace']) {
+  expect([speed, tray, slot, collectAll, stoked]).toEqual([0, 0, 0, false, 0])
   const kinds = Object.keys(molds) as OreId[]
   const kind = kinds.find((k) => molds[k]!.ore + molds[k]!.progress + molds[k]!.ready > 0) ?? 'copperOre'
   for (const k of kinds) if (k !== kind) expect(molds[k]).toEqual({ ore: 0, progress: 0, ready: 0 })
   return { ...f, oreKind: kind, ...molds[kind]!, levels }
 }
 function asV12(save: Save) {
-  const { orders, stars, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = { ...asV23Run(save.state.run), furnace: asV24Furnace(save.state.run.furnace) }
+  const { orders, stars, starsFrac, favours, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = { ...asV23Run(save.state.run), furnace: asV24Furnace(save.state.run.furnace) }
   const { orders: completed, contractsByHand, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
-  const { clerk, manager, ...v12Assigned } = workers.assigned
+  const { clerk, manager, stoker, ...v12Assigned } = workers.assigned
   const { deeds, deedsClaimed, runs, ...meta } = save.state.meta
-  void [orders, stars, completed, contractsByHand, ordersCompleted, starsEarned, goldBars, goldBarsSmelted, clerk, manager, workshop, fields, oreSort, renown, deeds, deedsClaimed, runs]
+  void [orders, stars, starsFrac, favours, completed, contractsByHand, ordersCompleted, starsEarned, goldBars, goldBarsSmelted, clerk, manager, stoker, workshop, fields, oreSort, renown, deeds, deedsClaimed, runs]
   const v12Workers = { ...workers, assigned: v12Assigned }
   return { version: 12, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, counters: v12Counters, lifetime: v12Lifetime, workers: v12Workers } } }
 }
@@ -170,7 +171,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 25, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 26, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -319,7 +320,7 @@ describe('serialize / deserialize', () => {
       ...s,
       run: {
         ...s.run,
-        workers: { pool: 6, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0, mine: 1, clerk: 0, manager: 0 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const, 'mine' as const] },
+        workers: { pool: 6, assigned: { plant: 1, water: 2, harvest: 1, ore: 1, fuel: 0, mine: 1, clerk: 0, manager: 0, stoker: 0 }, certificates: ['water' as const, 'harvest' as const, 'ore' as const, 'plant' as const, 'mine' as const] },
         plantCrop: 'pumpkin' as const,
         lifetime: { ...s.run.lifetime, wagesPaid: 57, workerPlants: 12 },
       },
@@ -341,6 +342,7 @@ describe('serialize / deserialize', () => {
           levels: { fireCap: 1, batch: 2, speed: 1, tray: 1, slot: 2 },
           molds: { copperOre: { ore: 2, progress: 0, ready: 0 }, ironOre: { ore: 7, progress: 17.25, ready: 2 } },
           collectAll: true,
+          stoked: 3,
         },
         inventory: { copperOre: 4, copperBar: 1, ironOre: 3, ironBar: 2, goldOre: 2, goldBar: 1 },
         lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3, ordersCompleted: 0, starsEarned: 0, goldBars: 1, goldBarsSmelted: 2 },
@@ -443,10 +445,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v25 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v26 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(25)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 26 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(26)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 27 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -649,7 +651,8 @@ describe('save v13: the 📋 Noticeboard', () => {
       run: {
         ...s.run,
         stars: 7,
-        orders: { unlocked: true, slots: 2, offers: [{ good: 'radish' as const, count: 27, done: 4, tier: 0, accepted: true }, { cooldownTicks: 312 }] },
+        starsFrac: 0.4,
+        orders: { unlocked: true, slots: 2, offers: [{ good: 'radish' as const, count: 27, done: 4, tier: 0, accepted: true, stars: 0.6 }, { cooldownTicks: 312 }] },
         counters: { ...s.run.counters, orders: 3 },
         lifetime: { ...s.run.lifetime, ordersCompleted: 3, starsEarned: 9 },
       },
@@ -973,7 +976,7 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(25)
+    expect(SAVE_VERSION).toBe(26)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
@@ -1052,7 +1055,7 @@ describe('loadGame / saveGame with an injected clock', () => {
     const store = memoryStore()
     const s = createInitialState()
     const dry = { status: 'planted' as const, cropId: 'radish' as const, growth: 1, moisture: 0, ticksSinceMature: 0 }
-    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['water' as const] }
+    const workers = { pool: 1, assigned: { plant: 0, water: 1, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['water' as const] }
     const saved = { ...s, run: { ...s.run, cash: 50, tiles: [dry, ...s.run.tiles.slice(1)], workers, lifetime: { ...s.run.lifetime, wagesPaid: 7 } } }
     saveGame(store, saved, () => 0)
     const loaded = loadGame(store, () => 60_000)
@@ -1177,7 +1180,7 @@ describe('save v22: 🧺 ore sorting', () => {
     expect(old.version).toBe(21)
     const meta = { ...old.state.meta, upgrades: { ...old.state.meta.upgrades, keepRenown: 0 } }
     const run = { ...v24Run(old.state.run), oreSort: {}, renown: old.state.run.lifetime.harvests }
-    expect(deserialize(v21)).toEqual({ version: 25, savedAtMs: old.savedAtMs, state: { meta, run } })
+    expect(deserialize(v21)).toEqual({ version: 26, savedAtMs: old.savedAtMs, state: { meta, run } })
   })
 })
 
@@ -1186,12 +1189,23 @@ type FurnaceV24 = { oreKind: string; ore: number; progress: number; ready: numbe
 function v25Furnace({ oreKind, ore, progress, ready, levels, ...f }: FurnaceV24) {
   expect(oreKind).toBe('goldOre')
   const empty = { ore: 0, progress: 0, ready: 0 }
-  return { ...f, levels: { ...levels, speed: 0, tray: 0, slot: 0 }, molds: { copperOre: empty, ironOre: empty, goldOre: { ore, progress, ready } }, collectAll: false }
+  return { ...f, levels: { ...levels, speed: 0, tray: 0, slot: 0 }, molds: { copperOre: empty, ironOre: empty, goldOre: { ore, progress, ready } }, collectAll: false, stoked: 0 }
+}
+type RunV25Like = { workers: { assigned: object }; orders: { offers: ({ tier: number } | { cooldownTicks: number })[] } }
+/** v25 → v26: offers keep their tier ⭐ 1 / 2 / 4, no fractional ⭐, no Favours, no Stoker (the furnace's stoked: 0 is
+ *  in v25Furnace / the v25 test) */
+function v26Fields(run: RunV25Like) {
+  return {
+    starsFrac: 0,
+    favours: { bunkhouse: 0, seam: false, aim: null },
+    workers: { ...run.workers, assigned: { ...run.workers.assigned, stoker: 0 } },
+    orders: { ...run.orders, offers: run.orders.offers.map((o) => ('tier' in o ? { ...o, stars: [1, 2, 4][o.tier] } : o)) },
+  }
 }
 /** v23 → v24 on the real fixtures: their gold pickaxe 3800 / 6500 lands on the rack as 351 / 600, selected; then v25 molds */
-function v24Run({ pickaxe, furnace, ...run }: { pickaxe: { tier: string; durability: number }; furnace: FurnaceV24 }) {
+function v24Run({ pickaxe, furnace, ...run }: { pickaxe: { tier: string; durability: number }; furnace: FurnaceV24 } & RunV25Like) {
   expect(pickaxe).toEqual({ tier: 'gold', durability: 3800 })
-  return { ...run, furnace: v25Furnace(furnace), rack: { gold: 351 }, selectedPickaxe: 'gold', keepN: false, oreKeep: {} }
+  return { ...run, furnace: v25Furnace(furnace), rack: { gold: 351 }, selectedPickaxe: 'gold', keepN: false, oreKeep: {}, ...v26Fields(run) }
 }
 
 describe('save v23: renown', () => {
@@ -1265,11 +1279,12 @@ describe('save v25: furnace molds (batch 33)', () => {
       levels: { fireCap: 2, batch: 2, speed: 0, tray: 0, slot: 0 },
       molds: { copperOre: EMPTY, ironOre: EMPTY, goldOre: { ore: 4, progress: 12, ready: 0 } },
       collectAll: false,
+      stoked: 0,
     })
     const { furnace, ...rest } = old.state.run
     void furnace
     expect(meta).toEqual(old.state.meta)
-    expect({ ...run, furnace: undefined }).toEqual({ ...rest, furnace: undefined })
+    expect({ ...run, furnace: undefined }).toEqual({ ...rest, ...v26Fields(rest), furnace: undefined })
     expect([run.cash, run.inventory]).toEqual([old.state.run.cash, old.state.run.inventory])
   })
 
@@ -1297,5 +1312,37 @@ describe('save v25: furnace molds (batch 33)', () => {
     expect(at(v24Furnace, 4)).toEqual({ copperOre: EMPTY })
     expect(at({ ...v24Furnace, built: true }, 2)).toEqual({ copperOre: EMPTY })
     expect(at({ ...v24Furnace, built: true, oreKind: 'ironOre', ore: 5, progress: 30, ready: 1 }, 3)).toEqual({ copperOre: EMPTY, ironOre: { ore: 5, progress: 30, ready: 1 } })
+  })
+})
+
+describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', () => {
+  it('migrates the real v25 fixture (written by the live v25 build): its offers keep ⭐4 / ⭐1 / ⭐1, nothing earned changes', () => {
+    const old = JSON.parse(v25)
+    expect(old.version).toBe(25)
+    const save = deserialize(v25)!
+    expect(save.version).toBe(26)
+    const { run, meta } = save.state
+    expect(run.orders.offers.map((o) => ('good' in o ? [o.tier, o.stars] : null))).toEqual([
+      [2, 4],
+      [0, 1],
+      [0, 1],
+    ])
+    expect([run.stars, run.cash, run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([39, 452_892, 0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+    expect(meta).toEqual(old.state.meta)
+    const strip = (r: typeof run | typeof old.state.run) => ({ ...r, orders: undefined, starsFrac: undefined, favours: undefined, workers: undefined, furnace: undefined })
+    expect(strip(run)).toEqual(strip(old.state.run))
+    expect(run.furnace).toEqual({ ...old.state.run.furnace, stoked: 0 })
+    expect(run.workers).toEqual({ ...old.state.run.workers, assigned: { ...old.state.run.workers.assigned, stoker: 0 } })
+    expect([run.inventory, run.upgrades]).toEqual([old.state.run.inventory, old.state.run.upgrades])
+  })
+
+  it('every fixture v1 … v25 migrates to v26 with the new fields at their defaults; every offer keeps its tier ⭐ 1 / 2 / 4', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25]) {
+      const save = deserialize(raw)!
+      expect(save.version).toBe(26)
+      const { run } = save.state
+      expect([run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+      for (const o of run.orders.offers) if ('good' in o) expect(o.stars).toBe([1, 2, 4][o.tier])
+    }
   })
 })

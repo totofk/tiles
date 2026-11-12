@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount, orderTierStars } from '../core/balance'
+import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
@@ -7,7 +7,7 @@ import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isContract, isCr
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
-import { gain } from './fmt'
+import { gain, starsText } from './fmt'
 import type { Act } from './useGame'
 
 export const goodEmoji = (good: OrderGood) => (isCropGood(good) ? CROP_EMOJI[good] : ITEMS[good].emoji)
@@ -56,7 +56,7 @@ function OrderRow({ state, act, slot, flash = false }: { state: GameState; act: 
         {ready && <span className="order-badge order-badge-ready">✓ Ready</span>}
         <small>
           <span aria-label={`size ${s.tier + 1} of ${orderTierCount()}`}>{dots}</span> · {STAR_EMOJI}
-          {orderTierStars(s.tier)} · +💰{gain(orderCash(state, s))}
+          {starsText(s.stars)} · +💰{gain(orderCash(state, s))}
         </small>
         {s.accepted && isCropGood(s.good) && <small>{contract ? 'filling from harvests · your own reaps pay ×1.25' : 'filling from harvests'}</small>}
       </span>

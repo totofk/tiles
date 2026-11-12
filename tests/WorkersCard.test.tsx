@@ -34,7 +34,7 @@ const LABEL = { Water: '💧 Water', Harvest: '🌾 Harvest' }
 const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.worker-row') as HTMLElement
 const summary = () => document.querySelector('summary')!.textContent
 const certified = (pool: number, water = 0, harvest = 0) => ({
-  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+  workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
 })
 
 describe('batch 29: the 💼 Manager row', () => {
@@ -215,7 +215,7 @@ describe('👷 Workers card', () => {
   })
 
   it('a certified planter gets [−] n [+] like the other jobs', () => {
-    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant'] } })
+    const t = setup({ cash: 0, workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant'] } })
     fireEvent.click(btn(/One more on Plant/))
     t.rerender()
     expect(t.get().run.workers.assigned.plant).toBe(1)
@@ -271,7 +271,7 @@ describe('worker targets on the grid (task 60)', () => {
         ...s.run,
         cash: 10,
         tiles: s.run.tiles.map((_, i) => (i === 2 ? tilled : planted)),
-        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant'] },
+        workers: { pool: 1, assigned: { plant: 1, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant'] },
       },
     }
     const { rerender } = render(<FarmGrid state={state} onTap={() => {}} />)
@@ -303,7 +303,7 @@ describe('worker targets on the grid (task 60)', () => {
         mineLicense: true,
         rack: { wooden: 25 },
         selectedPickaxe: 'wooden',
-        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1, clerk: 0, manager: 0 }, certificates: ['mine'] },
+        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1, clerk: 0, manager: 0, stoker: 0 }, certificates: ['mine'] },
       },
     }
     localStorage.setItem(SAVE_KEY, serialize(miner, Date.now()))

@@ -12,7 +12,7 @@ import { createInitialState, type GameState, type Offer, type RunState } from '.
 afterEach(cleanup)
 
 const init = createInitialState()
-const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 40, done: 12, tier: 1, accepted: false, ...o })
+const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 40, done: 12, tier: 1, accepted: false, stars: 2, ...o })
 
 function setup(run: Partial<RunState>, card = false) {
   let state: GameState = { ...init, run: { ...init.run, ...run } }
@@ -46,7 +46,7 @@ describe('📋 Orders', () => {
   })
 
   it('Accept, then an accepted crop order has ✕ only; an item order Deliver (enabled when storage holds the rest)', () => {
-    const t = setup(board([offer({}), offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true })], { inventory: { stone: 8 } }))
+    const t = setup(board([offer({}), offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true, stars: 1 })], { inventory: { stone: 8 } }))
     within(rows()[0]).getByRole('button', { name: /Accept Carrot order/ }).click()
     t.rerender()
     expect(within(rows()[0]).getAllByRole('button').map((b) => b.textContent)).toEqual(['✕'])

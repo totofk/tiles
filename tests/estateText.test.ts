@@ -170,7 +170,7 @@ describe('batch 29: managerPlanText', () => {
   })
   it('a contract part first: "×1 field → order 2", joined with " · "', () => {
     const s = radishReady(at({ fields: [field([empty()], null), field([empty()], null)] }))
-    const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true }]
+    const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false, stars: 2 }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true, stars: 4 }]
     const withOrder = { ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } }
     expect(managerPlanText(withOrder)).toBe(`${R} ×1 field → order 2 · ${R} rest`)
   })
@@ -203,7 +203,7 @@ describe('batch 30: the Estate map cells (plotCellView)', () => {
     const s = at({ fields: [field([plot('radish', 0)])] })
     const order = (accepted: boolean, done: number): GameState => ({
       ...s,
-      run: { ...s.run, orders: { ...s.run.orders, unlocked: true, slots: 1, offers: [{ good: 'radish', count: 5, done, tier: 1, accepted }] } },
+      run: { ...s.run, orders: { ...s.run.orders, unlocked: true, slots: 1, offers: [{ good: 'radish', count: 5, done, tier: 1, accepted, stars: 2 }] } },
     })
     expect(plotCellView(order(true, 0), 0, 0).ordered).toBe(true)
     expect(plotCellView(order(false, 0), 0, 0).ordered).toBe(false)

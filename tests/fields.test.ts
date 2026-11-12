@@ -323,7 +323,7 @@ describe('reapPlot / reapNext (by hand)', () => {
   })
 
   it('a reaped plot fills an accepted order first at the order price, exactly like a home-plot harvest', () => {
-    const orders = { unlocked: true, slots: 1, offers: [{ good: 'lemon' as const, count: 3, done: 0, tier: 0, accepted: true }] }
+    const orders = { unlocked: true, slots: 1, offers: [{ good: 'lemon' as const, count: 3, done: 0, tier: 0, accepted: true, stars: 1 }] }
     const s = withFields([field([lemon(900)])], { cash: 0, tick: 1000, orders })
     const r = fieldsHarvest(lastTile(s))
     if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
@@ -382,7 +382,7 @@ describe('workers on the fields (one tile per action on the shared counter, batc
     return withFields(list, {
       tiles,
       tick: 5,
-      workers: { pool: 2, assigned: { plant: assigned.plant, water: 0, harvest: assigned.harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant', 'harvest'] },
+      workers: { pool: 2, assigned: { plant: assigned.plant, water: 0, harvest: assigned.harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
       ...extra,
     })
   }
@@ -492,7 +492,7 @@ describe('machinesAct on whole plots', () => {
     const base = withFields([field([lemon(4)])], {
       tiles,
       tick: 5,
-      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant', 'harvest'] },
+      workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
     }, { machines: fleet({ harvester: [3], carry: { harvest: 9, plant: 0, maint: 0 } }) })
     const after = step(base, 1)
     expect(sown(after)).toBe(0)
@@ -601,7 +601,7 @@ describe('pressure: the tank, the valve, the loader (task 147)', () => {
         tick: 5,
         inventory: { coal },
         furnace: { ...init.run.furnace, ...furnace },
-        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 1, mine: 0, clerk: 0, manager: 0 }, certificates: ['fuel'] },
+        workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 1, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['fuel'] },
       }, { tank })
     const furnace = step(loader({ built: true, fire: 0 }, 0), 1)
     expect([furnace.run.inventory.coal, furnace.run.fields.tank, furnace.run.lifetime.wagesPaid]).toEqual([4, 0, 1])
@@ -651,8 +651,8 @@ describe('step identity over plots', () => {
         tick: 4,
         cash: 5000,
         energy: 30,
-        workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: ['plant', 'harvest'] },
-        orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true }] },
+        workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
+        orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }] },
       },
       { pump: 1, machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9 } }) },
     )

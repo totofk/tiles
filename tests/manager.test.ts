@@ -30,7 +30,7 @@ function managed(list: Field[], extra: Partial<GameState['run']> = {}): GameStat
   }
 }
 const fields = (n: number) => Array.from({ length: n }, () => field())
-const offer = (good: CropId, count: number, done = 0): Offer => ({ good, count, done, tier: 2, accepted: true })
+const offer = (good: CropId, count: number, done = 0): Offer => ({ good, count, done, tier: 2, accepted: true, stars: 4 })
 const withOffers = (s: GameState, offers: Offer[]): GameState => ({ ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } })
 
 describe('batch 29: 💼 managerPlan', () => {
