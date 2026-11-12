@@ -117,7 +117,7 @@ describe('recordMilestones', () => {
   })
 
   it('records step-driven milestones per tick: firstBar lands with the first smelted bar', () => {
-    const furnace = { ...createFurnace(), built: true, fire: 60, ore: 2, progress: 59 }
+    const furnace = { ...createFurnace(), built: true, fire: 60, molds: { copperOre: { ore: 2, progress: 59, ready: 0 } } }
     const s = withRun({ tick: 41, furnace, inventory: { stone: 0 } })
     const next = step(s, 1)
     expect(next.run.lifetime.barsSmelted).toBe(1)

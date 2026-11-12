@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { buyLicense, buyTile, digForSeeds, harvest, plant, selectCrop, till, water, type ActionResult } from '../src/core/actions'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { cropFloor, cropSale, marketSteadyFactor } from '../src/core/market'
-import { PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
+import { ORE_IDS, PICKAXE_TIERS, type OreId, type PickaxeTier } from '../src/core/data/items'
 import { TOOL_JOBS, type ToolJob } from '../src/core/data/tools'
 import { buyToolTier, buyTool, pressTool, toolTargets } from '../src/core/tools'
 import {
@@ -17,7 +17,6 @@ import {
   fireUnitTicks,
   furnaceUpgradeCost,
   furnaceUpgradeMaxLevel,
-  FURNACE_UPGRADE_IDS,
   cropSellPrice,
   DEED_ROW_IDS,
   RENOWN_TIERS,
@@ -28,6 +27,7 @@ import {
   licenseCost,
   furnaceCost,
   furnaceTrayCap,
+  moldPrice,
   mineLicenseCost,
   orderBonus,
   orderSlotStars,
@@ -73,7 +73,7 @@ import {
 } from '../src/core/balance'
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
-import { addFuel, buildFurnace, buyFurnaceUpgrade, collectBars, cycleOre, loadOre, setOreKind } from '../src/core/furnace'
+import { addFuel, buildFurnace, buyFurnaceUpgrade, buyMold, collectBars, cycleOre, loadOre } from '../src/core/furnace'
 import { buyMetaUpgrade, sellFarm, sellFarmUnlocked, starDeeds } from '../src/core/prestige'
 import { catchUp, deserialize } from '../src/save/serialize'
 import v17 from './fixtures/save-v17.json?raw'
@@ -81,6 +81,7 @@ import v20 from './fixtures/save-v20.json?raw'
 import v21 from './fixtures/save-v21.json?raw'
 import v22 from './fixtures/save-v22.json?raw'
 import v23 from './fixtures/save-v23.json?raw'
+import v24 from './fixtures/save-v24.json?raw'
 import { bagCount, bestPickaxeTier, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, heldPickaxe, repairPickaxe, selectPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -183,9 +184,7 @@ const lowestValue = ({ run }: GameState) =>
     ...Object.values(run.seeds),
     ...Object.values(run.rack),
     run.furnace.fire,
-    run.furnace.ore,
-    run.furnace.ready,
-    run.furnace.progress,
+    ...Object.values(run.furnace.molds).flatMap((m) => [m.ore, m.ready, m.progress]),
   )
 
 /** batch 7 ladder goals, in order; `keep` = items mining must not sell while this goal is next */
@@ -229,45 +228,71 @@ type LadderStep =
 type Goal = { name: LadderStep; done: (s: GameState) => boolean; buy: (s: GameState) => ActionResult; keep: (s: GameState) => Price }
 const COPPER_PICKAXE_BARS = pickaxeCraftCost('copper', createInitialState().meta).copperBar!
 const COPPER_TOOL_BARS = toolTierCost(1, createInitialState().meta).copperBar!
-/** cycles loaded in the furnace (ore in the slot, fuelled with them); the old queue */
-const cyclesLoaded = ({ run }: GameState) => Math.floor(run.furnace.ore / smeltOre())
-/** keep `bars` bars plus the ore and coal to smelt the ones not yet in storage, the furnace or its tray */
+/** bars of this kind still in its mold: whole bars' ore loaded (the old queue) + its tray; 0 with no such mold */
+const inMold = ({ run }: GameState, ore: OreId) => {
+  const m = run.furnace.molds[ore]
+  return m ? Math.floor(m.ore / smeltOre()) + m.ready : 0
+}
+/** keep `bars` bars plus the ore and coal to smelt the ones not yet in storage, the copper mold or its tray */
 const keepBars =
-  (bars: number, kindAware = false) =>
+  (bars: number) =>
   (s: GameState): Price => {
-    const { run } = s
-    // batch 28.1 (kindAware, the copperPickaxe rung only): a gold slot residue is not copper — read as copper it hid
-    // the escape's shortfall; the other copper keeps keep the old count so the pinned machines-era runs do not move
-    const inFurnace = !kindAware || run.furnace.oreKind === 'copperOre' ? cyclesLoaded(s) + run.furnace.ready : 0
-    const toSmelt = Math.max(0, bars - (run.inventory.copperBar ?? 0) - inFurnace)
+    const toSmelt = Math.max(0, bars - (s.run.inventory.copperBar ?? 0) - inMold(s, 'copperOre'))
     return { cash: 0, copperBar: bars, copperOre: smeltOre() * toSmelt, coal: smeltFuel('coal') * toSmelt }
   }
 /**
  * batch 9: what the batch-7 bot's "enqueue coal jobs while it can" does on the fuelled furnace: load k cycles of ore
  * and exactly k coal together, k ≤ the old 5-job cap (cycles loaded + tray), so the fire never burns without ore.
- * Batch 16 (with `keep`, the gold runs' hand-smelting): the ore is the furnace's current kind (copper, iron or gold),
- * capped at the goal's ore shortfall so surplus ore sells instead of becoming an unsellable bar; the ore load and the
- * fuel are capped separately, so leftover fire or the fire cap never vetoes the other half
+ * Batch 16 (`capped`, the gold runs' hand-smelting): capped at the goal's ore shortfall so surplus ore sells instead of
+ * becoming an unsellable bar; the ore load and the fuel are capped separately, so leftover fire or the fire cap never
+ * vetoes the other half. Batch 33 (molds): every owned mold whose kind the keep lists (gold also while the repair
+ * reserve is unbanked) loads at once — the keep's ore field is the signal of what to smelt
  */
-function smeltCoalJobs(s: GameState, keep?: Price): ActionResult {
-  const { inventory, furnace } = s.run
-  const fuel = smeltFuel('coal', furnace.oreKind)
-  if (keep === undefined) {
-    const k = Math.min(
-      Math.floor((inventory[furnace.oreKind] ?? 0) / smeltOre()),
-      Math.floor((inventory.coal ?? 0) / fuel),
-      furnaceTrayCap() - cyclesLoaded(s) - furnace.ready,
-    )
-    if (k < 1) return { ok: false, error: 'NOTHING_TO_DO' }
-    const ore = loadOre(s, k * smeltOre())
-    return ore.ok ? addFuel(ore.state, 'coal', k * fuel) : ore
+function smeltCoalJobs(s: GameState, keep: Price, capped: boolean): ActionResult {
+  let r: ActionResult = { ok: false, error: 'NOTHING_TO_DO' }
+  for (const kind of ORE_IDS) {
+    const { inventory, furnace } = s.run
+    if (!furnace.molds[kind] || (keep[kind] === undefined && !(kind === 'goldOre' && goldReserveShort(s)))) continue
+    const fuel = smeltFuel('coal', kind)
+    const room = furnaceTrayCap(furnace.levels.tray) - inMold(s, kind)
+    if (!capped) {
+      const k = Math.min(Math.floor((inventory[kind] ?? 0) / smeltOre()), Math.floor((inventory.coal ?? 0) / fuel), room)
+      if (k < 1) continue
+      const ore = loadOre(s, kind, k * smeltOre())
+      const done = ore.ok ? addFuel(ore.state, 'coal', k * fuel) : ore
+      if (done.ok) r = { ok: true, state: (s = done.state) }
+      continue
+    }
+    const n = Math.max(0, Math.min(Math.ceil((keep[kind] ?? 0) / smeltOre()), room))
+    const ore = loadOre(s, kind, n * smeltOre())
+    const fuelled = addFuel(ore.ok ? ore.state : s, 'coal', n * fuel)
+    const done = ore.ok ? (fuelled.ok ? fuelled : ore) : fuelled
+    if (done.ok) r = { ok: true, state: (s = done.state) }
   }
-  const maxCycles = Math.ceil((keep[furnace.oreKind] ?? 0) / smeltOre())
-  const room = Math.max(0, Math.min(maxCycles, furnaceTrayCap() - cyclesLoaded(s) - furnace.ready))
-  const ore = loadOre(s, room * smeltOre())
-  const fuelled = addFuel(ore.ok ? ore.state : s, 'coal', room * fuel)
-  return ore.ok ? (fuelled.ok ? fuelled : ore) : fuelled
+  return r
 }
+/** every owned mold's tray into storage, copper → iron → gold, as far as room goes */
+function collectMolds(s: GameState): ActionResult {
+  let r: ActionResult = { ok: false, error: 'NOTHING_TO_DO' }
+  for (const kind of ORE_IDS) {
+    const c = collectBars(s, kind)
+    if (c.ok) r = { ok: true, state: (s = c.state) }
+  }
+  return r
+}
+/**
+ * batch 33: a mold not owned yet is the goal while a goal that smelts its kind is next — keep its price (bars, with the
+ * ore and coal to smelt them, and stone) so mining does not sell what it needs
+ */
+const moldKeep = (kind: 'ironOre' | 'goldOre') => (s: GameState): Price => {
+  const price = moldPrice(kind, s.meta)
+  const bars = kind === 'ironOre' ? keepBars(price.copperBar!)(s) : keepIronBars(price.ironBar!)(s)
+  return { ...bars, stone: price.stone }
+}
+const needsMold = (kind: 'ironOre' | 'goldOre', g: Goal): Goal => ({
+  ...g,
+  keep: (s) => (s.run.furnace.built && !s.run.furnace.molds[kind] ? moldKeep(kind)(s) : g.keep(s)),
+})
 /** batch 32: a crafted tier stays on the rack, so a pickaxe rung is done once its tier is owned */
 const rackRung = (tier: PickaxeTier): Pick<Goal, 'done' | 'buy'> => ({
   done: (s) => s.run.rack[tier] !== undefined,
@@ -282,7 +307,7 @@ const LADDER: Goal[] = [
   {
     name: 'copperPickaxe',
     ...rackRung('copper'),
-    keep: keepBars(COPPER_PICKAXE_BARS, true),
+    keep: keepBars(COPPER_PICKAXE_BARS),
   },
 ]
 /** batch 7.1: after the copper pickaxe, each job's copper tier in order (buying the job's tool Lv1 with it if missing) */
@@ -328,13 +353,11 @@ const PLANT_LADDER: Goal[] = [
     keep: keepBars(certificateCost('plant', createInitialState().meta).copperBar!),
   },
 ]
-/** keep `bars` iron bars plus the iron ore and coal to smelt the ones not yet in storage or the (iron) furnace */
+/** keep `bars` iron bars plus the iron ore and coal to smelt the ones not yet in storage or the iron mold */
 const keepIronBars =
   (bars: number) =>
   (s: GameState): Price => {
-    const { run } = s
-    const inFurnace = run.furnace.oreKind === 'ironOre' ? cyclesLoaded(s) + run.furnace.ready : 0
-    const toSmelt = Math.max(0, bars - (run.inventory.ironBar ?? 0) - inFurnace)
+    const toSmelt = Math.max(0, bars - (s.run.inventory.ironBar ?? 0) - inMold(s, 'ironOre'))
     return { cash: 0, ironBar: bars, ironOre: smeltOre() * toSmelt, coal: smeltFuel('coal', 'ironOre') * toSmelt }
   }
 const IRON_PRICE = createInitialState().meta
@@ -350,35 +373,34 @@ const IRON_LADDER: Goal[] = [
     keep: (s) => ({ ...keepBars(veinUpgradeCost(2, IRON_PRICE)!.copperBar!)(s), stone: veinUpgradeCost(2, s.meta)!.stone }),
   },
   // iron or better (batch 16: a gold pickaxe in hand must not send the ladder back to crafting iron)
-  { name: 'ironPickaxe', ...rackRung('iron'), keep: keepIronBars(pickaxeCraftCost('iron', IRON_PRICE).ironBar!) },
-  {
+  needsMold('ironOre', { name: 'ironPickaxe', ...rackRung('iron'), keep: keepIronBars(pickaxeCraftCost('iron', IRON_PRICE).ironBar!) }),
+  needsMold('ironOre', {
     name: 'mineCertificate',
     done: (s) => s.run.workers.certificates.includes('mine'),
     buy: (s) => buyCertificate(s, 'mine'),
     keep: keepIronBars(certificateCost('mine', IRON_PRICE).ironBar!),
-  },
+  }),
 ]
 /** batch 15: after the mine certificate, each job's iron tier in order (water → harvest → plant) */
 const IRON_TOOLS_LADDER: Goal[] = [
   ...IRON_LADDER,
   ...TOOL_JOBS.map(
-    (job): Goal => ({
-      name: `iron:${job}`,
-      done: (s) => s.run.toolTier[job] >= 2,
-      buy: (s) => buyToolTier(s, job),
-      keep: keepIronBars(toolTierCost(2, createInitialState().meta).ironBar!),
-    }),
+    (job): Goal =>
+      needsMold('ironOre', {
+        name: `iron:${job}`,
+        done: (s) => s.run.toolTier[job] >= 2,
+        buy: (s) => buyToolTier(s, job),
+        keep: keepIronBars(toolTierCost(2, createInitialState().meta).ironBar!),
+      }),
   ),
 ]
 // the goals that need the furnace on iron (the iron pickaxe, the mine certificate and the three iron tools)
 const IRON_ON_GOALS = IRON_TOOLS_LADDER.slice(IRON_TOOLS_LADDER.length - 5)
-/** keep `bars` gold bars plus the gold ore and coal to smelt the ones not yet in storage or the (gold) furnace */
+/** keep `bars` gold bars plus the gold ore and coal to smelt the ones not yet in storage or the gold mold */
 const keepGoldBars =
   (bars: number) =>
   (s: GameState): Price => {
-    const { run } = s
-    const inFurnace = run.furnace.oreKind === 'goldOre' ? cyclesLoaded(s) + run.furnace.ready : 0
-    const toSmelt = Math.max(0, bars - (run.inventory.goldBar ?? 0) - inFurnace)
+    const toSmelt = Math.max(0, bars - (s.run.inventory.goldBar ?? 0) - inMold(s, 'goldOre'))
     return { cash: 0, goldBar: bars, goldOre: smeltOre() * toSmelt, coal: smeltFuel('coal', 'goldOre') * toSmelt }
   }
 /**
@@ -395,8 +417,7 @@ const repairSafe = (g: Goal, goldCost: (s: GameState) => number = () => 0): Goal
   ...g,
   keep: (s: GameState): Price => {
     const reserve = pickaxeRepairCost('gold', s.meta).goldBar!
-    const inGold = s.run.furnace.oreKind === 'goldOre' ? cyclesLoaded(s) + s.run.furnace.ready : 0
-    const banked = (s.run.inventory.goldBar ?? 0) + inGold
+    const banked = (s.run.inventory.goldBar ?? 0) + inMold(s, 'goldOre')
     const gk = g.keep(s)
     if (banked < reserve) {
       const chain = keepGoldBars(reserve)(s)
@@ -422,14 +443,15 @@ const GOLD_LADDER: Goal[] = [
     // the stone and the iron bars with the ore and coal to smelt them
     keep: (s) => ({ ...keepIronBars(veinUpgradeCost(3, IRON_PRICE)!.ironBar!)(s), stone: veinUpgradeCost(3, s.meta)!.stone }),
   },
-  { name: 'goldPickaxe', ...rackRung('gold'), keep: keepGoldBars(pickaxeCraftCost('gold', IRON_PRICE).goldBar!) },
+  needsMold('goldOre', { name: 'goldPickaxe', ...rackRung('gold'), keep: keepGoldBars(pickaxeCraftCost('gold', IRON_PRICE).goldBar!) }),
   ...(['harvest', 'plant'] as const).map(
-    (job): Goal => ({
-      name: `gold:${job}`,
-      done: (s) => s.run.toolTier[job] >= 3,
-      buy: (s) => buyToolTier(s, job),
-      keep: keepGoldBars(toolTierCost(3, createInitialState().meta).goldBar!),
-    }),
+    (job): Goal =>
+      needsMold('goldOre', {
+        name: `gold:${job}`,
+        done: (s) => s.run.toolTier[job] >= 3,
+        buy: (s) => buyToolTier(s, job),
+        keep: keepGoldBars(toolTierCost(3, createInitialState().meta).goldBar!),
+      }),
   ),
 ]
 // the goals that need the furnace on gold (the gold pickaxe and the two gold farm tools)
@@ -447,8 +469,7 @@ const keepSprinklerBars = (s: GameState): Price => {
   for (const [bar, ore] of parts) {
     const bars = cost[bar]!
     keep[bar] = bars
-    const inFurnace = s.run.furnace.oreKind === ore ? cyclesLoaded(s) + s.run.furnace.ready : 0
-    const toSmelt = Math.max(0, bars - (s.run.inventory[bar] ?? 0) - inFurnace)
+    const toSmelt = Math.max(0, bars - (s.run.inventory[bar] ?? 0) - inMold(s, ore))
     keep[ore] = smeltOre() * toSmelt
     coal += smeltFuel('coal', ore) * toSmelt
   }
@@ -482,8 +503,7 @@ const WORKSHOP_ON_GOALS = WORKSHOP_LADDER.slice(GOLD_LADDER.length)
  * the batch 19 machines lesson, now applied from the workshop on: the reserve smelts before any goal ore
  */
 const goldReserveShort = (s: GameState): boolean => {
-  const f = s.run.furnace
-  const banked = (s.run.inventory.goldBar ?? 0) + (f.oreKind === 'goldOre' ? cyclesLoaded(s) + f.ready : 0)
+  const banked = (s.run.inventory.goldBar ?? 0) + inMold(s, 'goldOre')
   // batch 32: only while a sharp iron or gold pickaxe can mine gold ore (the old "gold in hand"); with none, a furnace
   // held on gold for a reserve nothing can mine wedges the run (every rack tier blunt, 🥇0)
   const canMineGold = (s.run.rack.iron ?? 0) > 0 || (s.run.rack.gold ?? 0) > 0
@@ -571,8 +591,13 @@ const smeltsFor = (g: Goal | undefined) =>
  */
 function fuelForOre(s: GameState): ActionResult {
   const { inventory, furnace } = s.run
-  const k = Math.floor((furnace.ore + (inventory[furnace.oreKind] ?? 0)) / cycleOre(furnace)) - Math.ceil(furnace.fire / barTicks())
-  return k >= 1 ? addFuel(s, 'coal', k * smeltFuel('coal', furnace.oreKind)) : { ok: false, error: 'NOTHING_TO_DO' }
+  // batch 33: every owned mold's cycles (slot + storage) at its own coal per cycle, less the fire already lit (in coal)
+  const need = ORE_IDS.reduce((n, kind) => {
+    const m = furnace.molds[kind]
+    return m ? n + Math.floor((m.ore + (inventory[kind] ?? 0)) / cycleOre(furnace)) * smeltFuel('coal', kind) : n
+  }, 0)
+  const k = need - Math.ceil(furnace.fire / fuelTicks('coal'))
+  return k >= 1 ? addFuel(s, 'coal', k) : { ok: false, error: 'NOTHING_TO_DO' }
 }
 
 /** mineEarly: buy the mine license as soon as it is affordable while energy is idle;
@@ -676,7 +701,7 @@ function runBot(
   } = {},
 ) {
   const goals = machines ? MACHINES_LADDER : fields ? FIELDS_LADDER : sprinklers ? WORKSHOP_LADDER : gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
-  const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironPicked' | 'firstIronBar' | 'goldPicked' | 'firstGoldBar', number>> = {}
+  const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironMold' | 'firstIronBar' | 'goldMold' | 'firstGoldBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   // batch 13: the first tick each certificate could be bought (its gates met) and the storage held then
   const certUnlocked: Partial<Record<WorkerJob, { tick: number; bagCapacity: number }>> = {}
@@ -736,11 +761,14 @@ function runBot(
       // batch 18: an hour of the Fields' coal stays too (batch 28: the pivoted plots' tank burn; machines runs too)
       if (fields || machines)
         keep.coal = Math.max(keep.coal ?? 0, hourOfBurn(s) - Math.floor(s.run.fields.tank / TANK_UNITS_PER_COAL))
-      // batch 20 (drainSlot): the ore that completes the slot's partial cycle of the current kind never sells
+      // batch 20 (drainSlot): the ore that completes a mold's partial cycle never sells
       if (drainSlot) {
         const f = s.run.furnace
-        const topUp = (cycleOre(f) - (f.ore % cycleOre(f))) % cycleOre(f)
-        if (f.ore > 0 && topUp > 0) keep[f.oreKind] = Math.max(keep[f.oreKind] ?? 0, topUp)
+        for (const kind of ORE_IDS) {
+          const ore = f.molds[kind]?.ore ?? 0
+          const topUp = (cycleOre(f) - (ore % cycleOre(f))) % cycleOre(f)
+          if (ore > 0 && topUp > 0) keep[kind] = Math.max(keep[kind] ?? 0, topUp)
+        }
       }
       for (const job of buyTools ? FARM_JOBS : [])
         if (!s.run.workers.certificates.includes(job))
@@ -761,15 +789,13 @@ function runBot(
       if (smeltsFor(next)) {
         const { assigned } = s.run.workers
         if (assigned.ore === 0) {
-          // the keep's ore field is also the signal of what to smelt: without it the furnace must switch kinds first
-          const keep = next!.keep(s)
-          // batch 21: a gold furnace also smelts while the repair reserve is unbanked, whatever the goal's keep says
-          if (keep[s.run.furnace.oreKind] !== undefined || (s.run.furnace.oreKind === 'goldOre' && goldReserveShort(s)))
-            tryAct(smeltCoalJobs(s, gold ? keep : undefined), null)
+          // the keep's ore field is also the signal of what to smelt (batch 33: every mold it lists at once; batch 21:
+          // the gold mold also while the repair reserve is unbanked, whatever the goal's keep says)
+          tryAct(smeltCoalJobs(s, next!.keep(s), gold), null)
           // batch 17: ready bars need bag room before they can be collected — sell the surplus first, or the dig below
           // refills every freed slot and the last bar never leaves the tray (the sprinkler keeps have no surplus)
-          if (sprinklers && s.run.furnace.ready > 0) sellSurplus(next)
-          tryAct(collectBars(s), null)
+          if (sprinklers && Object.values(s.run.furnace.molds).some((m) => m.ready > 0)) sellSurplus(next)
+          tryAct(collectMolds(s), null)
           if (gold) tryAct(fuelForOre(s), null)
         } else if (assigned.fuel === 0) tryAct(fuelForOre(s), null)
       }
@@ -786,7 +812,7 @@ function runBot(
     // tray count; never sells bars for it), then mine with the best sharp tier on the rack; with none sharp, the wooden
     // pickaxe (crafted or repaired with bought wood) is the floor
     if (PICKAXE_TIERS.some((t) => t !== 'wooden' && s.run.rack[t] === 0)) {
-      tryAct(collectBars(s), null)
+      tryAct(collectMolds(s), null)
       for (const t of PICKAXE_TIERS) if (t !== 'wooden' && s.run.rack[t] === 0) tryAct(repairPickaxe(s, t), null)
     }
     const sharp = PICKAXE_TIERS.findLast((t) => (s.run.rack[t] ?? 0) > 0)
@@ -903,68 +929,31 @@ function runBot(
       } else if (!mineOnce(tick)) break
     }
     milestones()
-    if ((iron || ironTools) && s.run.furnace.oreKind !== 'ironOre' && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
-      tryAct(sellItem(s, 'copperOre', s.run.inventory.copperOre ?? 0), mine)
-      tryAct(collectBars(s), null)
-      if (tryAct(setOreKind(s, 'ironOre'), null)) ladderTicks.ironPicked ??= tick
+    // batch 33: where the bot switched the furnace to iron / gold it buys that mold (the goal's keep holds its price)
+    if ((iron || ironTools) && s.run.furnace.built && !s.run.furnace.molds.ironOre && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
+      if (tryAct(buyMold(s, 'ironOre'), null)) ladderTicks.ironMold ??= tick
     }
-    if (gold && s.run.furnace.oreKind !== 'goldOre' && GOLD_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
-      tryAct(sellItem(s, 'ironOre', s.run.inventory.ironOre ?? 0), mine)
-      tryAct(collectBars(s), null)
-      if (tryAct(setOreKind(s, 'goldOre'), null)) ladderTicks.goldPicked ??= tick
+    // batch 33: once the iron mold is in, an ore loader would turn every copper ore into a copper bar nothing spends
+    // (the old furnace was on iron here) — the copper ore in storage sells before each tick, as it did before the switch
+    if ((iron || ironTools) && s.run.furnace.molds.ironOre && s.run.workers.assigned.ore > 0 && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!))
+      tryAct(sellItem(s, 'copperOre', s.run.inventory.copperOre ?? 0), mine)
+    if (gold && s.run.furnace.built && !s.run.furnace.molds.goldOre && GOLD_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
+      if (tryAct(buyMold(s, 'goldOre'), null)) ladderTicks.goldMold ??= tick
     }
     if (sprinklers) {
       const next = goals.find((g) => !g.done(s))
       const pickaxeRung = swapped && ['copperPickaxe', 'ironPickaxe', 'goldPickaxe'].includes(next?.name ?? '')
       if (next && (pickaxeRung || WORKSHOP_ON_GOALS.includes(next) || MACHINES_ON_GOALS.includes(next) || (fields && FIELDS_ON_GOALS.slice(0, 3).includes(next)))) {
-        // smelt the kind the goal is still short of, copper → iron → gold; nothing sells (every kind is needed). Since
-        // batch 21 a switch with ore left in the slot forfeits it, drainSlot tops the partial cycle up first
-        const keep = next.keep(s)
-        // batch 21: top a partial slot cycle up whenever the bag can, not only before a switch — a residue the bag
-        // could finish but nothing loads wedges the furnace on a kind the goal no longer wants (run 2 of the prestige
-        // sim sat 50 h on 1 iron ore with 1 more in the bag)
-        {
+        // batch 21: top a mold's partial cycle up whenever the bag can — a residue the bag could finish but nothing
+        // loads sits in the slot (run 2 of the prestige sim sat 50 h on 1 iron ore with 1 more in the bag). Batch 33:
+        // every kind the goal is short of smelts in its own mold at once (smeltCoalJobs), so the kind switch is gone
+        for (const kind of ORE_IDS) {
           const g0 = s.run.furnace
-          if (g0.ore > 0 && g0.ore % cycleOre(g0) !== 0) {
-            const loaded = loadOre(s, cycleOre(g0) - (g0.ore % cycleOre(g0)))
-            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', g0.oreKind)), null)
+          const ore = g0.molds[kind]?.ore ?? 0
+          if (ore > 0 && ore % cycleOre(g0) !== 0) {
+            const loaded = loadOre(s, kind, cycleOre(g0) - (ore % cycleOre(g0)))
+            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', kind)), null)
           }
-        }
-        // batch 21: pick the kind to smelt. Never switch while the slot holds smeltable ore (a switch forfeits it —
-        // the guard comes first, above every preference); keep the gold pickaxe's 2 repair bars banked (a blunt
-        // pickaxe mines no ore, and with no bars to repair it the wedge is permanent — the batch 19 machines lesson);
-        // else prefer a short kind whose ore is already bagged — waiting on copper with a bag full of kept iron/gold
-        // ore wedges the dig on BAG_FULL forever (sprinkler 1 stalled 21 h on exactly that); else the first short kind
-        const f = s.run.furnace
-        const short = (['copperOre', 'ironOre', 'goldOre'] as const).filter((ore) => (keep[ore] ?? 0) > 0)
-        const bagged = (ore: (typeof short)[number]) => (s.run.inventory[ore] ?? 0) > 0
-        // a slot residue below one cycle with no bag ore to top it up can never smelt out — forfeit it, don't wedge on it
-        const stuck = f.ore > 0 && f.ore % cycleOre(f) !== 0 && !bagged(f.oreKind)
-        // with room in the bag the bot stays on the first short kind and mines it (the pinned flow); only a full bag
-        // justifies smelting a bagged kind instead — the dig is BAG_FULL-blocked until smelting frees slots
-        const full = bagCount(s.run) >= s.run.bagCapacity
-        const stay = short.includes(f.oreKind) && (!full || bagged(f.oreKind) || !short.some(bagged))
-        const want =
-          f.ore > 0 && !stuck
-            ? f.oreKind
-            : goldReserveShort(s)
-              ? 'goldOre'
-              : stay
-                ? f.oreKind
-                : (short.find(bagged) ?? short[0])
-        if (want && s.run.furnace.oreKind !== want) {
-          // a full bag of exactly-kept goods strands tray bars (collect needs room, the tray vetoes the switch) —
-          // sell one coal to make room for the bar (batch 21)
-          if (s.run.furnace.ready > 0 && bagCount(s.run) >= s.run.bagCapacity) tryAct(sellItem(s, 'coal', 1), mine)
-          tryAct(collectBars(s), null)
-          // batch 20: top the slot's partial cycle up so it smelts out before the switch (batch 21: always, and a
-          // residue that cannot be topped is forfeited below — the slot guard above already stayed while it could)
-          const g2 = s.run.furnace
-          if (g2.ore > 0 && g2.ore % cycleOre(g2) !== 0) {
-            const loaded = loadOre(s, cycleOre(g2) - (g2.ore % cycleOre(g2)))
-            if (loaded.ok) tryAct(addFuel(loaded.state, 'coal', smeltFuel('coal', g2.oreKind)), null)
-          }
-          tryAct(setOreKind(s, want), null)
         }
       }
     }
@@ -973,7 +962,7 @@ function runBot(
     s = step(s, 1)
     farm.cash += s.run.cash - before
     seen()
-    if (s.run.furnace.ready > 0) ladderTicks.firstBar ??= s.run.tick
+    if ((s.run.furnace.molds.copperOre?.ready ?? 0) > 0) ladderTicks.firstBar ??= s.run.tick
     if (s.run.lifetime.ironBarsSmelted > 0) ladderTicks.firstIronBar ??= s.run.tick
     if (s.run.lifetime.goldBarsSmelted > 0) ladderTicks.firstGoldBar ??= s.run.tick
     onTick?.(s)
@@ -1549,9 +1538,20 @@ describe('batch 7: every multi-item price fits the storage the player has when i
     ['fuel loader certificate', certificateCost('fuel', meta), 40],
     // batch 10: the plant certificate (copper bars, so after the copper pickaxe too)
     ['plant certificate', certificateCost('plant', meta), 40],
-    ...FURNACE_UPGRADE_IDS.flatMap((id) =>
-      Array.from({ length: furnaceUpgradeMaxLevel(id) }, (_, l): [string, Price, number] => [`${id} Lv${l + 1}`, furnaceUpgradeCost(id, l, meta)!, 40]),
+    ...(['fireCap', 'batch', 'smart'] as const).flatMap((id) =>
+      Array.from({ length: Math.min(2, furnaceUpgradeMaxLevel(id)) }, (_, l): [string, Price, number] => [`${id} Lv${l + 1}`, furnaceUpgradeCost(id, l, meta)!, 40]),
     ),
+    // batch 33: the copper-bar mold rows come with vein Lv3 (storage Lv3), the iron/gold-bar rows with vein Lv4 (storage Lv4)
+    ['tray Lv1', furnaceUpgradeCost('tray', 0, meta)!, 50],
+    ['slot Lv1', furnaceUpgradeCost('slot', 0, meta)!, 50],
+    ['iron mold', moldPrice('ironOre', meta), 50],
+    ['collectAll', furnaceUpgradeCost('collectAll', 0, meta)!, 50],
+    ...(['fireCap', 'batch', 'speed', 'tray', 'slot'] as const).flatMap((id) =>
+      Array.from({ length: furnaceUpgradeMaxLevel(id) }, (_, l): [string, Price, number] => [`${id} Lv${l + 1}`, furnaceUpgradeCost(id, l, meta)!, 60]).filter(
+        ([, p]) => (p.ironBar ?? 0) + (p.goldBar ?? 0) > 0,
+      ),
+    ),
+    ['gold mold', moldPrice('goldOre', meta), 60],
     // batch 11: vein Lv3 (40 stone + 5 copper bars) comes after storage Lv3 (50), as each vein level after its storage level
     ['vein Lv3', veinUpgradeCost(2, meta)!, 50],
     // storage Lv3 itself is bought with storage Lv2 (40); the iron prices come after vein Lv3 (storage Lv3)
@@ -1722,16 +1722,17 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
 
   // batch 9: auto-smelt is gone; the player loads ore and fills the fire with coal before leaving
   it('8 h offline with workers and a loaded furnace: more cash, and every bar the loaded ore, fire and tray allow', () => {
-    const loaded = loadOre(end)
+    const loaded = loadOre(end, 'copperOre')
     const ored = loaded.ok ? loaded.state : end
     const fuelled = addFuel(ored, 'coal')
     const before = fuelled.ok ? fuelled.state : ored
     const { inventory, furnace } = before.run
-    const ore = furnace.ore
+    const mold = furnace.molds.copperOre!
+    const ore = mold.ore
     const coal = inventory.coal ?? 0
-    const bars = (s: GameState) => (s.run.inventory.copperBar ?? 0) + s.run.furnace.ready
+    const bars = (s: GameState) => (s.run.inventory.copperBar ?? 0) + s.run.furnace.molds.copperOre!.ready
     const allowed =
-      bars(before) + Math.min(Math.floor(ore / smeltOre()), Math.floor(furnace.fire / barTicks()), furnaceTrayCap() - furnace.ready)
+      bars(before) + Math.min(Math.floor(ore / smeltOre()), Math.floor(furnace.fire / barTicks()), furnaceTrayCap(furnace.levels.tray) - mold.ready)
     const t0 = performance.now()
     const after = withoutMarket(() => catchUp(before, OFFLINE_CAP_TICKS * 1000))
     const runtimeMs = performance.now() - t0
@@ -1739,7 +1740,7 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
       cash: [before.run.cash, after.run.cash],
       bars: [bars(before), bars(after)],
       allowed,
-      stock: { ore, coal, fire: furnace.fire, ready: furnace.ready, storage: `${bagCount(before.run)}/${before.run.bagCapacity}` },
+      stock: { ore, coal, fire: furnace.fire, ready: mold.ready, storage: `${bagCount(before.run)}/${before.run.bagCapacity}` },
       wagesPaid: after.run.lifetime.wagesPaid - before.run.lifetime.wagesPaid,
       runtimeMs: Math.round(runtimeMs),
     }
@@ -1758,7 +1759,7 @@ type Loaders = { ore?: boolean; fuel?: boolean }
 function smeltery({ ore = 0, coal = 0, fire = 0, fireCap = 0, smart = false, loaders = {} as Loaders } = {}): GameState {
   const init = createInitialState()
   const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(!!loaders.ore), fuel: Number(!!loaders.fuel), mine: 0, clerk: 0, manager: 0 }
-  const furnace = { ...createFurnace(), built: true, fire, smart, levels: { fireCap, batch: 0 } }
+  const furnace = { ...createFurnace(), built: true, fire, smart, levels: { ...createFurnace().levels, fireCap } }
   const workers = { pool: assigned.ore + assigned.fuel, assigned, certificates: ['ore', 'fuel'] as WorkerJob[] }
   return { ...init, run: { ...init.run, cash: 1000, bagCapacity: 1e4, inventory: { copperOre: ore, coal }, furnace, workers } }
 }
@@ -1783,7 +1784,7 @@ const STOCK = { ore: 1000, coal: 500 }
 function furnaceBench({ cadence = HOUR_TICKS, loaders = {}, smart = false, fireCap = 0 }: { cadence?: number; loaders?: Loaders; smart?: boolean; fireCap?: number }) {
   const start = smeltery({ ...STOCK, smart, loaders, fireCap })
   const tend: Array<(s: GameState) => ActionResult> = [
-    ...(loaders.ore ? [] : [collectBars, (s: GameState) => loadOre(s)]),
+    ...(loaders.ore ? [] : [(s: GameState) => collectBars(s, 'copperOre'), (s: GameState) => loadOre(s, 'copperOre')]),
     ...(loaders.fuel ? [] : [(s: GameState) => addFuel(s, 'coal')]),
   ]
   let s = start
@@ -2003,7 +2004,7 @@ describe('batch 10: 8 h offline from the batch-8 workers ladder end, with one wo
   withoutMarket(() => runBot(true, { ticks: HOUR_TICKS, licenses: LICENSE_ORDER, crops: PLANT_ORDER, ladder: true, copperTools: true, workers: true, onEnd: (s) => (end = s) }))
   // batch 8's start: the player loads the furnace before leaving
   const ok = (r: ActionResult, s: GameState) => (r.ok ? r.state : s)
-  const loaded = ok(addFuel(ok(loadOre(end), end), 'coal'), ok(loadOre(end), end))
+  const loaded = ok(addFuel(ok(loadOre(end, 'copperOre'), end), 'coal'), ok(loadOre(end, 'copperOre'), end))
   const best = PLANT_ORDER.find((c) => loaded.run.licenses.includes(c))!
   const certified: GameState = { ...loaded, run: { ...loaded.run, workers: { ...loaded.run.workers, certificates: [...loaded.run.workers.certificates, 'plant'] } } }
   const planter = ok(selectCrop(ok(assignWorker(ok(assignWorker(certified, 'water', -1), certified), 'plant', 1), certified), best), certified)
@@ -2134,8 +2135,8 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     JSON.stringify({ ladderTicks, finalCash, wagesPaid, lowest, borrowed, ironBarsSmelted, ironBars, workerMines, workerPlants, workers: end.run.workers.assigned, rack: end.run.rack }, null, 1),
   )
 
-  it('every batch-10 step is unchanged; storage Lv3 → vein Lv3 → iron picked → first iron bar → iron pickaxe → mine certificate follow, pinned (re-pinned batch 16: market off, replays the pre-market pins)', () => {
-    const { storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate, ...older } = ladderTicks
+  it('every batch-10 step is unchanged; storage Lv3 → vein Lv3 → iron mold → first iron bar → iron pickaxe → mine certificate follow, pinned (re-pinned batch 16: market off, replays the pre-market pins)', () => {
+    const { storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate, ...older } = ladderTicks
     // re-pinned batch 32 (was the batch 10 steps; storageLv3 4389, veinLv3 / ironPicked 4641, firstIronBar 4845,
     // ironPickaxe 5337, mineCertificate 5928; [12443, 1235, 248, 20]): hit carry-over
     expect(older).toEqual({
@@ -2154,19 +2155,21 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
       smart: 3747,
       plantCertificate: 4347,
     })
-    const order = [storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate]
+    const order = [storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate]
     for (const tick of order) expect(tick).toBeLessThanOrEqual(IRON_TICKS)
     expect([...order].sort((a, b) => a! - b!)).toEqual(order)
-    expect({ storageLv3, veinLv3, ironPicked, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
+    // re-pinned batch 33 (was ironPicked 4647, firstIronBar 4825, ironPickaxe 5307, mineCertificate 5907; [14581, 1213,
+    // 247, 20]): molds: every kind smelts at once — the iron mold (🥉10 ⛰️20 💰6,500) replaces the free switch
+    expect({ storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
       storageLv3: 4410,
       veinLv3: 4647,
-      ironPicked: 4647,
-      firstIronBar: 4825,
-      ironPickaxe: 5307,
-      mineCertificate: 5907,
+      ironMold: 5246,
+      firstIronBar: 5385,
+      ironPickaxe: 5868,
+      mineCertificate: 6468,
     })
     // (task 172: the sickle's seed roll moves these again)
-    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([14581, 1213, 247, 20])
+    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([7014, 1167, 143, 16])
   })
 
   it('the miner gets a worker and mines; nothing goes negative and it never borrows', () => {
@@ -2181,7 +2184,7 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
 function ironWorks({ smart = false, loaders = true }: { smart?: boolean; loaders?: boolean }): GameState {
   const init = createInitialState()
   const assigned = { plant: 0, water: 0, harvest: 0, ore: Number(loaders), fuel: Number(loaders), mine: 1, clerk: 0, manager: 0 }
-  const furnace = { ...createFurnace(), built: true, smart, oreKind: 'ironOre' as const }
+  const furnace = { ...createFurnace(), built: true, smart, molds: { ...createFurnace().molds, ironOre: { ore: 0, progress: 0, ready: 0 } } }
   const workers = { pool: assigned.ore + assigned.fuel + 1, assigned, certificates: ['ore', 'fuel', 'mine'] as WorkerJob[] }
   return {
     ...init,
@@ -2252,10 +2255,13 @@ describe('batch 11: iron bars per hour with mine + ore + fuel workers, plain vs 
   // fewer presses and the miner idles sooner
   it('pins iron bars, miner presses, wages and fire wasted per hour (PLAN.md "Batch 11 results")', () => {
     expect(Object.fromEntries(Object.entries(bench).map(([k, v]) => [k, [v.ironBars, v.workerMines, v.wages, Math.ceil(v.wastedUnits)]]))).toEqual({
-      plain120: [29, 447, 572, 2],
-      smart120: [29, 436, 560, 0],
-      plain600: [12, 199, 282, 69],
-      smart600: [11, 159, 203, 0],
+      // re-pinned batch 33 (was plain120 [29, 447, 572, 2], smart120 [29, 436, 560, 0], plain600 [12, 199, 282, 69],
+      // smart600 [11, 159, 203, 0]): molds: every kind smelts at once — the loader also smelts the copper ore mined
+      // between sales in the copper mold, so copper bars fill storage and the miner idles sooner
+      plain120: [23, 289, 462, 8],
+      smart120: [23, 288, 460, 0],
+      plain600: [15, 202, 322, 48],
+      smart600: [12, 166, 251, 0],
       minerOnly120: [0, 720, 720, 0],
     })
   })
@@ -2318,7 +2324,9 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
     expect(heldPickaxe(t.run)!.durability).toBeGreaterThan(0)
     expect(minerStop).toBeLessThan(OFFLINE_CAP_TICKS)
     // re-pinned batch 32 (was [766, 45, 7, 70974, 3616]): hit carry-over fills storage in fewer presses
-    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([871, 42, 8, 72860, 3610])
+    // re-pinned batch 33 (was [871, 42, 8, 72860, 3610]): molds: every kind smelts at once — the ladder end now banks
+    // copper bars from the copper mold, so storage starts fuller and the miner stops sooner
+    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([346, 27, 3, 72908, 3592])
   })
 
   it('cash never goes below 0 and step(s, n) = n × step(s, 1) over the whole 8 h', () => {
@@ -2480,11 +2488,13 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   // re-pinned batch 32 (was 12443 / 5928, and market on stalled cash-broke after storage Lv2: 💰0, no mine
   // certificate): hit carry-over and the sickle's seed roll — the market-on run no longer stalls, it reaches the mine
   // certificate at tick 5943
-  it('market off replays the pre-market pins (14581 / 5907); market on at depth 240 reaches the mine certificate too (batch 32)', () => {
-    expect(ladder.finalCash.before).toBe(14581)
-    expect(ladder.mineCertificate.before).toBe(5907)
-    expect(ladder.finalCash.after).toBe(14020)
-    expect(ladder.mineCertificate.after).toBe(5943)
+  // re-pinned batch 33 (was 14581 / 5907 off, 14020 / 5943 on): molds: every kind smelts at once — the iron mold's
+  // 💰6,500 and its wait for 🥉10 ⛰️20 come before the iron pickaxe
+  it('market off replays the pre-market pins (7014 / 6468); market on at depth 240 reaches the mine certificate too (batch 32)', () => {
+    expect(ladder.finalCash.before).toBe(7014)
+    expect(ladder.mineCertificate.before).toBe(6468)
+    expect(ladder.finalCash.after).toBe(6839)
+    expect(ladder.mineCertificate.after).toBe(6468)
     expect(ladderOn.ladderTicks.storageLv2).toBe(951)
   })
 
@@ -2496,7 +2506,9 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     expect(longest.gap).toBeLessThanOrEqual(HOUR_TICKS)
     // batch 22: 30 → 34 — the per-crop first-harvest rows now record alongside firstHarvest; the gaps are unchanged
     // re-pinned batch 32 (was ['certMine', 5928], longest ironPickaxe 696): hit carry-over
-    expect([reached.length, reached.at(-1), longest]).toEqual([34, ['certMine', 5907], { id: 'certPlant', gap: 757 }])
+    // re-pinned batch 33 (was ['certMine', 5907], longest certPlant 757): molds: every kind smelts at once — the iron
+    // mold's wait lands inside the vein Lv3 → iron pickaxe gap (20.4 game-min, under the cap)
+    expect([reached.length, reached.at(-1), longest]).toEqual([34, ['certMine', 6468], { id: 'ironPickaxe', gap: 1221 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
@@ -2633,9 +2645,11 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
       harvest: { unlocked: 66, bought: 66 },
       ore: { unlocked: 38, bought: 48.7 },
       fuel: { unlocked: 58.7, bought: 58.7 },
-      mine: { unlocked: 83.7, bought: 104.7 },
+      mine: { unlocked: 83.7, bought: 113.8 },
     })
-    expect([ladder.finalCash, longest]).toEqual([13529, { id: 'certPlant', gap: 764 }])
+    // re-pinned batch 33 (was mine bought 104.7; [13529, certPlant 764]): molds: every kind smelts at once — the iron
+    // mold's 💰6,500 comes before the iron pickaxe and the mine certificate
+    expect([ladder.finalCash, longest]).toEqual([5818, { id: 'ironPickaxe', gap: 1206 }])
   })
 
   it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {
@@ -2964,9 +2978,12 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
 
   it('pinned minutes: each tool affordable (bars, cash) and bought; the steps after the mine certificate (PLAN.md "Batch 15 results") (re-pinned batch 16: depth 60)', () => {
     // re-pinned batch 32 (was 107.7, gaps [8, 40.4, 38.8], done 194.8, the three tools below): hit carry-over
-    expect(minute(steps[0])).toBe(104.7) // the mine certificate
-    expect(gaps.map((g) => minute(g))).toEqual([8.1, 28, 33.5])
-    expect(minute(phase.done)).toBe(174.3)
+    // re-pinned batch 33 (was 104.7, gaps [8.1, 28, 33.5], done 174.3, the three tools below: water 112.8 / 108 /
+    // 112.8, harvest 120.8 / 140.8 / 140.8, plant 140.8 / 174.3 / 174.3): molds: every kind smelts at once — the
+    // iron mold's 💰6,500 delays the mine certificate and the tools wait on cash
+    expect(minute(steps[0])).toBe(113.8) // the mine certificate
+    expect(gaps.map((g) => minute(g))).toEqual([20.3, 36.5, 33.2])
+    expect(minute(phase.done)).toBe(203.8)
     expect(
       Object.fromEntries(
         TOOL_JOBS.map((job) => {
@@ -2975,9 +2992,9 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
         }),
       ),
     ).toEqual({
-      'iron:water': { bars: 112.8, cash: 108, bought: 112.8 },
-      'iron:harvest': { bars: 120.8, cash: 140.8, bought: 140.8 },
-      'iron:plant': { bars: 140.8, cash: 174.3, bought: 174.3 },
+      'iron:water': { bars: 121.8, cash: 134, bought: 134.1 },
+      'iron:harvest': { bars: 134.1, cash: 170.1, bought: 170.6 },
+      'iron:plant': { bars: 170.6, cash: 203.7, bought: 203.8 },
     })
   })
 
@@ -2989,12 +3006,16 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
       barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
       barsPerHour: Math.round(barsPerHour),
       // re-pinned batch 32 (was { 87.1, 17342, 12, 43, 30 }): hit carry-over and the sickle's seed roll
-    }).toEqual({ minutes: 69.6, incomePerHour: 20459, barsNeeded: 12, barsSmelted: 34, barsPerHour: 29 })
+      // re-pinned batch 33 (was { 69.6, 20459, 12, 34, 29 }): molds: every kind smelts at once
+    }).toEqual({ minutes: 90, incomePerHour: 19420, barsNeeded: 12, barsSmelted: 45, barsPerHour: 30 })
     expect(toolTierCost(2, end.meta).cash).toBe(10000)
     expect(10000 % 500).toBe(0)
     // re-pinned batch 32 (was ≥ 0.5): carry-over lifts the phase income, so the 💰10,000 cash part is 0.489 h, just
     // under the 0.5 h floor; the price is not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
-    expect(Math.round((10000 / incomePerHour) * 1000) / 1000).toBe(0.489)
+    // re-pinned batch 33 (was 0.489): molds: every kind smelts at once — the phase income drops, 0.515 h is back over
+    // the floor
+    expect(Math.round((10000 / incomePerHour) * 1000) / 1000).toBe(0.515)
+    expect(10000 / incomePerHour).toBeGreaterThanOrEqual(0.5)
     expect(10000 / incomePerHour).toBeLessThanOrEqual(1.5)
   })
 
@@ -3021,7 +3042,9 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
       const bought = ladder.ladderTicks[`iron:${job}`]!
       expect([rd.bars, rd.cash].every((t) => Number.isFinite(t))).toBe(true)
       expect(bought).toBeGreaterThanOrEqual(Math.max(rd.bars, rd.cash))
-      expect(bought - Math.max(rd.bars, rd.cash)).toBeLessThanOrEqual(2)
+      // re-pinned batch 33 (was ≤ 2 ticks): molds: every kind smelts at once — the harvest tool's cash lands while the
+      // player farms, so the buy waits for the next mining round (29 ticks, half a game-minute)
+      expect(bought - Math.max(rd.bars, rd.cash)).toBeLessThanOrEqual(30)
     }
   })
 
@@ -3114,12 +3137,16 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // gold bar 267.2, vein phase 37.8 min at 💰13,602/h, gold phase 94.8 min at 💰14,354/h 8 bars/h): hit carry-over
     // and the mastered tiers' ore bonus
     // (task 172: the sickle's seed roll moves them again)
-    expect(steps.map((x) => minute(x))).toEqual([207.5, 209, 240.4, 255.7, 280.1, 313.1])
-    expect(gaps.map((g) => minute(g))).toEqual([1.5, 31.4, 15.3, 24.4, 33])
-    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(243.7)
+    // re-pinned batch 33 (was steps [207.5, 209, 240.4, 255.7, 280.1, 313.1], gaps [1.5, 31.4, 15.3, 24.4, 33], first
+    // gold bar 243.7, vein phase 32.8 min at 💰15,003/h, gold phase 72.8 min at 💰18,013/h 11 bars/h, cash 101262):
+    // molds: every kind smelts at once — the iron mold delays the iron ladder, and the gold mold (🥈8 ⛰️30 💰7,500)
+    // sits between vein Lv4 and the gold pickaxe (gap 48.3 min, under the cap)
+    expect(steps.map((x) => minute(x))).toEqual([231.4, 232.7, 262.3, 310.5, 336.8, 369.6])
+    expect(gaps.map((g) => minute(g))).toEqual([1.3, 29.6, 48.3, 26.3, 32.8])
+    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(298.5)
     expect({ minutes: minute(veinPhase.done - veinPhase.start), incomePerHour: Math.round(veinIncomePerHour), cash: veinUpgradeCost(3, end.meta)!.cash }).toEqual({
-      minutes: 32.8,
-      incomePerHour: 15003,
+      minutes: 30.8,
+      incomePerHour: 16219,
       cash: 7500,
     })
     expect({
@@ -3129,13 +3156,13 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
       barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
       barsPerHour: Math.round(barsPerHour),
       toolCash: toolTierCost(3, end.meta).cash,
-    }).toEqual({ minutes: 72.8, incomePerHour: 18013, barsNeeded: 13, barsSmelted: 13, barsPerHour: 11, toolCash: 10000 })
+    }).toEqual({ minutes: 107.3, incomePerHour: 16729, barsNeeded: 13, barsSmelted: 13, barsPerHour: 7, toolCash: 10000 })
     // re-pinned batch 32 (was [1.984, 27.933]; 1.978 in task 168, gold 600 durability): 6.234 with carry-over — 8 hits
     // break ~3 vein-Lv4 rocks per press, and the mastered tier lifts the ore weights; pumpkin 29.153 with the gold
     // sickle's seed drops (task 172)
     expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([6.234, 29.153])
     // re-pinned batch 32 (was 81827; 74044 in task 168, 86511 in task 170): gold 600 repairs, carry-over, seed drops
-    expect(ladder.finalCash).toBe(101262)
+    expect(ladder.finalCash).toBe(87048)
   })
 
   it('climbs the gold ladder in order: storage Lv4 → vein Lv4 → gold pickaxe → gold sickle → gold dibber; every step ≤ 60 game-minutes', () => {
@@ -3150,7 +3177,8 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     expect(veinCash % 500).toBe(0)
     // re-pinned batch 32 (was ≥ 0.5): carry-over lifts the vein-phase income to 💰15,003/h, so 💰7,500 is 0.4999 h —
     // a hair under the 0.5 h floor; the price is not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
-    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.5)
+    // re-pinned batch 33 (was 0.5): molds: every kind smelts at once — the vein-phase income is 💰16,219/h, 0.462 h
+    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.462)
     expect(veinCash / veinIncomePerHour).toBeLessThanOrEqual(1.5)
     expect(toolCash % 500).toBe(0)
     expect(toolCash / incomePerHour).toBeGreaterThanOrEqual(0.5)
@@ -3270,10 +3298,13 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 32 (was [395.9, 433.5, 469.8, 469.8, 506, 506, 565], gaps [37.5, 36.4, 0, 36.2, 0, 59], incomes
     // [15587, 20219, 29511], cash 500348): the pickaxe rack and gold 600 (task 168: [389.9 … 563.1]), then hit
     // carry-over and the mastered ore bonus (task 170: [315.7 … 467], 541055), then the sickle's seed roll (task 172)
-    expect(steps.map((x) => minute(x))).toEqual([316.9, 353.6, 389.7, 389.8, 431.9, 432, 468.2])
-    expect(gaps.map((g) => minute(g))).toEqual([36.8, 36.1, 0, 42.2, 0, 36.2])
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22750, 24575, 29026])
-    expect(ladder.finalCash).toBe(567566)
+    // re-pinned batch 33 (was [316.9, 353.6, 389.7, 389.8, 431.9, 432, 468.2], gaps [36.8, 36.1, 0, 42.2, 0, 36.2],
+    // incomes [22750, 24575, 29026], cash 567566): molds: every kind smelts at once — the gold mold's wait delays the
+    // workshop's start, then the sprinklers' mixed bars smelt in parallel and the steps come closer together
+    expect(steps.map((x) => minute(x))).toEqual([376.1, 396.6, 420.8, 420.8, 443.3, 444.2, 479.9])
+    expect(gaps.map((g) => minute(g))).toEqual([20.5, 24.2, 0, 22.5, 1, 35.7])
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([21539, 26421, 28430])
+    expect(ladder.finalCash).toBe(540267)
   })
 
   it('climbs in order: workshop → sprinklers 1–2 → tiles 13 → sprinkler 3 → tiles 19 → sprinkler 4, every step ≤ 60 game-minutes', () => {
@@ -3288,9 +3319,11 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 32 (was ≥ 0.5 and ≥ 0.35): carry-over lifts the gold-phase income to 💰22,750/h and the bed-phase
     // income to 💰24,575/h, so the workshop is 0.374 h and the sprinkler 0.326 h — under their floors; the prices are
     // not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
-    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.374)
+    // re-pinned batch 33 (was 0.374 / 0.326): molds: every kind smelts at once — the gold-phase income is 💰21,539/h
+    // and the bed-phase 💰26,421/h
+    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.395)
     expect(prices.workshop / goldIncome).toBeLessThanOrEqual(1.5)
-    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.326)
+    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.303)
     expect(prices.sprinkler / income).toBeLessThanOrEqual(1.5)
   })
 
@@ -3302,7 +3335,8 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     })
     // re-pinned batch 32 (was [461, 7]; [213, 7] in task 168, the rack and gold 600; [454, 7] in task 170, carry-over
     // mines more per press): the sickle's seed roll moves the window
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([478, 7])
+    // re-pinned batch 33 (was [478, 7]): molds: every kind smelts at once
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([483, 7])
     expect(r.furnaceCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 
@@ -3554,7 +3588,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // 113515, 214445, 501078, 552321]): the sickle's seed drops
     // re-pinned batch 32.2 (was [48714, 114757, 209556, 495880, 551320]): workers do one tile per action on the Estate,
     // so the forge's 2 + 2 workers are labor-bound from 50 tiles up (72 plots/h each way)
-    expect(lemon).toEqual([42020, 81507, 81507, 81507, 81507])
+    // re-pinned batch 33 (was [42020, 81507, 81507, 81507, 81507]): molds: every kind smelts at once — the forge's
+    // source `end` differs
+    expect(lemon).toEqual([42814, 83952, 83952, 83952, 83952])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -3562,7 +3598,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32 (was [194754, 287402]): the rack and gold 600
     // task 170 (was [194692, 284966] in task 168): carry-over; task 172 (was [195967, 286829]): seed drops
     // re-pinned batch 32.2 (was [193679, 284610]): workers do one tile per action on the Estate
-    expect(mixed).toEqual([75745, 63677])
+    // re-pinned batch 33 (was [75745, 63677]): molds: every kind smelts at once — the forge's source `end` differs
+    expect(mixed).toEqual([75980, 64046])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -3605,7 +3642,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // task 170 (was [369, 17] in task 168): carry-over — the miner breaks ~2.6× the rocks per press-hour; task 172 (was
     // [973, 14]): seed drops
     // re-pinned batch 32.2 (was [978, 19]): workers do one tile per action on the Estate (a slower plots window)
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([982, 11])
+    // re-pinned batch 33 (was [982, 11]): molds: every kind smelts at once
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([977, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -3674,6 +3712,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     let owned = 0
     // batch 32 (task 172c, report only): gold pickaxe repairs from its craft to the run's end
     const gold = { from: 0, prev: undefined as number | undefined, repairs: 0 }
+    // batch 33 (task 180 scenario A, report only): cash and bars held at every tick, by tick
+    const held = { cash: new Float64Array(170 * HOUR_TICKS + 1), copperBar: new Float64Array(170 * HOUR_TICKS + 1), ironBar: new Float64Array(170 * HOUR_TICKS + 1), goldBar: new Float64Array(170 * HOUR_TICKS + 1) }
     const ladder = runBot(true, {
       ticks: 170 * HOUR_TICKS,
       licenses: LICENSE_ORDER,
@@ -3692,6 +3732,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       buyTools: true,
       onEnd: (s) => (end = s),
       onTick: (s) => {
+        held.cash[s.run.tick] = s.run.cash
+        for (const id of ['copperBar', 'ironBar', 'goldBar'] as const) held[id][s.run.tick] = s.run.inventory[id] ?? 0
         const g = s.run.rack.gold
         if (g !== undefined && gold.prev === undefined) gold.from = s.run.tick
         if (g !== undefined && gold.prev !== undefined && g > gold.prev) gold.repairs++
@@ -3744,6 +3786,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       // deduped: the Tractor's field, pivot and plot land on one tick
       purchases: [...new Set(purchases)],
       gold,
+      held,
     }
   })
   const { ladder, end } = r
@@ -3851,6 +3894,33 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     }, 300_000)
   })
 
+  // batch 33 (task 180 scenario A, report only; reuses this ladder run): the ladder end (harvester3), the first iron /
+  // gold bar, the minute each mold is bought, and the longest gap between marks (milestones + ladder rungs) from tick 0
+  // to the ladder end, with the cash and bars held the tick before the mark that closed it
+  it('batch 33: scenario A — ladder end, first iron / gold bar, mold minutes, longest gap and what bound it', () => {
+    const t = ladder.ladderTicks as Partial<Record<string, number>>
+    const endTick = r.win.harvester3!
+    const marks = [...Object.entries(end.run.milestones), ...Object.entries(t)]
+      .filter((e): e is [string, number] => e[1] !== undefined && e[1] <= endTick)
+      .sort((a, b) => a[1] - b[1])
+    const gaps = marks.map(([id, tick], i) => ({ id, from: i ? marks[i - 1]![0] : 'start', tick, gap: tick - (i ? marks[i - 1]![1] : 0) }))
+    const longest = gaps.reduce((a, b) => (b.gap > a.gap ? b : a))
+    const before = Math.max(0, longest.tick - 1)
+    const min = (x: number | undefined) => (x === undefined ? null : Math.round((x / 60) * 10) / 10)
+    console.log('PIN33a', JSON.stringify({
+      ladderEndMin: min(endTick),
+      firstIronBarMin: min(t.firstIronBar),
+      firstGoldBarMin: min(t.firstGoldBar),
+      ironPickedMin: min(t.ironPicked),
+      goldPickedMin: min(t.goldPicked),
+      ironMoldMin: min(t.ironMold),
+      goldMoldMin: min(t.goldMold),
+      longest: { closedBy: longest.id, after: longest.from, gapMin: min(longest.gap), atMin: min(longest.tick) },
+      heldBefore: { cash: Math.round(r.held.cash[before]!), copperBar: r.held.copperBar[before], ironBar: r.held.ironBar[before], goldBar: r.held.goldBar[before] },
+    }))
+    expect(endTick).toBeGreaterThan(0)
+  })
+
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
   // saving for Pump 2; prices LOCKED. Batch 32.2: 347 min from game-minute 4,431 (was 232) — workers do one tile per
@@ -3947,10 +4017,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // task 170: [213,214] [503,605] [549,1812]; task 172: the sickle's seed drops
     // re-pinned batch 32.2 (was [213,217] [492,604] [550,1801]): workers do one tile per action on the Estate — the
     // workers-only arm is labor-bound at every N; the full fleet (whose plots the workers still help finish) moves less
+    // re-pinned batch 33 (was [81,211] [81,598] [81,758]): molds: every kind smelts at once — the source run's `end` moves
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [81, 211],
-      [81, 598],
-      [81, 758],
+      [81, 209],
+      [81, 599],
+      [81, 755],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
@@ -3959,10 +4030,12 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // carry-over (task 170: 0.6 / 16.4 / 99.9 / null), then the seed drops (task 172) move `end`
     // re-pinned batch 32.2 (was 0.6 / 8.9 / null / 102.5): workers do one tile per action on the Estate — harvester1
     // and the seeders now replace the labor-bound workers; harvester2 / 3 add little once harvester1 reaps
+    // re-pinned batch 33 (was harvester2 1623.4, harvester3 363.6): molds: every kind smelts at once — the source run's
+    // `end` moves; harvester2 / 3 add next to nothing at 300 tiles (harvester2 now slightly negative: no payback)
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', 0.4],
-      ['harvester2', 1623.4],
-      ['harvester3', 363.6],
+      ['harvester2', null],
+      ['harvester3', 4545.5],
       ['seeders', 0.8],
     ])
     // re-pinned batch 28 (was null / 300 / null / null); batch 32.2 (was 300 / 1000 / 1000 / null): workers do one tile
@@ -4149,8 +4222,10 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // speed-up drops to 1.33× / 1.26× (PLAN.md "Batch 32 results" → Deviations)
     // re-pinned batch 32.2 (was 1.26 for run 2): workers do one tile per action on the Estate, so run 1 earns less
     // before its sale, gets other deeds and the sold run's rows differ
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.33)
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.2)
+    // re-pinned batch 33 (was 1.33 / 1.2): molds: every kind smelts at once — run 1 pays the molds before the fields
+    // unlock and the sold runs reach it sooner, so the vault run is back over the 1.4× floor
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.68)
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.4)
   })
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
@@ -4171,7 +4246,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // with the sickle's seed drops (task 172)
     // re-pinned batch 32.2 (was 37.9 / 34.7): workers do one tile per action on the Estate — the pre-machine plots
     // grind is labor-bound, so the cash for the machine rungs comes slower
-    expect(h).toEqual([105.6, 101])
+    // re-pinned batch 33 (was 105.6 / 101): molds: every kind smelts at once
+    expect(h).toEqual([105, 100.1])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -4253,7 +4329,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 32 (was every h in 0.5–1.5): carry-over lifts the income at the tomato and grape unlocks, so their
     // licenses are 0.49 h and 0.43 h — under the 0.5 h floor; prices are not this batch's to move (PLAN.md "Batch 32
     // results" → Deviations)
-    expect(band.map((b) => b.h)).toEqual([0.49, 0.57, 0.43, 0.53])
+    // re-pinned batch 33 (was [0.49, 0.57, 0.43, 0.53]): molds: every kind smelts at once — the income at each unlock
+    // moves; grape and strawberry fall under the floor (0.35 h / 0.38 h)
+    expect(band.map((b) => b.h)).toEqual([0.5, 0.54, 0.35, 0.38])
     for (const b of band) expect(b.h).toBeLessThanOrEqual(1.5)
   })
 
@@ -4306,7 +4384,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // batch 32: 63.8 / 38.5 with the rack and gold 600 (task 168), 61 / 37.8 with carry-over (task 170), 56.6 / 35.9
     // with the sickle's seed drops (task 172)
     // re-pinned batch 32.2 (was 56.6 / 35.9): workers do one tile per action on the Estate (labor-bound plots grind)
-    expect(h).toEqual([108.1, 73.6])
+    // re-pinned batch 33 (was 108.1 / 73.6): molds: every kind smelts at once
+    expect(h).toEqual([107.5, 72.5])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for
@@ -4434,7 +4513,8 @@ describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
     // hour to 💰14,227/h, so the rule now gives 💰7,000; ORE_SORT_CASH stays 💰6,500 — not this batch's balance number
     // to move (PLAN.md "Batch 32 results" → Deviations)
     expect(Math.max(500, Math.round((0.5 * lv3.income) / 500) * 500)).toBe(7000)
-    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 14227, cash: 6500 })
+    // re-pinned batch 33 (was 14227): molds: every kind smelts at once — the vein-Lv3 hour now includes the iron mold's wait
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 14470, cash: 6500 })
     for (const kind of MINE_DROP_IDS) {
       expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
       expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
@@ -4555,6 +4635,16 @@ describe('batch 32.2: estate worker speed — scenario B, the real v23 save migr
     console.log('PIN322b', JSON.stringify({ b1, b2 }))
     expect(b1.plotsReapedPerHour).toBeGreaterThan(0)
   }, 300_000)
+})
+
+describe('batch 33: scenario B — the real v24 save, migrated, 2 game-hours with its own workers (report)', () => {
+  it('reports bars/h per kind and fire burnt/h', () => {
+    const start = deserialize(v24)!.state
+    const s = step(start, 2 * HOUR_TICKS)
+    const per = (k: 'barsSmelted' | 'ironBarsSmelted' | 'goldBarsSmelted' | 'fireBurnt') => (s.run.lifetime[k] - start.run.lifetime[k]) / 2
+    console.log('PIN33b', JSON.stringify({ barsPerHour: { copper: per('barsSmelted'), iron: per('ironBarsSmelted'), gold: per('goldBarsSmelted') }, fireBurntPerHour: per('fireBurnt'), furnace: s.run.furnace }))
+    expect(per('fireBurnt')).toBeGreaterThanOrEqual(0)
+  }, 120_000)
 })
 
 describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (task 163d)', () => {

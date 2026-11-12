@@ -261,7 +261,7 @@ describe('loan debt with a fake clock', () => {
 
   it('the welcome-back banner says the fire burnt, the bars smelted and the bars waiting in the tray while away', () => {
     const s = createInitialState()
-    const furnace = { ...s.run.furnace, built: true, fire: 300, ore: 6 }
+    const furnace = { ...s.run.furnace, built: true, fire: 300, molds: { copperOre: { ore: 6, progress: 0, ready: 0 } } }
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, furnace } }, Date.now() - 150_000))
     render(<App />)
     // 150 ticks: two 60-tick cycles done, the third half way; 150 burn ticks = 5 units
@@ -457,7 +457,7 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v24/)).toBeTruthy()
+    expect(screen.getByText(/Will migrate v15 → v25/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(SAVE_VERSION)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)

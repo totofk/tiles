@@ -70,7 +70,11 @@ export const FURNACE_TIPS: Record<'fire' | FurnaceUpgradeId, string> = {
   fire: 'Fill the fire with wood or coal; coal burns longer than wood. A plain furnace burns whenever it is lit, also with no ore loaded or a full tray, so fill it only when you smelt.',
   fireCap: 'A bigger fire holds more fuel, so the furnace runs longer between fills. Paid once per level in copper bars and cash.',
   batch: 'Each smelt turns more ore into more bars for the same fire, so every bar costs less fuel. Paid once per level in copper bars and cash.',
+  speed: 'Every mold finishes a smelt 20 % sooner per level. Fuel per bar stays the same.',
+  tray: "Each mold's tray holds more bars, so molds keep smelting longer before you collect.",
+  slot: "Each mold's ore slot holds more ore.",
   smart: 'The fire burns only while a bar is smelting, so no fuel is wasted when the ore runs out or the tray is full. A one-time buy.',
+  collectAll: "One button moves every mold's bars into storage.",
 }
 
 /** the job's certificate row: what a worker on this job does */

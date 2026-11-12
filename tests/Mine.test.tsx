@@ -169,7 +169,7 @@ describe('Mine panel', () => {
     setup({ vein: { level: 1, progress: 0, rock: 'stone' } })
     expect(text()).toContain('🔥 Furnace — buy it in the 🛒 Shop')
     cleanup()
-    const t = setup({ furnace: { ...built, ready: 1 }, inventory: { copperOre: 3, coal: 1 } })
+    const t = setup({ furnace: { ...built, molds: { copperOre: { ore: 0, progress: 0, ready: 1 } } }, inventory: { copperOre: 3, coal: 1 } })
     const summary = () => document.querySelector('.mine-furnace summary')!.textContent
     expect(summary()).toBe('🔥 Furnace · fire 0/10 · ore 0 · 1 ready')
     const button = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
@@ -185,23 +185,23 @@ describe('Mine panel', () => {
     fireEvent.click(button(/^Load/))
     fireEvent.click(button(/^Fill with ⚫/))
     t.rerender()
-    expect(t.get().run.furnace).toMatchObject({ ore: 3, fire: 60 })
+    expect([t.get().run.furnace.molds.copperOre!.ore, t.get().run.furnace.fire]).toEqual([3, 60])
     expect(summary()).toBe('🔥 Furnace · fire 2/10 · ore 3 · 1 ready')
     expect(text()).toContain('🔥 fire 2 / 10')
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreno ore`)
     fireEvent.click(button(/^Collect 1/))
-    expect([t.get().run.inventory.copperBar, t.get().run.furnace.ready]).toEqual([1, 0])
+    expect([t.get().run.inventory.copperBar, t.get().run.furnace.molds.copperOre!.ready]).toEqual([1, 0])
   })
 
   it('a plain furnace lit with nothing to smelt says so; a smart one does not', () => {
     setup({ furnace: { ...built, fire: 90 } })
     expect(document.querySelector('.furnace-hint')?.textContent).toBe('burning with nothing to smelt')
     cleanup()
-    setup({ furnace: { ...built, fire: 90, ore: 2 } })
+    setup({ furnace: { ...built, fire: 90, molds: { copperOre: { ore: 2, progress: 0, ready: 0 } } } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     cleanup()
     // a full tray also stops the cycle, but ore is loaded: the hint is only about missing ore
-    setup({ furnace: { ...built, fire: 90, ore: 2, ready: 5 } })
+    setup({ furnace: { ...built, fire: 90, molds: { copperOre: { ore: 2, progress: 0, ready: 5 } } } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     cleanup()
     setup({ furnace: { ...built, fire: 90, smart: true } })
@@ -217,8 +217,8 @@ describe('Mine panel', () => {
     // Fire: the status line + fire bar + ⓘ + the Fill buttons
     expect(groups[0].textContent).toContain('🔥 fire 0 / 10')
     expect([...groups[0].querySelectorAll('button')].filter((b) => !b.classList.contains('info-btn')).map((b) => b.textContent!.slice(0, 4))).toEqual(['Fill', 'Fill'])
-    // Smelt: the ore picker, the recipe line and Load; Output: Collect alone
-    expect(groups[1].querySelector('[aria-label="Ore to smelt"]')).toBeTruthy()
+    // Smelt: the recipe line and Load (batch 33: no ore picker); Output: Collect alone
+    expect(groups[1].querySelector('[aria-label="Ore to smelt"]')).toBeNull()
     expect([...groups[1].querySelectorAll('button')].some((b) => b.textContent!.startsWith('Load'))).toBe(true)
     expect([...groups[2].querySelectorAll('button')].map((b) => b.textContent!.slice(0, 7))).toEqual(['Collect'])
   })
@@ -231,17 +231,22 @@ describe('Mine panel', () => {
     expect(upgrade(/^Batch/).textContent).toBe(`Batch 1 → 2 bars${BAR}⁠6 💰⁠200 · Not enough items`)
     expect(upgrade(/^Smart furnace/).textContent).toBe(`Smart furnace${BAR}⁠10 💰⁠400 · Not enough items`)
     cleanup()
-    const rich = setup({ furnace: { ...built, levels: { fireCap: 1, batch: 2 } }, cash: 1e4, inventory: { copperBar: 30 } })
+    const rich = setup({ furnace: { ...built, levels: { ...built.levels, fireCap: 1, batch: 2 } }, cash: 1e4, inventory: { copperBar: 30 } })
     expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 20 → 40${BAR}⁠8 💰⁠300`)
-    expect(screen.queryByRole('button', { name: /^Batch/ })).toBeNull() // max level
     fireEvent.click(upgrade(/^Fire cap/))
     fireEvent.click(upgrade(/^Smart furnace/))
     rich.rerender()
     expect(rich.get().run.furnace).toMatchObject({ smart: true, levels: { fireCap: 2, batch: 2 } })
-    expect(screen.queryByRole('button', { name: /^(Fire cap|Smart furnace)/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Smart furnace/ })).toBeNull()
+    // batch 33: fire cap Lv3 is an iron-bar row
+    expect(upgrade(/^Fire cap/).textContent).toBe(`Fire cap 40 → 80${IRON_BAR}⁠6 💰⁠7,500 · Not enough items`)
     expect(t.get().run.furnace.levels.fireCap).toBe(0)
     // the recipe line follows the batch level: 6 ore → 3 bars per cycle
     expect(text()).toContain(`${ORE}6 + ⚫1 or ${WOOD}2 → ${BAR}3 · 60 s`)
+    cleanup()
+    // every row hides at its max level
+    setup({ furnace: { ...built, smart: true, collectAll: true, levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 } }, cash: 1e6 })
+    expect(screen.queryByRole('button', { name: /^(Fire cap|Batch|Speed|Tray|Ore slot|Smart furnace|Collect all)/ })).toBeNull()
   })
 
   it('vein Lv3 row: iron ore 10 %, priced for storage Lv3, and a hint while the pickaxe is too weak for iron', () => {
@@ -274,45 +279,6 @@ describe('Mine panel', () => {
     cleanup()
     setup({ vein: { ...rock, progress: 3 }, pickaxe: { tier: 'copper', durability: 200 } })
     expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
-  })
-
-  it('ore picker: from vein Lv3, copper or iron; a switch with ore in the slot asks twice and forfeits it (batch 21)', () => {
-    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' } })
-    expect(screen.queryByRole('group', { name: 'Ore to smelt' })).toBeNull()
-    cleanup()
-    const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
-    const t = setup({ furnace: built, vein: lv3, inventory: { ironOre: 3, coal: 4 } })
-    const kind = (name: RegExp) => within(screen.getByRole('group', { name: 'Ore to smelt' })).getByRole('button', { name }) as HTMLButtonElement
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreneeds 2 more to smelt`)
-    expect([kind(/Copper ore/).getAttribute('aria-pressed'), kind(/Copper ore/).disabled]).toEqual(['true', true])
-    expect(kind(/Iron ore/).textContent).toBe(`${IRON_ORE} Iron oreswitch`)
-    fireEvent.click(kind(/Iron ore/))
-    t.rerender()
-    expect(t.get().run.furnace.oreKind).toBe('ironOre')
-    expect(kind(/Iron ore/).getAttribute('aria-pressed')).toBe('true')
-    expect(text()).toContain(`${IRON_ORE}2 + ⚫2 or ${WOOD}4 → ${IRON_BAR}1 · 120 s`)
-    expect(text()).toContain(`${IRON_ORE} ore 0 / 12`)
-    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 4', 'wood 0'])
-    fireEvent.click(screen.getByRole('button', { name: /^Load/ }))
-    t.rerender()
-    expect(screen.getByRole('button', { name: /^Load/ }).textContent).toBe(`Load ${IRON_ORE} oreno ore`)
-    expect(t.get().run.furnace.ore).toBe(3)
-    // tray empty: switching is allowed, forfeits the 3 ore, and needs a second press
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper oreswitch — forfeits 3`)
-    expect(kind(/Copper ore/).disabled).toBe(false)
-    fireEvent.click(kind(/Copper ore/))
-    t.rerender()
-    expect(t.get().run.furnace.oreKind).toBe('ironOre')
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper orepress again — forfeit 3 ${IRON_ORE}`)
-    fireEvent.click(kind(/Copper ore/))
-    t.rerender()
-    expect([t.get().run.furnace.oreKind, t.get().run.furnace.ore]).toEqual(['copperOre', 0])
-    cleanup()
-    setup({ furnace: { ...built, oreKind: 'ironOre', ready: 2, progress: 30 }, vein: lv3 })
-    expect(kind(/Copper ore/).textContent).toBe(`${ORE} Copper orecollect first`)
-    expect(kind(/Copper ore/).disabled).toBe(true)
-    expect(screen.getByRole('button', { name: /^Collect 2/ }).textContent).toBe(`Collect 2 ${IRON_BAR}tray 2/5`)
-    expect(text()).toContain(`${IRON_ORE} ore 0 / 12 · 30/120 s`)
   })
 
   it('iron pickaxe: offered from vein Lv3 over a copper one, crafted from iron bars, repaired with iron bars', () => {

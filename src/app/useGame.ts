@@ -47,9 +47,8 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_FURNACE: 'Build the furnace first',
   NO_WORKSHOP: 'Build the workshop first',
   FULL: 'Furnace is full',
-  NO_ORE: 'No ore of the picked kind in storage',
+  NO_ORE: 'No ore of that kind in storage',
   NO_FUEL: 'No fuel in storage',
-  NOT_EMPTY: 'Collect the tray bars first',
   NO_CERTIFICATE: 'Buy the certificate first',
   POOL_FULL: 'No more workers to hire',
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
@@ -102,7 +101,7 @@ export function bannerText(awayMs: number, before: GameState, after: GameState):
   const smelted = now.barsSmelted - was.barsSmelted
   const ironSmelted = now.ironBarsSmelted - was.ironBarsSmelted
   const mined = now.workerMines - was.workerMines
-  const ready = after.run.furnace.ready
+  const ready = Object.values(after.run.furnace.molds).reduce((n, m) => n + m.ready, 0)
   const wages = now.wagesPaid - was.wagesPaid
   return [
     awayText(awayMs),

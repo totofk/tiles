@@ -60,7 +60,6 @@ export type ActionError =
   | 'FULL'
   | 'NO_ORE'
   | 'NO_FUEL'
-  | 'NOT_EMPTY'
   | 'NO_CERTIFICATE'
   | 'POOL_FULL'
   | 'NO_FREE_WORKER'

@@ -18,11 +18,11 @@ import {
   workerWage,
 } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
-import type { ItemId } from '../src/core/data/items'
+import type { ItemId, OreId } from '../src/core/data/items'
 import { bagCount, dig } from '../src/core/mining'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { collectBars } from '../src/core/furnace'
-import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Pickaxe, type Tile } from '../src/core/state'
+import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Mold, type Pickaxe, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { catchUp } from '../src/save/serialize'
@@ -386,10 +386,16 @@ describe('workers vs manual, 9 pumpkin tiles, 1200 ticks', () => {
 // ---- Batch 9 (task 58): furnace loaders ----
 
 const ALL: WorkerJob[] = ['water', 'harvest', 'ore', 'fuel']
+/** furnace fields, plus the `kind` mold's ore / progress / ready (copper by default; the copper mold is always owned) */
+type Smeltery = Partial<Omit<Furnace, 'levels'>> & { levels?: Partial<Furnace['levels']>; kind?: OreId } & Partial<Mold>
 /** a built furnace with `ore` / `fuel` loaders, the next tick a worker tick, cash to spare */
-function smeltery(f: Partial<Furnace>, inventory: GameState['run']['inventory'], { ore = 0, fuel = 0, cash = 100 } = {}): GameState {
-  return withRun({ cash, inventory, furnace: { ...createFurnace(), built: true, ...f }, ...workers(ore + fuel, 0, 0, ALL, ore, fuel) })
+function smeltery({ kind = 'copperOre', ore: o = 0, progress = 0, ready = 0, levels, molds, ...f }: Smeltery, inventory: GameState['run']['inventory'], { ore = 0, fuel = 0, cash = 100 } = {}): GameState {
+  const base = createFurnace()
+  const furnace = { ...base, built: true, ...f, levels: { ...base.levels, ...levels }, molds: molds ?? { ...base.molds, [kind]: { ore: o, progress, ready } } }
+  return withRun({ cash, inventory, furnace, ...workers(ore + fuel, 0, 0, ALL, ore, fuel) })
 }
+const moldOf = (s: GameState, kind: OreId = 'copperOre') => s.run.furnace.molds[kind]!
+const EMPTY_MOLD: Mold = { ore: 0, progress: 0, ready: 0 }
 // ore, fuel and mine share the 1-cash wage
 const wage = workerWage(meta, 'ore')
 
@@ -406,7 +412,7 @@ describe('furnace loaders: certificates', () => {
 
   it('collecting bars (by hand or by a loader) counts toward the gate', () => {
     const s = smeltery({ ready: 3 }, {})
-    expect(okState(collectBars(s)).run.counters.bars).toBe(3)
+    expect(okState(collectBars(s, 'copperOre')).run.counters.bars).toBe(3)
     expect(workersAct(smeltery({ ready: 3 }, {}, { ore: 1 })).run.counters.bars).toBe(3)
   })
 })
@@ -414,24 +420,40 @@ describe('furnace loaders: certificates', () => {
 describe('furnace loaders: workersAct', () => {
   it('ore loader: collects the tray when it has bars and storage has room, for one wage', () => {
     const next = workersAct(smeltery({ ready: 2 }, { copperOre: 6 }, { ore: 1 }))
-    expect([next.run.furnace.ready, next.run.inventory.copperBar, next.run.furnace.ore, next.run.cash]).toEqual([0, 2, 0, 100 - wage])
+    expect([moldOf(next).ready, next.run.inventory.copperBar, moldOf(next).ore, next.run.cash]).toEqual([0, 2, 0, 100 - wage])
   })
 
   it('ore loader: with nothing to collect (or storage full) loads one cycle of ore', () => {
     const next = workersAct(smeltery({}, { copperOre: 5 }, { ore: 1 }))
-    expect([next.run.furnace.ore, next.run.inventory.copperOre, next.run.cash]).toEqual([2, 3, 100 - wage])
+    expect([moldOf(next).ore, next.run.inventory.copperOre, next.run.cash]).toEqual([2, 3, 100 - wage])
     const full = smeltery({ ready: 1 }, { copperOre: BAG_CAPACITY_START }, { ore: 1 })
-    expect(workersAct(full).run.furnace).toMatchObject({ ready: 1, ore: 2 })
+    expect(moldOf(workersAct(full))).toMatchObject({ ready: 1, ore: 2 })
     // batch level 2: one cycle = 6 ore
-    expect(workersAct(smeltery({ levels: { fireCap: 0, batch: 2 } }, { copperOre: 7 }, { ore: 1 })).run.furnace.ore).toBe(6)
+    expect(moldOf(workersAct(smeltery({ levels: { batch: 2 } }, { copperOre: 7 }, { ore: 1 }))).ore).toBe(6)
   })
 
-  it('ore loader on an iron furnace loads iron ore (never copper) and collects iron bars', () => {
-    const next = workersAct(smeltery({ oreKind: 'ironOre' }, { copperOre: 5, ironOre: 3 }, { ore: 1 }))
-    expect([next.run.furnace.ore, next.run.inventory]).toEqual([2, { copperOre: 5, ironOre: 1 }])
-    const idle = smeltery({ oreKind: 'ironOre' }, { copperOre: 5, ironOre: 1 }, { ore: 1 })
-    expect(workersAct(idle)).toBe(idle)
-    expect(workersAct(smeltery({ oreKind: 'ironOre', ready: 2 }, {}, { ore: 1 })).run.inventory).toEqual({ ironBar: 2 })
+  it('ore loader with molds: collects the first tray with bars copper → iron → gold, one per action', () => {
+    const molds = { copperOre: EMPTY_MOLD, ironOre: { ...EMPTY_MOLD, ready: 2 }, goldOre: { ...EMPTY_MOLD, ready: 1 } }
+    const first = workersAct(smeltery({ molds }, { ironOre: 9 }, { ore: 1 }))
+    expect([first.run.inventory, first.run.furnace.molds]).toEqual([{ ironOre: 9, ironBar: 2 }, { ...molds, ironOre: EMPTY_MOLD }])
+    // a full storage skips collecting and loads instead
+    const full = workersAct(smeltery({ molds }, { ironOre: BAG_CAPACITY_START }, { ore: 1 }))
+    expect([moldOf(full, 'ironOre'), full.run.inventory.ironOre]).toEqual([{ ore: 2, progress: 0, ready: 2 }, BAG_CAPACITY_START - 2])
+  })
+
+  it('ore loader with molds: loads one cycle into the owned mold with the fewest whole cycles; tie copper → iron → gold', () => {
+    const molds = (c: number, i: number, g: number) => ({ copperOre: { ...EMPTY_MOLD, ore: c }, ironOre: { ...EMPTY_MOLD, ore: i }, goldOre: { ...EMPTY_MOLD, ore: g } })
+    const stock = { copperOre: 5, ironOre: 5, goldOre: 5 }
+    const tie = workersAct(smeltery({ molds: molds(0, 0, 0) }, stock, { ore: 1 }))
+    expect(tie.run.furnace.molds).toEqual(molds(2, 0, 0))
+    expect(workersAct(smeltery({ molds: molds(2, 0, 0) }, stock, { ore: 1 })).run.furnace.molds).toEqual(molds(2, 2, 0))
+    expect(workersAct(smeltery({ molds: molds(4, 3, 1) }, stock, { ore: 1 })).run.furnace.molds).toEqual(molds(4, 3, 3))
+    // the least-loaded mold has no cycle in storage: the next one takes it; a full slot is skipped
+    expect(workersAct(smeltery({ molds: molds(4, 0, 2) }, { copperOre: 5, ironOre: 1, goldOre: 5 }, { ore: 1 })).run.furnace.molds).toEqual(molds(4, 0, 4))
+    expect(workersAct(smeltery({ molds: molds(12, 12, 4) }, stock, { ore: 1 })).run.furnace.molds).toEqual(molds(12, 12, 6))
+    // an unowned mold is never loaded
+    const copperOnly = workersAct(smeltery({}, { copperOre: 1, ironOre: 9 }, { ore: 1 }))
+    expect(copperOnly.run.furnace.molds).toEqual({ copperOre: EMPTY_MOLD })
   })
 
   it('ore loader idles unpaid with nothing to do: no ore for a cycle, slot full, no furnace', () => {
@@ -469,7 +491,7 @@ describe('furnace loaders: workersAct', () => {
   })
 
   it('never stalls at the top batch level: a slot short of a cycle always has room for the ore loader to add one', () => {
-    const s = smeltery({ ore: 5, fire: 300, levels: { fireCap: 0, batch: 2 } }, { copperOre: 10, coal: 10 }, { ore: 1, fuel: 1, cash: 1000 })
+    const s = smeltery({ ore: 5, fire: 300, levels: { batch: 2 } }, { copperOre: 10, coal: 10 }, { ore: 1, fuel: 1, cash: 1000 })
     expect(step(s, 600).run.lifetime.barsSmelted).toBeGreaterThan(0)
   })
 
@@ -687,7 +709,7 @@ describe('mine worker: workersAct', () => {
   })
 
   it('step(s, n) equals n × step(s, 1) with the mine, ore and fuel workers on an iron furnace, and the chain makes iron bars', () => {
-    const furnace = { ...createFurnace(), built: true, oreKind: 'ironOre' as const }
+    const furnace = { ...createFurnace(), built: true, molds: { copperOre: { ore: 0, progress: 0, ready: 0 }, ironOre: { ore: 0, progress: 0, ready: 0 } } }
     const s = mineSite(
       {
         cash: 300,

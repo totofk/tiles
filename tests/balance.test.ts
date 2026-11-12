@@ -13,6 +13,7 @@ import {
   fireUnitTicks,
   fuelUnits,
   furnaceUpgradeMaxLevel,
+  furnaceSpeedRate,
   isSellable,
   itemSellPrice,
   licenseCost,
@@ -148,8 +149,11 @@ describe('pickaxe mastery', () => {
 })
 
 describe('bar sell prices (batch 24: disposal, never a profit)', () => {
-  it('every bar is sellable at ≤ ⌊input sell value at the cheapest recipe⌋ − 1', () => {
-    const topBatch = batchBars(furnaceUpgradeMaxLevel('batch'))
+  it('every bar is sellable at ≤ ⌊input sell value at the copper-bar ladder top (batch 3)⌋ − 1', () => {
+    // pinned at batch level 2 (3 bars), not the max: at batch 5 a gold bar (💰5) sells above its ore + coal (💰4.4);
+    // allowed because ore cannot be bought, so there is no cash loop, and batch 34 replaces bar prices (DECISIONS
+    // "Batch 33 refined" call 8)
+    const topBatch = batchBars(2)
     const coalUnit = itemSellPrice('coal', meta, 0) / fuelUnits('coal')
     for (const ore of ORE_IDS) {
       const bar = oreBar(ore)
@@ -158,5 +162,14 @@ describe('bar sell prices (batch 24: disposal, never a profit)', () => {
       expect(itemSellPrice(bar, meta, 0)).toBe(Math.floor(inputs) - 1)
       expect(itemSellPrice(bar, meta, 0)).toBeLessThan(inputs) // selling the ore and coal always beats smelting to sell
     }
+  })
+})
+
+describe('furnace molds (batch 33): the throughput bound', () => {
+  it('copper at the top batch (5) and speed (Lv2) = 5 × 3600 ÷ 38.4 = 468.75 bars/h per mold', () => {
+    const bars = batchBars(furnaceUpgradeMaxLevel('batch'))
+    const rate = furnaceSpeedRate(furnaceUpgradeMaxLevel('speed'))
+    expect([bars, rate]).toEqual([5, 1.5625])
+    expect((bars * 3600 * rate) / barTicks('copperOre')).toBe(468.75)
   })
 })

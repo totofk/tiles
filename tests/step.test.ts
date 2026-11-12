@@ -97,7 +97,7 @@ describe('step', () => {
         licenses: [...s.run.licenses, 'chilli', 'pumpkin', 'lemon'],
         plantCrop: 'lemon',
         market,
-        furnace: { ...s.run.furnace, built: true, fire: 120, ore: 6, progress: 30 },
+        furnace: { ...s.run.furnace, built: true, fire: 120, molds: { copperOre: { ore: 6, progress: 30, ready: 0 } } },
         workers: { pool: 3, assigned, certificates: ['plant', 'water', 'harvest'] },
       },
     }

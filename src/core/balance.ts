@@ -79,12 +79,20 @@ export type Price = { cash: number; stars?: number } & Partial<Record<ItemId, nu
 // Furnace (round-5 research): built once vein level `vein` is owned.
 const FURNACE = { cost: { stone: 20, coal: 5, cash: 150 }, vein: 1 }
 // Fuelled furnace (batch 9): fire is kept in burn ticks, one fire unit = FIRE_UNIT_TICKS; a fuel item adds FUEL_UNITS.
-// A smelt cycle burns the ore kind's barTicks of fire and turns `ore` × batch ore of the slot's kind (oreSlot ore) into
-// batch bars of that ore's bar; it needs tray room for them (ready + batch ≤ trayCap). A copper cycle = 2 units = 1 coal
-// or 2 wood, as before; iron burns twice that (4 units, 120 ticks: DECISIONS "Iron tier").
-// oreSlot ≥ 2 × the top batch's cycle (2 × 3 × 2 = 12), so a slot short of one cycle always has room for a whole one:
-// at 10 a batch-3 slot holding 5 ore could neither smelt (< 6) nor take a loader's cycle (room 5 < 6).
-const SMELT = { ore: 2, trayCap: 5, oreSlot: 12 }
+// Molds (batch 33): one mold per ore kind, each with its own ore slot, progress and tray; every mold shares the fire.
+// A mold's smelt cycle burns its ore kind's barTicks of fire and turns `ore` × batch ore of its kind into batch bars of
+// that ore's bar; it needs tray room for them (ready + batch ≤ the tray). A copper cycle = 2 units = 1 coal or 2 wood,
+// as before; iron burns twice that (4 units, 120 ticks: DECISIONS "Iron tier").
+// Each ore-slot level ≥ 2 × the cycle of the top batch it allows, so a slot short of one cycle always has room for a
+// whole one (at 10 a batch-3 slot holding 5 ore could neither smelt (< 6) nor take a loader's cycle (room 5 < 6)):
+// slot 12 covers batch 3 (2 × 3 × 2); batch 4 and 5 stay locked until the slot (and tray) hold two of their cycles.
+const SMELT = { ore: 2 }
+/** bars a mold's tray holds per tray level (index = level) */
+const TRAY_CAP = [5, 10, 20]
+/** ore a mold's slot holds per ore-slot level (index = level) */
+const ORE_SLOT = [12, 24, 48]
+/** progress per tick per speed level (index = level): each level cuts a cycle's time to 0.8 of it, fire per bar unchanged */
+const SPEED_RATE = [1, 1.25, 1.5625]
 const SMELT_ORES: Record<OreId, { bar: ItemId; barTicks: number }> = {
   copperOre: { bar: 'copperBar', barTicks: 60 },
   ironOre: { bar: 'ironBar', barTicks: 120 },
@@ -96,9 +104,9 @@ const FUEL_UNITS = { coal: 2, wood: 1 }
 export type FuelId = keyof typeof FUEL_UNITS
 export const FUEL_IDS = Object.keys(FUEL_UNITS) as FuelId[]
 /** fire capacity in units per fire-capacity level (index = level) */
-const FIRE_CAP_UNITS = [10, 20, 40]
+const FIRE_CAP_UNITS = [10, 20, 40, 80, 160]
 /** bars per cycle per batch level (index = level) */
-const BATCH_BARS = [1, 2, 3]
+const BATCH_BARS = [1, 2, 3, 4, 5]
 // craft = price of a new one, repair = price to fix a blunt one (below craft), hits = rock hits per mine action.
 // Each tier's durability must beat the previous tier's Lv10 lifetime (balance test), except gold: strong but fragile
 // (batch 32, DECISIONS "Batch 32 refined").
@@ -224,21 +232,51 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32
   manager: { price: { goldBar: 4, stars: 20, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
 }
-// Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
-// (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.
-const FURNACE_UPGRADES: Record<'fireCap' | 'batch' | 'smart', ReadonlyArray<Price>> = {
+// batch 33: cash part of the copper-bar furnace rows (tray Lv1, ore slot Lv1, iron mold, Collect all) = 0.5 h of the
+// measured vein-Lv3 income (💰12,842/h, PLAN.md "Batch 28.2 results", the same figure as ORE_SORT_CASH)
+const FURNACE_COPPER_CASH = 6500
+// batch 33: cash part of the iron/gold-bar furnace rows (speed, batch Lv3–4, fire Lv3–4, tray Lv2, slot Lv2, gold
+// mold) = 0.53 h of the measured vein-Lv4 income (💰14,118/h, the same figure as GOLD_VEIN_CASH)
+const FURNACE_METAL_CASH = 7500
+// Furnace upgrades (batch 9, molds batch 33): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch
+// BATCH_BARS, speed SPEED_RATE, tray TRAY_CAP, slot ORE_SLOT (one fewer price than entries); smart and collectAll are
+// one-time; smart costs more than the fuel loader's certificate.
+const FURNACE_UPGRADES: Record<'fireCap' | 'batch' | 'speed' | 'tray' | 'slot' | 'smart' | 'collectAll', ReadonlyArray<Price>> = {
   fireCap: [
     { copperBar: 4, cash: 150 },
     { copperBar: 8, cash: 300 },
+    { ironBar: 6, cash: FURNACE_METAL_CASH },
+    { goldBar: 4, cash: FURNACE_METAL_CASH },
   ],
   batch: [
     { copperBar: 6, cash: 200 },
     { copperBar: 12, cash: 400 },
+    { ironBar: 8, cash: FURNACE_METAL_CASH },
+    { goldBar: 5, cash: FURNACE_METAL_CASH },
+  ],
+  speed: [
+    { ironBar: 10, cash: FURNACE_METAL_CASH },
+    { goldBar: 8, cash: FURNACE_METAL_CASH },
+  ],
+  tray: [
+    { stone: 30, copperBar: 8, cash: FURNACE_COPPER_CASH },
+    { ironBar: 8, cash: FURNACE_METAL_CASH },
+  ],
+  slot: [
+    { stone: 30, copperBar: 6, cash: FURNACE_COPPER_CASH },
+    { ironBar: 6, cash: FURNACE_METAL_CASH },
   ],
   smart: [{ copperBar: 10, cash: 400 }],
+  collectAll: [{ copperBar: 10, ironBar: 5, cash: FURNACE_COPPER_CASH }],
 }
 export type FurnaceUpgradeId = keyof typeof FURNACE_UPGRADES
 export const FURNACE_UPGRADE_IDS = Object.keys(FURNACE_UPGRADES) as FurnaceUpgradeId[]
+/** the molds for sale (copper comes with the furnace) */
+export type MoldOre = 'ironOre' | 'goldOre'
+const MOLD_PRICES: Record<MoldOre, Price> = {
+  ironOre: { copperBar: 10, stone: 20, cash: FURNACE_COPPER_CASH },
+  goldOre: { ironBar: 8, stone: 30, cash: FURNACE_METAL_CASH },
+}
 
 // Workshop (batch 17, permanent bed sockets since batch 26, DECISIONS "Workshop + sprinklers"): a Shop card once
 // vein Lv4 is owned. A sprinkler is built once on a bed's socket (SPRINKLER_MAX beds, six tiles each) and keeps
@@ -792,14 +830,24 @@ export function batchBars(level: number): number {
   return BATCH_BARS[level]
 }
 
-/** bars the output tray holds */
-export function furnaceTrayCap(): number {
-  return SMELT.trayCap
+/** bars one mold's tray holds at this tray level */
+export function furnaceTrayCap(level: number): number {
+  return TRAY_CAP[level]
 }
 
-/** ore the furnace's ore slot holds */
-export function oreSlotCap(): number {
-  return SMELT.oreSlot
+/** ore one mold's slot holds at this ore-slot level */
+export function oreSlotCap(level: number): number {
+  return ORE_SLOT[level]
+}
+
+/** cycle progress per tick at this speed level (fire burns at the same rate) */
+export function furnaceSpeedRate(level: number): number {
+  return SPEED_RATE[level]
+}
+
+/** price of the iron or gold mold */
+export function moldPrice(ore: MoldOre, meta: MetaState): Price {
+  return scalePrice(MOLD_PRICES[ore], meta)
 }
 
 export function furnaceUpgradeMaxLevel(id: FurnaceUpgradeId): number {

@@ -86,7 +86,7 @@ export function stats(state: GameState): Stats {
     { label: 'Iron bars collected', value: `${lifetime.ironBars}` },
     { label: 'Gold bars smelted', value: `${lifetime.goldBarsSmelted}` },
     { label: 'Gold bars collected', value: `${lifetime.goldBars}` },
-    // fire units burnt with no cycle progressing (a plain furnace lit with no ore or a full tray)
+    // fire units burnt with no mold smelting (a plain furnace lit with no ore or full trays)
     { label: 'Fire wasted', value: `${Math.ceil(lifetime.fireWasted / fireUnitTicks())} units` },
     { label: 'Wages paid', value: `💰${held(lifetime.wagesPaid)}` },
     { label: 'Plants by workers', value: `${lifetime.workerPlants}` },

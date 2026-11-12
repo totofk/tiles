@@ -1,7 +1,7 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
 import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, pickaxeDurability, plotTiles, pumpFieldCap, tankCapCoal } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
-import type { ItemId, PickaxeTier } from '../core/data/items'
+import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
 import type { WorkerJob } from '../core/data/workers'
@@ -12,6 +12,7 @@ import {
   createTile,
   type Counters,
   type Field,
+  type Furnace,
   type GameState,
   type Lifetime,
   type Loan,
@@ -23,7 +24,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 24
+export const SAVE_VERSION = 25
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -115,8 +116,21 @@ type FieldsV20 = {
 }
 /** v13–v20 jobs (the Manager joined in v21) */
 type JobV20 = Exclude<WorkerJob, 'manager'>
+/** v10–v24: one ore slot and one tray of one kind, two furnace upgrades */
+type FurnaceV24 = {
+  built: boolean
+  oreKind: OreId
+  fire: number
+  ore: number
+  progress: number
+  ready: number
+  smart: boolean
+  levels: { fireCap: number; batch: number }
+}
+/** v24: the furnace before molds */
+type RunV24 = Omit<GameState['run'], 'furnace'> & { furnace: FurnaceV24 }
 /** v23: one pickaxe in hand, no rack, no Keep N */
-type RunV23 = Omit<GameState['run'], 'rack' | 'selectedPickaxe' | 'keepN' | 'oreKeep'> & { pickaxe: Pickaxe | null }
+type RunV23 = Omit<RunV24, 'rack' | 'selectedPickaxe' | 'keepN' | 'oreKeep'> & { pickaxe: Pickaxe | null }
 /** v22: no renown yet */
 type RunV22 = Omit<RunV23, 'renown'>
 /** v18–v22 meta: the deed rows before Kept renown */
@@ -167,8 +181,9 @@ type SaveV20 = { version: 20; savedAtMs: number; state: { meta: MetaV22; run: Ru
 type SaveV21 = { version: 21; savedAtMs: number; state: { meta: MetaV22; run: RunV21 } }
 type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: RunV22 } }
 type SaveV23 = { version: 23; savedAtMs: number; state: { meta: GameState['meta']; run: RunV23 } }
-type SaveV24 = { version: 24; savedAtMs: number; state: GameState }
-export type Save = SaveV24
+type SaveV24 = { version: 24; savedAtMs: number; state: { meta: GameState['meta']; run: RunV24 } }
+type SaveV25 = { version: 25; savedAtMs: number; state: GameState }
+export type Save = SaveV25
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -617,18 +632,41 @@ function migrateV23(save: SaveV23): SaveV24 {
   }
 }
 
+/** the vein levels whose drops include iron / gold ore (frozen here: the live table is VEIN_DROPS) */
+const IRON_VEIN_V24 = 3
+const GOLD_VEIN_V24 = 4
+
+// v24 → v25 (batch 33): molds. The old slot (ore, progress, tray) becomes its kind's mold; the copper mold always
+// exists, and a built furnace gets an empty mold for every kind its vein drops (it could smelt them all before), so
+// nothing earned is taken away. New levels start at 0, Collect all not bought; fire and smart unchanged.
+function migrateV24(save: SaveV24): SaveV25 {
+  const { meta, run } = save.state
+  const { oreKind, ore, progress, ready, levels, ...furnace } = run.furnace
+  const empty = { ore: 0, progress: 0, ready: 0 }
+  const molds: Furnace['molds'] = { copperOre: { ...empty } }
+  if (furnace.built && run.vein.level >= IRON_VEIN_V24) molds.ironOre = { ...empty }
+  if (furnace.built && run.vein.level >= GOLD_VEIN_V24) molds.goldOre = { ...empty }
+  molds[oreKind] = { ore, progress, ready }
+  return {
+    version: 25,
+    savedAtMs: save.savedAtMs,
+    state: { meta, run: { ...run, furnace: { ...furnace, levels: { ...levels, speed: 0, tray: 0, slot: 0 }, molds, collectAll: false } } },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 24) return data as SaveV24
-  if (data.version === 23) return migrateV23(data as SaveV23)
-  if (data.version === 22) return migrateV23(migrateV22(data as SaveV22))
-  if (data.version === 21) return migrateV23(migrateV22(migrateV21(data as SaveV21)))
+  if (data.version === 25) return data as SaveV25
+  if (data.version === 24) return migrateV24(data as SaveV24)
+  if (data.version === 23) return migrateV24(migrateV23(data as SaveV23))
+  if (data.version === 22) return migrateV24(migrateV23(migrateV22(data as SaveV22)))
+  if (data.version === 21) return migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))
   const v20 = toV20(data)
-  return v20 && migrateV23(migrateV22(migrateV21(migrateV20(v20))))
+  return v20 && migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

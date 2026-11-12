@@ -11,6 +11,7 @@ import {
   workerPoolCap,
   workerWage,
 } from './balance'
+import { ORE_IDS, type OreId } from './data/items'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { fieldsHarvest, fieldsPlantAction, fillTank, setFieldCrop } from './fields'
 import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
@@ -35,8 +36,9 @@ export type TileJob = 'plant' | 'water' | 'harvest'
 const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
 
 /**
- * Ore loader: collects the tray into storage when it has bars and storage has room, else loads one cycle of the
- * furnace's ore kind (ore × batch) when storage has it and the slot has room. Fuel loader: adds one coal when the fire has room for it
+ * Ore loader: collects the tray of the first owned mold (copper → iron → gold) that has bars when storage has room,
+ * else loads one cycle (ore × batch) into the owned mold with the fewest whole cycles loaded among those whose kind
+ * storage holds a cycle of and whose slot has room for one (tie: copper → iron → gold). Fuel loader: adds one coal when the fire has room for it
  * (coal only: wood stays for pickaxe repairs), else one coal into the Fields tank when it has room (batch 28). Miner: one press of the Mine button with no energy (the active pickaxe's
  * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
  * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
@@ -47,10 +49,18 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     const { run } = s
     const f = run.furnace
     if (!f.built) return null
-    const collected = f.ready > 0 ? collectBars(s) : null
-    if (collected?.ok) return collected
+    for (const ore of ORE_IDS) {
+      const collected = (f.molds[ore]?.ready ?? 0) > 0 ? collectBars(s, ore) : null
+      if (collected?.ok) return collected
+    }
     const need = cycleOre(f)
-    return (run.inventory[f.oreKind] ?? 0) >= need && oreSlotCap() - f.ore >= need ? loadOre(s, need) : null
+    let pick: OreId | null = null
+    for (const ore of ORE_IDS) {
+      const mold = f.molds[ore]
+      if (!mold || (run.inventory[ore] ?? 0) < need || oreSlotCap(f.levels.slot) - mold.ore < need) continue
+      if (pick === null || Math.floor(mold.ore / need) < Math.floor(f.molds[pick]!.ore / need)) pick = ore
+    }
+    return pick === null ? null : loadOre(s, pick, need)
   },
   fuel: (s) => {
     const f = s.run.furnace

@@ -171,7 +171,7 @@ describe('feedbackSummary(state)', () => {
         selectedPickaxe: 'copper',
         vein: { level: 2, progress: 0, rock: 'stone' },
         workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0 }, certificates: [] },
-        furnace: { ...s.run.furnace, built: true, smart: true, levels: { fireCap: 1, batch: 2 } },
+        furnace: { ...s.run.furnace, built: true, smart: true, levels: { ...s.run.furnace.levels, fireCap: 1, batch: 2 } },
       },
     }
     const shown = feedbackSummary(state)

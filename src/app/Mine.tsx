@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import {
   FUEL_IDS,
@@ -40,7 +40,7 @@ import {
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
-import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, setOreKind } from '../core/furnace'
+import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel, loadOre } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -85,7 +85,6 @@ const SMELT_SHORT: Partial<Record<ActionError, string>> = {
   NO_FUEL: 'no fuel',
   FULL: 'full',
   BAG_FULL: 'storage full',
-  NOT_EMPTY: 'collect first',
 }
 
 /** "⛰️20 ⚫5 💰150"; no cash part when it is free; ⁠ joins each emoji to its number so a line never breaks between them */
@@ -116,7 +115,11 @@ function uses(r: ActionResult, before: GameState, id: ItemId) {
 const UPGRADE_LABEL: Record<FurnaceUpgradeId, (level: number) => string> = {
   fireCap: (l) => `Fire cap ${fireCapUnits(l)} → ${fireCapUnits(l + 1)}`,
   batch: (l) => `Batch ${batchBars(l)} → ${batchBars(l + 1)} bars`,
+  speed: (l) => `Speed: cycles ${Math.round(100 * 0.8 ** l)} % → ${Math.round(100 * 0.8 ** (l + 1))} %`,
+  tray: (l) => `Tray ${furnaceTrayCap(l)} → ${furnaceTrayCap(l + 1)} bars`,
+  slot: (l) => `Ore slot ${oreSlotCap(l)} → ${oreSlotCap(l + 1)}`,
   smart: () => 'Smart furnace',
+  collectAll: () => 'Collect all',
 }
 
 /**
@@ -128,24 +131,22 @@ const UPGRADE_LABEL: Record<FurnaceUpgradeId, (level: number) => string> = {
 function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Act; smeltActed?: boolean }) {
   const { run, meta } = state
   const f = run.furnace
-  // batch 21: switching with ore in the slot forfeits it, so that press asks twice (the armed kind)
-  const [confirmKind, setConfirmKind] = useState<OreId | null>(null)
-  const collect = collectBars(state)
-  const ore = loadOre(state)
+  const kind: OreId = 'copperOre'
+  const mold = f.molds[kind]!
+  const collect = collectBars(state, kind)
+  const ore = loadOre(state, kind)
   const have = (id: ItemId) => run.inventory[id] ?? 0
   const fire = Math.ceil(f.fire / fireUnitTicks())
   const cap = fireCapUnits(f.levels.fireCap)
   const bars = batchBars(f.levels.batch)
-  const oreEmoji = ITEMS[f.oreKind].emoji
-  const barEmoji = ITEMS[oreBar(f.oreKind)].emoji
-  const ticks = barTicks(f.oreKind)
-  const stock = { ore: f.oreKind, coal: 'coal', wood: 'wood' } as const
-  // the kind picker appears with the first vein that drops iron (or once iron is picked), so copper players see no change
-  const picker = tierVein('iron', run.vein.level) || f.oreKind !== 'copperOre'
+  const oreEmoji = ITEMS[kind].emoji
+  const barEmoji = ITEMS[oreBar(kind)].emoji
+  const ticks = barTicks(kind)
+  const stock = { ore: kind, coal: 'coal', wood: 'wood' } as const
   return (
     <details className="mine-furnace">
       <summary>
-        {FIRE_EMOJI} Furnace · fire {fire}/{cap} · ore {f.ore} · {f.ready} ready
+        {FIRE_EMOJI} Furnace · fire {fire}/{cap} · ore {mold.ore} · {mold.ready} ready
       </summary>
       {/* batch 24: four groups — Fire / Smelt / Output / Upgrades — 8 px inside, 16 px + a divider between */}
       <div className="group">
@@ -157,7 +158,7 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
           <Info text={FURNACE_TIPS.fire} />
         </div>
         <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
-        {f.fire > 0 && !f.smart && f.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
+        {f.fire > 0 && !f.smart && mold.ore < cycleOre(f) && <small className="furnace-hint">burning with nothing to smelt</small>}
         <div className="mine-furnace-actions">
           {FUEL_IDS.map((fuel) => {
             const r = addFuel(state, fuel)
@@ -172,46 +173,9 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
       </div>
       {/* task 132: the Smelt group flashes amber when the ore/fuel loader acted, like the Mine button */}
       <div className={`group${smeltActed ? ' mine-flash' : ''}`}>
-        {picker && (
-          <div className="mine-furnace-actions" role="group" aria-label="Ore to smelt">
-            {ORE_IDS.map((id) => {
-              const r = setOreKind(state, id)
-              const picked = f.oreKind === id
-              const armed = confirmKind === id
-              return (
-                <button
-                  key={id}
-                  aria-pressed={picked}
-                  disabled={picked || !r.ok}
-                  onClick={() => {
-                    if (f.ore > 0 && !armed) {
-                      setConfirmKind(id)
-                      return
-                    }
-                    setConfirmKind(null)
-                    act((s) => setOreKind(s, id))
-                  }}
-                >
-                  {ITEMS[id].emoji} {ITEMS[id].name}
-                  <small>
-                    {picked
-                      ? f.ore < cycleOre(f)
-                        ? `needs ${cycleOre(f) - f.ore} more to smelt`
-                        : 'smelting'
-                      : armed
-                        ? `press again — forfeit ${f.ore} ${ITEMS[f.oreKind].emoji}`
-                        : r.ok
-                          ? `switch${f.ore > 0 ? ` — forfeits ${f.ore}` : ''}`
-                          : shortReason(r)}
-                  </small>
-                </button>
-              )
-            })}
-          </div>
-        )}
         <span>
-          {oreEmoji} ore {f.ore} / {oreSlotCap()}
-          {f.progress > 0 && ` · ${f.progress}/${ticks} s`}
+          {oreEmoji} ore {mold.ore} / {oreSlotCap(f.levels.slot)}
+          {mold.progress > 0 && ` · ${Math.floor(mold.progress)}/${ticks} s`}
         </span>
         {/* batch 24.1: the recipe and the stock are two lines, every emoji+number one unbreakable token */}
         <small className="furnace-recipe">
@@ -220,12 +184,12 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
             {cycleOre(f)}
           </span>{' '}
           + <span className="nowrap">{ITEMS.coal.emoji}
-            {smeltFuel('coal', f.oreKind)}
+            {smeltFuel('coal', kind)}
           </span>{' '}
           or{' '}
           <span className="nowrap">
             {ITEMS.wood.emoji}
-            {smeltFuel('wood', f.oreKind)}
+            {smeltFuel('wood', kind)}
           </span>{' '}
           →{' '}
           <span className="nowrap">
@@ -247,18 +211,18 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
           ))}
         </small>
         <div className="mine-furnace-actions">
-          <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s))}>
+          <button disabled={!ore.ok} onClick={() => act((s) => loadOre(s, kind))}>
             Load {oreEmoji} ore
-            {uses(ore, state, f.oreKind)}
+            {uses(ore, state, kind)}
           </button>
         </div>
-        {f.progress > 0 && <Bar value={f.progress / ticks} kind="grow" />}
+        {mold.progress > 0 && <Bar value={mold.progress / ticks} kind="grow" />}
       </div>
       <div className="group">
         <div className="mine-furnace-actions">
-          <button disabled={!collect.ok} onClick={() => act(collectBars)}>
-            Collect {f.ready} {barEmoji}
-            <small>{f.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${f.ready}/${furnaceTrayCap()}`}</small>
+          <button disabled={!collect.ok} onClick={() => act((s) => collectBars(s, kind))}>
+            Collect {mold.ready} {barEmoji}
+            <small>{mold.ready > 0 && !collect.ok ? shortReason(collect) : `tray ${mold.ready}/${furnaceTrayCap(f.levels.tray)}`}</small>
           </button>
         </div>
       </div>

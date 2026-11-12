@@ -6422,7 +6422,7 @@ v24 code). Never edit any file in tests/fixtures.
 - Worst-case offline loss: a plain (not smart) furnace with no mold smelting burns 1 fire tick per tick, at most the
   fire cap: 160 units = 4,800 ticks = 80 coal. Bounded.
 
-- [ ] 177. **Core + save: molds, the new rows, speed, migration v24 → v25.**
+- [x] 177. **Core + save: molds, the new rows, speed, migration v24 → v25.**
   - a. `state.ts:115–130`: `export type Mold = { ore: number; progress: number; ready: number }` and
     `Furnace = { built; fire; smart; levels: { fireCap; batch; speed; tray; slot }; molds: Partial<Record<OreId, Mold>>;
     collectAll: boolean }`. `oreKind`, `ore`, `progress`, `ready` leave `Furnace`. A mold is owned when its key exists.
