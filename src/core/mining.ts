@@ -27,7 +27,7 @@ import {
   type MineDropId,
   type Price,
 } from './balance'
-import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from './data/items'
+import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -40,9 +40,10 @@ function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
 }
 
-/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level with `mastered` tiers' ore bonus (the weights dig rolls from) */
-export function dropText(level: number, mastered: number): string {
-  const drops = veinWeights(level, mastered)
+/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level with `mastered` tiers' ore bonus and the Seam aim (the weights dig
+ * rolls from) */
+export function dropText(level: number, mastered: number, aim: OreId | null = null): string {
+  const drops = veinWeights(level, mastered, aim)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
     .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
@@ -174,7 +175,7 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
       ...(pickaxe && gainMastery(run, pickaxe.tier)),
     }),
   )
-  const weights = veinWeights(run.vein.level, run.masteredTiers.length)
+  const weights = veinWeights(run.vein.level, run.masteredTiers.length, run.favours.aim)
   let hits = run.vein.progress + mineHits(tier)
   for (;;) {
     const { vein } = s.run

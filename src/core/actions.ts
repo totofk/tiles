@@ -65,6 +65,7 @@ export type ActionError =
   | 'NO_FREE_WORKER'
   | 'BAD_SLOT'
   | 'NO_STARS'
+  | 'BAD_ORE'
   | 'NO_DEEDS'
   | 'NO_GAIN'
   | 'NO_PIVOT'

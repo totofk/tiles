@@ -2,6 +2,7 @@ import { fail, harvest, plant, till, water, withRun, type ActionResult } from '.
 import {
   certificateCost,
   certificateUnlock,
+  furnaceUpgradeMaxLevel,
   moistureDrainPerTick,
   oreSlotCap,
   workerActsAt,
@@ -14,7 +15,7 @@ import {
 import { ORE_IDS, type OreId } from './data/items'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { fieldsHarvest, fieldsPlantAction, fillTank, setFieldCrop } from './fields'
-import { addFuel, collectBars, cycleOre, fuelRoom, loadOre } from './furnace'
+import { addFuel, collectBars, cycleOre, fuelRoom, loadOre, moldSmelting } from './furnace'
 import { managerPlan } from './manager'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction, clerkTarget } from './orders'
@@ -77,7 +78,12 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
     const k = s.run.fields.list.findIndex((f, i) => f.pivot && !f.pinned && f.crop !== target[i])
     return k < 0 ? null : setFieldCrop(s, k, target[k])
   },
-  stoker: () => null,
+  // batch 34: while some owned mold smelts, stoke for the next workerActionTicks ticks; else idle (unpaid)
+  stoker: (s) => {
+    const f = s.run.furnace
+    if (!f.built || !ORE_IDS.some((ore) => moldSmelting(f, ore))) return null
+    return withRun(s, { furnace: { ...f, stoked: workerActionTicks(s.meta) } })
+  },
 }
 
 /**
@@ -176,18 +182,26 @@ export function hireUnlocked(run: RunState): boolean {
   return run.counters[counter] >= at
 }
 
-/** the job's certificate shows (and can be bought) once its unlock counter is reached, its vein level and its tool level owned */
+/** the ⭐ Stoker's gate (batch 34): the fuel certificate owned and the furnace's bar ladder done (speed and batch at
+ * their bar max) */
+export function stokerReady(run: RunState): boolean {
+  const { levels } = run.furnace
+  return run.workers.certificates.includes('fuel') && levels.speed >= furnaceUpgradeMaxLevel('speed') && levels.batch >= furnaceUpgradeMaxLevel('batch')
+}
+
+/** the job's certificate shows (and can be bought) once its unlock counter is reached, its vein level and its tool level
+ * owned (the Stoker: stokerReady too) */
 export function certificateUnlocked(run: RunState, job: WorkerJob): boolean {
   const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
   const toolLevel = isTileJob(job) ? run.tools[job] : 0
-  return run.counters[counter] >= at && run.vein.level >= vein && toolLevel >= tool
+  return run.counters[counter] >= at && run.vein.level >= vein && toolLevel >= tool && (job !== 'stoker' || stokerReady(run))
 }
 
 // Order: LOCKED, POOL_FULL, NO_CASH.
 export function hireWorker(state: GameState): ActionResult {
   const { run } = state
   if (!hireUnlocked(run)) return fail('LOCKED')
-  if (run.workers.pool >= workerPoolCap()) return fail('POOL_FULL')
+  if (run.workers.pool >= workerPoolCap(run)) return fail('POOL_FULL')
   const cost = workerHireCost(run.workers.pool, state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   return withRun(state, { cash: run.cash - cost, workers: { ...run.workers, pool: run.workers.pool + 1 } })
@@ -244,12 +258,14 @@ export function workersAct(state: GameState): GameState {
   return workRound(state).state
 }
 
-// +1 takes a free worker onto the job (NO_CERTIFICATE, NO_FREE_WORKER); −1 frees one (NOTHING_TO_DO at 0). Free.
+// +1 takes a free worker onto the job (NO_CERTIFICATE, MAX_LEVEL: a second Stoker, NO_FREE_WORKER); −1 frees one
+// (NOTHING_TO_DO at 0). Free.
 export function assignWorker(state: GameState, job: WorkerJob, delta: 1 | -1): ActionResult {
   const { workers } = state.run
   const n = workers.assigned[job]
   if (delta === 1) {
     if (!workers.certificates.includes(job)) return fail('NO_CERTIFICATE')
+    if (job === 'stoker' && n >= 1) return fail('MAX_LEVEL')
     if (freeWorkers(state.run) < 1) return fail('NO_FREE_WORKER')
   } else if (n < 1) return fail('NOTHING_TO_DO')
   return withRun(state, { workers: { ...workers, assigned: { ...workers.assigned, [job]: n + delta } } })

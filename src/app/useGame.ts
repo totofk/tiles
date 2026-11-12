@@ -54,6 +54,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_FREE_WORKER: 'No free worker — hire one or unassign',
   BAD_SLOT: 'No order in that slot',
   NO_STARS: `Not enough ${STAR_EMOJI}`,
+  BAD_ORE: 'The vein does not drop that ore',
   NO_DEEDS: 'Not enough deeds',
   NO_GAIN: 'No deeds to gain yet — play on',
   NO_PIVOT: 'This field has no pivot — build one to sow it',

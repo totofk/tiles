@@ -5,7 +5,7 @@ import type { UpgradeId } from './data/upgrades'
 import { ORE_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
-import type { CounterId, MetaState, MultiplierKey } from './state'
+import type { CounterId, MetaState, MultiplierKey, RunState } from './state'
 
 export const START_TILES = 9
 export const TILE_CAP = 24
@@ -40,6 +40,8 @@ const ENERGY_REGEN_BASE = 1 / 3
 const ENERGY_REGEN_PER_LEVEL = 0.25 // +25% of base per level
 const SELL_PRICE_PER_LEVEL = 0.1 // +10% sell price per level
 const FERTILIZER_PER_LEVEL = 0.1 // -10% grow time per level
+/** batch 34: each ⭐ Fine mist level past fertilizer Lv5 multiplies grow time by this */
+const FINE_MIST_STEP = 0.95
 
 const UPGRADE_BASE: Record<UpgradeId, { cost: number; growth: number; maxLevel: number }> = {
   energyMax: { cost: 50, growth: 1.6, maxLevel: 10 },
@@ -91,8 +93,9 @@ const SMELT = { ore: 2 }
 const TRAY_CAP = [5, 10, 20]
 /** ore a mold's slot holds per ore-slot level (index = level) */
 const ORE_SLOT = [12, 24, 48]
-/** progress per tick per speed level (index = level): each level cuts a cycle's time to 0.8 of it, fire per bar unchanged */
-const SPEED_RATE = [1, 1.25, 1.5625]
+/** progress per tick = this ^ speed level: each level cuts a cycle's time to 0.8 of it, fire per bar unchanged (bar
+ * levels 0–2, ⭐ Favour levels 3+) */
+const SPEED_STEP = 1.25
 const SMELT_ORES: Record<OreId, { bar: ItemId; barTicks: number }> = {
   copperOre: { bar: 'copperBar', barTicks: 60 },
   ironOre: { bar: 'ironBar', barTicks: 120 },
@@ -105,8 +108,11 @@ export type FuelId = keyof typeof FUEL_UNITS
 export const FUEL_IDS = Object.keys(FUEL_UNITS) as FuelId[]
 /** fire capacity in units per fire-capacity level (index = level) */
 const FIRE_CAP_UNITS = [10, 20, 40, 80, 160]
-/** bars per cycle per batch level (index = level) */
-const BATCH_BARS = [1, 2, 3, 4, 5]
+/** bars per cycle per batch level (index = level; levels 5–9, 6 … 10 bars, are ⭐ Favour levels) */
+const BATCH_BARS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+// the 🔥 Stoker (batch 34): while stoked a smelting mold progresses ×speed and burns ×fire per unit of progress, so it
+// burns speed × fire × rate fire per tick and fuel per bar is ×fire
+const STOKER = { speed: 1.5, fire: 2 }
 // craft = price of a new one, repair = price to fix a blunt one (below craft), hits = rock hits per mine action.
 // Each tier's durability must beat the previous tier's Lv10 lifetime (balance test), except gold: strong but fragile
 // (batch 32, DECISIONS "Batch 32 refined").
@@ -135,6 +141,8 @@ const MASTERED_PRESERVE_BONUS = 0.05
 const PRESERVE_CAP = 0.8
 /** each mastered tier multiplies the vein's ore weights by 1 + this; stone gives up the added weight (batch 32) */
 const MASTERED_ORE_BONUS = 0.1
+/** ⭐ Seam survey (batch 34): the aimed ore's weight × aimed, every other ore × other (after the mastery bonus) */
+const SEAM_AIM = { aimed: 2, other: 0.5 }
 export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
@@ -234,6 +242,19 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   // Stoker (batch 34): bought in the ⭐ Favours sheet; its gate adds stokerReady (fuel certificate, the bar ladder done)
   stoker: { price: { stars: 15, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 },
 }
+// ⭐ Favours (batch 34, DECISIONS "Batch 34 refined"): the k-th ⭐ level (k = 0, 1, …) costs ⭐ round(base × growth^k);
+// max = ⭐ levels (null = uncapped). A row extends a cash or bar ladder past its max: mist = fertilizer, sell = sell price,
+// furnaceSpeed / furnaceBatch = the furnace levels; batch stops at 10 bars (the top tray 20 and ore slot 48 hold no two
+// cycles past it). seam needs vein `vein`. The Stoker is a certificate (CERTIFICATES.stoker), listed here for its gate.
+const FAVOURS = {
+  bunkhouse: { base: 15, growth: 1.6, max: 4 },
+  mist: { base: 8, growth: 1.35, max: null },
+  sell: { base: 10, growth: 1.4, max: null },
+  furnaceSpeed: { base: 10, growth: 1.5, max: null },
+  furnaceBatch: { base: 15, growth: 1.5, max: 5 },
+  seam: { base: 12, growth: 1, max: 1, vein: 3 },
+} as const satisfies Record<string, { base: number; growth: number; max: number | null; vein?: number }>
+export type PricedFavourId = keyof typeof FAVOURS
 // batch 33: cash part of the copper-bar furnace rows (tray Lv1, ore slot Lv1, iron mold, Collect all) = 0.5 h of the
 // measured vein-Lv3 income (💰12,842/h, PLAN.md "Batch 28.2 results", the same figure as ORE_SORT_CASH)
 const FURNACE_COPPER_CASH = 6500
@@ -750,9 +771,10 @@ export function sellPriceFactor(level: number): number {
   return 1 + SELL_PRICE_PER_LEVEL * level
 }
 
-/** fertilizer upgrade: multiplier on base grow time */
+/** fertilizer upgrade: multiplier on base grow time; past Lv5 (the ⭐ Fine mist levels) × FINE_MIST_STEP per level */
 export function growTimeFactor(level: number): number {
-  return 1 - FERTILIZER_PER_LEVEL * level
+  const cash = upgradeMaxLevel('fertilizer')
+  return level <= cash ? 1 - FERTILIZER_PER_LEVEL * level : (1 - FERTILIZER_PER_LEVEL * cash) * FINE_MIST_STEP ** (level - cash)
 }
 
 export function mineLicenseCost(meta: MetaState): number {
@@ -847,7 +869,12 @@ export function oreSlotCap(level: number): number {
 
 /** cycle progress per tick at this speed level (fire burns at the same rate) */
 export function furnaceSpeedRate(level: number): number {
-  return SPEED_RATE[level]
+  return SPEED_STEP ** level
+}
+
+/** the Stoker's progress and fire-per-progress multipliers */
+export function stoker(): { speed: number; fire: number } {
+  return STOKER
 }
 
 /** price of the iron or gold mold */
@@ -923,15 +950,17 @@ export function masteredOreBonus(): number {
   return MASTERED_ORE_BONUS
 }
 
-/** the weights a mine action rolls from: the level's drops with each ore × (1 + bonus × mastered), stone reduced by
- * the weight the ores gained, coal unchanged */
-export function veinWeights(level: number, mastered: number): Partial<Record<ItemId, number>> {
+/** the weights a mine action rolls from: the level's drops with each ore × (1 + bonus × mastered), then (⭐ Seam survey
+ * aimed, batch 34) the aimed ore × SEAM_AIM.aimed and every other ore × SEAM_AIM.other; stone absorbs every change in
+ * the ores' weight, coal unchanged. An aim the level does not drop changes nothing. */
+export function veinWeights(level: number, mastered: number, aim: OreId | null = null): Partial<Record<ItemId, number>> {
   const weights = { ...veinDrops(level) }
   let gained = 0
   for (const ore of ORE_IDS) {
     const w = weights[ore]
     if (!w) continue
-    weights[ore] = w * (1 + MASTERED_ORE_BONUS * mastered)
+    const mastery = w * (1 + MASTERED_ORE_BONUS * mastered)
+    weights[ore] = aim && weights[aim] ? mastery * (ore === aim ? SEAM_AIM.aimed : SEAM_AIM.other) : mastery
     gained += weights[ore]! - w
   }
   if (weights.stone !== undefined) weights.stone -= gained
@@ -1040,8 +1069,20 @@ export function workerHireCost(pool: number, meta: MetaState): number {
   return Math.round(WORKER_HIRE_BASE * WORKER_HIRE_GROWTH ** pool * multiplier(meta, 'cost'))
 }
 
-export function workerPoolCap(): number {
-  return WORKER_POOL_CAP
+/** ⭐ for the k-th ⭐ level of a Favour row (k from 0); null past its max */
+export function favourStars(id: PricedFavourId, k: number): number | null {
+  const { base, growth, max } = FAVOURS[id]
+  return max !== null && k >= max ? null : Math.round(base * growth ** k)
+}
+
+/** the vein level the ⭐ Seam survey needs */
+export function seamVeinLevel(): number {
+  return FAVOURS.seam.vein
+}
+
+/** the hire cap: the base pool plus the ⭐ Bunkhouse levels */
+export function workerPoolCap(run: RunState): number {
+  return WORKER_POOL_CAP + run.favours.bunkhouse
 }
 
 /** hiring needs counters[counter] ≥ at */

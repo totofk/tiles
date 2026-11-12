@@ -62,7 +62,7 @@ const workers = (pool: number, water = 0, harvest = 0, certificates: WorkerJob[]
 describe('workers: balance', () => {
   it('hire k costs 150 × 1.7^(k − 1), pool cap 6, hiring unlocks at 30 harvests', () => {
     expect([0, 1, 2, 3, 4, 5].map((pool) => workerHireCost(pool, meta))).toEqual([150, 255, 433, 737, 1253, 2130])
-    expect(workerPoolCap()).toBe(6)
+    expect(workerPoolCap(createInitialState().run)).toBe(6)
     expect(workerHireUnlock()).toEqual({ counter: 'harvests', at: 30 })
   })
 

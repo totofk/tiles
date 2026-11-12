@@ -96,7 +96,7 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
         <div className="group">
           <div className="worker-row">
             <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
-              👷 Hire worker <small>{pool >= workerPoolCap() ? 'pool full' : `💰${price(workerHireCost(pool, meta))}`}</small>
+              👷 Hire worker <small>{pool >= workerPoolCap(run) ? 'pool full' : `💰${price(workerHireCost(pool, meta))}`}</small>
             </button>
             <Info text={TIPS.hire} />
           </div>

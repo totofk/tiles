@@ -13,6 +13,7 @@ import {
   oreBar,
   oreSlotCap,
   smeltOre,
+  stoker,
   type FuelId,
   type FurnaceUpgradeId,
   type MoldOre,
@@ -90,21 +91,25 @@ const SMELTED: Record<OreId, 'barsSmelted' | 'ironBarsSmelted' | 'goldBarsSmelte
  * One tick inside step(). Every smelting mold (copper → iron → gold) burns the speed rate of the shared fire (what is
  * left) and advances its cycle by it; a completed cycle (its kind's barTicks) takes its ore, adds batch bars to its
  * tray and carries the overflow into the next one. With no mold smelting a plain furnace still burns a tick of fire
- * (wasted), a smart one nothing. Called once per tick, so step(s, n) equals n × step(s, 1) by construction.
+ * (wasted), a smart one nothing. Stoked (batch 34): a smelting mold advances rate × STOKER.speed and burns STOKER.fire
+ * × that; stoked counts down one per tick whatever burns, so stoking never burns fire on its own. Called once per tick,
+ * so step(s, n) equals n × step(s, 1) by construction.
  */
 export function tickFurnace(run: RunState): RunState {
-  let f = run.furnace
-  if (f.fire <= 0) return run
+  const stokedNow = run.furnace.stoked > 0
+  let f = stokedNow ? { ...run.furnace, stoked: run.furnace.stoked - 1 } : run.furnace
+  if (f.fire <= 0) return stokedNow ? { ...run, furnace: f } : run
   const lifetime: Lifetime = { ...run.lifetime }
-  const rate = furnaceSpeedRate(f.levels.speed)
+  const boost = stokedNow ? stoker() : { speed: 1, fire: 1 }
+  const rate = furnaceSpeedRate(f.levels.speed) * boost.speed
   let smelted = false
   for (const ore of ORE_IDS) {
     if (!moldSmelting(f, ore)) continue
     smelted = true
     const mold = f.molds[ore]!
-    const burn = Math.min(f.fire, rate)
+    const burn = Math.min(f.fire, rate * boost.fire)
     lifetime.fireBurnt += burn
-    let progress = mold.progress + burn
+    let progress = mold.progress + burn / boost.fire
     const done = progress >= barTicks(ore)
     if (done) progress -= barTicks(ore)
     const bars = done ? batchBars(f.levels.batch) : 0
@@ -112,7 +117,7 @@ export function tickFurnace(run: RunState): RunState {
     f = withMold({ ...f, fire: f.fire - burn }, ore, { ore: done ? mold.ore - cycleOre(f) : mold.ore, progress, ready: mold.ready + bars })
   }
   if (smelted) return { ...run, furnace: f, lifetime }
-  if (f.smart) return run
+  if (f.smart) return stokedNow ? { ...run, furnace: f } : run
   const burn = Math.min(f.fire, 1)
   return {
     ...run,
