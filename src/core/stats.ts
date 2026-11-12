@@ -16,7 +16,7 @@ import {
 } from './balance'
 import { CROPS, CROP_IDS } from './data/crops'
 import { duration, held } from './fmt'
-import { PICKAXE_NAMES } from './data/items'
+import { ORE_IDS, PICKAXE_NAMES } from './data/items'
 import { MILESTONES, earlierMilestones } from './data/milestones'
 import { STAR_EMOJI } from './data/orders'
 import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
@@ -167,7 +167,7 @@ export function feedbackSummary(state: GameState): string {
     `pickaxe ${pickaxe ? `${pickaxe.tier} ${pickaxe.durability}` : 'none'}`,
     `workers ${workers.pool} (${SHOWN_JOBS.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
     `vein Lv${run.vein.level}`,
-    `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch}` : 'none'}`,
+    `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch} speed Lv${furnace.levels.speed} molds ${ORE_IDS.filter((ore) => furnace.molds[ore]).map((ore) => ore.replace('Ore', '')).join('+')}` : 'none'}`,
     `played ${duration(run.tick)}`,
   ].join(' · ')
 }

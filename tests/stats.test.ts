@@ -177,7 +177,7 @@ describe('feedbackSummary(state)', () => {
     const shown = feedbackSummary(state)
     expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0, clerk 0, manager 0) · vein Lv2')
     expect(shown).toContain('pickaxe copper 120 · ')
-    expect(shown).toContain('furnace smart fire Lv1 batch Lv2 · played 1h 02m 05s')
+    expect(shown).toContain('furnace smart fire Lv1 batch Lv2 speed Lv0 molds copper · played 1h 02m 05s')
   })
 })
 

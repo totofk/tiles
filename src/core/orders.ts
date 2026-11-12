@@ -5,6 +5,7 @@ import { fail, nextRandom, withRun, type ActionResult } from './actions'
 import {
   barTicks,
   batchBars,
+  furnaceSpeedRate,
   cropGrowTicks,
   contractWetShare,
   cropSellPrice,
@@ -44,12 +45,14 @@ const barOre = (good: OrderGood) => ORE_IDS.find((ore) => oreBar(ore) === good)
 
 /**
  * Goods the player can make now: licensed crops; with the mine license, every item the current vein drops that the
- * owned pickaxe mines as itself (iron needs copper, by hand it is stone); with the furnace, the bar of each such ore.
+ * owned pickaxe mines as itself (iron needs copper, by hand it is stone); with the furnace, the bar of each such ore
+ * whose mold is owned.
  */
 export function orderPool(run: RunState): OrderGood[] {
   const drops = veinDrops(run.vein.level)
   const items = run.mineLicense ? ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0 && minedRock(id, bestPickaxeTier(run)) === id) : []
-  const bars = run.furnace.built ? ITEM_IDS.filter((id) => { const ore = barOre(id); return ore !== undefined && items.includes(ore) }) : []
+  // batch 33: a bar only once its mold is owned
+  const bars = run.furnace.built ? ITEM_IDS.filter((id) => { const ore = barOre(id); return ore !== undefined && items.includes(ore) && run.furnace.molds[ore] !== undefined }) : []
   return [...run.licenses, ...items, ...bars]
 }
 
@@ -65,7 +68,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
     return Math.max(home, ((contractWetShare() * wetTiles(run.fields)) / pressuredCycle(state, good)) * 60)
   }
   const ore = barOre(good)
-  if (ore) return (batchBars(run.furnace.levels.batch) * 60) / barTicks(ore)
+  if (ore) return (batchBars(run.furnace.levels.batch) * 60 * furnaceSpeedRate(run.furnace.levels.speed)) / barTicks(ore)
   const drops = veinDrops(run.vein.level)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return (orderRocksPerMin() * (drops[good] ?? 0)) / total

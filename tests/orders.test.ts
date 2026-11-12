@@ -78,15 +78,21 @@ describe('orderPool: only what the state can make now', () => {
     expect(orderPool({ ...vein1, furnace: { ...vein1.furnace, built: true } })).toEqual(['radish', 'stone', 'coal'])
     const vein2 = { ...vein1, vein: { ...vein1.vein, level: 2 }, furnace: { ...vein1.furnace, built: true } }
     expect(orderPool(vein2)).toEqual(['radish', 'stone', 'coal', 'copperOre', 'copperBar'])
-    // iron rocks are stone by hand or with a wooden pickaxe; a copper pickaxe mines them, so iron ore and bars join
+    // iron rocks are stone by hand or with a wooden pickaxe; a copper pickaxe mines them, so iron ore joins — and its
+    // bar once the iron mold is owned (batch 33)
     const vein3 = { ...vein2, vein: { ...vein2.vein, level: 3 } }
     expect(orderPool(vein3)).not.toContain('ironOre')
-    expect(orderPool({ ...vein3, rack: { copper: 3 } })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'copperBar', 'ironBar'])
+    expect(orderPool({ ...vein3, rack: { copper: 3 } })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'copperBar'])
+    const empty = { ore: 0, progress: 0, ready: 0 }
+    const allMolds = { ...vein2.furnace, molds: { copperOre: empty, ironOre: empty, goldOre: empty } }
+    expect(orderPool({ ...vein3, rack: { copper: 3 }, furnace: allMolds })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'copperBar', 'ironBar'])
     // gold rocks need the iron pickaxe: vein Lv4 adds them (and their bars) only then
     const vein4 = { ...vein3, vein: { ...vein3.vein, level: 4 } }
     expect(orderPool({ ...vein4, rack: { copper: 3 } })).not.toContain('goldOre')
     // batch 32: the best tier on the rack counts, whichever is in hand
-    expect(orderPool({ ...vein4, rack: { copper: 3, iron: 3 }, selectedPickaxe: 'copper' })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'goldOre', 'copperBar', 'ironBar', 'goldBar'])
+    expect(orderPool({ ...vein4, rack: { copper: 3, iron: 3 }, selectedPickaxe: 'copper', furnace: allMolds })).toEqual(['radish', 'stone', 'coal', 'copperOre', 'ironOre', 'goldOre', 'copperBar', 'ironBar', 'goldBar'])
+    // batch 33: no gold mold, no gold bar order
+    expect(orderPool({ ...vein4, rack: { copper: 3, iron: 3 }, furnace: { ...allMolds, molds: { copperOre: empty, ironOre: empty } } })).not.toContain('goldBar')
     // no mine license: no items even with a deep vein
     expect(orderPool({ ...vein3, mineLicense: false })).toEqual(['radish'])
   })
@@ -131,6 +137,12 @@ describe('orderCount: tier minutes × what the player makes per minute', () => {
     expect(orderCount({ ...s, run: { ...s.run, bagCapacity: 20 } }, 'stone', 2)).toBe(10)
     expect(orderCount(s, 'copperBar', 0)).toBe(orderTierMinutes(0))
     expect(orderCount(s, 'ironBar', 0)).toBe(Math.max(1, Math.round(orderTierMinutes(0) / 2)))
+  })
+
+  it('batch 33: bars per minute = batch bars × 60 × the speed rate ÷ the kind\'s bar ticks', () => {
+    const s = withRun({ furnace: { ...init.run.furnace, built: true, levels: { ...init.run.furnace.levels, batch: 4, speed: 2 } } })
+    expect(orderPerMinute(s, 'copperBar')).toBe((5 * 60 * 1.5625) / 60)
+    expect(orderPerMinute(s, 'goldBar')).toBe((5 * 60 * 1.5625) / 180)
   })
 })
 

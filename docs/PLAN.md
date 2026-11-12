@@ -6481,7 +6481,7 @@ v24 code). Never edit any file in tests/fixtures.
       at vein Lv3 storage, iron/gold-bar rows at vein Lv4 storage);
     - the bound: copper batch 5 + speed Lv2 = 468.75 bars/h, recomputed from the functions.
 
-- [ ] 178. **Callers: ore loader, orders, stats, away text.**
+- [x] 178. **Callers: ore loader, orders, stats, away text.**
   - Ore loader (`src/core/workers.ts:38–54`), one action per round: (1) collect the tray of the first owned mold in
     copper → iron → gold order that has bars and fits storage (`collectBars(s, kind)` ok); else (2) load one cycle
     (`cycleOre(f)`) into the owned mold with the FEWEST whole cycles loaded (`Math.floor(mold.ore / cycleOre(f))`) among
