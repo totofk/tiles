@@ -15,6 +15,7 @@ import {
   smeltFuel,
   isSellable,
   itemSellPrice,
+  keepNCost,
   masteredOreBonus,
   masteredPreserveBonus,
   masteryLevel,
@@ -43,6 +44,7 @@ import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel,
 import {
   activePickaxe,
   bagCount,
+  buyKeepN,
   buyMineLicense,
   buyWood,
   craftPickaxe,
@@ -54,6 +56,7 @@ import {
   repairPickaxe,
   selectPickaxe,
   sellItem,
+  setOreKeep,
   setOreSort,
   unlockOreSort,
   upgradeVein,
@@ -69,6 +72,8 @@ import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 type OreTier = 'copper' | 'iron' | 'gold'
 const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore`] ?? 0) > 0
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs, bars pay for upgrades (batch 24) */
+/** the 🧺 keep-up-to stepper's step */
+const KEEP_STEP = 10
 const SELL_WHEN_FULL = ITEM_IDS.filter(
   // coal fuels the Fields tank (batch 28)
   (id) => isSellable(id) && id !== 'wood' && id !== 'coal' && !ORE_IDS.map(oreBar).includes(id),
@@ -323,6 +328,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
   const held = heldPickaxe(run)
   const tier = held?.tier
   const owned = PICKAXE_TIERS.filter((t) => run.rack[t] !== undefined)
+  const keepNCheck = buyKeepN(state)
   // unowned tiers on offer: wooden always, copper once the furnace is built, iron and gold once the vein drops their ore
   const crafts = PICKAXE_TIERS.filter(
     (t) => run.rack[t] === undefined && (t === 'wooden' || (run.furnace.built && (t === 'copper' || tierVein(t, run.vein.level)))),
@@ -481,9 +487,18 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
         <div className="group">
           <h3>🧺 Ore sorting</h3>
           <div className="sort-table">
+            {run.keepN && (
+              <div className="sort-row">
+                <span />
+                <span />
+                <small>keep up to</small>
+              </div>
+            )}
             {MINE_DROP_IDS.map((kind) => {
               const mode = run.oreSort[kind]
               const unlock = mode ? null : unlockOreSort(state, kind)
+              const kept = run.oreKeep[kind] ?? 0
+              const keepTo = (n: number) => act((s) => setOreKeep(s, kind, Math.min(s.run.bagCapacity, Math.max(0, n))))
               return (
                 <div key={kind} className="sort-row">
                   <span>
@@ -506,10 +521,34 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
                       Sell on dig
                     </label>
                   )}
+                  {run.keepN && mode && (
+                    <span className="keep-stepper" role="group" aria-label={`Keep up to ${kept} ${ITEMS[kind].name}`}>
+                      <button aria-label={`Keep ${KEEP_STEP} fewer ${ITEMS[kind].name}`} disabled={mode !== 'sell' || kept <= 0} onClick={() => keepTo(kept - KEEP_STEP)}>
+                        −
+                      </button>
+                      <span>{kept}</span>
+                      <button
+                        aria-label={`Keep ${KEEP_STEP} more ${ITEMS[kind].name}`}
+                        disabled={mode !== 'sell' || kept >= run.bagCapacity}
+                        onClick={() => keepTo(kept + KEEP_STEP)}
+                      >
+                        +
+                      </button>
+                    </span>
+                  )}
                 </div>
               )
             })}
           </div>
+          {!run.keepN && (
+            <div className="sort-buy">
+              <span>🧺 Keep N — keep some of each checked kind, sell only the excess — {priceText(keepNCost(meta))}</span>
+              <button disabled={!keepNCheck.ok} onClick={() => act(buyKeepN)}>
+                Buy
+                {!keepNCheck.ok && <small>{ERROR_TEXT[keepNCheck.error]}</small>}
+              </button>
+            </div>
+          )}
           <p className="hint">Checked kinds sell the moment you dig them past the amount you keep, so the miner never stops on a full storage.</p>
         </div>
       )}

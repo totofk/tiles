@@ -148,6 +148,9 @@ const ORE_SORT_ITEMS: Record<MineDropId, number> = { stone: 30, coal: 15, copper
 const ORE_SORT_CASH = 6500
 /** 🧺 Ore sorting opens at this vein level */
 const ORE_SORT_VEIN_LEVEL = 3
+// 🧺 Keep N (batch 32): one purchase; cash part = 0.5 × the batch-16 ladder bot's measured 14 118 💰/h in the vein-Lv4
+// phase (see GOLD_VEIN_CASH), rounded to 💰500; 15 items fit storage at vein Lv3 (50)
+const KEEP_N_PRICE: Price = { ironBar: 10, goldBar: 5, cash: 7000 }
 // cash part = 0.5–1.5 h of the batch-16 ladder bot's income when the iron tools are done (PLAN.md "Batch 16 results"):
 // 0.53 h of its measured 14 118 💰/h in the vein-Lv4 phase, rounded to 💰500
 const GOLD_VEIN_CASH = 7500
@@ -887,6 +890,10 @@ export function oreSortUnlockCost(kind: MineDropId, meta: MetaState): Price {
 
 export function oreSortVeinLevel(): number {
   return ORE_SORT_VEIN_LEVEL
+}
+
+export function keepNCost(meta: MetaState): Price {
+  return scalePrice(KEEP_N_PRICE, meta)
 }
 
 export function veinMaxLevel(): number {

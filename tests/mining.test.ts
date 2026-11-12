@@ -4,6 +4,7 @@ import {
   BAG_CAPACITY_START,
   MINE_DROP_IDS,
   itemSellPrice,
+  keepNCost,
   oreSortUnlockCost,
   masteryThresholds,
   mineHits,
@@ -28,6 +29,7 @@ import {
 import {
   activePickaxe,
   bestPickaxeTier,
+  buyKeepN,
   buyMineLicense,
   buyStorage,
   upgradeVein,
@@ -42,6 +44,7 @@ import {
   repairPickaxe,
   selectPickaxe,
   sellItem,
+  setOreKeep,
   setOreSort,
   unlockOreSort,
 } from '../src/core/mining'
@@ -187,6 +190,57 @@ describe('batch 32: hit carry-over and mastered ore', () => {
     expect(veinWeights(4, 0)).toEqual(veinDrops(4))
     expect(veinWeights(0, 4)).toEqual({ stone: 1 })
     expect(dropText(2, 4)).toBe(`${ITEMS.stone.emoji} Stone 59 % · ${ITEMS.coal.emoji} Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 21 %`)
+  })
+})
+
+describe('batch 32: 🧺 Keep N', () => {
+  const vein3 = { level: 3, progress: 0, rock: 'stone' as const }
+  const keeper = (run: RunInput = {}) =>
+    miner({ vein: vein3, oreSort: { stone: 'sell' }, keepN: true, oreKeep: { stone: 20 }, bagCapacity: 50, ...run })
+
+  it('keep 20 stone: the 20th stone is stored, the 21st sells', () => {
+    const at19 = okState(dig(keeper({ inventory: { stone: 19 } })))
+    expect([at19.run.inventory.stone, at19.run.counters.sales]).toEqual([20, 0])
+    const at20 = okState(dig(at19))
+    expect([at20.run.inventory.stone, at20.run.counters.sales]).toEqual([20, 1])
+  })
+
+  it('a full storage below N sells (never BAG_FULL); N = 0 or Keep N not bought is the plain Sell on dig', () => {
+    const full = okState(dig(keeper({ inventory: { stone: 5, wood: 45 } })))
+    expect([full.run.inventory.stone, full.run.counters.sales]).toEqual([5, 1])
+    const plain = okState(dig(miner({ vein: vein3, oreSort: { stone: 'sell' }, bagCapacity: 50 })))
+    for (const run of [{ oreKeep: { stone: 0 } }, { keepN: false }]) {
+      const next = okState(dig(keeper(run)))
+      expect([next.run.inventory, next.run.counters.sales, next.run.cash]).toEqual([plain.run.inventory, plain.run.counters.sales, plain.run.cash])
+    }
+  })
+
+  it('buyKeepN: 🥈10 🥇5 💰7,000; NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH', () => {
+    const price = keepNCost(meta)
+    expect(price).toEqual({ ironBar: 10, goldBar: 5, cash: 7000 })
+    const rich = { vein: vein3, cash: 7000, inventory: { ironBar: 10, goldBar: 5 } }
+    expect(buyKeepN(withRun({ ...rich, mineLicense: false }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
+    expect(buyKeepN(miner({ ...rich, vein: { ...vein3, level: 2 } }))).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyKeepN(miner({ ...rich, keepN: true }))).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(buyKeepN(miner({ ...rich, inventory: { ironBar: 10, goldBar: 4 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+    expect(buyKeepN(miner({ ...rich, cash: 6999 }))).toEqual({ ok: false, error: 'NO_CASH' })
+    const bought = okState(buyKeepN(miner(rich)))
+    expect([bought.run.keepN, bought.run.cash, bought.run.inventory]).toEqual([true, 0, { ironBar: 0, goldBar: 0 }])
+  })
+
+  it('setOreKeep: LOCKED without Keep N or for a locked kind; BAD_AMOUNT outside 0 … storage or not whole', () => {
+    expect(setOreKeep(keeper({ keepN: false }), 'stone', 10)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(setOreKeep(keeper(), 'coal', 10)).toEqual({ ok: false, error: 'LOCKED' })
+    for (const n of [-1, 51, 2.5, NaN]) expect(setOreKeep(keeper(), 'stone', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    expect(okState(setOreKeep(keeper(), 'stone', 50)).run.oreKeep).toEqual({ stone: 50 })
+    expect(okState(setOreKeep(keeper(), 'stone', 0)).run.oreKeep).toEqual({ stone: 0 })
+  })
+
+  it('the Keep N price fits storage at vein Lv3 (15 items ≤ 50)', () => {
+    const { cash, stars, ...items } = keepNCost(meta)
+    void [cash, stars]
+    expect(Object.values(items).reduce((a, b) => a + (b ?? 0), 0)).toBe(15)
+    expect(15).toBeLessThanOrEqual(BAG_CAPACITY_START + 3 * storageSlotsPerLevel())
   })
 })
 

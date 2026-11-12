@@ -1694,6 +1694,29 @@ details > summary:focus-visible {
   height: 24px;
   margin: 0;
 }
+.keep-stepper {
+  display: grid;
+  grid-template-columns: 44px 32px 44px;
+  align-items: center;
+  text-align: center;
+}
+.keep-stepper > button {
+  min-height: 44px;
+  padding: 0;
+}
+.sort-buy {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+.sort-buy > span {
+  flex: 1;
+  min-width: 0;
+}
+.sort-buy > button {
+  min-height: 44px;
+}
 .item-name {
   min-width: 0;
   display: flex;

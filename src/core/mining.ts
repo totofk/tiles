@@ -3,6 +3,7 @@ import {
   ACTION_ENERGY_COST,
   isSellable,
   itemSellPrice,
+  keepNCost,
   masteryLevel,
   masteryMaxLevel,
   mineHits,
@@ -134,11 +135,15 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 /** the state of a result that cannot fail (withRun; sellItem of one item just stored) */
 const okState = (r: ActionResult) => (r as Extract<ActionResult, { ok: true }>).state
 
-/** what breaking a rock of `rock` does to its drop: stored, sold at once (its kind is set to Sell on dig), or nothing
- * (storage full) */
+/** what breaking a rock of `rock` does to its drop: stored, sold at once, or nothing (storage full). A kind set to Sell
+ * on dig is stored only below its Keep N amount with room left, else sold — it never reports full */
 function breakDrop(run: RunState, rock: ItemId): 'store' | 'sell' | 'full' {
-  if ((run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell') return 'sell'
-  return bagCount(run) < run.bagCapacity ? 'store' : 'full'
+  const room = bagCount(run) < run.bagCapacity
+  if ((run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell') {
+    const keep = run.keepN ? ((run.oreKeep as Partial<Record<ItemId, number>>)[rock] ?? 0) : 0
+    return room && (run.inventory[rock] ?? 0) < keep ? 'store' : 'sell'
+  }
+  return room ? 'store' : 'full'
 }
 
 // The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL (the current rock's drop
@@ -192,6 +197,25 @@ export function unlockOreSort(state: GameState, kind: MineDropId): ActionResult 
   if (run.vein.level < oreSortVeinLevel()) return fail('LOCKED')
   if (run.oreSort[kind]) return fail('ALREADY_OWNED')
   return pay(state, oreSortUnlockCost(kind, state.meta), { oreSort: { ...run.oreSort, [kind]: 'keep' } })
+}
+
+// 🧺 Keep N (batch 32): one purchase. Order: NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED,
+// NOT_ENOUGH_ITEMS, NO_CASH. No energy.
+export function buyKeepN(state: GameState): ActionResult {
+  const { run } = state
+  if (!run.mineLicense) return fail('NO_MINE_LICENSE')
+  if (run.vein.level < oreSortVeinLevel()) return fail('LOCKED')
+  if (run.keepN) return fail('ALREADY_OWNED')
+  return pay(state, keepNCost(state.meta), { keepN: true })
+}
+
+/** the amount of an unlocked kind Sell on dig keeps in storage before it sells the excess; free, no energy. LOCKED
+ * unless Keep N is owned and the kind unlocked; BAD_AMOUNT unless a whole number 0 … storage capacity */
+export function setOreKeep(state: GameState, kind: MineDropId, n: number): ActionResult {
+  const { run } = state
+  if (!run.keepN || !run.oreSort[kind]) return fail('LOCKED')
+  if (!Number.isInteger(n) || n < 0 || n > run.bagCapacity) return fail('BAD_AMOUNT')
+  return withRun(state, { oreKeep: { ...run.oreKeep, [kind]: n } })
 }
 
 /** Keep ↔ Sell on dig for an unlocked kind; free, no energy; LOCKED when the kind is not unlocked */

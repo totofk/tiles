@@ -459,6 +459,39 @@ describe('batch 32: 🧺 ore sorting table', () => {
     expect(document.querySelector('.mine .item-grid')!.textContent).not.toContain('Stone')
   })
 
+  it('Keep N: the buy row until owned, then a keep-up-to stepper per unlocked kind (step 10, disabled while unchecked)', () => {
+    const rich = { vein: vein(3), cash: 7000, inventory: { ironBar: 10, goldBar: 5 }, bagCapacity: 50, oreSort: { stone: 'sell' as const, coal: 'keep' as const } }
+    const t = setup(rich)
+    const buy = () => within(group()!).getByRole('button', { name: /^Buy/ }) as HTMLButtonElement
+    expect(group()!.querySelector('.sort-buy > span')!.textContent).toBe(
+      `🧺 Keep N — keep some of each checked kind, sell only the excess — ${IRON_BAR}⁠10 ${ITEMS.goldBar.emoji}⁠5 💰⁠7,000`,
+    )
+    expect(screen.queryByRole('group', { name: /^Keep up to/ })).toBeNull()
+    fireEvent.click(buy())
+    t.rerender()
+    expect(t.get().run.keepN).toBe(true)
+    expect(within(group()!).queryByRole('button', { name: /^Buy/ })).toBeNull()
+    expect(group()!.textContent).toContain('keep up to')
+    // stone (checked) and coal (unchecked) get a stepper; the locked kinds none
+    const more = (name: string) => screen.getByRole('button', { name: `Keep 10 more ${name}` }) as HTMLButtonElement
+    const fewer = (name: string) => screen.getByRole('button', { name: `Keep 10 fewer ${name}` }) as HTMLButtonElement
+    expect(screen.getAllByRole('group', { name: /^Keep up to/ }).map((g) => g.getAttribute('aria-label'))).toEqual(['Keep up to 0 Stone', 'Keep up to 0 Coal'])
+    expect([more('Coal').disabled, fewer('Stone').disabled, more('Stone').disabled]).toEqual([true, true, false])
+    fireEvent.click(more('Stone'))
+    t.rerender()
+    fireEvent.click(more('Stone'))
+    t.rerender()
+    expect(t.get().run.oreKeep).toEqual({ stone: 20 })
+    expect(screen.getByRole('group', { name: 'Keep up to 20 Stone' }).textContent).toBe('−20+')
+    fireEvent.click(fewer('Stone'))
+    t.rerender()
+    expect(t.get().run.oreKeep).toEqual({ stone: 10 })
+    cleanup()
+    setup({ ...rich, inventory: {} })
+    expect(buy().disabled).toBe(true)
+    expect(buy().textContent).toBe('BuyNot enough items')
+  })
+
   it('the table stays once every kind is unlocked: five checkboxes, no Unlock button', () => {
     setup({ vein: vein(4), oreSort: { stone: 'sell', coal: 'keep', copperOre: 'sell', ironOre: 'sell', goldOre: 'sell' } })
     expect(group()).not.toBeNull()
