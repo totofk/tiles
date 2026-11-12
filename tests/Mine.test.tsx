@@ -171,23 +171,25 @@ describe('Mine panel', () => {
     cleanup()
     const t = setup({ furnace: { ...built, molds: { copperOre: { ore: 0, progress: 0, ready: 1 } } }, inventory: { copperOre: 3, coal: 1 } })
     const summary = () => document.querySelector('.mine-furnace summary')!.textContent
-    expect(summary()).toBe('🔥 Furnace · fire 0/10 · ore 0 · 1 ready')
+    // batch 33: the summary sums every mold's tray (the "ore n" part is gone)
+    expect(summary()).toBe('🔥 Furnace · fire 0/10 · 1 ready')
     const button = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
     // second line: how many items the press uses, or the short reason it cannot; stock items never split
     expect(button(new RegExp(`^Fill with ${WOOD}`)).textContent).toBe(`Fill with ${WOOD} woodno fuel`)
     expect(button(/^Fill with ⚫/).textContent).toBe('Fill with ⚫ coaluses 1')
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreuses 3`)
     expect(button(/^Collect 1/).textContent).toBe(`Collect 1 ${BAR}tray 1/5`)
-    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual(['ore 3', 'coal 1', 'wood 0'])
+    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual([`${ORE} 3`, 'coal 1', 'wood 0'])
     expect(text()).toContain('🔥 fire 0 / 10')
-    expect(text()).toContain(`${ORE} ore 0 / 12`)
+    expect(text()).toContain(`${ORE} Copper ore · ore 0/12 · fire out`)
     expect(text()).not.toContain('nothing to smelt')
     fireEvent.click(button(/^Load/))
     fireEvent.click(button(/^Fill with ⚫/))
     t.rerender()
     expect([t.get().run.furnace.molds.copperOre!.ore, t.get().run.furnace.fire]).toEqual([3, 60])
-    expect(summary()).toBe('🔥 Furnace · fire 2/10 · ore 3 · 1 ready')
+    expect(summary()).toBe('🔥 Furnace · fire 2/10 · 1 ready')
     expect(text()).toContain('🔥 fire 2 / 10')
+    expect(text()).toContain(`${ORE} Copper ore · ore 3/12 · smelting`)
     expect(button(/^Load/).textContent).toBe(`Load ${ORE} oreno ore`)
     fireEvent.click(button(/^Collect 1/))
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.molds.copperOre!.ready]).toEqual([1, 0])
@@ -200,8 +202,13 @@ describe('Mine panel', () => {
     setup({ furnace: { ...built, fire: 90, molds: { copperOre: { ore: 2, progress: 0, ready: 0 } } } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     cleanup()
-    // a full tray also stops the cycle, but ore is loaded: the hint is only about missing ore
+    // batch 33: the hint shows whenever no mold smelts — a full tray burns fire for nothing too
     setup({ furnace: { ...built, fire: 90, molds: { copperOre: { ore: 2, progress: 0, ready: 5 } } } })
+    expect(document.querySelector('.furnace-hint')?.textContent).toBe('burning with nothing to smelt')
+    expect(text()).toContain(`${ORE} Copper ore · ore 2/12 · tray full`)
+    cleanup()
+    // one smelting mold is enough to hide it
+    setup({ furnace: { ...built, fire: 90, molds: { copperOre: { ore: 2, progress: 0, ready: 5 }, ironOre: { ore: 2, progress: 0, ready: 0 } } } })
     expect(document.querySelector('.furnace-hint')).toBeNull()
     cleanup()
     setup({ furnace: { ...built, fire: 90, smart: true } })
@@ -209,18 +216,65 @@ describe('Mine panel', () => {
     expect(text()).toContain('🔥 fire 3 / 10 · smart')
   })
 
-  it('batch 24: the furnace card renders four groups — Fire / Smelt / Output / Upgrades — in order, with the heading', () => {
+  it('batch 33: the furnace card renders three groups — Fire / Smelt (one row per mold) / Upgrades — with the heading', () => {
     setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' } })
     const groups = [...document.querySelectorAll('.mine-furnace > .group')]
-    expect(groups).toHaveLength(4)
-    expect(groups.map((g) => g.querySelector('h3')?.textContent ?? null)).toEqual([null, null, null, 'Upgrades'])
+    expect(groups).toHaveLength(3)
+    expect(groups.map((g) => g.querySelector('h3')?.textContent ?? null)).toEqual([null, null, 'Upgrades'])
     // Fire: the status line + fire bar + ⓘ + the Fill buttons
     expect(groups[0].textContent).toContain('🔥 fire 0 / 10')
     expect([...groups[0].querySelectorAll('button')].filter((b) => !b.classList.contains('info-btn')).map((b) => b.textContent!.slice(0, 4))).toEqual(['Fill', 'Fill'])
-    // Smelt: the recipe line and Load (batch 33: no ore picker); Output: Collect alone
+    // Smelt: no ore picker; a copper-only furnace has one mold row with Load and Collect in one actions row
     expect(groups[1].querySelector('[aria-label="Ore to smelt"]')).toBeNull()
-    expect([...groups[1].querySelectorAll('button')].some((b) => b.textContent!.startsWith('Load'))).toBe(true)
-    expect([...groups[2].querySelectorAll('button')].map((b) => b.textContent!.slice(0, 7))).toEqual(['Collect'])
+    expect(groups[1].querySelectorAll('.furnace-mold')).toHaveLength(1)
+    expect([...groups[1].querySelectorAll('.furnace-mold .mine-furnace-actions button')].map((b) => b.textContent!.slice(0, 4))).toEqual(['Load', 'Coll'])
+  })
+
+  it('batch 33: a vein-Lv3 save shows the Iron mold row; buying it adds a second mold row', () => {
+    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' } })
+    expect(screen.queryByRole('button', { name: /Iron mold/ })).toBeNull()
+    cleanup()
+    const t = setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' }, cash: 6500, inventory: { copperBar: 10, stone: 20 } })
+    const mold = () => screen.getByRole('button', { name: /Iron mold/ }) as HTMLButtonElement
+    expect(mold().textContent).toBe(`${IRON_ORE} Iron mold${STONE}⁠20 ${BAR}⁠10 💰⁠6,500`)
+    expect(screen.queryByRole('button', { name: /Gold mold/ })).toBeNull()
+    fireEvent.click(mold())
+    t.rerender()
+    expect(Object.keys(t.get().run.furnace.molds)).toEqual(['copperOre', 'ironOre'])
+    expect(screen.queryByRole('button', { name: /Iron mold/ })).toBeNull()
+    expect(document.querySelectorAll('.mine-furnace .furnace-mold')).toHaveLength(2)
+    expect(text()).toContain(`${IRON_ORE} Iron ore · ore 0/12 · fire out`)
+    expect(text()).toContain(`${IRON_ORE}2 + ⚫2 or ${WOOD}4 → ${IRON_BAR}1 · 120 s`)
+    expect([...document.querySelectorAll('.mine-furnace .furnace-stock .nowrap')].map((e) => e.textContent)).toEqual([`${ORE} 0`, `${IRON_ORE} 0`, 'coal 0', 'wood 0'])
+    // with two molds the Collect all row appears among the upgrades
+    expect(screen.getByRole('button', { name: /^Collect all/ }).textContent).toContain(`${BAR}⁠10 ${IRON_BAR}⁠5 💰⁠6,500`)
+  })
+
+  it('batch 33: two molds + Collect all owned shows the Collect all button (n bars); speed shows in the cycle seconds', () => {
+    const molds = { copperOre: { ore: 0, progress: 0, ready: 3 }, ironOre: { ore: 0, progress: 0, ready: 2 } }
+    const t = setup({ furnace: { ...built, collectAll: true, molds, levels: { ...built.levels, speed: 2 } }, vein: { level: 3, progress: 0, rock: 'stone' } })
+    const all = () => screen.getByRole('button', { name: /^Collect all/ }) as HTMLButtonElement
+    expect(all().textContent).toBe('Collect all5 bars')
+    expect(text()).toContain(`${ORE}2 + ⚫1 or ${WOOD}2 → ${BAR}1 · 39 s`)
+    expect(text()).toContain(`${IRON_BAR}1 · 77 s`)
+    expect(document.querySelector('.mine-furnace summary')!.textContent).toBe('🔥 Furnace · fire 0/10 · 5 ready')
+    fireEvent.click(all())
+    t.rerender()
+    expect([t.get().run.inventory.copperBar, t.get().run.inventory.ironBar]).toEqual([3, 2])
+    expect(all().textContent).toBe('Collect allNothing to do')
+    expect(all().disabled).toBe(true)
+  })
+
+  it('batch 33: a batch row at Lv2 without tray / ore slot Lv1 says what it needs; the new rows are labelled', () => {
+    setup({ furnace: { ...built, levels: { ...built.levels, batch: 2 } }, cash: 1e5, inventory: { ironBar: 20 } })
+    const row = (name: RegExp) => screen.getByRole('button', { name }) as HTMLButtonElement
+    expect(row(/^Batch/).textContent).toBe(`Batch 3 → 4 bars${IRON_BAR}⁠8 💰⁠7,500 · needs tray 8 + ore slot 16`)
+    expect(row(/^Batch/).disabled).toBe(true)
+    expect(row(/^Speed/).textContent).toBe(`Speed: cycles 100 % → 80 %${IRON_BAR}⁠10 💰⁠7,500`)
+    expect(row(/^Tray/).textContent).toBe(`Tray 5 → 10 bars${STONE}⁠30 ${BAR}⁠8 💰⁠6,500 · Not enough items`)
+    expect(row(/^Ore slot/).textContent).toBe(`Ore slot 12 → 24${STONE}⁠30 ${BAR}⁠6 💰⁠6,500 · Not enough items`)
+    // one mold: no Collect all row
+    expect(screen.queryByRole('button', { name: /^Collect all/ })).toBeNull()
   })
 
   it('furnace upgrades: next level and price, disabled with the reason, bought, hidden at max', () => {
@@ -365,7 +419,8 @@ describe('Mine panel', () => {
     const recipe = document.querySelector('.mine-furnace .furnace-recipe')!
     const stock = document.querySelector('.mine-furnace .furnace-stock')!
     expect(recipe.textContent).toBe(`${ORE}2 + ⚫1 or ${WOOD}2 → ${BAR}1 · 60 s`)
-    expect(stock.textContent).toBe('have: ore 0 · coal 0 · wood 1')
+    // batch 33: the stock line names each owned mold's ore by its emoji
+    expect(stock.textContent).toBe(`have: ${ORE} 0 · coal 0 · wood 1`)
     // every emoji+number of the recipe is its own unbreakable token
     expect([...recipe.querySelectorAll('.nowrap')].map((e) => e.textContent)).toEqual([`${ORE}2`, `⚫1`, `${WOOD}2`, `${BAR}1`, '60 s'])
   })

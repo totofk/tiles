@@ -59,15 +59,16 @@ export const TIPS = {
   board: 'Orders for what you make now. An accepted crop order takes your harvests of that crop at a bonus price, with no market glut; item orders are delivered from storage. Every finished order pays stars. No timers: discard any order for free.',
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',
   vein: 'A deeper vein drops new items beside stone. Paid once per level in stone and cash.',
-  furnace: 'Smelts copper ore into bars with coal or wood, no energy needed. Bought once; it opens the next vein level.',
+  furnace: 'Smelts ore into bars with coal or wood, no energy needed. Comes with a copper mold; buy iron and gold molds to smelt every kind at once. Bought once; it opens the next vein level.',
   workshop: 'A shed for sprinklers. Build one on each bed\'s socket ⛲: that bed never needs water again. Bought once; it needs the deepest vein.',
   fields: 'Endless extra land past your home plot. Land comes in plots of ten tiles, five plots to a field; a field needs a pivot to be sown and the pump decides how many fields it waters. Your planter, harvester and machines work whole plots, or reap one by hand. Keep the coal tank full and fields grow twice as fast; an empty tank slows them, they never die.',
   hire: 'Adds one worker to your pool; put them on a job with + and −. Workers act on their own clock without your energy, also while you are away. Each action costs a small wage, paid only when they work; with no cash they wait. Each hire costs more than the last, up to a cap.',
 }
 
 /** the 🔥 Furnace card: the fire gauge and each furnace upgrade */
-export const FURNACE_TIPS: Record<'fire' | FurnaceUpgradeId, string> = {
-  fire: 'Fill the fire with wood or coal; coal burns longer than wood. A plain furnace burns whenever it is lit, also with no ore loaded or a full tray, so fill it only when you smelt.',
+export const FURNACE_TIPS: Record<'fire' | 'mold' | FurnaceUpgradeId, string> = {
+  fire: 'Fill the fire with wood or coal; coal burns longer than wood. A plain furnace burns whenever it is lit, also when no mold is smelting, so fill it only when you smelt.',
+  mold: 'A mold smelts one ore kind with its own ore slot and tray. All molds share the fire and smelt at the same time.',
   fireCap: 'A bigger fire holds more fuel, so the furnace runs longer between fills. Paid once per level in copper bars and cash.',
   batch: 'Each smelt turns more ore into more bars for the same fire, so every bar costs less fuel. Paid once per level in copper bars and cash.',
   speed: 'Every mold finishes a smelt 20 % sooner per level. Fuel per bar stays the same.',

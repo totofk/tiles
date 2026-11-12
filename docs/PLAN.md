@@ -6501,7 +6501,7 @@ v24 code). Never edit any file in tests/fixtures.
     tests/save.test.ts 7, tests/Mine.test.tsx 7, src/core/orders.ts 2, src/core/stats.ts 1, src/app/useGame.ts 1) and
     update each one.
 
-- [ ] 179. **UI: the furnace card shows one row per mold.** `src/app/Mine.tsx:116–287`, `src/app/tips.ts:68–75`.
+- [x] 179. **UI: the furnace card shows one row per mold.** `src/app/Mine.tsx:116–287`, `src/app/tips.ts:68–75`.
   - Summary (`:147–149`): `🔥 Furnace · fire {units}/{cap} · {sum of ready} ready` (the "ore n" part goes).
   - Fire group (`:151–172`) unchanged, except the hint at `:160`: "burning with nothing to smelt" shows when the fire is
     lit, the furnace is not smart and no mold is smelting.

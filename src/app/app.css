@@ -1476,6 +1476,16 @@ details > summary:focus-visible {
 .mine .furnace-hint {
   color: #bf360c;
 }
+/* batch 33: one block per owned mold inside the Smelt group, 8 px inside, a dashed line between molds */
+.furnace-mold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.furnace-mold + .furnace-mold {
+  padding-top: var(--s2);
+  border-top: 1px dashed #eee;
+}
 .mine-furnace .item small {
   display: block;
 }
