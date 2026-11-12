@@ -3611,8 +3611,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   // measured batch 28: FIELDS_CASH 💰10,000 ÷ 💰102,773/h (unlock → pivot 2) = 0.10 h — the price is LOCKED (PLAN.md
-  // "Batch 28 results" Deviations)
-  it.fails('pinned: FIELDS_CASH is 0.35–1.5 h of the income at its unlock — measured 0.10 h', () => {
+  // "Batch 28 results" Deviations). Batch 32.2: 💰10,000 ÷ 💰86,394/h = 0.12 h (was 0.10) — workers do one tile per
+  // action on the Estate
+  it.fails('pinned: FIELDS_CASH is 0.35–1.5 h of the income at its unlock — measured 0.12 h', () => {
     const price = fieldsCost(end.meta).cash
     console.log('PIN18f', [price, Math.round(fieldsIncome), Math.round((price / fieldsIncome) * 100) / 100])
     expect(price / fieldsIncome).toBeGreaterThanOrEqual(0.35)
@@ -3852,8 +3853,9 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
 
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
-  // saving for Pump 2; prices LOCKED
-  it.fails('batch 28: no gap over 60 game-minutes from the Tractor to Pump 2 (milestones, ladder rungs, every plot / pivot / pump / machine bought) — measured 232 min', () => {
+  // saving for Pump 2; prices LOCKED. Batch 32.2: 347 min from game-minute 4,431 (was 232) — workers do one tile per
+  // action on the Estate
+  it.fails('batch 28: no gap over 60 game-minutes from the Tractor to Pump 2 (milestones, ladder rungs, every plot / pivot / pump / machine bought) — measured 347 min', () => {
     const tractor = end.run.milestones.fieldsUnlocked!
     const pump2 = r.win.pump2!
     const ticks = [
@@ -3990,7 +3992,9 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
 
   // measured batch 28: harvester1 0.14 h, seeder1 0.12 h, harvester2 0.47 h, seeder2 0.33 h, harvester3 0.46 h — the
   // pressured plots lift the income at the machine rungs, prices untouched (PLAN.md "Batch 28 results" Deviations)
-  it.fails('pinned: every machine cash price is ≥ 0.35 h of the ladder bot income — measured 0.14 / 0.12 / 0.47 / 0.33 / 0.46 h', () => {
+  // batch 32.2: 0.54 / 0.19 / 0.96 / 0.57 / 0.57 h (was 0.14 / 0.12 / 0.47 / 0.33 / 0.46) — workers do one tile per
+  // action on the Estate, so the income at each machine rung is lower; seeder1 still fails the bar
+  it.fails('pinned: every machine cash price is ≥ 0.35 h of the ladder bot income — measured 0.54 / 0.19 / 0.96 / 0.57 / 0.57 h', () => {
     for (const [price, income] of machineRows()) expect(price / income).toBeGreaterThanOrEqual(0.35)
   })
 

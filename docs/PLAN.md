@@ -6161,7 +6161,7 @@ costs 💰10 of wages instead of 💰1.
     (169 code points ≤ 180; the last sentence is task 176's. One entry per batch: `tests/changelog.test.ts:18`
     asserts batch ids are unique, so 176 does not add its own entry.)
 
-- [ ] 176. **UI: a Material-style ripple on every button press — one shared utility, no per-button code.** src/app only,
+- [x] 176. **UI: a Material-style ripple on every button press — one shared utility, no per-button code.** src/app only,
   no save bump, no `tiles.ui` field, no balance or core change. A CSS-only polish pass (stopgap until Toon brings
   animation references, skill rule 6g), not the final animation system.
   - **What the player sees:** on press, a soft dark circle grows from the press point to the button's far corner and
@@ -6270,7 +6270,7 @@ costs 💰10 of wages instead of 💰1.
 
 ## Batch 32.2 results
 
-Commits: task 173 `f7416345`, task 174 `01598551`, task 175 (this commit), task 176 (next). No save bump: SAVE_VERSION
+Commits: task 173 `f7416345`, task 174 `01598551`, task 175 `cab50796`, task 176 (the last one). No save bump: SAVE_VERSION
 stays 24, `src/save` untouched, no balance constant changed.
 
 - **173.** `fieldsHarvest` / `fieldsPlantAction` (`src/core/fields.ts`) add one tile to `fields.machines.carry`
@@ -6311,8 +6311,20 @@ stays 24, `src/save` untouched, no balance constant changed.
   1.2 (run 3 stays 1.33); PIN28_1b sold runs' harvester3 37.9 / 34.7 h → 105.6 / 101 h; PIN22b vault speed-up ≥ 1.3 →
   ≥ 1.29 (measured 1.291); PIN28_1c 56.6 / 35.9 h → 108.1 / 73.6 h; PIN311b 10th contract at minute 319 → 417 (⭐ 60,
   💰1,513,614 still clear the ≥ 20 / ≥ 1.5M bars). PIN28c logs `plantWorkerTiles: 720` (was `plantWorkerWholePlots:
-  7200`). Gap guards: PIN26b (≤ 90 min to the Tractor) and the batch-18 unlock step (≤ 60 min) still pass; the PIN28a
-  Tractor → Pump 2 `it.fails` still fails as recorded. CHANGELOG entry 32.2 added verbatim.
+  7200`). Gap guards: PIN26b (≤ 90 min to the Tractor) and the batch-18 unlock step (≤ 60 min) still pass. The three
+  `it.fails` pins still fail, with new measured numbers in their titles: PIN28a Tractor → Pump 2 longest gap 232 → 347
+  min (from game-minute 4,431); PIN19c machine price ÷ rung income 0.14 / 0.12 / 0.47 / 0.33 / 0.46 → 0.54 / 0.19 /
+  0.96 / 0.57 / 0.57 h; PIN18f FIELDS_CASH 0.10 → 0.12 h (💰10,000 ÷ 💰86,394/h). CHANGELOG entry 32.2 added verbatim.
+- **176.** `src/app/ripple.ts` (`installRipple(doc)`, one passive delegated `pointerdown`, no `preventDefault` /
+  `stopPropagation`, returns the uninstall), installed once in `src/main.tsx` before `createRoot`; one CSS block in
+  `src/app/app.css` right after `button:disabled` (`@property --ripple`, `:where(button)` relative, the `::after`
+  gradient, `ripple-a` / `ripple-b` animating only `opacity` and `--ripple`, `button:disabled::after` hidden, a
+  reduced-motion block). `tests/ripple.test.ts` (jsdom): a / b / a alternation with `--rx: 12px` / `--ry: 7px` and no
+  child node added; disabled, `aria-disabled`, `button: 2` and outside presses set nothing and do not throw; a stubbed
+  reduce `matchMedia` sets nothing; nothing after the uninstall; the CSS guard. No core, save or balance file touched
+  (`git diff --stat` of the task: `src/app/app.css`, `src/app/ripple.ts`, `src/main.tsx`, `tests/ripple.test.ts`,
+  `docs/PLAN.md`). The `Tools.tsx` popover's own document `pointerdown` listener is untouched and still sees every
+  press (the ripple listener never stops propagation).
 
 ### Deviations
 
@@ -6325,8 +6337,30 @@ stays 24, `src/save` untouched, no balance constant changed.
 - **Balance flag for Hermes (not a blocker under the batch rules: no gap guard fails).** Without machines the Estate
   is labor-bound at 72 plots/h per worker pair: the ladder's first harvester comes 1,783 → 4,407 game-min, the sold
   runs reach harvester3 at 105.6 / 101 h (was 37.9 / 34.7), and scenario A's longest milestone gap grows to 3,372 min
-  (fields500 → harvester1; was 1,011). B2 (workers only) earns 💰73k/h instead of 💰263k/h.
+  (fields500 → harvester1; was 1,011). B2 (workers only) earns 💰73k/h instead of 💰263k/h. The PIN28a Tractor →
+  Pump 2 gap grows 232 → 347 min; that pin was already an expected failure (`it.fails`) before this batch, so it is
+  not a newly failing guard.
+- **The three `it.fails` titles were re-measured after the first results write-up** and amended into the task 176
+  commit (test text and docs only, no core / save / balance change).
+- **"10/10" label.** When the harvester's carry is clamped at a full plot, or the seeder holds `carry.plant = 10` on
+  NO_SEEDS / NO_CASH, the marker reads `· 🚜 next · 10/10` (on the waiting empty plot in the seeder case). This is the
+  spec's rule taken literally; Hermes will see it live.
 - **Scenario A measures.** "Estate income/h at the end" is `lifetime.cashEarned` over one game-hour stepped from the
   ladder end with no player (all sources, not the Estate alone); the window income before harvester3 is reported next
   to it. The 💼 certificate never becomes buyable within PIN311a's 48 h window (before or after), so the unlock minute
   reported is the 10th contract.
+- **176, reduced-motion selector.** The plan's `:where(button)::after { animation: none }` alone (specificity 0,0,1)
+  loses to `:where(button)[data-ripple='a']::after` (0,1,1), so the reduced-motion block also lists
+  `:where(button)[data-ripple]::after` (same specificity, later in the file, so it wins). The JS already skips the press
+  under reduce; this covers a preference switched on after a press.
+- **176, containing blocks.** Re-grepped every `position:` in `app.css`: the absolutely placed elements are
+  `.tab-name` / `.badge-dot` (tab buttons, already relative), `.bed-socket` and `.item > .info-btn` (buttons themselves,
+  their class still wins over `:where`), `.cell-label` / `.cell-pop` / `.cell-order` (`.cell` / `.mine-dig`, already
+  relative), `.map-bar` / `.map-badge` (`.map-cell`), `.mini-badge` (`.mini-lot`), and `.bed-fountain`, `.pullcap`,
+  `.tool-pop`, `.feedback-hp`, which sit in a `div` / `label`, not in a button. No button newly becomes the containing
+  block of an absolutely placed descendant; every other button only gains `position: relative` (no z-index, so no new
+  stacking context).
+- **176, not seen (no browser here).** The look, the frame cost, the CSS-off fallback without `@property`, and the
+  iOS / Safari behaviour were not checked; jsdom has no layout, so `--rx` / `--ry` are only proven as `clientX −
+  rect.left` with zero rects. Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440 per the task's live-check list.
+- **174 / 175, not seen in a browser.** The "🚜 next · n/10" label was verified by render and unit tests only.

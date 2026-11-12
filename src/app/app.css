@@ -293,6 +293,53 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* batch 32.2 task 176: the press ripple (src/app/ripple.ts sets --rx / --ry and flips data-ripple a / b). :where()
+   keeps zero specificity so every class that positions a button still wins; no overflow: hidden (it would clip the
+   .cell-pop float) — the ::after inherits the corners instead. Only opacity and --ripple animate: no layout. */
+@property --ripple {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+:where(button) {
+  position: relative;
+}
+:where(button)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle farthest-corner at var(--rx, 50%) var(--ry, 50%), rgb(0 0 0 / 0.12) var(--ripple), transparent calc(var(--ripple) + 1px));
+}
+:where(button)[data-ripple='a']::after {
+  animation: ripple-a 450ms ease-out;
+}
+:where(button)[data-ripple='b']::after {
+  animation: ripple-b 450ms ease-out;
+}
+@keyframes ripple-a {
+  0% { --ripple: 0%; opacity: 1; }
+  60% { --ripple: 100%; opacity: 1; }
+  100% { --ripple: 100%; opacity: 0; }
+}
+@keyframes ripple-b {
+  0% { --ripple: 0%; opacity: 1; }
+  60% { --ripple: 100%; opacity: 1; }
+  100% { --ripple: 100%; opacity: 0; }
+}
+button:disabled::after {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* the [data-ripple] selector matches the animation rules' specificity, so this one (later) wins */
+  :where(button)::after,
+  :where(button)[data-ripple]::after {
+    animation: none;
+  }
+}
+
 /* wraps only when the spans do not fit one line (375 px with ⭐, 👷 and ⏱ 8h 39m 06s ≈ 389 px > 343, batch 31.1) */
 .hud {
   display: flex;
