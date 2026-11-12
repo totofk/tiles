@@ -13,6 +13,7 @@ import {
   veinMaxLevel,
   veinUpgradeCost,
 } from '../core/balance'
+import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
 import { buyStorage, dropText, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
@@ -71,7 +72,9 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
           <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
             ⛏️ Vein Lv {vein}/{veinMaxLevel()}
             <small>
-              {veinCost ? `${dropText(vein, mastered)} → ${dropText(vein + 1, mastered)} · ${priceText(veinCost)}` : `${dropText(vein, mastered)} · max`}
+              {veinCost
+                ? `${dropText(vein, mastered, run.favours.aim)} → ${dropText(vein + 1, mastered, run.favours.aim)} · ${priceText(veinCost)}`
+                : `${dropText(vein, mastered, run.favours.aim)} · max`}
             </small>
           </button>
         </Item>
@@ -99,7 +102,9 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
                 return (
                   <Item key={id} tip={UPGRADE_TIPS[id]}>
                     <button disabled={maxed || run.cash < cost} onClick={() => act((s) => buyUpgrade(s, id))}>
-                      {UPGRADES[id].name} Lv {level}/{max}
+                      {/* batch 34: ⭐ Favour levels past the cash max read "Lv 5/5 +⭐2" */}
+                      {UPGRADES[id].name} Lv {Math.min(level, max)}/{max}
+                      {level > max && ` +${STAR_EMOJI}${level - max}`}
                       <small>{`${effect(id, level, meta, maxed)} · ${maxed ? 'max' : `💰${price(cost)}`}`}</small>
                     </button>
                   </Item>

@@ -42,7 +42,9 @@ import {
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
+import { SEAM_EMOJI } from '../core/data/favours'
 import { STAR_EMOJI } from '../core/data/orders'
+import { setSeamAim } from '../core/favours'
 import { addFuel, buyFurnaceUpgrade, buyMold, collectAll, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, moldSmelting } from '../core/furnace'
 import {
   activePickaxe,
@@ -274,6 +276,16 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
         {FURNACE_UPGRADE_IDS.map((id) => {
           const level = furnaceUpgradeLevel(f, id)
           const cost = furnaceUpgradeCost(id, level, meta)
+          // batch 34: speed and batch stay listed at their bar max — the ⭐ Favours sheet extends them
+          if (!cost && (id === 'speed' || id === 'batch'))
+            return (
+              <Item key={id} tip={FURNACE_TIPS[id]}>
+                <button disabled>
+                  {id === 'speed' ? `Speed: cycles ${Math.round(100 * 0.8 ** level)} %` : `Batch ${batchBars(level)} bars`}
+                  <small>max · more in {STAR_EMOJI} Favours</small>
+                </button>
+              </Item>
+            )
           if (!cost || (id === 'collectAll' && owned.length < 2)) return null
           const r = buyFurnaceUpgrade(state, id)
           const next = batchBars(level + 1)
@@ -431,8 +443,19 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       </div>
       <div className="mine-vein">
         <span>
-          Vein Lv{run.vein.level}: {dropText(run.vein.level, run.masteredTiers.length)}
+          Vein Lv{run.vein.level}: {dropText(run.vein.level, run.masteredTiers.length, run.favours.aim)}
         </span>
+        {/* batch 34: the ⭐ Seam survey's aim, free to change — Off or one ore the vein drops */}
+        {run.favours.seam && (
+          <div className="mine-furnace-actions" role="group" aria-label="Seam aim">
+            {SEAM_EMOJI} Seam:
+            {[null, ...ORE_IDS.filter((ore) => (veinDrops(run.vein.level)[ore] ?? 0) > 0)].map((ore) => (
+              <button key={ore ?? 'off'} aria-pressed={run.favours.aim === ore} onClick={() => act((s) => setSeamAim(s, ore))}>
+                {ore ? ITEMS[ore].emoji : 'Off'}
+              </button>
+            ))}
+          </div>
+        )}
         {nextVein && (
           <>
             <span className="mine-vein-next">

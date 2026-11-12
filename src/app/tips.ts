@@ -3,6 +3,7 @@ import type { CropId } from '../core/data/crops'
 import type { ToolJob } from '../core/data/tools'
 import type { UpgradeId } from '../core/data/upgrades'
 import type { WorkerJob } from '../core/data/workers'
+import type { FavourId } from '../core/favours'
 
 // ⓘ texts for every Shop and Upgrades row: what it does, what it costs over time. No numbers (those live in balance.ts).
 
@@ -89,4 +90,15 @@ export const WORKER_TIPS: Record<WorkerJob, string> = {
   clerk: 'A one-time certificate, paid in stars, copper bars and cash, once you have finished enough orders. Clerks deliver item orders that storage can fill, else accept orders for a crop you grow or an item your vein drops. They never discard; that choice stays yours.',
   manager: 'Sets each field\'s crop chip: fields an accepted contract needs first, the rest to the best 💰/h plan. Never accepts orders and never touches a 📌 pinned field. 💰28 per chip it changes.',
   stoker: 'A worker who stokes the fire: molds smelt 1.5× faster but every bar burns twice the fuel. Pays only when ore waits for the furnace.',
+}
+
+/** batch 34: one sentence per ⭐ Favour row */
+export const FAVOUR_TIPS: Record<FavourId, string> = {
+  bunkhouse: 'Room for one more worker: the hire cap grows by one per level, up to four.',
+  mist: 'Past the last Fertilizer level, each level cuts grow time by another 5 %.',
+  sell: 'Past the last Better prices level, each level adds another 10 % to every sale.',
+  furnaceSpeed: "Past the last bar-paid speed level, each level cuts every mold's cycle time to 0.8 of it; fuel per bar stays the same.",
+  furnaceBatch: 'Past 5 bars, each level makes one more bar per cycle, up to 10; the tray and ore slot must hold two cycles.',
+  seam: 'Aim the vein at one ore: it drops twice as often, the other ores half as often. Re-aim any time for free.',
+  stoker: WORKER_TIPS.stoker,
 }

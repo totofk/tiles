@@ -298,9 +298,14 @@ describe('Mine panel', () => {
     // the recipe line follows the batch level: 6 ore → 3 bars per cycle
     expect(text()).toContain(`${ORE}6 + ⚫1 or ${WOOD}2 → ${BAR}3 · 60 s`)
     cleanup()
-    // every row hides at its max level
+    // every row hides at its max level, except speed and batch (batch 34): disabled, "max · more in ⭐ Favours"
     setup({ furnace: { ...built, smart: true, collectAll: true, levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 } }, cash: 1e6 })
-    expect(screen.queryByRole('button', { name: /^(Fire cap|Batch|Speed|Tray|Ore slot|Smart furnace|Collect all)/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^(Fire cap|Tray|Ore slot|Smart furnace|Collect all)/ })).toBeNull()
+    const maxed = ['Speed: cycles 64 %', 'Batch 5 bars'].map((label) => screen.getByRole('button', { name: new RegExp(`^${label}`) }) as HTMLButtonElement)
+    expect(maxed.map((b) => [b.disabled, b.querySelector('small')!.textContent])).toEqual([
+      [true, 'max · more in ⭐ Favours'],
+      [true, 'max · more in ⭐ Favours'],
+    ])
   })
 
   it('vein Lv3 row: iron ore 10 %, priced for storage Lv3, and a hint while the pickaxe is too weak for iron', () => {

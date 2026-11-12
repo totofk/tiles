@@ -9,8 +9,9 @@ import type { Rates } from './useGame'
 const INCOME_TITLE = 'Harvest and sale income, last 10 game-minutes'
 const WAGES_TITLE = 'Wages paid, last 10 game-minutes'
 
-/** `rates`: the trailing 10-game-minute window (null until it spans a minute); shown only while workers are hired */
-export function Hud({ state, rates = null }: { state: GameState; rates?: Rates | null }) {
+/** `rates`: the trailing 10-game-minute window (null until it spans a minute); shown only while workers are hired;
+ * `openFavours`: the ⭐ button opens the ⭐ Favours sheet (batch 34) */
+export function Hud({ state, rates = null, openFavours }: { state: GameState; rates?: Rates | null; openFavours?: () => void }) {
   const { run, meta } = state
   const max = energyMax(run.upgrades.energyMax, meta)
   const shown = run.workers.pool > 0 ? rates : null
@@ -25,9 +26,9 @@ export function Hud({ state, rates = null }: { state: GameState; rates?: Rates |
         </span>
       )}
       {run.orders.unlocked && (
-        <span title="Stars, from orders">
+        <button className="hud-stars" title={`${STAR_EMOJI} Favours`} onClick={openFavours}>
           {STAR_EMOJI} {count(run.stars)}
-        </span>
+        </button>
       )}
       <span className="hud-energy">
         ⚡ {Math.floor(run.energy)} / {max}
