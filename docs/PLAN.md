@@ -5801,7 +5801,7 @@ locked in 🧺 Ore sorting, harvesters [1, 2], no miners).
 Every task keeps one commit. The sim suites re-pin: carry-over, mastery ore weights and the sickle seed roll all move
 the RNG stream and the mine output, so every pin that moves is re-pinned old → new with its cause in the results.
 
-- [ ] 167. **Manager certificate ⭐40 → ⭐20** (core number, no shape change)
+- [x] 167. **Manager certificate ⭐40 → ⭐20** (core number, no shape change)
   - a. `CERTIFICATES.manager` (`src/core/balance.ts:216`): price `{ goldBar: 4, stars: 20, cash: 1500000 }`. Counter
     and `at: 10` unchanged. Toon's call (2026-11-12): "Manager ปรับเป็น 20 ⭐".
   - b. Tests that pin the old price: `tests/workers.test.ts:129,132`, `tests/sim.test.ts:4471,4489`,
@@ -5809,7 +5809,7 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
     title, `:4344` `stars ≥ 20`). `tests/orders.test.ts:289` is board state, not the price — leave it.
   - c. Report in the results (scenario A, the 31.1 PIN311a run): ⭐ and 🥇 held at the 10th contract, and whether the
     certificate is buyable within 48 game-hours now. Report only; no new pin.
-- [ ] 168. **Pickaxe rack + gold pickaxe "strong but fragile"** (core + save v24 + minimal UI)
+- [x] 168. **Pickaxe rack + gold pickaxe "strong but fragile"** (core + save v24 + minimal UI)
   - a. State (`src/core/state.ts:36`): remove `pickaxe: Pickaxe | null`; add
     `rack: Partial<Record<PickaxeTier, number>>` (durability per OWNED tier; 0 = blunt, still owned) and
     `selectedPickaxe: PickaxeTier | null` (the tier in hand). New run (`state.ts:233`): `rack: {}`,
@@ -5843,7 +5843,7 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
   - g. Tests: craft adds to the rack and selects; crafting an owned tier fails ALREADY_OWNED; select a blunt tier →
     dig mines by hand; repair repairs the named tier only; the miner worker uses the selected tier; vein Lv4 opens
     with iron on the rack while copper is selected; v23 fixture → v24 numbers above.
-- [ ] 169. **Mine card: pickaxe under Dig, rack row, sorting table** (src/app, items 1 + 4 of the new-player feedback)
+- [x] 169. **Mine card: pickaxe under Dig, rack row, sorting table** (src/app, items 1 + 4 of the new-player feedback)
   - a. `Mine.tsx` order (today Dig :346, vein :365, furnace :387, pickaxe :393–438): h2 → Dig → (Sell all when full)
     → **Pickaxe group** → vein → furnace → Buy wood → item grid → 🧺 Ore sorting.
   - b. Pickaxe group: (1) rack row, one button per owned tier in `PICKAXE_TIERS` order, `aria-pressed` = selected,
@@ -5867,7 +5867,7 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
   - f. Tests (`Mine.test.tsx`): pickaxe group renders between Dig and the vein; rack row selects; craft row lists
     unowned offered tiers only; the sorting table shows Unlock for locked kinds and a checkbox for unlocked ones;
     the checkbox calls `setOreSort`.
-- [ ] 170. **Mastery finds more ore + hit carry-over** (core)
+- [x] 170. **Mastery finds more ore + hit carry-over** (core)
   - a. `balance.ts`: `MASTERED_ORE_BONUS = 0.1`; `masteredOreBonus()`; `veinWeights(level, mastered)` = the level's
     `VEIN_DROPS` with copperOre / ironOre / goldOre × (1 + 0.1 × mastered) and stone reduced by the added weight
     (coal unchanged). Vein Lv4, 4 mastered → Cu 0.168 / Fe 0.14 / Au 0.112 / stone 0.38 / coal 0.2 (test this).
@@ -5884,7 +5884,7 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
   - c. Tests: copper (3 hits) on stone (2) leaves 1 hit on the next rock; gold on stone breaks 4 and rolls 4 rocks;
     full storage mid-press keeps the rock at full progress and loses the rest; a Sell kind mid-press never stops;
     mastered weights at Lv4.
-- [ ] 171. **Keep N** (core + UI row; shape landed in 168e)
+- [x] 171. **Keep N** (core + UI row; shape landed in 168e)
   - a. State: `keepN: boolean` (bought) and `oreKeep: Partial<Record<MineDropId, number>>` (amount to keep per kind,
     missing = 0). Migration: `keepN: false`, `oreKeep: {}`.
   - b. `buyKeepN(state)`: NO_MINE_LICENSE, LOCKED (vein below `oreSortVeinLevel()`), ALREADY_OWNED,
@@ -5901,7 +5901,7 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
     only brake on away income). `MINE_DROP_IDS` stays the 5 vein drops.
   - f. Tests: keep 20 stone → the 21st stone sells; full storage below N → sells; N = 0 = today's Sell on dig; buy
     order of errors; setOreKeep bounds; Keep N price ≤ storage capacity at vein Lv3 (15 items ≤ 50).
-- [ ] 172. **Sickle finds seeds + sim re-pin + hierarchy asserts become reports** (core, sim)
+- [x] 172. **Sickle finds seeds + sim re-pin + hierarchy asserts become reports** (core, sim)
   - a. `balance.ts`: `SEED_DROP = [0, 0.1, 0.2, 0.3]` by sickle tier, `seedDropChance(tier)`. One extra roll per
     harvested TILE, after the double-harvest roll, only when `toolTier.harvest > 0` (tier 0 keeps its exact PRNG
     sequence, like `tierRoll`, `actions.ts:136–141`): hit → +1 seed of that crop to `run.seeds` (the pouch is
@@ -5923,3 +5923,154 @@ the RNG stream and the mine output, so every pin that moves is re-pinned old →
 - CHANGELOG (top of `src/app/changelog.ts`, verbatim):
   "Mine: keep every pickaxe on a rack, mastered pickaxes find more ore, strong presses break several rocks, Keep N
   sells only the excess, and sickles find seeds. 💼 Manager now ⭐20" (join the two lines with one space)
+
+## Batch 32 results (2026-11-12)
+
+Tasks 167–172 done, one commit each (`84000ef`, `f6dd260`, `4d7f149`, `d9314d5`, `3a1f163`, `ba5bee7`) plus this
+results commit, all on `main`, not pushed. SAVE_VERSION 23 → **24** with one `migrateV23`; no fixture edited; the
+balance numbers changed are exactly the plan's: Manager ⭐20, gold pickaxe 8 hits / 600, `MASTERED_ORE_BONUS` 0.1,
+`KEEP_N_PRICE` 🥈10 🥇5 💰7,000, `SEED_DROP` [0, 0.1, 0.2, 0.3]. CHANGELOG batch 32 line added verbatim.
+
+- **167.** `CERTIFICATES.manager` = `{ goldBar: 4, stars: 20, cash: 1500000 }`; pins in `workers.test.ts`,
+  `WorkersCard.test.tsx` (`🥇4 ⭐20 💰1.5M`) and the two sim tests (price, scenario B `⭐ ≥ 20`) updated.
+  - **167c scenario A** (`PIN311a`, report only, from the batch-19 ladder end at game-minute 10,200 with the order
+    board bought): at the 167 commit the 10th contract lands at **+676 min holding ⭐18, 🥇0** (💰126,073,730) — the
+    certificate is **not buyable within 48 game-hours** (short on both ⭐ and 🥇). The ladder end moves with every
+    later task; at the end of the batch: +948 min, ⭐17, 🥇0 (💰143,192,069), still not buyable. The ladder bot holds
+    no gold bars at its end (every rack tier blunt, see 172), so 🥇 stays the block, not ⭐.
+  - **Scenario B** (`PIN311b`, v22 save): at the 167 commit 212 min, ⭐57, 💰1,548,196, 🥇4, buyable at 212; end of
+    the batch 319 min, ⭐59, 💰1,981,930, 🥇4, buyable at 319 (re-pinned, see 172).
+- **168.** `RunState.rack` (durability per owned tier, blunt kept) + `selectedPickaxe`; `pickaxe` removed. Helpers in
+  `mining.ts`: `heldPickaxe`, `activePickaxe` (held and sharp), `bestPickaxeTier`. Callers: `stats.ts` (both rows) →
+  `heldPickaxe`; `orders.ts`, `badges.ts`, `upgradeVein` → `bestPickaxeTier`; `data/milestones.ts` inlines the best-tier
+  check (`data/` importing `mining.ts` would be a cycle through `actions.ts`); `workers.ts` keeps `activePickaxe`.
+  Actions: `craftPickaxe` (ALREADY_OWNED for any owned tier; adds and selects), `selectPickaxe` (NO_PICKAXE; free),
+  `repairPickaxe(state, tier = selected)`. Gold `hits: 8, durability: 600`; the tier-durability balance test keeps
+  wooden → copper → iron and exempts gold. Save v24: `migrateV23` (gold `round(old × 600 / 6500)`, ≥ 1 when sharp),
+  every older path ends in it; the real v23 fixture migrates gold 3800 → **351**, selected gold, cash / tiles /
+  licenses / mastery / meta unchanged (`save.test.ts` "save v24"), and joins the every-fixture loop. Minimal rack row
+  in `Mine.tsx`; the batch-28.1 "craft … instead" escape and its test are gone.
+- **169.** Mine card order: Dig → (Sell all) → pickaxe group (rack row `PICKAXE_NAMES[t]` + `{d}/{max}` or `blunt`,
+  ` ✓` when mastered; held status + Bar or repair; a craft row for every unowned offered tier — wooden always, copper
+  with the furnace, iron / gold once the vein drops their ore; mastery line + Bar + badge) → vein → furnace → wood →
+  item grid (5 columns, rows with n > 0) → 🧺 Ore sorting (from vein Lv3, always shown: name + unlock price | Unlock
+  or the `Sell on dig` checkbox with `aria-label="Sell {name} on dig"` | keep-up-to stepper once Keep N is owned), then
+  the Keep N buy row and the new hint. `.sort-toggle` CSS and the `.mine-grid` 6th column removed; `.sort-table` is
+  `minmax(0, 1fr) 96px 120px`, 8 px gap; stepper 44 + 32 + 44. Tests: the group sits between Dig and the vein, rack
+  row presses / selects, craft row lists unowned offered tiers only, Unlock vs checkbox, the checkbox calls
+  `setOreSort` both ways.
+- **170.** `MASTERED_ORE_BONUS = 0.1`, `masteredOreBonus()`, `veinWeights(level, mastered)`; vein Lv4 with 4 mastered
+  = Cu 0.168 / Fe 0.14 / Au 0.112 / stone 0.38 / coal 0.2 (tested). `dig` rolls from `veinWeights` and carries hits
+  over (one preserve roll, one mine and one xp per press; one roll per break); `dropText(level, mastered)` at every
+  caller (Mine ×2, Upgrades, Stats). Badge: `Mastered ✓ +5 % durability · +10 % ore · all pickaxes`. Tests: copper on
+  stone leaves 1 hit, gold on stone breaks 4 and rolls 4, full storage mid-press keeps the rock at full progress and
+  fails BAG_FULL until there is room, a Sell kind never stops, the Lv4 weights.
+- **171.** `keepN`, `oreKeep` (landed in 168's shape). `buyKeepN` (NO_MINE_LICENSE, LOCKED, ALREADY_OWNED,
+  NOT_ENOUGH_ITEMS, NO_CASH), `setOreKeep` (LOCKED, BAD_AMOUNT 0 … storage, whole). Dig rule: a Sell kind is stored
+  while below N with room, else sold; never BAG_FULL; N = 0 or not bought = the old Sell on dig (tested equal). The
+  price's 15 items fit storage at vein Lv3 (50). UI stepper (step 10, disabled while unchecked) and buy row (reason =
+  the action's error) tested.
+- **172.** `SEED_DROP`, `seedDropChance`; one extra roll per harvested tile after the double roll, tier 0 rolls
+  nothing: `harvest` (hand, tool press, harvest worker) and `reapAt` per tile (hand reap, harvester machine). Texts:
+  Shop `30 % double · 30 % seed`, Stats `30 % double harvest · 30 % seed`. Tests: two draws per harvested tile and the
+  seed into the pouch (`tools.test.ts`, `fields.test.ts`).
+  - **172d:** the four hierarchy asserts are reports: `PIN32h8` mining / farming per energy 2.25 / 23.60 (ratio
+    0.095), `PIN32h12` miner 💰1,818/h vs farm workers 💰5,540/h (0.33), `PIN32h14` best bench with bonus 3.89 vs
+    24-tile pumpkin 10.41 (0.37), `PIN32h16` gold Lv10 6.23 vs pumpkin with gold tools 29.15 (0.21). Mining stays under
+    farming in every report.
+  - **172c scenario A** (`PIN32a`, the 170 h machines ladder, report only). Mine rungs, game-minutes **before → after**
+    (from the old pins of the ladders that pin them): copper pickaxe 36.2 → 36.3 (batch 7 ladder, 2172 → 2178 s) and
+    27.4 → 29.0 (batch 9 ladder, 1644 → 1737 s); storage Lv3 73.2 → 73.5, vein Lv3 77.4 → 77.5, iron pickaxe 89.0 →
+    88.5, mine certificate 98.8 → 98.5 (batch 11 ladder); storage Lv4 228.4 → 209, vein Lv4 263.8 → 240.4, gold pickaxe
+    279.2 → 255.7 (batch 16 gold ladder); the gold ladder's whole climb 358.6 → 313.1 min. On the 170 h ladder (after):
+    storage Lv1 7, vein Lv1 11, furnace 14.7, storage Lv2 18.7, vein Lv2 23.3, copper pickaxe 34.1, storage Lv3 87.8,
+    vein Lv3 92.8, iron pickaxe 103.2, storage Lv4 200.2, vein Lv4 228.8, gold pickaxe 244.5. **Gold pickaxe repairs:
+    34 over the run = 0.2 per game-hour** from its craft. Bars smelted per game-hour over the whole run: copper 1.0,
+    iron 1.3, gold 0.9. No-stall gap caps all hold (batch 12 longest gap 757 s, batch 16 / 17 every step ≤ 60 min,
+    batch 19 / 20 / 22 stall 0, full ladders).
+  - **172c scenario B** (`PIN32b`, the real v23 save migrated: gold 351, mastered [wooden]): the pool is full (6 of 6),
+    so one harvest worker moves to the mine instead of a hire; 2 game-hours, no player: **12 drops/h, 6 presses/h,
+    💰356,486/h** (cash earned, farm included); storage ends 60/60 — the miner stops on a full storage (every kind is
+    locked in 🧺 Ore sorting in that save). Before → after not measured (see Deviations).
+  - Escape (`PIN28_1`, the v20 save with a blunt gold pickaxe and no gold or iron): back to a sharp gold pickaxe in
+    **26 game-minutes** (crafts wooden → copper → iron, mines gold ore, repairs gold).
+- **Sim bot (172c rule, landed in 168).** `craftPickaxe` selects; before mining the bot repairs every blunt
+  non-wooden tier it can pay for (bars in the tray collected first; never sells bars for it), then selects the best
+  sharp tier; with none sharp it crafts or repairs the wooden pickaxe with bought wood. Pickaxe rungs are done once the
+  tier is on the rack. The gold reserve (`goldReserveShort`) now counts only while a sharp iron or gold pickaxe can
+  mine gold ore — with "gold on the rack" alone it held the furnace on gold ore nothing could mine and the batch-22
+  run 1 wedged with every tier blunt and 🥇0 (instrumented once; the fix only acts in that state, batch 9 / 17 / 20
+  stayed on their task-168 values).
+- **Re-pins (old → new, cause).** Seeded runs, so exact. Task 168 (rack + gold 600): batch 16 gold Lv10 bench 1.984 →
+  1.978, gold-ladder cash 81,827 → 74,044; batch 17 steps [395.9 … 565] → [389.9 … 563.1], incomes [15,587, 20,219,
+  29,511] → [16,154, 20,595, 26,381], cash 500,348 → 455,609, coal [461, 7] → [213, 7]; batch 18 lemon curve, mix and
+  coal [367, 12] → [369, 17]; batch 19 curve and paybacks; batch 20 / 22 harvester3 h [40.2, 36.2] → [40.7, 36.9] and
+  [62.5, 37.9] → [63.8, 38.5]; App import note "v15 → v23" → "v15 → v24". Task 170 (carry-over + ore weights) and
+  task 172 (seed roll) then moved nearly every mining-era pin again; the final values, each with its earlier values
+  and cause in a comment beside it in `tests/sim.test.ts`, are: batch 7 firstBar 1776 → 1773, copper pickaxe 2172 →
+  2178, cash 5914 → 6078, rng 1328891991 → 1761327770, sales 386 → 467; batch 7.1 copper tools [2172, 2598, 2835,
+  3075] → [2178, 2487, 2760, 3027], cash 6043 → 6147; batch 8 [3618, 379] → [3921, 359]; batch 9 / 10 / 11 ladder
+  steps (firstBar 1389 → 1386, copper pickaxe 1644 → 1737, copper tools, fuel 3141 → 3147, smart 3741 → 3747, plant
+  certificate 4341 → 4347; storage Lv3 4389 → 4410, vein Lv3 4641 → 4647, first iron bar 4845 → 4825, iron pickaxe
+  5337 → 5307, mine certificate 5928 → 5907) and cash pins; batch 10 cash/h table allCopper [6648, 536, 135] →
+  [6730, 536, 135] and [8484, 448, 90] → [8106, 448, 90]; batch 10 offline 1195 → 965 and [70009, 3551, 711] →
+  [70297, 3553, 710]; batch 11 iron bench (plain120 [28, 679, 801, 4] → [29, 447, 572, 2] …) and offline [766, 45, 7,
+  70974, 3616] → [871, 42, 8, 72860, 3610]; batch 12 market-off 12,443 / 5928 → 14,581 / 5907, longest gap
+  ironPickaxe 696 → certPlant 757; batch 13 certificate minutes and [11,390, 845] → [13,529, 764], copper gain
+  {5535, 5794} → {5931, 6170}; batch 15 steps, phase {87.1 min, 💰17,342/h} → {69.6, 💰20,459/h}, iron-tool gain
+  table; batch 16 steps [226 … 358.6] → [207.5 … 313.1], vein phase {37.8, 💰13,602/h} → {32.8, 💰15,003/h}, gold phase
+  {94.8, 💰14,354/h, 8 bars/h} → {72.8, 💰18,013/h, 11 bars/h}, bench [1.984, 27.933] → [6.234, 29.153], cash 81,827
+  → 101,262; batch 17 steps → [316.9 … 468.2], incomes → [22,750, 24,575, 29,026], cash → 567,566, coal → [478, 7];
+  batch 18 lemon curve → [48,714, 114,757, 209,556, 495,880, 551,320], mix → [193,679, 284,610], coal → [978, 19];
+  batch 19 curve → [213, 217] [492, 604] [550, 1,801], paybacks 0.5 / 12.9 / 534.8 / null → 0.6 / 8.9 / null / 102.5;
+  batch 20 harvester3 → [37.9, 34.7] h; batch 22 harvester3 → [56.6, 35.9] h; batch 28.2 first vein-Lv3 hour
+  💰12,842/h → 💰14,227/h; batch 31.1 PIN311b 212 → 319 min. Unit tests: `mining.test.ts` (carry-over changes three
+  two-press rock tests), `stats.test.ts` (drop table with 1 mastered tier), `tools.test.ts` (two draws per harvested
+  tile).
+- Gates before each commit: `pnpm test` (53 files; 1014 → 1036 passed + 3 expected fail), `pnpm lint` clean,
+  `pnpm build` clean; at the end `rm` tsbuildinfo + `tsc -b --force` clean. Purity grep `Date.now|react` over
+  `src/core` and `src/save`: only the known `src/save/storage.ts:26`. Case/extension collision check prints nothing.
+
+### Deviations
+
+- **Price bands now under their floors (balance, not moved — Hermes decides).** Carry-over (170) and the seed drops
+  (172) raise income at several unlocks, so prices that were 0.5–1.5 h of the measured income sit below the floor:
+  iron tools 💰10,000 = **0.489 h** (batch 15); vein Lv4 💰7,500 = **0.4999 h** (batch 16); workshop **0.374 h** (floor
+  0.5) and sprinkler **0.326 h** (floor 0.35) (batch 17); tomato license **0.49 h** and grape **0.43 h** (batch 22);
+  `ORE_SORT_CASH`'s own rule now gives 💰7,000 (0.5 × 💰14,227/h) against the shipped 💰6,500 (batch 28.2). These are
+  calibration pins, not the brief's correctness guards, so they are re-pinned at the measured values; no price moved.
+  None exceeds storage capacity.
+- **Vault speed-up under its pin.** Batch 20: run 1 / vault to the fields unlock **1.33×** (was pinned ≥ 1.4) and run 1
+  / run 2 **1.26×** (was ≥ 1.3) — carry-over shortens run 1's mine ladder more than the sold runs'. Batch 22's ≥ 1.3
+  still holds (1.33). Re-pinned at the measured values.
+- **PIN311b moved past its 240-minute bound:** the v22 save's 10th contract lands at **319 min** (was 212): the seed
+  roll changes the RNG stream behind the offers. Not a correctness guard; re-pinned at 319. The certificate is still
+  bought that minute (⭐59, 💰1,981,930, 🥇4).
+- **Market-on batch 12 run no longer stalls:** it was pinned to stall cash-broke after storage Lv2; with carry-over
+  it reaches the mine certificate (tick 5943, 💰14,020). Re-pinned.
+- **Batch 10 "auto-buy off and an empty pouch: the planter idles":** the copper sickle now finds a seed, so the planter
+  plants **1** seed and idles (cash 4,991 vs 4,886 with no planter; wages 30 vs 25). Re-pinned with the new title.
+- **172c bot port landed in 168, not 172.** Removing `run.pickaxe` breaks the bot at once (it re-crafts wooden every
+  tick), and gold 600 needs repairs, so the rack bot shipped with 168 and its pins were re-pinned then (a first try
+  that re-opened blunt rungs broke the batch-17 60-minute cap and batch 20's full ladder and was reverted).
+  Estimate (mine, not measured): 168 alone was the batch's worst intermediate state — gold at 600 still broke one rock
+  per press until 170's carry-over; Hermes may want 168d and 170 to ship together if they are ever split.
+- **Scenario B:** "one miner hired" is impossible on the v23 save (pool 6 of 6 assigned, POOL_FULL), so one harvest
+  worker is moved to the mine. **Before → after was not measured**: measuring "before" needs the pre-batch code
+  (`git worktree add`, `git archive` and `git checkout ea7b2b7b` each needed an approval this non-interactive run
+  could not get), so only the after numbers are reported. The drops count adds per-tick inventory gains of vein items,
+  so ore the loader takes in the same tick is not subtracted.
+- **Scenario A "before" for gold repairs/h and bars/h** is not available (the repair counter is new in this batch; the
+  old gold pickaxe lasted 6,500 presses). Mine rungs before → after come from the old pins of the ladders that pinned
+  them, not from one ladder run.
+- **169 badge:** the 169 commit shows `Mastered ✓ +5 % durability · all pickaxes`; the ` · +10 % ore` part landed in
+  170 with `masteredOreBonus()` (it did not exist yet).
+- **Keep N header:** the stepper column has a small `keep up to` header row (shown once owned) — the 120 px column has
+  no room for the words beside `− N +`.
+- **Full-suite timeouts under load:** twice a full `pnpm test` hit 5 s timeouts and the 8 h catch-up time limit
+  (3,415 ms vs 3,000 ms in `workers.test.ts`) while the machine's load average was 36 (another process); the rerun at
+  normal load passed every file each time. No timing number was changed.
+- Not verified (no browser, jsdom only): the Mine card at 375 / 1024 / 1440 / 2560 / 3440 — the pickaxe group under
+  Dig, the rack row wrapping, the 🧺 table's `minmax(0, 1fr) 96px 120px` columns inside the 344 px Mine column at 375,
+  the 44 px checkbox and stepper tap targets, the Unlock button's reason text in a 96 px column, the Keep N buy row.
+  Hermes re-measures live.
