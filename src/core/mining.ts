@@ -18,10 +18,10 @@ import {
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
-  veinDrops,
   veinNeedsFurnace,
   veinNeedsPickaxe,
   veinUpgradeCost,
+  veinWeights,
   woodCost,
   type MineDropId,
   type Price,
@@ -39,9 +39,9 @@ function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
 }
 
-/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level */
-export function dropText(level: number): string {
-  const drops = veinDrops(level)
+/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level with `mastered` tiers' ore bonus (the weights dig rolls from) */
+export function dropText(level: number, mastered: number): string {
+  const drops = veinWeights(level, mastered)
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
     .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
@@ -131,37 +131,57 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
   return { mastery: { ...run.mastery, [tier]: xp }, masteredTiers: mastered ? [...run.masteredTiers, tier] : run.masteredTiers }
 }
 
-// The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL, NO_ENERGY.
-// Hits add to the current rock; at rockHits(rock) it drops its item, extra hits are lost, and the next rock is rolled
-// from the vein table (one roll per break, as before the rock had a type). A pickaxe action rolls preserve first
-// (mastery level before this action's xp), else loses 1 durability; at 0 it goes blunt (kept, mines by hand until
-// repaired). Only pickaxe actions earn mastery xp. A rock that needs a better pickaxe than the active one (iron: copper
-// or better) is mined as a stone rock: stone's hits, drops stone. The mine worker presses it with `energy` 0.
-// A rock whose kind is set to Sell on dig never fails BAG_FULL: its drop is stored and sold at once (sellItem).
+/** the state of a result that cannot fail (withRun; sellItem of one item just stored) */
+const okState = (r: ActionResult) => (r as Extract<ActionResult, { ok: true }>).state
+
+/** what breaking a rock of `rock` does to its drop: stored, sold at once (its kind is set to Sell on dig), or nothing
+ * (storage full) */
+function breakDrop(run: RunState, rock: ItemId): 'store' | 'sell' | 'full' {
+  if ((run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell') return 'sell'
+  return bagCount(run) < run.bagCapacity ? 'store' : 'full'
+}
+
+// The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL (the current rock's drop
+// has no room), NO_ENERGY. A pickaxe action rolls preserve first (mastery level before this action's xp), else loses
+// 1 durability; at 0 it goes blunt (kept, mines by hand until repaired). Only pickaxe actions earn mastery xp; one
+// press counts one mine. Hits carry over (batch 32): each rock that breaks drops its item and rolls the next rock from
+// veinWeights (one roll per break), and the press's remaining hits go into it, so one press can break several rocks.
+// A drop that must be stored with storage full leaves its rock unbroken at full progress and the press's remaining
+// hits are lost. A rock that needs a better pickaxe than the active one (iron: copper or better) is mined as a stone
+// rock: stone's hits, drops stone. A kind set to Sell on dig never fails BAG_FULL: its drop is stored and sold at once
+// (sellItem). The mine worker presses it with `energy` 0.
 export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')
   const pickaxe = activePickaxe(run)
-  const rock = minedRock(run.vein.rock, pickaxe?.tier ?? null)
-  const sell = (run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell'
-  if (!sell && bagCount(run) >= run.bagCapacity) return fail('BAG_FULL')
+  const tier = pickaxe?.tier ?? null
+  if (breakDrop(run, minedRock(run.vein.rock, tier)) === 'full') return fail('BAG_FULL')
   if (run.energy < energy) return fail('NO_ENERGY')
-  const hits = run.vein.progress + mineHits(pickaxe?.tier ?? null)
-  const drop = hits >= rockHits(rock)
-  const [keep, afterKeep] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
-  const [r, rngState] = drop ? nextRandom(afterKeep) : [0, afterKeep]
+  const [keep, rngState] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
-  const mined = withRun(state, {
-    energy: run.energy - energy,
-    rngState,
-    rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
-    vein: drop ? { ...run.vein, progress: 0, rock: pickDrop(veinDrops(run.vein.level), r) } : { ...run.vein, progress: hits },
-    inventory: drop ? addItems(run, rock, 1) : run.inventory,
-    counters: { ...run.counters, mines: run.counters.mines + 1 },
-    lifetime: addLifetime(run, energy, 0),
-    ...(pickaxe && gainMastery(run, pickaxe.tier)),
-  })
-  return drop && sell && mined.ok ? sellItem(mined.state, rock, 1) : mined
+  let s = okState(
+    withRun(state, {
+      energy: run.energy - energy,
+      rngState,
+      rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
+      counters: { ...run.counters, mines: run.counters.mines + 1 },
+      lifetime: addLifetime(run, energy, 0),
+      ...(pickaxe && gainMastery(run, pickaxe.tier)),
+    }),
+  )
+  const weights = veinWeights(run.vein.level, run.masteredTiers.length)
+  let hits = run.vein.progress + mineHits(tier)
+  for (;;) {
+    const { vein } = s.run
+    const rock = minedRock(vein.rock, tier)
+    const need = rockHits(rock)
+    const drop = hits >= need ? breakDrop(s.run, rock) : null
+    if (!drop || drop === 'full') return withRun(s, { vein: { ...vein, progress: drop ? need : hits } })
+    const [r, next] = nextRandom(s.run.rngState)
+    s = okState(withRun(s, { rngState: next, vein: { ...vein, progress: 0, rock: pickDrop(weights, r) }, inventory: addItems(s.run, rock, 1) }))
+    if (drop === 'sell') s = okState(sellItem(s, rock, 1))
+    hits -= need
+  }
 }
 
 // 🧺 Ore sorting: unlock pays the kind's price. Order: NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED,

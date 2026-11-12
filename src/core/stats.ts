@@ -119,7 +119,7 @@ export function stats(state: GameState): Stats {
       const label = `${job[0].toUpperCase()}${job.slice(1)} tier`
       return { label, value: TIER_EFFECT[job](tier), source: tierName(job, tier) }
     }),
-    { label: 'Drop table', value: dropText(run.vein.level), source: `Vein Lv${run.vein.level}` },
+    { label: 'Drop table', value: dropText(run.vein.level, run.masteredTiers.length), source: `Vein Lv${run.vein.level}` },
     {
       label: 'Workers',
       value: `${pool} hired · ${freeWorkers(run)} free`,

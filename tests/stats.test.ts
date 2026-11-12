@@ -144,7 +144,8 @@ describe('stats(state)', () => {
     expect(row(multipliers, 'Harvest tool')).toEqual({ label: 'Harvest tool', value: 'all tiles per press', source: 'Reaper' })
     expect(row(multipliers, 'Drop table')).toEqual({
       label: 'Drop table',
-      value: `${ITEMS.stone.emoji} Stone 65 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 15 %`,
+      // batch 32: the run's 1 mastered tier lifts copper ore ×1.1 (16.5 %) and stone gives up the 1.5 points
+      value: `${ITEMS.stone.emoji} Stone 64 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 17 %`,
       source: 'Vein Lv2',
     })
   })

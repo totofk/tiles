@@ -115,7 +115,7 @@ describe('Mine panel', () => {
     setup({ pickaxe: wooden(), mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
     expect(text()).toContain('Wooden pickaxe 25 / 25 · ~125 more uses')
     expect(text()).toContain('Mastery Lv 10/10 · 400 xp')
-    expect(screen.getByText('Mastered ✓ +5 % durability · all pickaxes')).toBeTruthy()
+    expect(screen.getByText('Mastered ✓ +5 % durability · +10 % ore · all pickaxes')).toBeTruthy()
   })
 
   it('batch 32: the pickaxe group renders between Dig and the vein: rack, status, craft row (unowned offered tiers only), mastery', () => {

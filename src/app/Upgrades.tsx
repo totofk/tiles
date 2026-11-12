@@ -52,6 +52,7 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
   const cap = run.bagCapacity
   const veinCost = veinUpgradeCost(run.vein.level, meta)
   const vein = run.vein.level
+  const mastered = run.masteredTiers.length
   return (
     <>
       <h2>⛏ Mine</h2>
@@ -69,7 +70,9 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
         <Item tip={TIPS.vein}>
           <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
             ⛏️ Vein Lv {vein}/{veinMaxLevel()}
-            <small>{veinCost ? `${dropText(vein)} → ${dropText(vein + 1)} · ${priceText(veinCost)}` : `${dropText(vein)} · max`}</small>
+            <small>
+              {veinCost ? `${dropText(vein, mastered)} → ${dropText(vein + 1, mastered)} · ${priceText(veinCost)}` : `${dropText(vein, mastered)} · max`}
+            </small>
           </button>
         </Item>
       </div>

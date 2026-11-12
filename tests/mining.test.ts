@@ -18,6 +18,8 @@ import {
   storageSlotsPerLevel,
   veinDrops,
   veinMaxLevel,
+  veinWeights,
+  masteredOreBonus,
   veinNeedsPickaxe,
   veinUpgradeCost,
   woodCost,
@@ -32,6 +34,7 @@ import {
   buyWood,
   craftPickaxe,
   dig,
+  dropText,
   expectedUses,
   heldPickaxe,
   minedRock,
@@ -44,6 +47,7 @@ import {
 } from '../src/core/mining'
 import { sellFarm } from '../src/core/prestige'
 import { createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
+import { ITEMS } from '../src/core/data/items'
 
 /** `pickaxe` = that one tier on the rack, in hand (null = none); the run fields otherwise */
 function withRun({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pickaxe | null }): GameState {
@@ -139,6 +143,53 @@ describe('craftPickaxe', () => {
   })
 })
 
+describe('batch 32: hit carry-over and mastered ore', () => {
+  const stone = (progress = 0) => ({ level: 0, progress, rock: 'stone' as const })
+
+  it('a copper pickaxe (3 hits) on stone (2) breaks it and leaves 1 hit on the next rock; one press counts one mine', () => {
+    const next = okState(dig(miner({ pickaxe: { tier: 'copper', durability: 200 }, vein: stone() })))
+    expect([next.run.inventory, next.run.vein.progress, next.run.counters.mines, next.run.rack.copper]).toEqual([{ stone: 1 }, 1, 1, 199])
+  })
+
+  it('a gold pickaxe (8 hits) on stone breaks 4 rocks and rolls 4 rocks (after the one preserve roll)', () => {
+    const s = miner({ pickaxe: { tier: 'gold', durability: 600 }, vein: stone() })
+    const next = okState(dig(s))
+    let rng = s.run.rngState
+    for (let i = 0; i < 5; i++) rng = nextRandom(rng)[1]
+    expect([next.run.inventory, next.run.vein.progress, next.run.counters.mines, next.run.rngState, next.run.mastery]).toEqual([{ stone: 4 }, 0, 1, rng, { gold: 1 }])
+  })
+
+  it('full storage mid-press keeps the rock unbroken at full progress and loses the rest; the next press fails BAG_FULL until there is room, then breaks it at once', () => {
+    const s = miner({ pickaxe: { tier: 'gold', durability: 600 }, vein: stone(), inventory: { stone: BAG_CAPACITY_START - 1 } })
+    const next = okState(dig(s))
+    expect([next.run.inventory.stone, next.run.vein.progress]).toEqual([BAG_CAPACITY_START, 2])
+    expect(dig(next)).toEqual({ ok: false, error: 'BAG_FULL' })
+    const room = okState(sellItem(next, 'stone', 2))
+    const again = okState(dig(room))
+    expect([again.run.inventory.stone, again.run.vein.progress]).toEqual([BAG_CAPACITY_START, 2])
+  })
+
+  it('a kind set to Sell on dig never stops a press: a full storage still breaks all 4 and sells them', () => {
+    const s = miner({ pickaxe: { tier: 'gold', durability: 600 }, vein: stone(), inventory: { wood: BAG_CAPACITY_START }, oreSort: { stone: 'sell' } })
+    const next = okState(dig(s))
+    expect([next.run.inventory, next.run.vein.progress, next.run.counters.sales, next.run.cash]).toEqual([
+      { wood: BAG_CAPACITY_START, stone: 0 },
+      0,
+      4,
+      s.run.cash + 4 * itemSellPrice('stone', meta, 0),
+    ])
+  })
+
+  it('mastered weights at vein Lv4: each ore × (1 + 0.1 × mastered), stone gives up the gain, coal unchanged; dropText shows them', () => {
+    expect(masteredOreBonus()).toBe(0.1)
+    const w = veinWeights(4, 4)
+    expect([w.copperOre, w.ironOre, w.goldOre, w.stone, w.coal].map((x) => Math.round(x! * 1000) / 1000)).toEqual([0.168, 0.14, 0.112, 0.38, 0.2])
+    expect(veinWeights(4, 0)).toEqual(veinDrops(4))
+    expect(veinWeights(0, 4)).toEqual({ stone: 1 })
+    expect(dropText(2, 4)).toBe(`${ITEMS.stone.emoji} Stone 59 % · ${ITEMS.coal.emoji} Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 21 %`)
+  })
+})
+
 describe('batch 32: the pickaxe rack', () => {
   const rack = (run: RunInput = {}) => withRun({ mineLicense: true, rack: { wooden: 0, copper: 200, iron: 1200 }, selectedPickaxe: 'copper', ...run })
 
@@ -196,10 +247,10 @@ describe('dig', () => {
     expect(done.run.inventory).toEqual({ stone: 1 })
     expect(done.run.counters.mines).toBe(2)
   })
-  it('a pickaxe finishes a half-mined stone; extra hits are lost (one rock per action)', () => {
+  it('batch 32: a pickaxe finishes a half-mined stone and its extra hit carries into the next rock', () => {
     const next = okState(dig(miner({ vein: { level: 0, progress: 1, rock: 'stone' } })))
     expect(next.run.inventory).toEqual({ stone: 1 })
-    expect(next.run.vein.progress).toBe(0)
+    expect(next.run.vein.progress).toBe(1)
   })
   it('goes blunt at 0 durability: still owned, then mines by hand and loses no more durability', () => {
     const blunt = okState(dig(miner({ pickaxe: { tier: 'wooden', durability: 1 } })))
@@ -315,13 +366,13 @@ describe('upgradeVein', () => {
     expect(upgradeVein(rich('gold')).ok).toBe(true)
     expect(upgradeVein({ ...next, run: { ...next.run, cash: 1e6, inventory: { stone: 1e3, ironBar: 1e3 } } })).toEqual({ ok: false, error: 'MAX_LEVEL' })
   })
-  it('an iron rock takes 4 hits with a copper pickaxe (2 actions) and drops iron ore', () => {
+  it('an iron rock takes 4 hits with a copper pickaxe (2 actions) and drops iron ore; the 2 hits left break the next coal rock (batch 32)', () => {
     expect([rockHits('ironOre'), rockPickaxe('ironOre')]).toEqual([4, 'copper'])
     const s = miner({ pickaxe: { tier: 'copper', durability: 200 }, vein: { level: 3, progress: 0, rock: 'ironOre' } })
     const half = okState(dig(s))
     expect([half.run.vein.progress, half.run.inventory]).toEqual([3, {}])
     const done = okState(dig(half))
-    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { ironOre: 1 }])
+    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { ironOre: 1, coal: 1 }])
   })
   it('a wooden pickaxe, bare hands or a blunt copper pickaxe mine an iron rock as stone (stone hits, stone drop)', () => {
     const rock = { level: 3, progress: 0, rock: 'ironOre' as const }
@@ -335,13 +386,13 @@ describe('upgradeVein', () => {
       [minedRock('ironOre', null), minedRock('ironOre', 'wooden'), minedRock('ironOre', 'copper'), minedRock('copperOre', null), minedRock('goldOre', 'copper'), minedRock('goldOre', 'iron')],
     ).toEqual(['stone', 'stone', 'ironOre', 'copperOre', 'stone', 'goldOre'])
   })
-  it('a gold rock takes 5 hits with an iron pickaxe (2 actions) and drops gold ore; a copper pickaxe gets stone', () => {
+  it('a gold rock takes 5 hits with an iron pickaxe (2 actions) and drops gold ore (3 hits carry on); a copper pickaxe gets stone', () => {
     expect(rockHits('goldOre')).toBe(5)
     const s = miner({ pickaxe: { tier: 'iron', durability: 1200 }, vein: { level: 4, progress: 0, rock: 'goldOre' } })
     const hit = okState(dig(s))
     expect([hit.run.vein.progress, hit.run.inventory]).toEqual([4, {}])
     const done = okState(dig(hit))
-    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { goldOre: 1 }])
+    expect([done.run.vein.progress, done.run.inventory]).toEqual([1, { goldOre: 1, coal: 1 }])
     const weak = miner({ pickaxe: { tier: 'copper', durability: 200 }, vein: { level: 4, progress: 0, rock: 'goldOre' } })
     expect(okState(dig(weak)).run.inventory).toEqual({ stone: 1 })
   })
@@ -352,13 +403,13 @@ describe('upgradeVein', () => {
     expect(ironOre / (stone + coal + copperOre + ironOre)).toBeGreaterThan(0.07)
     expect(ironOre / (stone + coal + copperOre + ironOre)).toBeLessThan(0.13)
   })
-  it('a copper rock takes 3 hits: 2 wooden-pickaxe actions, the 3rd hit lost', () => {
+  it('a copper rock takes 3 hits: 2 wooden-pickaxe actions, the 4th hit carries into the next rock (batch 32)', () => {
     expect(rockHits('copperOre')).toBe(3)
     const s = miner({ vein: { level: 2, progress: 0, rock: 'copperOre' } })
     const half = okState(dig(s))
     expect([half.run.vein.progress, half.run.inventory]).toEqual([2, {}])
     const done = okState(dig(half))
-    expect([done.run.vein.progress, done.run.inventory]).toEqual([0, { copperOre: 1 }])
+    expect([done.run.vein.progress, done.run.inventory]).toEqual([1, { copperOre: 1 }])
   })
   it('vein Lv2 drops copper ore about 3 times in 20 rocks', () => {
     let s = miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1e6 }, vein: { level: 2, progress: 0, rock: 'stone' } })

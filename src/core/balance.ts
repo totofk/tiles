@@ -2,7 +2,7 @@
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import type { CropId } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
-import { PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
+import { ORE_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
 import type { CounterId, MetaState, MultiplierKey } from './state'
@@ -125,6 +125,8 @@ const PRESERVE_PER_LEVEL = 0.4
 /** each mastered tier adds this to every tier's preserve chance */
 const MASTERED_PRESERVE_BONUS = 0.05
 const PRESERVE_CAP = 0.8
+/** each mastered tier multiplies the vein's ore weights by 1 + this; stone gives up the added weight (batch 32) */
+const MASTERED_ORE_BONUS = 0.1
 export const BAG_CAPACITY_START = 20
 /** run.rngState for a new run and for migrated v1 saves */
 export const INITIAL_RNG_SEED = 0x2f6b1a3d
@@ -857,6 +859,25 @@ export function masteredPreserveBonus(): number {
 
 export function veinDrops(level: number): Partial<Record<ItemId, number>> {
   return VEIN_DROPS[Math.min(level, VEIN_DROPS.length - 1)]
+}
+
+export function masteredOreBonus(): number {
+  return MASTERED_ORE_BONUS
+}
+
+/** the weights a mine action rolls from: the level's drops with each ore × (1 + bonus × mastered), stone reduced by
+ * the weight the ores gained, coal unchanged */
+export function veinWeights(level: number, mastered: number): Partial<Record<ItemId, number>> {
+  const weights = { ...veinDrops(level) }
+  let gained = 0
+  for (const ore of ORE_IDS) {
+    const w = weights[ore]
+    if (!w) continue
+    weights[ore] = w * (1 + MASTERED_ORE_BONUS * mastered)
+    gained += weights[ore]! - w
+  }
+  if (weights.stone !== undefined) weights.stone -= gained
+  return weights
 }
 
 /** price to unlock Sell on dig for one kind: some of that kind plus the cash part */

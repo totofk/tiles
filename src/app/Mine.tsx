@@ -15,6 +15,7 @@ import {
   smeltFuel,
   isSellable,
   itemSellPrice,
+  masteredOreBonus,
   masteredPreserveBonus,
   masteryLevel,
   masteryMaxLevel,
@@ -407,19 +408,21 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
             </span>
             <Bar value={toNext} kind="grow" />
             {run.masteredTiers.includes(tier) && (
-              <span className="mine-badge">Mastered ✓ +{Math.round(masteredPreserveBonus() * 100)} % durability · all pickaxes</span>
+              <span className="mine-badge">
+                Mastered ✓ +{Math.round(masteredPreserveBonus() * 100)} % durability · +{Math.round(masteredOreBonus() * 100)} % ore · all pickaxes
+              </span>
             )}
           </div>
         )}
       </div>
       <div className="mine-vein">
         <span>
-          Vein Lv{run.vein.level}: {dropText(run.vein.level)}
+          Vein Lv{run.vein.level}: {dropText(run.vein.level, run.masteredTiers.length)}
         </span>
         {nextVein && (
           <>
             <span className="mine-vein-next">
-              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1)} — {priceText(nextVein)}
+              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1, run.masteredTiers.length)} — {priceText(nextVein)}
             </span>
             <button disabled={!veinCheck.ok} onClick={() => act(upgradeVein)}>
               Upgrade vein to Lv{run.vein.level + 1}
