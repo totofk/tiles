@@ -43,14 +43,17 @@ import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel,
 import {
   activePickaxe,
   bagCount,
+  bestPickaxeTier,
   buyMineLicense,
   buyWood,
   craftPickaxe,
   dig,
   dropText,
   expectedUses,
+  heldPickaxe,
   minedRock,
   repairPickaxe,
+  selectPickaxe,
   sellItem,
   setOreSort,
   unlockOreSort,
@@ -319,15 +322,13 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
     (sum, id) => sum + (run.inventory[id] ?? 0) * itemSellPrice(id, meta, run.upgrades.sellPrice),
     0,
   )
-  const tier = run.pickaxe?.tier
-  // the tier above the one in hand (none or wooden → copper): copper once the furnace is built, iron and gold once the vein drops their ore
-  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(tier ?? 'wooden') + 1] as OreTier | undefined
+  const held = heldPickaxe(run)
+  const tier = held?.tier
+  // the tier above the best on the rack (none or wooden → copper): copper once the furnace is built, iron and gold once the vein drops their ore
+  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(bestPickaxeTier(run) ?? 'wooden') + 1] as OreTier | undefined
   const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || tierVein(nextTier, run.vein.level)) ? nextTier : null
   const nextCraft = offerTier && craftPickaxe(state, offerTier)
-  // batch 28.1: a blunt pickaxe whose repair is out of reach offers the best lower tier it can afford (else the one below)
-  const lower = run.pickaxe?.durability === 0 && !repair.ok ? PICKAXE_TIERS.slice(0, PICKAXE_TIERS.indexOf(run.pickaxe.tier)) : []
-  const escapeTier = lower.findLast((t) => craftPickaxe(state, t).ok) ?? lower[lower.length - 1]
-  const escape = escapeTier && craftPickaxe(state, escapeTier)
+  const owned = PICKAXE_TIERS.filter((t) => run.rack[t] !== undefined)
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
   const level = tier ? masteryLevel(tier, xp) : 0
@@ -391,27 +392,28 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       )}
       {/* batch 24: the pickaxe card's blocks — status + craft, then mastery — each its own group over a divider */}
       <div className="group">
-        {run.pickaxe?.durability === 0 ? (
-          <>
-            <button disabled={!repair.ok} onClick={() => act(repairPickaxe)}>
-              Blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(run.pickaxe.tier, meta))})
-              {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
-            </button>
-            {escapeTier && escape && (
-              <button disabled={!escape.ok} onClick={() => act((s) => craftPickaxe(s, escapeTier))}>
-                Craft {PICKAXE_NAMES[escapeTier].toLowerCase()} instead ({priceText(pickaxeCraftCost(escapeTier, meta))}) — replaces the
-                blunt {PICKAXE_NAMES[run.pickaxe.tier].toLowerCase()}
-                {!escape.ok && <small> — {ERROR_TEXT[escape.error]}</small>}
+        {owned.length > 1 && (
+          <div className="mine-furnace-actions" role="group" aria-label="Pickaxe rack">
+            {owned.map((t) => (
+              <button key={t} aria-pressed={t === tier} onClick={() => act((s) => selectPickaxe(s, t))}>
+                {PICKAXE_NAMES[t]}
+                <small>{run.rack[t] ? `${run.rack[t]}/${pickaxeDurability(t)}` : 'blunt'}</small>
               </button>
-            )}
-          </>
-        ) : run.pickaxe ? (
+            ))}
+          </div>
+        )}
+        {held?.durability === 0 ? (
+          <button disabled={!repair.ok} onClick={() => act((s) => repairPickaxe(s))}>
+            Blunt {PICKAXE_NAMES[held.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(held.tier, meta))})
+            {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
+          </button>
+        ) : held ? (
           <div className="mine-pickaxe">
             <span>
-              {PICKAXE_NAMES[run.pickaxe.tier]} {run.pickaxe.durability} / {pickaxeDurability(run.pickaxe.tier)} · ~
-              {Math.round(expectedUses(run.pickaxe.tier, run, run.pickaxe.durability))} more uses
+              {PICKAXE_NAMES[held.tier]} {held.durability} / {pickaxeDurability(held.tier)} · ~
+              {Math.round(expectedUses(held.tier, run, held.durability))} more uses
             </span>
-            <Bar value={run.pickaxe.durability / pickaxeDurability(run.pickaxe.tier)} kind="tool" />
+            <Bar value={held.durability / pickaxeDurability(held.tier)} kind="tool" />
           </div>
         ) : (
           <button disabled={!craftPickaxe(state).ok} onClick={() => act(craftPickaxe)}>

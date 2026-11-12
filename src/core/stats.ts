@@ -20,7 +20,7 @@ import { MILESTONES, earlierMilestones } from './data/milestones'
 import { STAR_EMOJI } from './data/orders'
 import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
-import { dropText, expectedUses, pickaxePreserve } from './mining'
+import { dropText, expectedUses, heldPickaxe, pickaxePreserve } from './mining'
 import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
 import { HIDDEN_JOBS, WORKER_JOBS } from './data/workers'
@@ -94,7 +94,7 @@ export function stats(state: GameState): Stats {
   ]
   const { pool, assigned } = run.workers
 
-  const pickaxe = run.pickaxe
+  const pickaxe = heldPickaxe(run)
   const multipliers: StatRow[] = [
     { label: 'Sell price', value: times(sellPriceFactor(upgrades.sellPrice) * multiplier(meta, 'sellPrice')), source: lv('sellPrice') },
     { label: 'Grow time', value: times(growTimeFactor(upgrades.fertilizer) * multiplier(meta, 'growTime')), source: lv('fertilizer') },
@@ -157,7 +157,8 @@ export function timelineLines(run: RunState): string[] {
 /** One plain-text line about the run for a feedback report (never the save). */
 export function feedbackSummary(state: GameState): string {
   const { run } = state
-  const { furnace, workers, pickaxe } = run
+  const { furnace, workers } = run
+  const pickaxe = heldPickaxe(run)
   return [
     `cash ${Math.floor(run.cash)}`,
     `licenses ${run.licenses.join(', ')}`,

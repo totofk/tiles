@@ -75,16 +75,16 @@ describe('recordMilestones', () => {
   })
 
   it('monotone pickaxe tiers: jumping wooden → iron records copper and iron together', () => {
-    const prev = withRun({ tick: 20, pickaxe: null })
-    const next = withRun({ ...prev.run, tick: 21, pickaxe: { tier: 'iron', durability: 1200 } })
+    const prev = withRun({ tick: 20, rack: {}, selectedPickaxe: null })
+    const next = withRun({ ...prev.run, tick: 21, rack: { iron: 1200 }, selectedPickaxe: 'iron' })
     const recorded = recordMilestones(prev.run, next.run)
     expect(recorded.milestones.copperPickaxe).toBe(21)
     expect(recorded.milestones.ironPickaxe).toBe(21)
   })
 
   it('gold rows: vein4 with the level, goldPickaxe with the tier, firstGoldBar with the first smelted bar (batch 16)', () => {
-    const prev = withRun({ tick: 30, vein: { level: 3, progress: 0, rock: 'stone' }, pickaxe: { tier: 'iron', durability: 10 } })
-    const next = withRun({ ...prev.run, tick: 31, vein: { level: 4, progress: 0, rock: 'stone' }, pickaxe: { tier: 'gold', durability: 6500 } })
+    const prev = withRun({ tick: 30, vein: { level: 3, progress: 0, rock: 'stone' }, rack: { iron: 10 }, selectedPickaxe: 'iron' })
+    const next = withRun({ ...prev.run, tick: 31, vein: { level: 4, progress: 0, rock: 'stone' }, rack: { iron: 10, gold: 600 }, selectedPickaxe: 'gold' })
     const recorded = recordMilestones(prev.run, next.run)
     expect([recorded.milestones.vein4, recorded.milestones.goldPickaxe]).toEqual([31, 31])
     const smelted = recordMilestones(withRun({ tick: 31 }).run, withRun({ tick: 32, lifetime: { ...withRun({}).run.lifetime, goldBarsSmelted: 1 } }).run)

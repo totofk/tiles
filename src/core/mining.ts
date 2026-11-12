@@ -76,20 +76,36 @@ export function buyWood(state: GameState, n: number): ActionResult {
   return withRun(state, { cash: run.cash - cost, inventory: addItems(run, 'wood', n) })
 }
 
-// A higher tier replaces the pickaxe in hand; a blunt pickaxe can be replaced by any other tier (the way out when its
-// repair is out of reach). Every tier's mastery xp stays in run.mastery.
-// Order: ALREADY_OWNED (sharp: this tier or a higher one in hand; blunt: this tier), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
+// Every crafted tier stays on the rack (blunt ones too); crafting adds the tier and selects it. Every tier's mastery xp
+// stays in run.mastery. Order: ALREADY_OWNED (on the rack, any durability), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
 export function craftPickaxe(state: GameState, tier: PickaxeTier = 'wooden'): ActionResult {
   const { run } = state
-  const held = run.pickaxe
-  if (held && (held.durability > 0 ? PICKAXE_TIERS.indexOf(held.tier) >= PICKAXE_TIERS.indexOf(tier) : held.tier === tier))
-    return fail('ALREADY_OWNED')
-  return pay(state, pickaxeCraftCost(tier, state.meta), { pickaxe: { tier, durability: pickaxeDurability(tier) } })
+  if (run.rack[tier] !== undefined) return fail('ALREADY_OWNED')
+  return pay(state, pickaxeCraftCost(tier, state.meta), { rack: { ...run.rack, [tier]: pickaxeDurability(tier) }, selectedPickaxe: tier })
 }
 
-/** the pickaxe this mine action uses; null = by hand (none owned, or blunt) */
+/** takes an owned tier in hand (a blunt one mines by hand); free, no energy. NO_PICKAXE when not on the rack */
+export function selectPickaxe(state: GameState, tier: PickaxeTier): ActionResult {
+  if (state.run.rack[tier] === undefined) return fail('NO_PICKAXE')
+  return withRun(state, { selectedPickaxe: tier })
+}
+
+/** the selected tier and its durability, blunt included; null = nothing selected */
+export function heldPickaxe(run: RunState): Pickaxe | null {
+  const tier = run.selectedPickaxe
+  const durability = tier ? run.rack[tier] : undefined
+  return tier && durability !== undefined ? { tier, durability } : null
+}
+
+/** the pickaxe this mine action uses; null = by hand (none held, or blunt) */
 export function activePickaxe(run: RunState): Pickaxe | null {
-  return run.pickaxe && run.pickaxe.durability > 0 ? run.pickaxe : null
+  const held = heldPickaxe(run)
+  return held && held.durability > 0 ? held : null
+}
+
+/** the highest tier on the rack, any durability; null = none crafted */
+export function bestPickaxeTier(run: RunState): PickaxeTier | null {
+  return PICKAXE_TIERS.findLast((t) => run.rack[t] !== undefined) ?? null
 }
 
 /** chance this run's mine action with a pickaxe of `tier` keeps its durability */
@@ -138,7 +154,7 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
   const mined = withRun(state, {
     energy: run.energy - energy,
     rngState,
-    pickaxe: pickaxe && used ? { ...pickaxe, durability: pickaxe.durability - 1 } : run.pickaxe,
+    rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
     vein: drop ? { ...run.vein, progress: 0, rock: pickDrop(veinDrops(run.vein.level), r) } : { ...run.vein, progress: hits },
     inventory: drop ? addItems(run, rock, 1) : run.inventory,
     counters: { ...run.counters, mines: run.counters.mines + 1 },
@@ -165,13 +181,14 @@ export function setOreSort(state: GameState, kind: MineDropId, mode: 'keep' | 's
   return withRun(state, { oreSort: { ...run.oreSort, [kind]: mode } })
 }
 
-// Repair pays the tier's repair price (wood, copper bars). Order: NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_ITEMS, NO_CASH.
-// No energy; back to full durability.
-export function repairPickaxe(state: GameState): ActionResult {
-  const { pickaxe } = state.run
-  if (!pickaxe) return fail('NO_PICKAXE')
-  if (pickaxe.durability > 0) return fail('NOT_BLUNT')
-  return pay(state, pickaxeRepairCost(pickaxe.tier, state.meta), { pickaxe: { ...pickaxe, durability: pickaxeDurability(pickaxe.tier) } })
+// Repair pays the tier's repair price (wood, bars) for that rack tier only (default: the selected one).
+// Order: NO_PICKAXE, NOT_BLUNT, NOT_ENOUGH_ITEMS, NO_CASH. No energy; back to full durability.
+export function repairPickaxe(state: GameState, tier: PickaxeTier | null = state.run.selectedPickaxe): ActionResult {
+  const { rack } = state.run
+  const durability = tier ? rack[tier] : undefined
+  if (!tier || durability === undefined) return fail('NO_PICKAXE')
+  if (durability > 0) return fail('NOT_BLUNT')
+  return pay(state, pickaxeRepairCost(tier, state.meta), { rack: { ...rack, [tier]: pickaxeDurability(tier) } })
 }
 
 /** pays the items from storage, then ⭐, then the cash, and applies `gain`; NOT_ENOUGH_ITEMS, NO_STARS, NO_CASH */
@@ -198,11 +215,12 @@ function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunS
 
 /** next vein level: a new drop table for the rocks after the current one, which keeps its type and progress */
 export function upgradeVein(state: GameState): ActionResult {
-  const { vein, furnace, pickaxe } = state.run
+  const { vein, furnace } = state.run
   const next = vein.level + 1
+  const best = bestPickaxeTier(state.run)
   // Lv4 drops gold rocks, which only the iron pickaxe or better breaks as gold (anything less mines them as stone)
   const blocked =
-    veinNeedsFurnace(next) && !furnace.built ? 'NO_FURNACE' : veinNeedsPickaxe(next) && pickaxe?.tier !== 'iron' && pickaxe?.tier !== 'gold' ? 'NO_IRON_PICKAXE' : null
+    veinNeedsFurnace(next) && !furnace.built ? 'NO_FURNACE' : veinNeedsPickaxe(next) && best !== 'iron' && best !== 'gold' ? 'NO_IRON_PICKAXE' : null
   return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: next } }, blocked)
 }
 

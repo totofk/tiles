@@ -31,7 +31,7 @@ import { ITEM_IDS, ORE_IDS, type ItemId } from './data/items'
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
 import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
 import { cropSale } from './market'
-import { minedRock, pay } from './mining'
+import { bestPickaxeTier, minedRock, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
 
 export const isOffer = (slot: OrderSlot): slot is Offer => 'good' in slot
@@ -48,7 +48,7 @@ const barOre = (good: OrderGood) => ORE_IDS.find((ore) => oreBar(ore) === good)
  */
 export function orderPool(run: RunState): OrderGood[] {
   const drops = veinDrops(run.vein.level)
-  const items = run.mineLicense ? ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0 && minedRock(id, run.pickaxe?.tier ?? null) === id) : []
+  const items = run.mineLicense ? ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0 && minedRock(id, bestPickaxeTier(run)) === id) : []
   const bars = run.furnace.built ? ITEM_IDS.filter((id) => { const ore = barOre(id); return ore !== undefined && items.includes(ore) }) : []
   return [...run.licenses, ...items, ...bars]
 }

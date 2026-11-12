@@ -19,6 +19,7 @@ import {
   masteryLevel,
   masteryMaxLevel,
   masteryThresholds,
+  mineHits,
   moistureDrainPerTick,
   multiplier,
   oreBar,
@@ -132,11 +133,13 @@ describe('pickaxe mastery', () => {
   })
 
   // The tier rule (DECISIONS.md round 4): a new tier must outlast the previous tier at Lv10, so a new tier at Lv0
-  // never feels like a downgrade.
-  it('each tier base durability exceeds the previous tier Lv10 lifetime (wood Lv10 = 125 < copper 200)', () => {
+  // never feels like a downgrade. Gold is exempt (batch 32): strong but fragile — 8 hits, 600 durability, and the rack
+  // keeps the iron pickaxe for long presses (DECISIONS "Batch 32 refined").
+  it('each tier base durability exceeds the previous tier Lv10 lifetime (wood Lv10 = 125 < copper 200), gold exempt', () => {
     expect(lv10Lifetime('wooden')).toBeCloseTo(125)
     expect(pickaxeDurability('copper')).toBe(200)
-    PICKAXE_TIERS.slice(1).forEach((tier, i) => expect(pickaxeDurability(tier)).toBeGreaterThan(lv10Lifetime(PICKAXE_TIERS[i])))
+    PICKAXE_TIERS.slice(1, 3).forEach((tier, i) => expect(pickaxeDurability(tier)).toBeGreaterThan(lv10Lifetime(PICKAXE_TIERS[i])))
+    expect([pickaxeDurability('gold'), mineHits('gold')]).toEqual([600, 8])
   })
 
   it('copper mastery thresholds are wood ×2 (20 … 800 xp)', () => {

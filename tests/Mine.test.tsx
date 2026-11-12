@@ -6,7 +6,7 @@ import type { Act } from '../src/app/useGame'
 import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { price } from '../src/app/fmt'
-import { createFurnace, createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
 
 afterEach(cleanup)
 const built = { ...createFurnace(), built: true }
@@ -17,9 +17,11 @@ const BAR = ITEMS.copperBar.emoji
 const IRON_ORE = ITEMS.ironOre.emoji
 const IRON_BAR = ITEMS.ironBar.emoji
 
-function setup(run: Partial<GameState['run']>) {
+/** `pickaxe` = that one tier on the rack, in hand; the run fields otherwise */
+function setup({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pickaxe }) {
   const s = createInitialState()
-  let state: GameState = { ...s, run: { ...s.run, mineLicense: true, ...run } }
+  const held = pickaxe ? { rack: { [pickaxe.tier]: pickaxe.durability }, selectedPickaxe: pickaxe.tier } : {}
+  let state: GameState = { ...s, run: { ...s.run, mineLicense: true, ...held, ...run } }
   const act: Act = (fn) => {
     const r = fn(state)
     if (r.ok) state = r.state
@@ -307,24 +309,19 @@ describe('Mine panel', () => {
     expect((screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}⁠2)` }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('a blunt pickaxe whose repair is out of reach offers a cheaper tier instead (batch 28.1)', () => {
-    const bluntGold = { tier: 'gold' as const, durability: 0 }
-    const instead = () => screen.queryByRole('button', { name: /instead/ }) as HTMLButtonElement | null
-    const t = setup({ furnace: built, pickaxe: bluntGold, cash: 200, inventory: { ironBar: 5 } })
-    expect(instead()?.textContent).toBe(`Craft iron pickaxe instead (${IRON_BAR}⁠5 💰⁠200) — replaces the blunt gold pickaxe`)
-    expect(instead()?.disabled).toBe(false)
-    fireEvent.click(instead()!)
-    expect(t.get().run.pickaxe).toEqual({ tier: 'iron', durability: 1200 })
-    cleanup()
-    setup({ furnace: built, pickaxe: bluntGold, cash: 50, inventory: { copperBar: 5 } })
-    expect(instead()?.textContent).toMatch(/^Craft copper pickaxe instead/)
-    expect(instead()?.disabled).toBe(false)
-    cleanup()
-    setup({ furnace: built, pickaxe: bluntGold, inventory: { goldBar: 2 } })
-    expect(instead()).toBeNull()
-    cleanup()
-    setup({ pickaxe: wooden(0) })
-    expect(instead()).toBeNull()
+  it('batch 32: the rack row lists every owned tier, the selected one pressed; a press selects it (the batch-28.1 "instead" escape is gone)', () => {
+    const t = setup({ furnace: built, rack: { wooden: 25, iron: 0, gold: 300 }, selectedPickaxe: 'gold', cash: 200, inventory: { ironBar: 5 } })
+    const rackRow = () => within(screen.getByRole('group', { name: 'Pickaxe rack' }))
+    expect(rackRow().getAllByRole('button').map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
+      ['Wooden pickaxe25/25', 'false'],
+      ['Iron pickaxeblunt', 'false'],
+      ['Gold pickaxe300/600', 'true'],
+    ])
+    expect(screen.queryByRole('button', { name: /instead/ })).toBeNull()
+    fireEvent.click(rackRow().getByRole('button', { name: /^Iron pickaxe/ }))
+    t.rerender()
+    expect(t.get().run.selectedPickaxe).toBe('iron')
+    expect(screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}⁠2)` })).toBeTruthy()
   })
 
   it('a mine worker press flashes the Mine button and pops ⛏️; nothing otherwise', () => {

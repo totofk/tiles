@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, plotTiles, pumpFieldCap, tankCapCoal } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, pickaxeDurability, plotTiles, pumpFieldCap, tankCapCoal } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import type { ItemId, PickaxeTier } from '../core/data/items'
 import type { ToolJob } from '../core/data/tools'
@@ -17,12 +17,13 @@ import {
   type Loan,
   type Machines,
   type MultiplierKey,
+  type Pickaxe,
   type Plot,
   type Tile,
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 23
+export const SAVE_VERSION = 24
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 type JobV10 = JobV9 | 'plant'
@@ -114,8 +115,10 @@ type FieldsV20 = {
 }
 /** v13–v20 jobs (the Manager joined in v21) */
 type JobV20 = Exclude<WorkerJob, 'manager'>
+/** v23: one pickaxe in hand, no rack, no Keep N */
+type RunV23 = Omit<GameState['run'], 'rack' | 'selectedPickaxe' | 'keepN' | 'oreKeep'> & { pickaxe: Pickaxe | null }
 /** v22: no renown yet */
-type RunV22 = Omit<GameState['run'], 'renown'>
+type RunV22 = Omit<RunV23, 'renown'>
 /** v18–v22 meta: the deed rows before Kept renown */
 type MetaV22 = Omit<GameState['meta'], 'upgrades'> & { upgrades: Omit<GameState['meta']['upgrades'], 'keepRenown'> }
 /** v21: no 🧺 Ore sorting yet */
@@ -163,8 +166,11 @@ type SaveV19 = { version: 19; savedAtMs: number; state: { meta: MetaV22; run: Ru
 type SaveV20 = { version: 20; savedAtMs: number; state: { meta: MetaV22; run: RunV20 } }
 type SaveV21 = { version: 21; savedAtMs: number; state: { meta: MetaV22; run: RunV21 } }
 type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: RunV22 } }
-type SaveV23 = { version: 23; savedAtMs: number; state: GameState }
-export type Save = SaveV23
+type SaveV23 = { version: 23; savedAtMs: number; state: { meta: GameState['meta']; run: RunV23 } }
+type SaveV24 = { version: 24; savedAtMs: number; state: GameState }
+export type Save = SaveV24
+/** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
+const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
 const PIPE_COVER_V20 = [0, 60, 150, 300]
 
@@ -596,17 +602,33 @@ function migrateV22(save: SaveV22): SaveV23 {
   return { version: 23, savedAtMs: save.savedAtMs, state: { meta: { ...meta, upgrades: { ...meta.upgrades, keepRenown: 0 } }, run: { ...run, renown } } }
 }
 
+// v23 → v24 (batch 32): the one pickaxe in hand becomes the only tier on the rack, selected. Gold was rebalanced to
+// 600 durability (strong but fragile), so its durability keeps its share of the new max: 50 % stays 50 %, and a sharp
+// one stays sharp (at least 1). Keep N not bought, nothing kept.
+function migrateV23(save: SaveV23): SaveV24 {
+  const { meta, run } = save.state
+  const { pickaxe, ...rest } = run
+  const old = pickaxe?.durability ?? 0
+  const durability = pickaxe?.tier === 'gold' && old > 0 ? Math.max(1, Math.round((old * pickaxeDurability('gold')) / GOLD_DURABILITY_V23)) : old
+  return {
+    version: 24,
+    savedAtMs: save.savedAtMs,
+    state: { meta, run: { ...rest, rack: pickaxe ? { [pickaxe.tier]: durability } : {}, selectedPickaxe: pickaxe?.tier ?? null, keepN: false, oreKeep: {} } },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 23) return data as SaveV23
-  if (data.version === 22) return migrateV22(data as SaveV22)
-  if (data.version === 21) return migrateV22(migrateV21(data as SaveV21))
+  if (data.version === 24) return data as SaveV24
+  if (data.version === 23) return migrateV23(data as SaveV23)
+  if (data.version === 22) return migrateV23(migrateV22(data as SaveV22))
+  if (data.version === 21) return migrateV23(migrateV22(migrateV21(data as SaveV21)))
   const v20 = toV20(data)
-  return v20 && migrateV22(migrateV21(migrateV20(v20)))
+  return v20 && migrateV23(migrateV22(migrateV21(migrateV20(v20))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

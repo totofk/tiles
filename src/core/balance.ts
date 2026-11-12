@@ -100,14 +100,16 @@ const FIRE_CAP_UNITS = [10, 20, 40]
 /** bars per cycle per batch level (index = level) */
 const BATCH_BARS = [1, 2, 3]
 // craft = price of a new one, repair = price to fix a blunt one (below craft), hits = rock hits per mine action.
-// Each tier's durability must beat the previous tier's Lv10 lifetime (balance test).
+// Each tier's durability must beat the previous tier's Lv10 lifetime (balance test), except gold: strong but fragile
+// (batch 32, DECISIONS "Batch 32 refined").
 const PICKAXES: Record<PickaxeTier, { craft: Price; repair: Price; durability: number; hits: number }> = {
   wooden: { craft: { wood: 3, cash: 0 }, repair: { wood: 2, cash: 0 }, durability: 25, hits: 2 },
   copper: { craft: { copperBar: 5, cash: 50 }, repair: { copperBar: 2, cash: 0 }, durability: 200, hits: 3 },
   // 1200 beats copper's Lv10 lifetime 200 × (1 + 0.4 × 10) = 1000 (the old 500 guess did not)
   iron: { craft: { ironBar: 5, cash: 200 }, repair: { ironBar: 2, cash: 0 }, durability: 1200, hits: 4 },
-  // 6500 beats iron's Lv10 lifetime 1200 × (1 + 0.4 × 10) = 6000
-  gold: { craft: { goldBar: 5, cash: 500 }, repair: { goldBar: 2, cash: 0 }, durability: 6500, hits: 5 },
+  // strong but fragile: 8 hits break 4 stone rocks per press (carry-over), 600 lasts ≈ 706 presses at Lv0 with 3 tiers
+  // mastered (600 / 0.85), 3000 at Lv10 (preserve cap 0.8)
+  gold: { craft: { goldBar: 5, cash: 500 }, repair: { goldBar: 2, cash: 0 }, durability: 600, hits: 8 },
 }
 /** a rock drops its item after this many hits (stone when unlisted); by hand (no pickaxe, or a blunt one) = HAND_HITS */
 const STONE_HITS = 2

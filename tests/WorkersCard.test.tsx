@@ -301,7 +301,8 @@ describe('worker targets on the grid (task 60)', () => {
         ...s.run,
         cash: 10,
         mineLicense: true,
-        pickaxe: { tier: 'wooden', durability: 25 },
+        rack: { wooden: 25 },
+        selectedPickaxe: 'wooden',
         workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 1, clerk: 0, manager: 0 }, certificates: ['mine'] },
       },
     }

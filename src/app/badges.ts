@@ -8,7 +8,7 @@ import { TILE_CAP, licenseCost, mineLicenseCost, tileCost, toolMaxLevel, toolUnl
 import { buildFurnace } from '../core/furnace'
 import { buildWorkshop } from '../core/workshop'
 import { unlockFields } from '../core/fields'
-import { buyStorage, craftPickaxe, upgradeVein } from '../core/mining'
+import { bestPickaxeTier, buyStorage, craftPickaxe, upgradeVein } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyToolTier, buyTool } from '../core/tools'
 import { buyCertificate, certificateUnlocked } from '../core/workers'
@@ -62,7 +62,8 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
       run.workers.certificates.includes(job) || !certificateUnlocked(run, job) ? [] : [`cert:${job}`, ...(buyCertificate(state, job).ok ? [`cert:${job}:buy`] : [])],
     )
   const farm = [...certs(['plant', 'water', 'harvest', 'clerk', 'manager']), ...(run.orders.unlocked ? ['orders'] : [])]
-  const heldTier = run.pickaxe ? PICKAXE_TIERS.indexOf(run.pickaxe.tier) : -1
-  const mine = [...certs(['ore', 'fuel', 'mine']), ...PICKAXE_TIERS.filter((t, i) => i > heldTier && craftPickaxe(state, t).ok).map((t) => `pick:${t}`)]
+  const best = bestPickaxeTier(run)
+  const bestIndex = best ? PICKAXE_TIERS.indexOf(best) : -1
+  const mine = [...certs(['ore', 'fuel', 'mine']), ...PICKAXE_TIERS.filter((t, i) => i > bestIndex && craftPickaxe(state, t).ok).map((t) => `pick:${t}`)]
   return { shop, upgrades, farm, mine }
 }

@@ -18,7 +18,8 @@ describe('Stats panel', () => {
       ...s,
       run: {
         ...s.run,
-        pickaxe: { tier: 'copper', durability: 120 },
+        rack: { copper: 120 },
+        selectedPickaxe: 'copper',
         mastery: { copper: 50 },
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 1, harvest: 0, plant: 2 },

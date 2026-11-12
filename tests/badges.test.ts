@@ -24,7 +24,7 @@ describe('availableKeys', () => {
     expect(rich.farm).toEqual(['cert:harvest', 'cert:harvest:buy', 'orders'])
     expect(rich.mine.slice(0, 2)).toEqual(['cert:ore', 'cert:ore:buy'])
     expect(rich.mine).toContain('pick:wooden')
-    const held = availableKeys(withRun({ cash: 1e6, inventory: { wood: 50, copperBar: 50 }, pickaxe: { tier: 'copper', durability: 100 } }))
+    const held = availableKeys(withRun({ cash: 1e6, inventory: { wood: 50, copperBar: 50 }, rack: { copper: 100 }, selectedPickaxe: 'copper' }))
     expect(held.mine.filter((k) => k.startsWith('pick:'))).not.toContain('pick:wooden')
   })
 

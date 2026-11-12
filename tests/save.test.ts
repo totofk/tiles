@@ -22,6 +22,7 @@ import v19 from './fixtures/save-v19.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
 import v21 from './fixtures/save-v21.json?raw'
 import v22 from './fixtures/save-v22.json?raw'
+import v23 from './fixtures/save-v23.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, renownFloor } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
@@ -124,8 +125,13 @@ const v13Run = (run: { counters: object; lifetime: object; workers: { assigned: 
   lifetime: { ...run.lifetime, ...v14Lifetime },
 })
 /** a v13 save seen as v12 (the v13 additions stripped), so the v1 … v12 migration expectations stay as written */
+/** a v24 run back in the v23 shape: the selected rack tier is the one pickaxe (no gold in these fixtures, no rescale) */
+function asV23Run({ rack, selectedPickaxe, keepN, oreKeep, ...run }: Save['state']['run']) {
+  void [keepN, oreKeep]
+  return { ...run, pickaxe: selectedPickaxe ? { tier: selectedPickaxe, durability: rack[selectedPickaxe]! } : null }
+}
 function asV12(save: Save) {
-  const { orders, stars, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = save.state.run
+  const { orders, stars, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = asV23Run(save.state.run)
   const { orders: completed, contractsByHand, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
   const { clerk, manager, ...v12Assigned } = workers.assigned
@@ -148,7 +154,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 23, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 24, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -391,7 +397,10 @@ describe('serialize / deserialize', () => {
         vein: { level: 0, progress: 1, rock: 'stone' as const },
         mastery: { wooden: 37 },
         masteredTiers: ['wooden' as const],
-        pickaxe: { tier: 'wooden' as const, durability: 0 },
+        rack: { wooden: 0, copper: 120 },
+        selectedPickaxe: 'wooden' as const,
+        keepN: true,
+        oreKeep: { stone: 20 },
         storageLevel: 2,
         bagCapacity: 40,
       },
@@ -411,10 +420,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v23 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v24 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(23)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 24 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(24)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 25 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -441,7 +450,7 @@ describe('serialize / deserialize', () => {
     expect(save.state.run.bagCapacity).toBe(old.state.run.bagCapacity)
     // the migrated pickaxe keeps working and loses durability as before
     const mined = dig(save.state)
-    expect(mined.ok && mined.state.run.pickaxe).toEqual({ tier: 'wooden', durability: 10 })
+    expect(mined.ok && mined.state.run.rack).toEqual({ wooden: 10 })
     expect(step(save.state, 5).run.tick).toBe(old.state.run.tick + 5)
   })
 
@@ -514,7 +523,8 @@ describe('serialize / deserialize', () => {
     expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0, contractsByHand: 0 })
     expect(run).toMatchObject({
       inventory: {},
-      pickaxe: null,
+      rack: {},
+      selectedPickaxe: null,
       mineLicense: false,
       bagCapacity: BAG_CAPACITY_START,
       rngState: INITIAL_RNG_SEED,
@@ -940,7 +950,7 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(23)
+    expect(SAVE_VERSION).toBe(24)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const run = deserialize(raw)!.state.run
@@ -1143,30 +1153,68 @@ describe('save v22: 🧺 ore sorting', () => {
     const old = JSON.parse(v21)
     expect(old.version).toBe(21)
     const meta = { ...old.state.meta, upgrades: { ...old.state.meta.upgrades, keepRenown: 0 } }
-    expect(deserialize(v21)).toEqual({ version: 23, savedAtMs: old.savedAtMs, state: { meta, run: { ...old.state.run, oreSort: {}, renown: old.state.run.lifetime.harvests } } })
+    const run = { ...v24Run(old.state.run), oreSort: {}, renown: old.state.run.lifetime.harvests }
+    expect(deserialize(v21)).toEqual({ version: 24, savedAtMs: old.savedAtMs, state: { meta, run } })
   })
 })
+
+/** v23 → v24 on the real fixtures: their gold pickaxe 3800 / 6500 lands on the rack as 351 / 600, selected */
+function v24Run({ pickaxe, ...run }: { pickaxe: { tier: string; durability: number } }) {
+  expect(pickaxe).toEqual({ tier: 'gold', durability: 3800 })
+  return { ...run, rack: { gold: 351 }, selectedPickaxe: 'gold', keepN: false, oreKeep: {} }
+}
 
 describe('save v23: renown', () => {
   it('migrates the real v22 fixture (written by the live v22 build): renown = lifetime harvests, nothing else changes', () => {
     const old = JSON.parse(v22)
     expect(old.version).toBe(22)
     const save = deserialize(v22)!
-    expect(save.version).toBe(23)
+    expect(save.version).toBe(24)
     const { run, meta } = save.state
     expect(run.renown).toEqual({ radish: 150, chilli: 95, pumpkin: 300, lemon: 2413 })
     expect([renownFloor(run.renown.lemon!), renownFloor(run.renown.pumpkin!)]).toEqual([0.6, 0.55])
     expect(meta).toEqual({ ...old.state.meta, upgrades: { ...old.state.meta.upgrades, keepRenown: 0 } })
-    expect(run).toEqual({ ...old.state.run, renown: run.renown })
+    expect(run).toEqual({ ...v24Run(old.state.run), renown: run.renown })
   })
 
-  it('every fixture v1 … v22 migrates to v23 with renown = its lifetime harvests', () => {
-    for (const raw of [...ALL_FIXTURES, v21, v22]) {
+  it('every fixture v1 … v23 migrates to the latest with renown = its lifetime harvests', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23]) {
       const save = deserialize(raw)!
       expect(save.version).toBe(SAVE_VERSION)
       expect(save.state.meta.upgrades.keepRenown).toBe(0)
       const harvested = Object.fromEntries(Object.entries(save.state.run.lifetime.harvests).filter(([, n]) => (n ?? 0) > 0))
       expect(save.state.run.renown).toEqual(harvested)
     }
+  })
+})
+
+describe('save v24: the pickaxe rack and Keep N (batch 32)', () => {
+  it('migrates the real v23 fixture (written by the live v23 build): gold 3800 / 6500 → 351 / 600 selected, nothing earned changes', () => {
+    const old = JSON.parse(v23)
+    expect(old.version).toBe(23)
+    const save = deserialize(v23)!
+    expect(save.version).toBe(24)
+    const { run, meta } = save.state
+    expect([run.rack, run.selectedPickaxe, run.keepN, run.oreKeep]).toEqual([{ gold: 351 }, 'gold', false, {}])
+    expect([run.cash, run.tiles, run.licenses, run.mastery, run.masteredTiers]).toEqual([
+      old.state.run.cash,
+      old.state.run.tiles,
+      old.state.run.licenses,
+      { wooden: 400, copper: 700, iron: 1300, gold: 310 },
+      ['wooden'],
+    ])
+    expect(meta).toEqual(old.state.meta)
+    expect(run).toEqual(v24Run(old.state.run))
+    expect('pickaxe' in run).toBe(false)
+  })
+
+  it('a blunt gold pickaxe stays blunt, a sharp one stays sharp (at least 1), other tiers keep their durability', () => {
+    const old = JSON.parse(v23)
+    const at = (pickaxe: object | null) => deserialize(JSON.stringify({ ...old, state: { ...old.state, run: { ...old.state.run, pickaxe } } }))!.state.run
+    expect(at({ tier: 'gold', durability: 0 }).rack).toEqual({ gold: 0 })
+    expect(at({ tier: 'gold', durability: 1 }).rack).toEqual({ gold: 1 })
+    expect(at({ tier: 'gold', durability: 3250 }).rack).toEqual({ gold: 300 })
+    expect(at({ tier: 'iron', durability: 77 }).rack).toEqual({ iron: 77 })
+    expect([at(null).rack, at(null).selectedPickaxe]).toEqual([{}, null])
   })
 })

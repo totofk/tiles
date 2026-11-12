@@ -22,7 +22,7 @@ import type { ItemId } from '../src/core/data/items'
 import { bagCount, dig } from '../src/core/mining'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { collectBars } from '../src/core/furnace'
-import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Tile } from '../src/core/state'
+import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Pickaxe, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { catchUp } from '../src/save/serialize'
@@ -608,13 +608,15 @@ describe('plant worker: workersAct', () => {
 // ---- Task 67: mine worker ----
 
 const vein3 = (rock: ItemId = 'stone', progress = 0) => ({ level: 3, progress, rock })
+/** one pickaxe on the rack, in hand (null = none) */
+const held = (p: Pickaxe | null) => ({ rack: p ? { [p.tier]: p.durability } : {}, selectedPickaxe: p?.tier ?? null })
 /** a licensed mine on vein Lv3 with `n` miners, no player energy, the next tick a worker tick */
 const mineSite = (run: Partial<GameState['run']> = {}, n = 1): GameState =>
   withRun({
     cash: 100,
     energy: 0,
     mineLicense: true,
-    pickaxe: { tier: 'copper', durability: 200 },
+    ...held({ tier: 'copper', durability: 200 }),
     vein: vein3(),
     ...workers(n, 0, 0, ['mine'], 0, 0, 0, n),
     ...run,
@@ -643,8 +645,8 @@ describe('mine worker: workersAct', () => {
     const next = workersAct(s)
     const pressed = okState(dig({ ...s, run: { ...s.run, energy: 1 } }))
     expect(next.run.vein).toEqual({ level: 3, progress: 3, rock: 'ironOre' })
-    expect([next.run.pickaxe, next.run.mastery, next.run.counters.mines, next.run.rngState]).toEqual([
-      pressed.run.pickaxe,
+    expect([next.run.rack, next.run.mastery, next.run.counters.mines, next.run.rngState]).toEqual([
+      pressed.run.rack,
       pressed.run.mastery,
       1,
       pressed.run.rngState,
@@ -657,16 +659,24 @@ describe('mine worker: workersAct', () => {
   })
 
   it('two miners press twice per round; the preserve roll and mastery apply like the player’s', () => {
-    const s = mineSite({ pickaxe: { tier: 'iron', durability: 1200 }, mastery: { iron: 1e4 }, masteredTiers: ['wooden', 'copper', 'iron'] }, 2)
+    const s = mineSite({ ...held({ tier: 'iron', durability: 1200 }), mastery: { iron: 1e4 }, masteredTiers: ['wooden', 'copper', 'iron'] }, 2)
     const next = workersAct(s)
     expect([next.run.counters.mines, next.run.lifetime.workerMines, next.run.mastery.iron, next.run.cash]).toEqual([2, 2, 1e4 + 2, 100 - 2 * wage])
-    expect(next.run.pickaxe!.durability).toBeGreaterThanOrEqual(1198)
+    expect(next.run.rack.iron).toBeGreaterThanOrEqual(1198)
+  })
+
+  it('batch 32: the miner presses with the selected tier and never switches by itself (a blunt selection idles it)', () => {
+    const s = mineSite({ rack: { copper: 200, iron: 1200 }, selectedPickaxe: 'copper', vein: vein3('ironOre') })
+    const next = workersAct(s)
+    expect([next.run.rack.copper, next.run.rack.iron, next.run.mastery, next.run.vein.progress]).toEqual([199, 1200, { copper: 1 }, 3])
+    const blunt = mineSite({ rack: { copper: 0, iron: 1200 }, selectedPickaxe: 'copper' })
+    expect(workersAct(blunt)).toBe(blunt)
   })
 
   it('idles unpaid with no pickaxe, a blunt pickaxe (repair stays manual), full storage or no mine license', () => {
     for (const s of [
-      mineSite({ pickaxe: null }),
-      mineSite({ pickaxe: { tier: 'copper', durability: 0 } }),
+      mineSite(held(null)),
+      mineSite(held({ tier: 'copper', durability: 0 })),
       mineSite({ inventory: { stone: BAG_CAPACITY_START } }),
       mineSite({ mineLicense: false }),
     ]) {
@@ -682,7 +692,7 @@ describe('mine worker: workersAct', () => {
       {
         cash: 300,
         bagCapacity: 50,
-        pickaxe: { tier: 'iron', durability: 1200 },
+        ...held({ tier: 'iron', durability: 1200 }),
         inventory: { ironOre: 3, coal: 6 },
         furnace,
         ...workers(3, 0, 0, ['ore', 'fuel', 'mine'], 1, 1, 0, 1),

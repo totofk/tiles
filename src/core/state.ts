@@ -32,8 +32,10 @@ export type RunState = {
   /** total ticks simulated this run */
   tick: number
   mineLicense: boolean
-  /** durability 0 = blunt: still owned, mines by hand until repaired */
-  pickaxe: Pickaxe | null
+  /** durability per OWNED pickaxe tier; 0 = blunt: still owned, mines by hand until repaired */
+  rack: Partial<Record<PickaxeTier, number>>
+  /** the rack tier in hand (null = none crafted yet); the mine worker uses it and never switches by itself */
+  selectedPickaxe: PickaxeTier | null
   /** every item counts toward bagCapacity (displayed as "Storage") */
   inventory: Partial<Record<ItemId, number>>
   bagCapacity: number
@@ -43,6 +45,10 @@ export type RunState = {
   vein: { level: number; progress: number; rock: ItemId }
   /** 🧺 Ore sorting per vein drop: a missing kind is locked; 'sell' sells it the moment it is dug */
   oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>
+  /** 🧺 Keep N bought (batch 32) */
+  keepN: boolean
+  /** per kind set to Sell on dig: the amount kept in storage before the excess sells (missing = 0) */
+  oreKeep: Partial<Record<MineDropId, number>>
   furnace: Furnace
   workshop: Workshop
   fields: Fields
@@ -230,12 +236,15 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     counters: { harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0, contractsByHand: 0 },
     tick: 0,
     mineLicense: false,
-    pickaxe: null,
+    rack: {},
+    selectedPickaxe: null,
     inventory: {},
     bagCapacity: BAG_CAPACITY_START,
     storageLevel: 0,
     vein: { level: 0, progress: 0, rock: 'stone' },
     oreSort: {},
+    keepN: false,
+    oreKeep: {},
     furnace: createFurnace(),
     workshop: createWorkshop(),
     fields: createFields(),

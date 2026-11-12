@@ -25,6 +25,7 @@ import {
 } from '../src/core/balance'
 import {
   activePickaxe,
+  bestPickaxeTier,
   buyMineLicense,
   buyStorage,
   upgradeVein,
@@ -32,19 +33,23 @@ import {
   craftPickaxe,
   dig,
   expectedUses,
+  heldPickaxe,
   minedRock,
   pickaxePreserve,
   repairPickaxe,
+  selectPickaxe,
   sellItem,
   setOreSort,
   unlockOreSort,
 } from '../src/core/mining'
 import { sellFarm } from '../src/core/prestige'
-import { createInitialState, type GameState } from '../src/core/state'
+import { createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
 
-function withRun(run: Partial<GameState['run']>): GameState {
+/** `pickaxe` = that one tier on the rack, in hand (null = none); the run fields otherwise */
+function withRun({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pickaxe | null }): GameState {
   const s = createInitialState()
-  s.run = { ...s.run, ...run }
+  const held = pickaxe === undefined ? {} : { rack: pickaxe ? { [pickaxe.tier]: pickaxe.durability } : {}, selectedPickaxe: pickaxe?.tier ?? null }
+  s.run = { ...s.run, ...held, ...run }
   return s
 }
 
@@ -54,7 +59,8 @@ function okState(r: ActionResult): GameState {
 }
 
 const meta = createInitialState().meta
-const miner = (run: Partial<GameState['run']> = {}) =>
+type RunInput = Parameters<typeof withRun>[0]
+const miner = (run: RunInput = {}) =>
   withRun({ mineLicense: true, pickaxe: { tier: 'wooden', durability: 20 }, ...run })
 
 describe('nextRandom (mulberry32)', () => {
@@ -101,38 +107,66 @@ describe('buyWood', () => {
 describe('craftPickaxe', () => {
   it('turns 3 wood into a wooden pickaxe', () => {
     const next = okState(craftPickaxe(withRun({ inventory: { wood: 4 } })))
-    expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: pickaxeDurability('wooden') })
+    expect(heldPickaxe(next.run)).toEqual({ tier: 'wooden', durability: pickaxeDurability('wooden') })
     expect(next.run.inventory.wood).toBe(1)
   })
-  it('rejects without enough wood or with a pickaxe already in hand', () => {
+  it('rejects without enough wood or with the tier already on the rack', () => {
     expect(craftPickaxe(withRun({ inventory: { wood: 2 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(craftPickaxe(miner({ inventory: { wood: 3 } }))).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
-  it('the gold tier: 5 gold bars + 💰500, durability 6500, repaired with 2 gold bars (batch 16)', () => {
+  it('the gold tier: 5 gold bars + 💰500, 8 hits, durability 600 (batch 32), repaired with 2 gold bars', () => {
     const gold = (bars: number, cash: number) => miner({ pickaxe: { tier: 'iron', durability: 7 }, inventory: { goldBar: bars }, cash })
     expect(craftPickaxe(gold(4, 500), 'gold')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(craftPickaxe(gold(5, 499), 'gold')).toEqual({ ok: false, error: 'NO_CASH' })
     const next = okState(craftPickaxe(gold(5, 500), 'gold'))
-    expect([next.run.pickaxe, next.run.cash, next.run.inventory]).toEqual([{ tier: 'gold', durability: 6500 }, 0, { goldBar: 0 }])
-    expect(pickaxeRepairCost('gold', meta)).toEqual({ goldBar: 2, cash: 0 })
+    expect([next.run.rack, next.run.selectedPickaxe, next.run.cash, next.run.inventory]).toEqual([{ iron: 7, gold: 600 }, 'gold', 0, { goldBar: 0 }])
+    expect([mineHits('gold'), pickaxeRepairCost('gold', meta)]).toEqual([8, { goldBar: 2, cash: 0 }])
   })
-  it('a blunt pickaxe can be replaced by any other tier; a sharp one only by a higher tier (batch 28.1)', () => {
-    const bluntGold = (run: Partial<GameState['run']>) => miner({ pickaxe: { tier: 'gold', durability: 0 }, mastery: { gold: 7 }, ...run })
+  it('batch 32: crafting adds the tier to the rack and selects it; an owned tier (any durability) fails ALREADY_OWNED', () => {
+    const bluntGold = (run: RunInput) => miner({ pickaxe: { tier: 'gold', durability: 0 }, mastery: { gold: 7 }, ...run })
     const next = okState(craftPickaxe(bluntGold({ cash: 200, inventory: { ironBar: 5 } }), 'iron'))
-    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery.gold]).toEqual([
-      { tier: 'iron', durability: 1200 },
+    expect([next.run.rack, next.run.selectedPickaxe, next.run.cash, next.run.inventory, next.run.mastery.gold]).toEqual([
+      { gold: 0, iron: 1200 },
+      'iron',
       0,
       { ironBar: 0 },
       7,
     ])
     expect(craftPickaxe(bluntGold({ cash: 1e3, inventory: { goldBar: 9 } }), 'gold')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
-    const bluntIron = miner({ pickaxe: { tier: 'iron', durability: 0 }, cash: 1e3, inventory: { copperBar: 5, wood: 3 } })
-    expect(okState(craftPickaxe(bluntIron, 'copper')).run.pickaxe?.tier).toBe('copper')
-    expect(okState(craftPickaxe(bluntIron, 'wooden')).run.pickaxe?.tier).toBe('wooden')
-    const sharpGold = bluntGold({ pickaxe: { tier: 'gold', durability: 1 }, cash: 1e3, inventory: { ironBar: 9 } })
-    expect(craftPickaxe(sharpGold, 'iron')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(craftPickaxe(next, 'iron')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
     expect(craftPickaxe(bluntGold({ cash: 0, inventory: { ironBar: 4 } }), 'iron')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(craftPickaxe(bluntGold({ cash: 199, inventory: { ironBar: 5 } }), 'iron')).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
+describe('batch 32: the pickaxe rack', () => {
+  const rack = (run: RunInput = {}) => withRun({ mineLicense: true, rack: { wooden: 0, copper: 200, iron: 1200 }, selectedPickaxe: 'copper', ...run })
+
+  it('selectPickaxe takes any owned tier in hand, free and without energy; NO_PICKAXE when not on the rack', () => {
+    const s = rack({ energy: 0, cash: 0 })
+    expect(okState(selectPickaxe(s, 'iron')).run).toEqual({ ...s.run, selectedPickaxe: 'iron' })
+    expect(selectPickaxe(s, 'gold')).toEqual({ ok: false, error: 'NO_PICKAXE' })
+    expect([bestPickaxeTier(s.run), bestPickaxeTier(withRun({}).run)]).toEqual(['iron', null])
+  })
+
+  it('a blunt tier may be selected: dig then mines by hand and its durability stays 0', () => {
+    const hand = okState(dig(okState(selectPickaxe(rack(), 'wooden'))))
+    expect([heldPickaxe(hand.run), activePickaxe(hand.run), hand.run.vein.progress, hand.run.mastery]).toEqual([{ tier: 'wooden', durability: 0 }, null, mineHits(null), {}])
+    expect(hand.run.rack).toEqual({ wooden: 0, copper: 200, iron: 1200 })
+  })
+
+  it('repairPickaxe repairs the named tier only (default: the selected one)', () => {
+    const s = rack({ rack: { wooden: 0, copper: 0, iron: 5 }, inventory: { wood: 2, copperBar: 2 } })
+    expect(okState(repairPickaxe(s, 'wooden')).run.rack).toEqual({ wooden: 25, copper: 0, iron: 5 })
+    expect(okState(repairPickaxe(s)).run.rack).toEqual({ wooden: 0, copper: 200, iron: 5 })
+    expect(repairPickaxe(s, 'iron')).toEqual({ ok: false, error: 'NOT_BLUNT' })
+    expect(repairPickaxe(s, 'gold')).toEqual({ ok: false, error: 'NO_PICKAXE' })
+  })
+
+  it('vein Lv4 opens with iron on the rack while copper is selected', () => {
+    const s = rack({ cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: { ...createFurnace(), built: true }, vein: { level: 3, progress: 0, rock: 'stone' } })
+    expect(okState(upgradeVein(s)).run.vein.level).toBe(4)
+    expect(upgradeVein({ ...s, run: { ...s.run, rack: { copper: 200 } } })).toEqual({ ok: false, error: 'NO_IRON_PICKAXE' })
   })
 })
 
@@ -141,7 +175,7 @@ describe('dig', () => {
     const s = miner()
     const next = okState(dig(s))
     expect(next.run.energy).toBe(s.run.energy - 1)
-    expect(next.run.pickaxe?.durability).toBe(19)
+    expect(next.run.rack.wooden).toBe(19)
     expect(next.run.inventory).toEqual({ stone: 1 })
     expect(next.run.counters.mines).toBe(1)
     expect(next.run.counters.digs).toBe(0)
@@ -169,10 +203,10 @@ describe('dig', () => {
   })
   it('goes blunt at 0 durability: still owned, then mines by hand and loses no more durability', () => {
     const blunt = okState(dig(miner({ pickaxe: { tier: 'wooden', durability: 1 } })))
-    expect(blunt.run.pickaxe).toEqual({ tier: 'wooden', durability: 0 })
+    expect(heldPickaxe(blunt.run)).toEqual({ tier: 'wooden', durability: 0 })
     expect(activePickaxe(blunt.run)).toBeNull()
     const hand = okState(dig(blunt))
-    expect(hand.run.pickaxe).toEqual({ tier: 'wooden', durability: 0 })
+    expect(heldPickaxe(hand.run)).toEqual({ tier: 'wooden', durability: 0 })
     expect(hand.run.vein.progress).toBe(1)
     expect(craftPickaxe({ ...hand, run: { ...hand.run, inventory: { wood: 3 } } })).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
@@ -204,12 +238,12 @@ describe('pickaxe mastery', () => {
   })
 
   it('at Lv0 (the first 10 actions) every pickaxe action uses durability', () => {
-    expect(mineN(miner({ energy: 1e6 }), 10).run.pickaxe?.durability).toBe(10)
+    expect(mineN(miner({ energy: 1e6 }), 10).run.rack.wooden).toBe(10)
   })
 
   it('mastery preserves durability: at Lv10 about 1 action in 5 uses it', () => {
     const s = mineN(miner({ energy: 1e6, bagCapacity: 1e6, pickaxe: { tier: 'wooden', durability: 1000 }, mastery: { wooden: 400 } }), 1000)
-    const used = 1000 - s.run.pickaxe!.durability
+    const used = 1000 - s.run.rack.wooden!
     expect(used).toBeGreaterThan(150)
     expect(used).toBeLessThan(250)
   })
@@ -395,7 +429,7 @@ describe('repairPickaxe', () => {
     ])
     const s = blunt(3)
     const next = okState(repairPickaxe(s))
-    expect(next.run.pickaxe).toEqual({ tier: 'wooden', durability: 25 })
+    expect(heldPickaxe(next.run)).toEqual({ tier: 'wooden', durability: 25 })
     expect(next.run.inventory.wood).toBe(1)
     expect(next.run.energy).toBe(s.run.energy)
   })
@@ -411,7 +445,7 @@ describe('repairPickaxe', () => {
 
 describe('copper pickaxe', () => {
   const copper = (durability = 200) => ({ tier: 'copper' as const, durability })
-  it('5 copper bars + 50 cash, durability 200, 3 hits per action; replaces the wooden one, whose mastery stays', () => {
+  it('5 copper bars + 50 cash, durability 200, 3 hits per action; joins the wooden one on the rack, whose mastery stays', () => {
     expect([pickaxeCraftCost('copper', meta), pickaxeRepairCost('copper', meta), pickaxeDurability('copper'), mineHits('copper')]).toEqual([
       { copperBar: 5, cash: 50 },
       { copperBar: 2, cash: 0 },
@@ -420,7 +454,7 @@ describe('copper pickaxe', () => {
     ])
     const s = miner({ cash: 60, inventory: { copperBar: 6 }, mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
     const next = okState(craftPickaxe(s, 'copper'))
-    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([copper(), 10, { copperBar: 1 }, { wooden: 400 }])
+    expect([heldPickaxe(next.run), next.run.rack.wooden, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([copper(), 20, 10, { copperBar: 1 }, { wooden: 400 }])
     expect(craftPickaxe({ ...next, run: { ...next.run, inventory: { wood: 9 } } })).toEqual({ ok: false, error: 'ALREADY_OWNED' })
     expect(craftPickaxe({ ...next, run: { ...next.run, cash: 1e3, inventory: { copperBar: 9 } } }, 'copper')).toEqual({
       ok: false,
@@ -443,14 +477,14 @@ describe('copper pickaxe', () => {
   it('repairs with 2 copper bars when blunt', () => {
     const s = miner({ pickaxe: copper(0), inventory: { copperBar: 2 } })
     const next = okState(repairPickaxe(s))
-    expect([next.run.pickaxe, next.run.inventory]).toEqual([copper(), { copperBar: 0 }])
+    expect([heldPickaxe(next.run), next.run.inventory]).toEqual([copper(), { copperBar: 0 }])
     expect(repairPickaxe(miner({ pickaxe: copper(0), inventory: { copperBar: 1, wood: 9 } }))).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
   })
 })
 
 describe('iron pickaxe (batch 11)', () => {
   const iron = (durability = 1200) => ({ tier: 'iron' as const, durability })
-  it('5 iron bars + 200 cash, durability 1200, 4 hits per action, repair 2 iron bars; replaces the copper one', () => {
+  it('5 iron bars + 200 cash, durability 1200, 4 hits per action, repair 2 iron bars; joins the copper one on the rack', () => {
     expect([pickaxeCraftCost('iron', meta), pickaxeRepairCost('iron', meta), pickaxeDurability('iron'), mineHits('iron')]).toEqual([
       { ironBar: 5, cash: 200 },
       { ironBar: 2, cash: 0 },
@@ -459,12 +493,12 @@ describe('iron pickaxe (batch 11)', () => {
     ])
     const s = miner({ pickaxe: { tier: 'copper', durability: 0 }, cash: 250, inventory: { ironBar: 6 }, mastery: { copper: 30 } })
     const next = okState(craftPickaxe(s, 'iron'))
-    expect([next.run.pickaxe, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([iron(), 50, { ironBar: 1 }, { copper: 30 }])
+    expect([heldPickaxe(next.run), next.run.rack.copper, next.run.cash, next.run.inventory, next.run.mastery]).toEqual([iron(), 0, 50, { ironBar: 1 }, { copper: 30 }])
     expect(craftPickaxe({ ...next, run: { ...next.run, cash: 1e3, inventory: { copperBar: 9, ironBar: 9 } } }, 'copper')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
     expect(craftPickaxe(miner({ cash: 1e3, inventory: { ironBar: 4 } }), 'iron')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(craftPickaxe(miner({ cash: 199, inventory: { ironBar: 5 } }), 'iron')).toEqual({ ok: false, error: 'NO_CASH' })
     const repaired = okState(repairPickaxe(miner({ pickaxe: iron(0), inventory: { ironBar: 2, copperBar: 5 } })))
-    expect([repaired.run.pickaxe, repaired.run.inventory]).toEqual([iron(), { ironBar: 0, copperBar: 5 }])
+    expect([heldPickaxe(repaired.run), repaired.run.inventory]).toEqual([iron(), { ironBar: 0, copperBar: 5 }])
   })
   it('breaks an iron rock in one action and earns iron xp; iron mastery thresholds are copper × 2 (wooden × 4)', () => {
     const next = okState(dig(miner({ pickaxe: iron(), vein: { level: 3, progress: 0, rock: 'ironOre' } })))
@@ -554,7 +588,7 @@ describe('🧺 ore sorting (batch 28.2)', () => {
       return s.run
     }
     const [keep, sell] = [run('keep'), run('sell')]
-    expect([sell.vein, sell.rngState, sell.pickaxe, sell.counters.mines]).toEqual([keep.vein, keep.rngState, keep.pickaxe, keep.counters.mines])
+    expect([sell.vein, sell.rngState, sell.rack, sell.counters.mines]).toEqual([keep.vein, keep.rngState, keep.rack, keep.counters.mines])
     expect(keep.inventory.stone).toBeGreaterThan(0)
     expect(sell.inventory.stone ?? 0).toBe(0)
     expect(sell.counters.sales).toBe(keep.inventory.stone)

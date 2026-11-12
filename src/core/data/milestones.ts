@@ -60,7 +60,8 @@ export type MilestoneId =
 export type Milestone = { id: MilestoneId; label: string; when: (run: RunState) => boolean }
 
 const capitalize = <T extends string>(id: T) => (id[0].toUpperCase() + id.slice(1)) as Capitalize<T>
-const pickaxeAt = (run: RunState, tier: number) => PICKAXE_TIERS.indexOf(run.pickaxe?.tier ?? 'wooden') >= tier
+// the best tier on the rack (mining.ts bestPickaxeTier, inlined: data/ must not import the actions)
+const pickaxeAt = (run: RunState, tier: number) => PICKAXE_TIERS.findLastIndex((t) => run.rack[t] !== undefined) >= tier
 
 export const MILESTONES: readonly Milestone[] = [
   { id: 'firstHarvest', label: 'First harvest', when: (r) => r.counters.harvests >= 1 },
