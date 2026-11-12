@@ -96,6 +96,8 @@ import { managerPlan } from '../src/core/manager'
 import { acceptOrder, buyOrderBoard, discardOrder, isContract, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
 import type { OrderGood } from '../src/core/state'
 import type { ItemId } from '../src/core/data/items'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { simLog, simLogPath } from './simLog'
 
 // Batch 12: the crop market is on in every run; `withoutMarket` switches it off (factor 1). Batch 16: the pre-market
 // era ladders (batch 8–11) run off — at depth 60 the market starves the pre-hand-picked worker bot of cash — so they
@@ -137,6 +139,8 @@ function withoutMarket<T>(run: () => T): T {
 }
 
 const TICKS = 600
+/** batch 34 (task 181): ladder runs per test so far, for the default SIM_LOG scenario name */
+const logRuns = new Map<string | undefined, number>()
 /** the batch-8 worker jobs the ladder bot staffs */
 const FARM_JOBS: WorkerJob[] = ['water', 'harvest']
 
@@ -629,6 +633,7 @@ function runBot(
     onTick,
     initial,
     drainSlot = false,
+    log: logName,
   }: {
     ticks?: number
     licenses?: CropId[]
@@ -701,8 +706,16 @@ function runBot(
     onEnd?: (s: GameState) => void
     /** batch 14: receives the state after every tick */
     onTick?: (s: GameState) => void
+    /** batch 34 (task 181): the scenario part of the SIM_LOG=1 file name (default `run<n>` within the test) */
+    log?: string
   } = {},
 ) {
+  const testName = expect.getState().currentTestName
+  const runNo = (logRuns.get(testName) ?? 0) + 1
+  logRuns.set(testName, runNo)
+  const log = simLog(testName, logName ?? `run${runNo}`)
+  let bought: string[] = []
+  const marked = new Set<string>()
   const goals = machines ? MACHINES_LADDER : fields ? FIELDS_LADDER : sprinklers ? WORKSHOP_LADDER : gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironMold' | 'firstIronBar' | 'goldMold' | 'firstGoldBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
@@ -744,6 +757,14 @@ function runBot(
       seen()
     }
     return true
+  }
+  /** a logged buy attempt (batch 34 task 181); `price` is read only when SIM_LOG=1 */
+  const buyAs = (item: string, r: ActionResult, price?: () => Price) => {
+    if (log) {
+      log.attempt(s, item, r, price?.())
+      if (r.ok) bought.push(`buy:${item}`)
+    }
+    return tryAct(r, null)
   }
 
   // Mining fills idle energy only. Order: license → sell stone when the bag is full
@@ -787,7 +808,7 @@ function runBot(
       // batch 7: buy the next goal as soon as it can be paid; smelt (coal fuel) and collect while the copper pickaxe
       // is the goal; when storage is full sell only what the goal does not need, else stop mining
       const goal = goals.find((g) => !g.done(s))
-      if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
+      if (goal && buyAs(goal.name, goal.buy(s), () => goal.keep(s))) ladderTicks[goal.name] ??= tick
       const next = goals.find((g) => !g.done(s))
       if (smeltsFor(next)) {
         const { assigned } = s.run.workers
@@ -837,12 +858,12 @@ function runBot(
   // FURNACE_LADDER and, with `furnace`, each certified loader gets one worker before free ones go to the farm.
   const staff = (tick: number) => {
     for (const job of FARM_JOBS)
-      if (tryAct(buyCertificate(s, job), null)) {
+      if (buyAs(`${job}Certificate`, buyCertificate(s, job), () => certificateCost(job, s.meta))) {
         workerTicks.firstCertificate ??= tick
         workerTicks[`${job}Certificate`] = tick
       }
     const certified = !buyTools || FARM_JOBS.some((job) => s.run.workers.certificates.includes(job))
-    while (certified && tryAct(hireWorker(s), null)) {
+    while (certified && buyAs('hire', hireWorker(s))) {
       workerTicks.firstHire ??= tick
       if (s.run.workers.pool >= 3) workerTicks.pool3 ??= tick
     }
@@ -892,7 +913,7 @@ function runBot(
     }
     milestones()
     const want = nextLicense()
-    if (want && tryAct(buyLicense(s, want), null)) licenseBought[want] ??= tick
+    if (want && buyAs(`license:${want}`, buyLicense(s, want), () => ({ cash: licenseCost(want, s.meta) }))) licenseBought[want] ??= tick
     for (const job of toolJobs) while (s.run.tools[job] < toolMaxLevel(job) && tryAct(buyTool(s, job), null));
     if (buyTools)
       for (const job of WORKER_JOBS) if (certificateUnlocked(s.run, job)) certUnlocked[job] ??= { tick, bagCapacity: s.run.bagCapacity }
@@ -900,7 +921,7 @@ function runBot(
     // batch 16: a gold run's staffed lemon farm eats every point of energy, so the ladder buy cannot wait for idle mining
     if (gold || sprinklers) {
       const goal = goals.find((g) => !g.done(s))
-      if (goal && tryAct(goal.buy(s), null)) ladderTicks[goal.name] ??= tick
+      if (goal && buyAs(goal.name, goal.buy(s), () => goal.keep(s))) ladderTicks[goal.name] ??= tick
     }
     // batch 18: the planter works the fields only once a crop is picked — the bot picks lemons, its best licensed crop
     // (batch 28: every pivoted field's chip)
@@ -934,14 +955,14 @@ function runBot(
     milestones()
     // batch 33: where the bot switched the furnace to iron / gold it buys that mold (the goal's keep holds its price)
     if ((iron || ironTools) && s.run.furnace.built && !s.run.furnace.molds.ironOre && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
-      if (tryAct(buyMold(s, 'ironOre'), null)) ladderTicks.ironMold ??= tick
+      if (buyAs('ironMold', buyMold(s, 'ironOre'), () => moldPrice('ironOre', s.meta))) ladderTicks.ironMold ??= tick
     }
     // batch 33: once the iron mold is in, an ore loader would turn every copper ore into a copper bar nothing spends
     // (the old furnace was on iron here) — the copper ore in storage sells before each tick, as it did before the switch
     if ((iron || ironTools) && s.run.furnace.molds.ironOre && s.run.workers.assigned.ore > 0 && IRON_ON_GOALS.includes(goals.find((g) => !g.done(s))!))
       tryAct(sellItem(s, 'copperOre', s.run.inventory.copperOre ?? 0), mine)
     if (gold && s.run.furnace.built && !s.run.furnace.molds.goldOre && GOLD_ON_GOALS.includes(goals.find((g) => !g.done(s))!)) {
-      if (tryAct(buyMold(s, 'goldOre'), null)) ladderTicks.goldMold ??= tick
+      if (buyAs('goldMold', buyMold(s, 'goldOre'), () => moldPrice('goldOre', s.meta))) ladderTicks.goldMold ??= tick
     }
     if (sprinklers) {
       const next = goals.find((g) => !g.done(s))
@@ -969,7 +990,14 @@ function runBot(
     if (s.run.lifetime.ironBarsSmelted > 0) ladderTicks.firstIronBar ??= s.run.tick
     if (s.run.lifetime.goldBarsSmelted > 0) ladderTicks.firstGoldBar ??= s.run.tick
     onTick?.(s)
+    if (log) {
+      const fresh = [...Object.keys(ladderTicks), ...Object.keys(workerTicks), ...Object.keys(m), ...Object.keys(s.run.milestones)].filter((k) => !marked.has(k))
+      for (const k of fresh) marked.add(k)
+      log.tick(s, [...bought, ...fresh], goals.find((g) => !g.done(s))?.name)
+      bought = []
+    }
   }
+  log?.finish(s)
   // unfinished work at the cut-off counts for both activities: bag items at their sell price,
   // standing crops at sell price × growth progress (their seeds are already charged to farming)
   const bagValue = ITEM_IDS.filter(isSellable).reduce(
@@ -4940,5 +4968,32 @@ describe('batch 29: manager', () => {
       console.log('PIN31model', JSON.stringify(rows))
       for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
     })
+  })
+})
+
+describe('batch 34: the per-run sim log (task 181)', () => {
+  it('SIM_LOG=1 writes one JSON file per ladder run with the diagnosis keys; without it nothing is written', () => {
+    const path = simLogPath(expect.getState().currentTestName, 'short')
+    rmSync(path, { force: true })
+    const run = () => runBot(true, { ticks: HOUR_TICKS, licenses: LICENSE_ORDER, crops: PLANT_ORDER, ladder: true, log: 'short' })
+    try {
+      vi.stubEnv('SIM_LOG', '')
+      const off = run()
+      expect(existsSync(path)).toBe(false)
+      vi.stubEnv('SIM_LOG', '1')
+      const on = run()
+      // logging only reads state: the run is the same
+      expect(on).toEqual(off)
+      const file = JSON.parse(readFileSync(path, 'utf8'))
+      expect(Object.keys(file)).toEqual(['snapshots', 'attempts', 'furnaceMinutes', 'longestGap'])
+      expect(Object.keys(file.snapshots[0])).toEqual(['tick', 'minute', 'events', 'next', 'cash', 'stars', 'held', 'molds', 'fire', 'homePlanted', 'estateSown', 'estatePlots', 'assigned'])
+      expect(file.snapshots.some((x: { events: string[] }) => x.events.includes('buy:veinLv1'))).toBe(true)
+      expect(file.attempts.some((a: { result: string; gatedBy?: object }) => a.result !== 'ok' && a.gatedBy)).toBe(true)
+      expect(Object.keys(file.furnaceMinutes)).toContain('copperOre')
+      expect(Object.keys(file.longestGap)).toEqual(['fromTick', 'toTick', 'gapMinutes', 'after', 'closedBy', 'nextWanted', 'gatedByAtStart', 'gatedByAtEnd', 'unlockedUnbought', 'consumedScarce'])
+    } finally {
+      vi.unstubAllEnvs()
+      rmSync(path, { force: true })
+    }
   })
 })
