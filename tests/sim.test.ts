@@ -4335,13 +4335,13 @@ function contractRun(s0: GameState, maxMinutes: number) {
 }
 
 describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (task 163d)', () => {
-  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts ≤ 240 game-minutes holding ⭐ ≥ 40 and 💰 ≥ 1.5M', () => {
+  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts ≤ 240 game-minutes holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
     const loaded = deserialize(v22)!.state
     const r = contractRun(loaded, 600)
     console.log('PIN311b', JSON.stringify(r))
     expect(r.reached).not.toBeNull()
     expect(r.reached!.minute).toBeLessThanOrEqual(240)
-    expect(r.reached!.stars).toBeGreaterThanOrEqual(40)
+    expect(r.reached!.stars).toBeGreaterThanOrEqual(20)
     expect(r.reached!.cash).toBeGreaterThanOrEqual(1_500_000)
   }, 300_000)
 })
@@ -4468,7 +4468,7 @@ describe('batch 29: manager', () => {
     expect(doneAt!).toBeLessThanOrEqual(HOUR_TICKS)
   }, 120_000)
 
-  // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M
+  // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M; ⭐20 batch 32
   it('unlock path: 7 delivered + 3 hand reaps → contractsByHand 10 → the Manager certificate buys; 💰1.5M in stage-6 hours', () => {
     const ready = { crop: 'strawberry' as const, readyTick: 0 }
     const offer = (good: CropId) => ({ good, count: 5, done: 0, tier: 1, accepted: false })
@@ -4486,7 +4486,7 @@ describe('batch 29: manager', () => {
     }
     expect(s.run.counters.contractsByHand).toBe(10)
     const price = certificateCost('manager', s.meta)
-    expect(price).toEqual({ goldBar: 4, stars: 40, cash: 1_500_000 })
+    expect(price).toEqual({ goldBar: 4, stars: 20, cash: 1_500_000 })
     const bought = buyCertificate({ ...s, run: { ...s.run, cash: price.cash, stars: price.stars!, inventory: { ...s.run.inventory, goldBar: price.goldBar } } }, 'manager')
     expect(bought.ok).toBe(true)
     const perHour = run(stage6(false, (() => {

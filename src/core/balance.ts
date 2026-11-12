@@ -212,8 +212,8 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
   // order clerk (batch 14): ⭐ + copper bars after 20 orders completed
   clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
-  // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); ⭐ and 💰 pinned by the batch 31.1 sim
-  manager: { price: { goldBar: 4, stars: 40, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
+  // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32
+  manager: { price: { goldBar: 4, stars: 20, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
 }
 // Furnace upgrades (batch 9): price of level index + 1. fireCap levels index FIRE_CAP_UNITS, batch levels BATCH_BARS
 // (one fewer price than entries); smart is one-time and costs more than the fuel loader's certificate.

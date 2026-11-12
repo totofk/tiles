@@ -45,9 +45,9 @@ describe('batch 29: the 💼 Manager row', () => {
     expect(managerRow().textContent).toContain('contracts delivered 1/10')
   })
 
-  it('batch 31.1: the certificate price reads 🥇4 ⭐40 💰1.5M; the v22 save at 💰15,266,531 shows 💰 15.266M in the HUD', () => {
+  it('batch 32: the certificate price reads 🥇4 ⭐20 💰1.5M; the v22 save at 💰15,266,531 shows 💰 15.266M in the HUD', () => {
     setup({}, { contractsByHand: 10 })
-    expect(managerRow().textContent!.replace(/⁠/g, '')).toContain('🥇4 ⭐40 💰1.5M')
+    expect(managerRow().textContent!.replace(/⁠/g, '')).toContain('🥇4 ⭐20 💰1.5M')
     cleanup()
     const loaded = deserialize(v22)!.state
     render(<Hud state={{ ...loaded, run: { ...loaded.run, cash: 15_266_531 } }} />)
