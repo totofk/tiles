@@ -1660,37 +1660,39 @@ details > summary:focus-visible {
   .item-row > :nth-child(5) {
     grid-area: b2;
   }
-  /* batch 28.2: the Keep / Sell on dig toggle takes a third line; rows without one drop their empty cell */
-  .item-row:has(> .sort-toggle) {
-    grid-template-areas: 'name name count' 'extra b1 b2' 'sort sort sort';
-  }
-  .item-row > .sort-toggle {
-    grid-area: sort;
-  }
-  .item-row > span:nth-child(6) {
-    display: none;
-  }
 }
-/* batch 28.2: the Mine's sell list adds a 6th column, the Keep / Sell on dig toggle (the seed pouch keeps 5) */
-.mine-grid {
-  grid-template-columns: minmax(0, 1fr) auto auto 64px 64px auto;
-}
-.item-row > .sort-toggle {
-  min-height: 44px;
-  padding: 0 var(--s2);
-  white-space: nowrap;
+/* batch 32: 🧺 Ore sorting is one table — kind | Unlock or Sell on dig | keep up to (Keep N); fits the 344 px
+   Mine column at 375 (the stepper is 44 + 32 + 44) */
+.sort-table {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 120px;
+  gap: var(--s2);
+  font-size: 14px;
 }
 .sort-row {
-  display: flex;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: var(--s2);
+  min-height: 44px;
 }
 .sort-row > span {
-  flex: 1;
   min-width: 0;
 }
 .sort-row > button {
   min-height: 44px;
+}
+.sort-check {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 44px;
+  cursor: pointer;
+}
+.sort-check > input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
 }
 .item-name {
   min-width: 0;

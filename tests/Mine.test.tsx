@@ -115,7 +115,33 @@ describe('Mine panel', () => {
     setup({ pickaxe: wooden(), mastery: { wooden: 400 }, masteredTiers: ['wooden'] })
     expect(text()).toContain('Wooden pickaxe 25 / 25 · ~125 more uses')
     expect(text()).toContain('Mastery Lv 10/10 · 400 xp')
-    expect(screen.getByText('Mastered ✓ +5 % all pickaxes')).toBeTruthy()
+    expect(screen.getByText('Mastered ✓ +5 % durability · all pickaxes')).toBeTruthy()
+  })
+
+  it('batch 32: the pickaxe group renders between Dig and the vein: rack, status, craft row (unowned offered tiers only), mastery', () => {
+    setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' }, rack: { wooden: 0, copper: 120 }, selectedPickaxe: 'copper', masteredTiers: ['wooden'], mastery: { wooden: 400 } })
+    const section = document.querySelector('.mine')!
+    const dig = screen.getByRole('button', { name: /Dig/ })
+    const pickaxes = section.querySelector('.mine-pickaxe-group')!
+    const vein = section.querySelector('.mine-vein')!
+    expect(dig.compareDocumentPosition(pickaxes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(pickaxes.compareDocumentPosition(vein) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    const rack = within(screen.getByRole('group', { name: 'Pickaxe rack' }))
+    expect(rack.getAllByRole('button').map((b) => [b.textContent, b.getAttribute('aria-pressed')])).toEqual([
+      ['Wooden pickaxeblunt ✓', 'false'],
+      ['Copper pickaxe120/200', 'true'],
+    ])
+    expect(pickaxes.textContent).toContain('Copper pickaxe 120 / 200')
+    // vein Lv3 drops iron, not gold: iron is the only unowned tier on offer
+    expect(within(pickaxes as HTMLElement).getAllByRole('button', { name: /^Craft/ }).map((b) => b.textContent)).toEqual([
+      `Craft iron pickaxe (${IRON_BAR}⁠5 💰⁠200) — Not enough items`,
+    ])
+    expect(pickaxes.textContent).toContain('Mastery Lv 0/10')
+    cleanup()
+    // a fresh mine: no rack, the wooden pickaxe is the one craft (the furnace offers the rest)
+    setup({ inventory: { wood: 3 } })
+    expect(screen.queryByRole('group', { name: 'Pickaxe rack' })).toBeNull()
+    expect(screen.getAllByRole('button', { name: /^Craft/ }).map((b) => b.textContent)).toEqual([`Craft wooden pickaxe (${WOOD}⁠3)`])
   })
 
   it('a blunt pickaxe shows the repair button with its wood cost', () => {
@@ -290,19 +316,19 @@ describe('Mine panel', () => {
   })
 
   it('iron pickaxe: offered from vein Lv3 over a copper one, crafted from iron bars, repaired with iron bars', () => {
-    const copper = { tier: 'copper' as const, durability: 200 }
-    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, pickaxe: copper })
+    const copper = { rack: { wooden: 25, copper: 200 }, selectedPickaxe: 'copper' as const }
+    setup({ furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, ...copper })
     expect(screen.queryByRole('button', { name: /^Craft/ })).toBeNull()
     cleanup()
     const lv3 = { level: 3, progress: 0, rock: 'stone' as const }
-    setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 4 } })
+    setup({ furnace: built, vein: lv3, ...copper, cash: 200, inventory: { ironBar: 4 } })
     expect(screen.getByRole('button', { name: /^Craft/ }).textContent).toBe(`Craft iron pickaxe (${IRON_BAR}⁠5 💰⁠200) — Not enough items`)
     cleanup()
-    const t = setup({ furnace: built, vein: lv3, pickaxe: copper, cash: 200, inventory: { ironBar: 5 } })
+    const t = setup({ furnace: built, vein: lv3, ...copper, cash: 200, inventory: { ironBar: 5 } })
     fireEvent.click(screen.getByRole('button', { name: /^Craft iron pickaxe/ }))
     t.rerender()
     expect(text()).toContain('Iron pickaxe 1200 / 1200')
-    // nothing above iron yet, and no copper offer with a better pickaxe in hand
+    // nothing above iron yet; every owned tier stays on the rack, so nothing below is offered either
     expect(screen.queryByRole('button', { name: /^Craft/ })).toBeNull()
     cleanup()
     setup({ furnace: built, vein: lv3, pickaxe: { tier: 'iron', durability: 0 }, inventory: { ironBar: 2 } })
@@ -354,8 +380,8 @@ describe('Mine panel', () => {
     // the price-each column, ×N count and both sell buttons; every mine item is sellable since bars joined
     expect(barRow().textContent).toBe(`${BAR} Copper bar×2💰2sell 1sell all`)
     const woodRow = () => screen.getByText(`${WOOD} Wood`).closest('.item-row')!
-    // batch 28.2: the 6th column (Keep / Sell on dig) is an empty cell on rows that are not an unlocked vein drop
-    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all', ''])
+    // batch 32: the sort column left the grid for the 🧺 Ore sorting table
+    expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all'])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell 1' }))
     t.rerender()
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([2, 1])
@@ -364,12 +390,12 @@ describe('Mine panel', () => {
     expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([4, 0])
   })
 
-  it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 6 cells, the recipe is two lines', () => {
+  it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 5 cells, the recipe is two lines', () => {
     setup({ furnace: built, inventory: { copperBar: 2, wood: 1 } })
     // both users render through the wrapper: the sell list here, the seed pouch in the Farm tab (Shop tests)
     expect(document.querySelector('.mine .item-grid-wrap .item-grid')).toBeTruthy()
-    // batch 28.2: name | count | extra | sell 1 | sell all | Keep / Sell on dig
-    for (const row of document.querySelectorAll('.mine .item-row')) expect(row.children).toHaveLength(6)
+    // batch 32: name | count | extra | sell 1 | sell all (the sort column moved to 🧺 Ore sorting)
+    for (const row of document.querySelectorAll('.mine .item-row')) expect(row.children).toHaveLength(5)
     const recipe = document.querySelector('.mine-furnace .furnace-recipe')!
     const stock = document.querySelector('.mine-furnace .furnace-stock')!
     expect(recipe.textContent).toBe(`${ORE}2 + ⚫1 or ${WOOD}2 → ${BAR}1 · 60 s`)
@@ -389,53 +415,61 @@ describe('Mine panel', () => {
   })
 })
 
-describe('batch 28.2: 🧺 ore sorting', () => {
+describe('batch 32: 🧺 ore sorting table', () => {
   const vein = (level: number) => ({ level, progress: 0, rock: 'stone' as const })
   const group = () => screen.queryByRole('heading', { name: '🧺 Ore sorting' })?.parentElement ?? null
-  const unlockRows = () => [...(group()?.querySelectorAll('.sort-row') ?? [])].map((r) => r.querySelector('span')!.textContent)
+  const kinds = () => [...(group()?.querySelectorAll('.sort-row') ?? [])].map((r) => r.querySelector('span')!.textContent)
 
-  it('vein Lv2 shows no sorting group; vein Lv3 shows 5 unlock rows with their price and the hint', () => {
+  it('vein Lv2 shows no sorting group; vein Lv3 shows one row per kind: name + unlock price, an Unlock button, the hint', () => {
     setup({ vein: vein(2) })
     expect(group()).toBeNull()
     cleanup()
     const t = setup({ vein: vein(3) })
     const cash = price(oreSortUnlockCost('stone', t.get().meta).cash)
-    expect(unlockRows()).toEqual([
-      `Sell ${STONE} Stone on dig — ${STONE}⁠30 💰⁠${cash}`,
-      `Sell ⚫ Coal on dig — ⚫⁠15 💰⁠${cash}`,
-      `Sell ${ORE} Copper ore on dig — ${ORE}⁠15 💰⁠${cash}`,
-      `Sell ${IRON_ORE} Iron ore on dig — ${IRON_ORE}⁠15 💰⁠${cash}`,
-      `Sell ${ITEMS.goldOre.emoji} Gold ore on dig — ${ITEMS.goldOre.emoji}⁠10 💰⁠${cash}`,
+    expect(kinds()).toEqual([
+      `${STONE} Stone ${STONE}⁠30 💰⁠${cash}`,
+      `⚫ Coal ⚫⁠15 💰⁠${cash}`,
+      `${ORE} Copper ore ${ORE}⁠15 💰⁠${cash}`,
+      `${IRON_ORE} Iron ore ${IRON_ORE}⁠15 💰⁠${cash}`,
+      `${ITEMS.goldOre.emoji} Gold ore ${ITEMS.goldOre.emoji}⁠10 💰⁠${cash}`,
     ])
-    expect(group()!.textContent).toContain('Unlocked kinds can be sold the moment you dig them, so the miner never stops on a full storage.')
-    // disabled with the action's reason, in the craft rows' shape
-    expect(within(group()!).getAllByRole('button')[0].textContent).toBe('Unlock — Not enough items')
+    expect(group()!.textContent).toContain('Checked kinds sell the moment you dig them past the amount you keep, so the miner never stops on a full storage.')
+    // disabled with the action's reason
+    expect(within(group()!).getAllByRole('button')[0].textContent).toBe('UnlockNot enough items')
+    expect(within(group()!).queryAllByRole('checkbox')).toHaveLength(0)
   })
 
-  it('unlocking stone moves it to a Keep toggle in the sell list; the toggle flips aria-pressed and the state', () => {
+  it('an unlocked kind shows a Sell on dig checkbox (no price) that calls setOreSort both ways; the grid has no sort column', () => {
     const cash = oreSortUnlockCost('stone', createInitialState().meta).cash
     const t = setup({ vein: vein(3), cash, inventory: { stone: 30 }, bagCapacity: 60 })
     fireEvent.click(within(group()!).getAllByRole('button')[0])
     t.rerender()
     expect(t.get().run.oreSort).toEqual({ stone: 'keep' })
-    expect(unlockRows()).toHaveLength(4)
-    expect(unlockRows()[0]).toContain('Coal')
-    // the stone row stays at ×0 so its toggle is reachable
-    const row = screen.getByText(`${STONE} Stone`).closest('.item-row') as HTMLElement
-    const toggle = () => within(row).getByRole('button', { name: /^(Keep|Sell on dig)$/ })
-    expect([toggle().textContent, toggle().getAttribute('aria-pressed')]).toEqual(['Keep', 'false'])
-    fireEvent.click(toggle())
+    expect(kinds()[0]).toBe(`${STONE} Stone`)
+    expect(within(group()!).getAllByRole('button', { name: /^Unlock/ })).toHaveLength(4)
+    const box = () => screen.getByRole('checkbox', { name: 'Sell Stone on dig' }) as HTMLInputElement
+    expect([box().checked, box().closest('label')!.textContent]).toEqual([false, 'Sell on dig'])
+    fireEvent.click(box())
     t.rerender()
-    expect(t.get().run.oreSort).toEqual({ stone: 'sell' })
-    expect([toggle().textContent, toggle().getAttribute('aria-pressed')]).toEqual(['Sell on dig', 'true'])
-    fireEvent.click(toggle())
+    expect([t.get().run.oreSort, box().checked]).toEqual([{ stone: 'sell' }, true])
+    fireEvent.click(box())
     t.rerender()
     expect(t.get().run.oreSort).toEqual({ stone: 'keep' })
+    // the stone row left the grid at ×0 (stone 30 was spent on the unlock)
+    expect(document.querySelector('.mine .item-grid')!.textContent).not.toContain('Stone')
   })
 
-  it('the group is hidden once every kind is unlocked', () => {
+  it('the table stays once every kind is unlocked: five checkboxes, no Unlock button', () => {
     setup({ vein: vein(4), oreSort: { stone: 'sell', coal: 'keep', copperOre: 'sell', ironOre: 'sell', goldOre: 'sell' } })
-    expect(group()).toBeNull()
-    expect(screen.getAllByRole('button', { name: /^(Keep|Sell on dig)$/ })).toHaveLength(5)
+    expect(group()).not.toBeNull()
+    const boxes = within(group()!).getAllByRole('checkbox') as HTMLInputElement[]
+    expect(boxes.map((b) => [b.getAttribute('aria-label'), b.checked])).toEqual([
+      ['Sell Stone on dig', true],
+      ['Sell Coal on dig', false],
+      ['Sell Copper ore on dig', true],
+      ['Sell Iron ore on dig', true],
+      ['Sell Gold ore on dig', true],
+    ])
+    expect(within(group()!).queryAllByRole('button', { name: /^Unlock/ })).toHaveLength(0)
   })
 })

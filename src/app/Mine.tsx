@@ -34,7 +34,6 @@ import {
   oreSortUnlockCost,
   oreSortVeinLevel,
   type FurnaceUpgradeId,
-  type MineDropId,
   type Price,
 } from '../core/balance'
 import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
@@ -43,7 +42,6 @@ import { addFuel, buyFurnaceUpgrade, collectBars, cycleOre, furnaceUpgradeLevel,
 import {
   activePickaxe,
   bagCount,
-  bestPickaxeTier,
   buyMineLicense,
   buyWood,
   craftPickaxe,
@@ -74,7 +72,6 @@ const SELL_WHEN_FULL = ITEM_IDS.filter(
   // coal fuels the Fields tank (batch 28)
   (id) => isSellable(id) && id !== 'wood' && id !== 'coal' && !ORE_IDS.map(oreBar).includes(id),
 )
-const isMineDrop = (id: ItemId): id is MineDropId => (MINE_DROP_IDS as ReadonlyArray<ItemId>).includes(id)
 
 /** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
 const SMELT_SHORT: Partial<Record<ActionError, string>> = {
@@ -324,11 +321,11 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
   )
   const held = heldPickaxe(run)
   const tier = held?.tier
-  // the tier above the best on the rack (none or wooden → copper): copper once the furnace is built, iron and gold once the vein drops their ore
-  const nextTier = PICKAXE_TIERS[PICKAXE_TIERS.indexOf(bestPickaxeTier(run) ?? 'wooden') + 1] as OreTier | undefined
-  const offerTier = run.furnace.built && nextTier && (nextTier === 'copper' || tierVein(nextTier, run.vein.level)) ? nextTier : null
-  const nextCraft = offerTier && craftPickaxe(state, offerTier)
   const owned = PICKAXE_TIERS.filter((t) => run.rack[t] !== undefined)
+  // unowned tiers on offer: wooden always, copper once the furnace is built, iron and gold once the vein drops their ore
+  const crafts = PICKAXE_TIERS.filter(
+    (t) => run.rack[t] === undefined && (t === 'wooden' || (run.furnace.built && (t === 'copper' || tierVein(t, run.vein.level)))),
+  )
   const xp = tier ? (run.mastery[tier] ?? 0) : 0
   const thresholds = tier ? masteryThresholds(tier) : []
   const level = tier ? masteryLevel(tier, xp) : 0
@@ -363,6 +360,58 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           {gain(fullValue)}
         </button>
       )}
+      {/* batch 32: the pickaxe group sits under Dig — rack (select), the held one's status or repair, craft, mastery */}
+      <div className="group mine-pickaxe-group">
+        {owned.length > 0 && (
+          <div className="mine-furnace-actions" role="group" aria-label="Pickaxe rack">
+            {owned.map((t) => (
+              <button key={t} aria-pressed={t === tier} onClick={() => act((s) => selectPickaxe(s, t))}>
+                {PICKAXE_NAMES[t]}
+                <small>
+                  {run.rack[t] ? `${run.rack[t]}/${pickaxeDurability(t)}` : 'blunt'}
+                  {run.masteredTiers.includes(t) && ' ✓'}
+                </small>
+              </button>
+            ))}
+          </div>
+        )}
+        {held?.durability === 0 ? (
+          <button disabled={!repair.ok} onClick={() => act((s) => repairPickaxe(s))}>
+            Blunt {PICKAXE_NAMES[held.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(held.tier, meta))})
+            {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
+          </button>
+        ) : (
+          held && (
+            <div className="mine-pickaxe">
+              <span>
+                {PICKAXE_NAMES[held.tier]} {held.durability} / {pickaxeDurability(held.tier)} · ~
+                {Math.round(expectedUses(held.tier, run, held.durability))} more uses
+              </span>
+              <Bar value={held.durability / pickaxeDurability(held.tier)} kind="tool" />
+            </div>
+          )
+        )}
+        {crafts.map((t) => {
+          const r = craftPickaxe(state, t)
+          return (
+            <button key={t} disabled={!r.ok} onClick={() => act((s) => craftPickaxe(s, t))}>
+              Craft {PICKAXE_NAMES[t].toLowerCase()} ({priceText(pickaxeCraftCost(t, meta))})
+              {!r.ok && <small> — {ERROR_TEXT[r.error]}</small>}
+            </button>
+          )
+        })}
+        {tier && (
+          <div className="mine-pickaxe">
+            <span>
+              Mastery Lv {level}/{max} · {level >= max ? xp : `${xp}/${thresholds[level]}`} xp
+            </span>
+            <Bar value={toNext} kind="grow" />
+            {run.masteredTiers.includes(tier) && (
+              <span className="mine-badge">Mastered ✓ +{Math.round(masteredPreserveBonus() * 100)} % durability · all pickaxes</span>
+            )}
+          </div>
+        )}
+      </div>
       <div className="mine-vein">
         <span>
           Vein Lv{run.vein.level}: {dropText(run.vein.level)}
@@ -390,65 +439,15 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       ) : (
         run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">{FIRE_EMOJI} Furnace — buy it in the 🛒 Shop</span>
       )}
-      {/* batch 24: the pickaxe card's blocks — status + craft, then mastery — each its own group over a divider */}
-      <div className="group">
-        {owned.length > 1 && (
-          <div className="mine-furnace-actions" role="group" aria-label="Pickaxe rack">
-            {owned.map((t) => (
-              <button key={t} aria-pressed={t === tier} onClick={() => act((s) => selectPickaxe(s, t))}>
-                {PICKAXE_NAMES[t]}
-                <small>{run.rack[t] ? `${run.rack[t]}/${pickaxeDurability(t)}` : 'blunt'}</small>
-              </button>
-            ))}
-          </div>
-        )}
-        {held?.durability === 0 ? (
-          <button disabled={!repair.ok} onClick={() => act((s) => repairPickaxe(s))}>
-            Blunt {PICKAXE_NAMES[held.tier].toLowerCase()} — repair ({priceText(pickaxeRepairCost(held.tier, meta))})
-            {!repair.ok && <small>{ERROR_TEXT[repair.error]}</small>}
-          </button>
-        ) : held ? (
-          <div className="mine-pickaxe">
-            <span>
-              {PICKAXE_NAMES[held.tier]} {held.durability} / {pickaxeDurability(held.tier)} · ~
-              {Math.round(expectedUses(held.tier, run, held.durability))} more uses
-            </span>
-            <Bar value={held.durability / pickaxeDurability(held.tier)} kind="tool" />
-          </div>
-        ) : (
-          <button disabled={!craftPickaxe(state).ok} onClick={() => act(craftPickaxe)}>
-            No pickaxe — craft ({priceText(pickaxeCraftCost('wooden', meta))})
-          </button>
-        )}
-        {offerTier && nextCraft && (
-          <button disabled={!nextCraft.ok} onClick={() => act((s) => craftPickaxe(s, offerTier))}>
-            Craft {PICKAXE_NAMES[offerTier].toLowerCase()} ({priceText(pickaxeCraftCost(offerTier, meta))})
-            {!nextCraft.ok && <small> — {ERROR_TEXT[nextCraft.error]}</small>}
-          </button>
-        )}
-      </div>
-      {tier && (
-        <div className="group mine-pickaxe">
-          <span>
-            Mastery Lv {level}/{max} · {level >= max ? xp : `${xp}/${thresholds[level]}`} xp
-          </span>
-          <Bar value={toNext} kind="grow" />
-          {run.masteredTiers.includes(tier) && (
-            <span className="mine-badge">Mastered ✓ +{Math.round(masteredPreserveBonus() * 100)} % all pickaxes</span>
-          )}
-        </div>
-      )}
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{price(woodCost(meta))}
       </button>
-      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all | sort; the columns
-          live on the container, rows are subgrids; the wrap is the container the two-line mode queries. An unlocked
-          vein drop keeps its row at ×0, so its Sell on dig toggle stays reachable (batch 28.2) */}
+      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all; the columns live on
+          the container, rows are subgrids; the wrap is the container the two-line mode queries */}
       <div className="item-grid-wrap">
-        <div className="item-grid mine-grid">
-          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0 || (isMineDrop(id) && run.oreSort[id])).map((id) => {
+        <div className="item-grid">
+          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => {
             const n = run.inventory[id] ?? 0
-            const mode = isMineDrop(id) ? run.oreSort[id] : undefined
             return (
               <div key={id} className="item-row">
                 <span className="item-name">
@@ -469,36 +468,46 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
                     <span />
                   </>
                 )}
-                {mode && isMineDrop(id) ? (
-                  <button className="sort-toggle" aria-pressed={mode === 'sell'} onClick={() => act((s) => setOreSort(s, id, mode === 'sell' ? 'keep' : 'sell'))}>
-                    {mode === 'sell' ? 'Sell on dig' : 'Keep'}
-                  </button>
-                ) : (
-                  <span />
-                )}
               </div>
             )
           })}
         </div>
       </div>
-      {run.vein.level >= oreSortVeinLevel() && MINE_DROP_IDS.some((k) => !run.oreSort[k]) && (
+      {/* batch 32: one table — kind (+ unlock price) | Unlock or the Sell on dig checkbox | keep up to (Keep N) */}
+      {run.vein.level >= oreSortVeinLevel() && (
         <div className="group">
           <h3>🧺 Ore sorting</h3>
-          {MINE_DROP_IDS.filter((k) => !run.oreSort[k]).map((kind) => {
-            const r = unlockOreSort(state, kind)
-            return (
-              <div key={kind} className="sort-row">
-                <span>
-                  Sell {ITEMS[kind].emoji} {ITEMS[kind].name} on dig — {priceText(oreSortUnlockCost(kind, meta))}
-                </span>
-                <button disabled={!r.ok} onClick={() => act((s) => unlockOreSort(s, kind))}>
-                  Unlock
-                  {!r.ok && <small> — {ERROR_TEXT[r.error]}</small>}
-                </button>
-              </div>
-            )
-          })}
-          <p className="hint">Unlocked kinds can be sold the moment you dig them, so the miner never stops on a full storage.</p>
+          <div className="sort-table">
+            {MINE_DROP_IDS.map((kind) => {
+              const mode = run.oreSort[kind]
+              const unlock = mode ? null : unlockOreSort(state, kind)
+              return (
+                <div key={kind} className="sort-row">
+                  <span>
+                    {ITEMS[kind].emoji} {ITEMS[kind].name}
+                    {unlock && <small> {priceText(oreSortUnlockCost(kind, meta))}</small>}
+                  </span>
+                  {unlock ? (
+                    <button disabled={!unlock.ok} onClick={() => act((s) => unlockOreSort(s, kind))}>
+                      Unlock
+                      {!unlock.ok && <small>{ERROR_TEXT[unlock.error]}</small>}
+                    </button>
+                  ) : (
+                    <label className="sort-check">
+                      <input
+                        type="checkbox"
+                        aria-label={`Sell ${ITEMS[kind].name} on dig`}
+                        checked={mode === 'sell'}
+                        onChange={() => act((s) => setOreSort(s, kind, mode === 'sell' ? 'keep' : 'sell'))}
+                      />
+                      Sell on dig
+                    </label>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          <p className="hint">Checked kinds sell the moment you dig them past the amount you keep, so the miner never stops on a full storage.</p>
         </div>
       )}
     </section>
