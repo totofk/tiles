@@ -3552,14 +3552,17 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32 (was [48729, 113199, 210788, 492685, 550358]): the rack and gold 600 move the forge's source `end`
     // task 170 (was [49313, 113136, 208285, 518056, 550011] in task 168): carry-over moves `end`; task 172 (was [48257,
     // 113515, 214445, 501078, 552321]): the sickle's seed drops
-    expect(lemon).toEqual([48714, 114757, 209556, 495880, 551320])
+    // re-pinned batch 32.2 (was [48714, 114757, 209556, 495880, 551320]): workers do one tile per action on the Estate,
+    // so the forge's 2 + 2 workers are labor-bound from 50 tiles up (72 plots/h each way)
+    expect(lemon).toEqual([42020, 81507, 81507, 81507, 81507])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
     // re-pinned batch 31 (was [192255, 264135]): renown floor
     // re-pinned batch 32 (was [194754, 287402]): the rack and gold 600
     // task 170 (was [194692, 284966] in task 168): carry-over; task 172 (was [195967, 286829]): seed drops
-    expect(mixed).toEqual([193679, 284610])
+    // re-pinned batch 32.2 (was [193679, 284610]): workers do one tile per action on the Estate
+    expect(mixed).toEqual([75745, 63677])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -3576,7 +3579,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 28 (was 26 tiles-of-ten on cohorts): the label crosses 8 h at plot 6 — plotCost grows 💰10,000 per
     // plot while one more plot's marginal income is one pressured lemon cycle
     // re-pinned batch 31 (was 5): renown floor — the floored lemon price raises each plot's marginal income
-    expect(crossing).toBe(8)
+    // re-pinned batch 32.2 (was 8): workers do one tile per action on the Estate, so the settled 300 tiles reap less,
+    // the lemon glut is lower and each plot's marginal income higher
+    expect(crossing).toBe(10)
   })
 
   it('one planter+harvester pair moves 2 × grow tiles per cycle — the throughput bound and the second pair', () => {
@@ -3598,7 +3603,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32 (was [367, 12]): the rack and gold 600 (more gold smelted for repairs)
     // task 170 (was [369, 17] in task 168): carry-over — the miner breaks ~2.6× the rocks per press-hour; task 172 (was
     // [973, 14]): seed drops
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([978, 19])
+    // re-pinned batch 32.2 (was [978, 19]): workers do one tile per action on the Estate (a slower plots window)
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([982, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -3820,6 +3826,29 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(r.reached).not.toBeNull()
   }, 300_000)
 
+  // batch 32.2 (task 175 scenario A, report only; nested here to reuse this ladder run): a fresh player's ladder to
+  // harvester3, then the contract bot of PIN311a to the 💼 Manager certificate
+  describe('batch 32.2: estate worker speed', () => {
+    it('scenario A: Estate income/h at the ladder end, minutes to the first harvester and the 💼 Manager, longest milestone gap', () => {
+      const after = step(end, HOUR_TICKS)
+      const board = buyOrderBoard({ ...end, run: { ...end.run, inventory: { ...end.run.inventory, stone: Math.max(10, end.run.inventory.stone ?? 0) } } })
+      const c = contractRun(board.ok ? board.state : end, 48 * 60)
+      const marks = Object.entries(end.run.milestones).filter((e): e is [string, number] => e[1] !== undefined).sort((a, b) => a[1] - b[1])
+      const gaps = marks.map(([id, t], i) => ({ id, min: Math.round((t - (i ? marks[i - 1]![1] : 0)) / 60) }))
+      console.log('PIN322a', JSON.stringify({
+        ladderEndMin: Math.round(end.run.tick / 60),
+        endIncomePerHour: Math.round(after.run.lifetime.cashEarned - end.run.lifetime.cashEarned),
+        harvester3WindowIncomePerHour: Math.round(r.incomes.harvester3),
+        harvester1Min: Math.round(r.win.harvester1! / 60),
+        // the unlock = the 10th contract; the certificate's ⭐ / 🥇 price may come later (null = not within 48 h)
+        managerUnlockMin: c.reached === null ? null : Math.round(end.run.tick / 60) + c.reached.minute,
+        managerBuyableMin: c.buyable === null ? null : Math.round(end.run.tick / 60) + c.buyable,
+        longestGap: gaps.reduce((a, b) => (b.min > a.min ? b : a)),
+      }))
+      expect(r.win.harvester1).toBeGreaterThan(0)
+    }, 300_000)
+  })
+
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
   // saving for Pump 2; prices LOCKED
@@ -3913,28 +3942,33 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // re-pinned batch 32 (was [212,215] [492,602] [550,1803]): the rack and gold 600 (task 168: [210,217] [519,605]
     // [549,1807]), then carry-over (task 170) move `end`
     // task 170: [213,214] [503,605] [549,1812]; task 172: the sickle's seed drops
+    // re-pinned batch 32.2 (was [213,217] [492,604] [550,1801]): workers do one tile per action on the Estate — the
+    // workers-only arm is labor-bound at every N; the full fleet (whose plots the workers still help finish) moves less
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [213, 217],
-      [492, 604],
-      [550, 1801],
+      [81, 211],
+      [81, 598],
+      [81, 758],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
     // batch 29 (was 0.8 / 15.3 / null / 294.8, task 151e moves `end`); batch 31 (was 0.8 / 18.5 / null / 134.7): renown floor
     // batch 32 (was 0.5 / 12.9 / 534.8 / null): the rack and gold 600 (task 168: 0.7 / 35.5 / 48.9 / 173.2), then
     // carry-over (task 170: 0.6 / 16.4 / 99.9 / null), then the seed drops (task 172) move `end`
+    // re-pinned batch 32.2 (was 0.6 / 8.9 / null / 102.5): workers do one tile per action on the Estate — harvester1
+    // and the seeders now replace the labor-bound workers; harvester2 / 3 add little once harvester1 reaps
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
-      ['harvester1', 0.6],
-      ['harvester2', 8.9],
-      ['harvester3', null],
-      ['seeders', 102.5],
+      ['harvester1', 0.4],
+      ['harvester2', 1623.4],
+      ['harvester3', 363.6],
+      ['seeders', 0.8],
     ])
-    // re-pinned batch 28 (was null / 300 / null / null)
+    // re-pinned batch 28 (was null / 300 / null / null); batch 32.2 (was 300 / 1000 / 1000 / null): workers do one tile
+    // per action on the Estate
     expect(paysAtN).toEqual([
       { name: 'harvester1', n: 300 },
-      { name: 'harvester2', n: 1000 },
-      { name: 'harvester3', n: 1000 },
-      { name: 'seeders', n: null },
+      { name: 'harvester2', n: null },
+      { name: 'harvester3', n: null },
+      { name: 'seeders', n: 300 },
     ])
   }, 30_000) // 13 forged 3 h runs; 1.7–2.9 s alone, 7.6 s under the full parallel suite (batch 28: 20 pressured fields)
 
@@ -4108,8 +4142,10 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // (DECISIONS: "no row multiplies ⭐, deeds or mining") — measured 1.4× first sale, 1.5× with the vault at 71 deeds
     // re-pinned batch 32 (was ≥ 1.4 / ≥ 1.3): carry-over shortens run 1's mine ladder more than the sold runs', so the
     // speed-up drops to 1.33× / 1.26× (PLAN.md "Batch 32 results" → Deviations)
+    // re-pinned batch 32.2 (was 1.26 for run 2): workers do one tile per action on the Estate, so run 1 earns less
+    // before its sale, gets other deeds and the sold run's rows differ
     expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.33)
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.26)
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.2)
   })
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
@@ -4123,12 +4159,14 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
   // batch 28.1 measured the vault run stopping at plots10 (its gold ore never smelted); batch 29 (task 151e) puts
   // plots10 in smeltsFor and the furnace-kind chooser, so both sold runs climb — pinned at the measured hours
   // batch 31: 52.7 / 50.6 → 40.2 / 36.2 h — renown floor (the sold runs' home renown floors their gluts)
-  it('both sold runs reach harvester3 (batch 32: 37.9 h / 34.7 h; batch 31: 40.2 h / 36.2 h)', () => {
+  it('both sold runs reach harvester3 (batch 32.2: 105.6 h / 101 h; batch 32: 37.9 h / 34.7 h; batch 31: 40.2 h / 36.2 h)', () => {
     const h = [r2, r3].map((r) => (r.ladder.ladderTicks.harvester3 === undefined ? null : Math.round((r.ladder.ladderTicks.harvester3 / HOUR_TICKS) * 10) / 10))
     console.log('PIN28_1b', JSON.stringify({ harvester3H: h }))
     // batch 32: 40.7 / 36.9 with the rack and gold 600 (task 168), 39.8 / 35.9 with carry-over (task 170), 37.9 / 34.7
     // with the sickle's seed drops (task 172)
-    expect(h).toEqual([37.9, 34.7])
+    // re-pinned batch 32.2 (was 37.9 / 34.7): workers do one tile per action on the Estate — the pre-machine plots
+    // grind is labor-bound, so the cash for the machine rungs comes slower
+    expect(h).toEqual([105.6, 101])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -4248,19 +4286,22 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     console.log('PIN22b', JSON.stringify({ fieldsUnlockH: [hours(run1Fields), hours(run3Fields)], speedup: Math.round((run1Fields / run3Fields) * 10) / 10, rows: Object.fromEntries(DEED_ROW_IDS.map((id) => [id, sale2.after.meta.upgrades[id]])) }))
     expect(sale1.ok && sale2.ok).toBe(true)
     // re-pinned batch 26: the bed sprinklers speed the plain run up too, so the vault edge narrows to ~1.39× (was ≥ 1.4)
-    expect(run1Fields / run3Fields).toBeGreaterThanOrEqual(1.3)
+    // re-pinned batch 32.2 (was ≥ 1.3, measured 1.291): workers do one tile per action on the Estate, so run 1 sells
+    // with less cash and the vault's rows differ
+    expect(run1Fields / run3Fields).toBeGreaterThanOrEqual(1.29)
     expect(r3.ladderTicks.plots30).toBeDefined()
   })
 
   // batch 28.1 measured run 1 stopping at plots10 (its gold ore never smelted); batch 29 (task 151e) puts plots10 in
   // smeltsFor and the furnace-kind chooser, so both runs climb — pinned at the measured hours (seeded, so exact)
   // batch 31: the vault run 36.3 → 37.9 h — its breadth-first deed spend now also buys Kept renown (3 deeds)
-  it('run 1 and the vault run climb to harvester3 (batch 32: 56.6 h / 35.9 h; batch 31: 62.5 h / 37.9 h)', () => {
+  it('run 1 and the vault run climb to harvester3 (batch 32.2: 108.1 h / 73.6 h; batch 32: 56.6 h / 35.9 h; batch 31: 62.5 h / 37.9 h)', () => {
     const h = [r1.ladder.ladderTicks.harvester3, r3.ladderTicks.harvester3].map((t) => (t === undefined ? null : Math.round((t / HOUR_TICKS) * 10) / 10))
     console.log('PIN28_1c', JSON.stringify({ harvester3H: h }))
     // batch 32: 63.8 / 38.5 with the rack and gold 600 (task 168), 61 / 37.8 with carry-over (task 170), 56.6 / 35.9
     // with the sickle's seed drops (task 172)
-    expect(h).toEqual([56.6, 35.9])
+    // re-pinned batch 32.2 (was 56.6 / 35.9): workers do one tile per action on the Estate (labor-bound plots grind)
+    expect(h).toEqual([108.1, 73.6])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for
@@ -4475,15 +4516,53 @@ describe('batch 32: scenario B — the real v23 save, migrated, with one miner f
   }, 120_000)
 })
 
+describe('batch 32.2: estate worker speed — scenario B, the real v23 save migrated, 8 game-hours (report)', () => {
+  /** per game-hour: cash earned, net cash, plots reaped / sown (a reap + resow in one tick counts both), wages */
+  const estateHours = (start: GameState, hours = 8) => {
+    let s = start
+    let reaped = 0
+    let sown = 0
+    for (let i = 0; i < hours * HOUR_TICKS; i++) {
+      const next = step(s, 1)
+      next.run.fields.list.forEach((f, k) =>
+        f.plots.forEach((p, j) => {
+          const was = s.run.fields.list[k]!.plots[j]!
+          const reap = was.crop !== null && was.readyTick <= s.run.tick && (p.crop === null || p.readyTick !== was.readyTick)
+          if (reap) reaped++
+          if (p.crop !== null && (was.crop === null || reap)) sown++
+        }),
+      )
+      s = next
+    }
+    const per = (n: number) => Math.round(n / hours)
+    return {
+      cashEarnedPerHour: per(s.run.lifetime.cashEarned - start.run.lifetime.cashEarned),
+      netCashPerHour: per(s.run.cash - start.run.cash),
+      plotsReapedPerHour: Math.round((reaped / hours) * 10) / 10,
+      plotsSownPerHour: Math.round((sown / hours) * 10) / 10,
+      wagesPerHour: per(s.run.lifetime.wagesPaid - start.run.lifetime.wagesPaid),
+    }
+  }
+  it('B1 as saved, B2 workers only (no harvester, no seeder)', () => {
+    const loaded = deserialize(v23)!.state
+    const b1 = estateHours(loaded)
+    const b2 = estateHours({ ...loaded, run: { ...loaded.run, fields: { ...loaded.run.fields, machines: { ...loaded.run.fields.machines, harvester: [], seeder: [] } } } })
+    console.log('PIN322b', JSON.stringify({ b1, b2 }))
+    expect(b1.plotsReapedPerHour).toBeGreaterThan(0)
+  }, 300_000)
+})
+
 describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (task 163d)', () => {
   // re-pinned batch 32 (was ≤ 240 game-minutes, measured 212): the sickle's seed roll moves the RNG stream behind the
   // offers, so the 10th contract lands at minute 319 (PLAN.md "Batch 32 results" → Deviations)
-  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 319 holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
+  // re-pinned batch 32.2 (was 319): workers do one tile per action on the Estate, so the save's harvest workers reap
+  // fewer contract plots and the 10th contract lands at minute 417
+  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 417 holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
     const loaded = deserialize(v22)!.state
     const r = contractRun(loaded, 600)
     console.log('PIN311b', JSON.stringify(r))
     expect(r.reached).not.toBeNull()
-    expect(r.reached!.minute).toBe(319)
+    expect(r.reached!.minute).toBe(417)
     expect(r.reached!.stars).toBeGreaterThanOrEqual(20)
     expect(r.reached!.cash).toBeGreaterThanOrEqual(1_500_000)
   }, 300_000)

@@ -62,6 +62,9 @@ const board = (offers: RunState['orders']['offers'], run: Partial<RunState> = {}
 const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 10, done: 0, tier: 0, accepted: true, ...o })
 const RADISH = cropGrowTicks('radish', meta, 0)
 const ripe: Tile = { status: 'planted', cropId: 'radish', growth: RADISH, moisture: 0, ticksSinceMature: 0 }
+/** batch 32.2: a worker's Fields reap that finishes the plot (its 10th tile on the shared counter) */
+const workerReap = (s: GameState) =>
+  fieldsHarvest({ ...s, run: { ...s.run, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry: { ...s.run.fields.machines.carry, harvest: plotTiles() - 1 } } } } })!
 
 describe('orderPool: only what the state can make now', () => {
   it('a new run: the starting crop only', () => {
@@ -434,7 +437,7 @@ describe('batch 29: 🚜 estate contracts', () => {
     const base = cropSellPrice('radish', meta, 0)
     const hand = okState(reapPlot(s, 0, 0))
     expect(hand.run.cash - s.run.cash).toBe(4 * Math.round(base * (1 + orderBonus()) * handPickedBonus()) + market)
-    const worker = fieldsHarvest(s)!
+    const worker = workerReap(s)
     expect(okState(worker).run.cash - s.run.cash).toBe(4 * Math.round(base * (1 + orderBonus())) + market)
   })
 
@@ -445,7 +448,7 @@ describe('batch 29: 🚜 estate contracts', () => {
     expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40, done: 36 })]), 0, 0)).run.counters.contractsByHand).toBe(1)
     // not completed → 0; completed by a harvester → 1
     expect(okState(reapPlot(estate({}, [offer({ good: 'radish', count: 40 })]), 0, 0)).run.counters.contractsByHand).toBe(0)
-    expect(okState(fieldsHarvest(s)!).run.counters.contractsByHand).toBe(1)
+    expect(okState(workerReap(s)).run.counters.contractsByHand).toBe(1)
     // the home plot: a hand or a worker harvest completes it after the Tractor, never before
     const home = estate({ tiles: [ripe, ...init.run.tiles.slice(1)] }, [offer({ good: 'radish', count: 1 })])
     expect(okState(harvest(home, 0)).run.counters.contractsByHand).toBe(1)

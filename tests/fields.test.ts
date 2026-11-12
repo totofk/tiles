@@ -21,6 +21,7 @@ import {
   reapPlotEnergy,
   seedDropChance,
   tankCapCoal,
+  workerActionTicks,
 } from '../src/core/balance'
 import { nextRandom } from '../src/core/actions'
 import {
@@ -63,6 +64,10 @@ const ok = (r: ReturnType<typeof buyPlot>): GameState => {
   return r.state
 }
 const sown = (s: GameState) => s.run.fields.list.flatMap((f) => f.plots).filter((p) => p.crop !== null).length
+/** batch 32.2: the shared counter (machines.carry) set, e.g. one tile short of a plot so the next worker action finishes it */
+const withCarry = (s: GameState, carry: Partial<Machines['carry']>): GameState =>
+  ({ ...s, run: { ...s.run, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry: { ...s.run.fields.machines.carry, ...carry } } } } })
+const lastTile = (s: GameState) => withCarry(s, { harvest: plotTiles() - 1 })
 
 /** a fields-ready run: unlocked with `list`, both certificates, one sprinkler, lemon fields-plantable, a full Pump-0
  *  tank (so batch 28's pressure never slows these plots); `f` overrides the fields */
@@ -286,7 +291,7 @@ describe('reapPlot / reapNext (by hand)', () => {
     // batch 31: Estate plots give no renown, by hand or by machine
     expect(r.run.renown).toEqual({})
     // ×1: the same ten units a worker sells
-    const worker = fieldsHarvest(s)!
+    const worker = fieldsHarvest(lastTile(s))!
     expect(worker.ok && worker.state.run.cash).toBe(r.run.cash)
     expect(worker.ok && worker.state.run.renown).toEqual({})
   })
@@ -320,11 +325,11 @@ describe('reapPlot / reapNext (by hand)', () => {
   it('a reaped plot fills an accepted order first at the order price, exactly like a home-plot harvest', () => {
     const orders = { unlocked: true, slots: 1, offers: [{ good: 'lemon' as const, count: 3, done: 0, tier: 0, accepted: true }] }
     const s = withFields([field([lemon(900)])], { cash: 0, tick: 1000, orders })
-    const r = fieldsHarvest(s)
+    const r = fieldsHarvest(lastTile(s))
     if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
     expect(r.state.run.lifetime.ordersCompleted).toBe(1)
     // 3 units at the order price (110 × 1.1) beat the market's glutted 110s
-    const market = fieldsHarvest(withFields([field([lemon(900)])], { cash: 0, tick: 1000 }))!
+    const market = fieldsHarvest(lastTile(withFields([field([lemon(900)])], { cash: 0, tick: 1000 })))!
     expect(market.ok && r.state.run.cash > market.state.run.cash).toBe(true)
   })
 
@@ -332,7 +337,7 @@ describe('reapPlot / reapNext (by hand)', () => {
     const at = (harvest: number) => withFields([field([lemon(900)])], { cash: 0, tick: 1000, energy: 10, toolTier: { ...init.run.toolTier, harvest } })
     const gold = at(3)
     const hand = ok(reapPlot(gold, 0, 0))
-    const worker = fieldsHarvest(gold)!
+    const worker = fieldsHarvest(lastTile(gold))!
     const basic = ok(reapPlot(at(0), 0, 0))
     expect(hand.run.rngState).not.toBe(gold.run.rngState)
     expect(worker.ok && worker.state.run.rngState).not.toBe(gold.run.rngState)
@@ -370,7 +375,7 @@ describe('helpers', () => {
   })
 })
 
-describe('workers on the fields (whole plots)', () => {
+describe('workers on the fields (one tile per action on the shared counter, batch 32.2)', () => {
   /** every home tile planted and still growing, so the planter and harvester fall through to the Fields */
   function fieldsRun(list: Field[], assigned = { plant: 1, harvest: 0 }, extra: Partial<GameState['run']> = {}): GameState {
     const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
@@ -383,19 +388,69 @@ describe('workers on the fields (whole plots)', () => {
   }
 
   it('a planter whose home plot is fully planted sows the next plot by its chip (same wage, no home counters)', () => {
-    const after = step(fieldsRun([field([lemon(999), empty()])]), 1)
+    // batch 32.2: the plot's 10th tile (the shared counter at 9) sows it
+    const after = step(withCarry(fieldsRun([field([lemon(999), empty()])]), { plant: plotTiles() - 1 }), 1)
     expect(after.run.fields.list[0].plots[1]).toEqual(lemon(5 + LEMON / 2))
     expect(after.run.cash).toBe(1000 - 10 * 20 - 1) // ten seeds + the wage
-    expect([after.run.lifetime.wagesPaid, after.run.counters.plants]).toEqual([1, 0])
+    expect([after.run.lifetime.wagesPaid, after.run.counters.plants, after.run.fields.machines.carry.plant]).toEqual([1, 0, 0])
     expect(fieldsPlantAction(fieldsRun([field([empty()], null)]))).toBeNull() // no chip: nothing to sow, plain idle
   })
 
   it('a harvester with nothing ready at home reaps the oldest ready plot, whole, no energy', () => {
-    const s = fieldsRun([field([lemon(4), lemon(2)])], { plant: 0, harvest: 1 })
+    const s = lastTile(fieldsRun([field([lemon(4), lemon(2)])], { plant: 0, harvest: 1 }))
     const after = step(s, 1)
     expect(after.run.fields.list[0].plots).toEqual([lemon(4), empty()])
     expect(after.run.energy).toBeGreaterThanOrEqual(s.run.energy)
     expect(after.run.lifetime.wagesPaid).toBe(1)
+  })
+
+  /** `n` worker rounds from fieldsRun's tick 5 (a round every workerActionTicks) */
+  const rounds = (s: GameState, n: number) => step(s, (n - 1) * workerActionTicks(init.meta) + 1)
+
+  it('batch 32.2: one tile per action — 9 harvester rounds reap nothing for 💰9 of wages, the 10th reaps one plot (💰10)', () => {
+    const s = fieldsRun([field([lemon(4), lemon(2)])], { plant: 0, harvest: 1 })
+    const nine = rounds(s, 9)
+    expect([sown(nine), nine.run.lifetime.wagesPaid, nine.run.fields.machines.carry.harvest]).toEqual([2, 9, 9])
+    const ten = rounds(s, 10)
+    expect(ten.run.fields.list[0].plots).toEqual([lemon(4), empty()])
+    expect([ten.run.lifetime.wagesPaid, ten.run.fields.machines.carry.harvest]).toEqual([10, 0])
+  })
+
+  it('batch 32.2: a machine-banked carry.harvest of 7 plus 3 worker actions reaps the plot', () => {
+    const act = (x: GameState) => {
+      const r = fieldsHarvest(x)
+      if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
+      return r.state
+    }
+    const two = act(act(withCarry(withFields([field([lemon(5)])], { tick: 10 }), { harvest: 7 })))
+    expect([sown(two), two.run.fields.machines.carry.harvest]).toEqual([1, 9])
+    const three = act(two)
+    expect([sown(three), three.run.fields.machines.carry.harvest]).toEqual([0, 0])
+  })
+
+  it('batch 32.2: with a ripe home tile the harvester works the home tile and the shared counter stays', () => {
+    const s = withCarry(fieldsRun([field([lemon(4)])], { plant: 0, harvest: 1 }), { harvest: 3 })
+    const home = { ...s, run: { ...s.run, tiles: s.run.tiles.map((t, i) => (i === 0 ? { ...t, growth: LEMON } : t)) } }
+    const after = step(home, 1)
+    expect(after.run.tiles[0].status).not.toBe('planted')
+    expect([sown(after), after.run.fields.machines.carry.harvest, after.run.lifetime.wagesPaid]).toEqual([1, 3, 1])
+  })
+
+  it('batch 32.2: a planter with no seeds (auto-buy off) banks and pays nothing; the seeds go only on the 10th action', () => {
+    const plots = [field([lemon(999), empty()])]
+    const none = rounds(fieldsRun(plots, undefined, { seeds: {}, autoBuySeeds: false }), 3)
+    expect([sown(none), none.run.lifetime.wagesPaid, none.run.fields.machines.carry.plant]).toEqual([1, 0, 0])
+    const s = fieldsRun(plots, undefined, { seeds: { lemon: plotTiles() }, autoBuySeeds: false })
+    const nine = rounds(s, 9)
+    expect([sown(nine), nine.run.seeds.lemon, nine.run.lifetime.wagesPaid, nine.run.fields.machines.carry.plant]).toEqual([1, 10, 9, 9])
+    const ten = rounds(s, 10)
+    expect([sown(ten), ten.run.seeds.lemon, ten.run.lifetime.wagesPaid, ten.run.fields.machines.carry.plant]).toEqual([2, 0, 10, 0])
+  })
+
+  it('batch 32.2: a hand reap of the next plot leaves the shared counter as it was (the progress moves to the next plot)', () => {
+    const s = withCarry(withFields([field([lemon(2), lemon(5)])], { tick: 10, energy: 10 }), { harvest: 6 })
+    const r = ok(reapPlot(s, 0, 0))
+    expect([sown(r), r.run.fields.machines.carry]).toEqual([1, s.run.fields.machines.carry])
   })
 
   it('a planter with no sowable plot idles unpaid', () => {
@@ -442,7 +497,8 @@ describe('machinesAct on whole plots', () => {
     const after = step(base, 1)
     expect(sown(after)).toBe(0)
     expect(after.run.lifetime.wagesPaid).toBe(0)
-    const control = step({ ...base, run: { ...base.run, fields: { ...base.run.fields, machines: fleet({}) } } }, 1)
+    // batch 32.2: the control's worker finishes the plot from the same 9 tiles on the shared counter
+    const control = step({ ...base, run: { ...base.run, fields: { ...base.run.fields, machines: fleet({ carry: { harvest: 9, plant: 0, maint: 0 } }) } } }, 1)
     expect(sown(control)).toBe(0)
     expect(control.run.lifetime.wagesPaid).toBe(1)
   })

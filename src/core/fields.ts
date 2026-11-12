@@ -359,23 +359,38 @@ export function buyMachine(state: GameState, kind: MachineKind, tier: number): A
   })
 }
 
+/** `run` with the Fields' shared tile counter (machines.carry) changed */
+const withCarry = (run: RunState, carry: Partial<Machines['carry']>): RunState => ({
+  ...run,
+  fields: { ...run.fields, machines: { ...run.fields.machines, carry: { ...run.fields.machines.carry, ...carry } } },
+})
+
 /**
- * The harvester worker's Fields action (its home plot has nothing ripe): reaps the oldest ready plot, no energy, never
- * hand-picked. null = nothing ready (a plain idle).
+ * The harvester worker's Fields action (its home plot has nothing ripe): one tile per action on the shared counter
+ * (carry.harvest, the machines' too); a plot's worth reaps the oldest ready plot, no energy, never hand-picked. One
+ * action reaps at most one plot. null = nothing ready (a plain idle).
  */
 export function fieldsHarvest(state: GameState): ActionResult | null {
   if (!state.run.fields.unlocked) return null
   const at = nextReapTarget(state.run)
-  return at && withRun(state, reapAt(state, at[0], at[1], 0))
+  if (!at) return null
+  const progress = state.run.fields.machines.carry.harvest + 1
+  if (progress < plotTiles()) return withRun(state, withCarry(state.run, { harvest: progress }))
+  return withRun(state, withCarry(reapAt(state, at[0], at[1], 0), { harvest: progress - plotTiles() }))
 }
 
 /**
- * The planter worker's Fields action (its home plot fully planted): sows the next sowable plot (sowNext). null =
- * nothing to sow; NO_SEEDS / NO_CASH pass through to the worker loop (idle unpaid).
+ * The planter worker's Fields action (its home plot fully planted): one tile per action on the shared counter
+ * (carry.plant, the machines' too); a plot's worth sows the next sowable plot (sowNext), so seeds and seed cash are
+ * paid only then. null = nothing to sow; NO_SEEDS / NO_CASH pass through to the worker loop (idle unpaid, nothing banked).
  */
 export function fieldsPlantAction(state: GameState): ActionResult | null {
   if (!state.run.fields.unlocked || !nextSowTarget(state.run.fields)) return null
-  return sowNext(state)
+  const sown = sowNext(state)
+  if (!sown.ok) return sown
+  const progress = state.run.fields.machines.carry.plant + 1
+  if (progress < plotTiles()) return withRun(state, withCarry(state.run, { plant: progress }))
+  return { ok: true, state: { ...sown.state, run: withCarry(sown.state.run, { plant: progress - plotTiles() }) } }
 }
 
 /** plots the pivots burn this tick: every plot in a pivoted field, or with the smart valve only the growing ones */
@@ -448,7 +463,8 @@ function fleetMaintPerTick(machines: Machines, kind: MachineKind): number {
 
 /**
  * One tick of the machines (batch 19, whole plots since batch 28), run in step BEFORE the workers: a harvester takes
- * the ready plots first and the harvester workers fill the gap; the seeder sows through sowNext (the field chips, the
+ * the ready plots first and the harvester workers add one tile per action on the same shared counter (carry, batch
+ * 32.2), so a machine and a worker finish each other's plots; the seeder sows through sowNext (the field chips, the
  * planter's own seed rules). Maintenance is flat cash per live hour worked — a harvester works while a plot is ready, a
  * seeder while sowNext has a target; an hour the cash cannot pay pauses the fleet (the debt caps at that hour, never
  * grows). The harvester reaps one plot per plot's worth of tiles accrued (as many as are ready) and keeps at most one

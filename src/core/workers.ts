@@ -92,7 +92,8 @@ function workerAction(state: GameState, job: WorkerJob): { result: ActionResult;
   const [tile] = jobTiles(state, job)
   if (tile !== undefined) return { result: WORK[job](state, tile), tile }
   // batch 18: a planter whose home plot is fully planted / a harvester with nothing ready works the Fields instead
-  // (same job, same wage, no new assignment); a failed Fields action (nothing to plant or reap) is a plain idle
+  // (same job, same wage, no new assignment) — one tile per action on the shared counter (batch 32.2), and the home
+  // plot is checked first every round; a failed Fields action (nothing to plant or reap) is a plain idle
   const fields = job === 'plant' ? fieldsPlantAction(state) : job === 'harvest' ? fieldsHarvest(state) : null
   return fields && { result: fields }
 }
