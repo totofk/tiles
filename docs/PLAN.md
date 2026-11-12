@@ -6364,3 +6364,215 @@ stays 24, `src/save` untouched, no balance constant changed.
   iOS / Safari behaviour were not checked; jsdom has no layout, so `--rx` / `--ry` are only proven as `clientX −
   rect.left` with zero rects. Hermes re-measures live at 375 / 1024 / 1440 / 2560 / 3440 per the task's live-check list.
 - **174 / 175, not seen in a browser.** The "🚜 next · n/10" label was verified by render and unit tests only.
+
+## Batch 33 — Furnace molds: one mold per ore kind, metal-bar furnace ladder, Collect all (tasks 177–180, save v24 → v25)
+
+Toon's go: "ปล่อย 33" (2026-11-13 02:57). Design: docs/DECISIONS.md batch 24 entry ("26 furnace molds (item 8)",
+renumbered to batch 33 / save v25) and the "Batch 33 refined" entry at the end of docs/DECISIONS.md (Option A and the
+calls made while refining). Anchors are against `32f0fadd`. Do not pick other values than the ones below.
+
+**Why.** The furnace has ONE ore slot and ONE tray of ONE kind (`Furnace`, `src/core/state.ts:115–130`). Switching kind
+forfeits the slot's ore (`setOreKind`, `src/core/furnace.ts:74–85`, batch 21's two-press confirm in
+`src/app/Mine.tsx:131–132, 175–211`), and a full tray of one kind blocks the next. Tray 5 and ore slot 12 are fixed
+(`SMELT`, `src/core/balance.ts:87`), and the only furnace upgrades are paid in copper bars (`FURNACE_UPGRADES`,
+`balance.ts:229–239`). Toon chose molds in one furnace over duplicate furnaces or a bigger single slot: each ore kind
+gets its own mold with its own ore slot, progress and tray, all molds share the fire.
+
+**Save.** v24 → v25 (`SAVE_VERSION`, `src/save/serialize.ts:26`). The real v24 save is committed as
+`tests/fixtures/save-v24.json` (captured from the live build: v23 fixture loaded, migrated and re-saved by the shipped
+v24 code). Never edit any file in tests/fixtures.
+
+**LOCKED (Toon, design around these; do not argue them away)**
+- One mold per ore kind, max 3. The copper mold comes with the furnace; the iron and gold molds are bought.
+- One shared fire. Each running mold burns its own recipe's fire; fire out → every mold stops.
+- One tray PER mold (a shared tray would let a full copper tray block gold).
+- Furnace-wide upgrades apply to every mold. Speed and Batch are metal-bar in-run upgrades in THIS batch (Option A,
+  2026-11-13); the ⭐ Favours of batch 34 come on top later and are not part of this batch.
+- No kind switch any more: the batch-21 two-press switch and `setOreKind` are removed.
+- Automation is earned: the ore loader (existing certificate) fills molds; Collect all is a bought milestone.
+
+### Numbers (all fixed here; balance.ts)
+
+| Row | Levels (index = level) | Price of level 1 | Price of level 2 |
+| --- | --- | --- | --- |
+| Fire cap (units) | 10, 20, 40, **80, 160** | existing 🥉4 💰150 | existing 🥉8 💰300; then Lv3 🥈6 💰7,500, Lv4 🥇4 💰7,500 |
+| Batch (bars/cycle) | 1, 2, 3, **4, 5** | existing 🥉6 💰200 | existing 🥉12 💰400; then Lv3 🥈8 💰7,500, Lv4 🥇5 💰7,500 |
+| Speed (progress per tick) | 1, 1.25, 1.5625 | 🥈10 💰7,500 | 🥇8 💰7,500 |
+| Tray (bars per mold) | 5, 10, 20 | ⛰️30 🥉8 💰6,500 | 🥈8 💰7,500 |
+| Ore slot (ore per mold) | 12, 24, 48 | ⛰️30 🥉6 💰6,500 | 🥈6 💰7,500 |
+| Smart (one-time) | — | existing 🥉10 💰400 | — |
+| Collect all (one-time) | — | 🥉10 🥈5 💰6,500 | — |
+| Iron mold (one-time) | — | 🥉10 ⛰️20 💰6,500 | — |
+| Gold mold (one-time) | — | 🥈8 ⛰️30 💰7,500 | — |
+
+- Item ids: 🥉 `copperBar`, 🥈 `ironBar`, 🥇 `goldBar`, ⛰️ `stone` (`src/core/data/items.ts:21–31`). Every price goes
+  through `scalePrice(…, meta)` like today (`furnaceUpgradeCost`, `balance.ts:810–813`).
+- Cash parts: copper-bar rows 💰6,500 = 0.5 h of the measured vein-Lv3 income (💰12,842/h, PLAN.md "Batch 28.2
+  results", the same figure as `ORE_SORT_CASH`, `balance.ts:149–151`); iron/gold-bar rows 💰7,500 = 0.53 h of the
+  measured vein-Lv4 income (💰14,118/h, the same figure as `GOLD_VEIN_CASH`, `balance.ts:155–157`). Put each as a named
+  constant with that comment.
+- Speed: a level multiplies the cycle TIME by 0.8, implemented as a progress RATE `1.25 ** level` (exact binary
+  fractions 1, 1.25, 1.5625). Cycle seconds shown = `Math.ceil(barTicks(kind) / rate)`: copper 60 / 48 / 39, iron
+  120 / 96 / 77, gold 180 / 144 / 116.
+- Batch Lv3 and Lv4 (4 and 5 bars) are LOCKED (`fail('LOCKED')`) until `trayCap ≥ 2 × the new batch bars` AND
+  `oreSlot ≥ 2 × smeltOre() × the new batch bars` — i.e. both need tray Lv1 and ore slot Lv1. The rule is computed
+  from the balance functions, not hard-coded per level. Levels 1–2 keep today's behaviour (no lock).
+- Bound check (state it in a balance test, recomputed from the functions): copper at batch 5 + speed Lv2 =
+  5 × 3600 ÷ 38.4 = 468.75 bars/h per mold.
+- Worst-case offline loss: a plain (not smart) furnace with no mold smelting burns 1 fire tick per tick, at most the
+  fire cap: 160 units = 4,800 ticks = 80 coal. Bounded.
+
+- [ ] 177. **Core + save: molds, the new rows, speed, migration v24 → v25.**
+  - a. `state.ts:115–130`: `export type Mold = { ore: number; progress: number; ready: number }` and
+    `Furnace = { built; fire; smart; levels: { fireCap; batch; speed; tray; slot }; molds: Partial<Record<OreId, Mold>>;
+    collectAll: boolean }`. `oreKind`, `ore`, `progress`, `ready` leave `Furnace`. A mold is owned when its key exists.
+    `createFurnace()` (`state.ts:276–279`): `molds: { copperOre: { ore: 0, progress: 0, ready: 0 } }`, every level 0,
+    `collectAll: false`. Update the doc comment.
+  - b. `balance.ts`: `FIRE_CAP_UNITS` (`:99`) → `[10, 20, 40, 80, 160]`; `BATCH_BARS` (`:101`) → `[1, 2, 3, 4, 5]`;
+    `SMELT.trayCap` / `SMELT.oreSlot` (`:87`) become level tables `TRAY_CAP = [5, 10, 20]`, `ORE_SLOT = [12, 24, 48]`;
+    new `SPEED_RATE = [1, 1.25, 1.5625]`. `FURNACE_UPGRADES` (`:229–239`) gains the rows of the table above
+    (`fireCap` and `batch` get their 3rd/4th prices; new `speed`, `tray`, `slot`, one-time `collectAll`), and a new
+    `MOLD_PRICES: Record<'ironOre' | 'goldOre', Price>`. `furnaceTrayCap(level)` / `oreSlotCap(level)` take the level
+    (grep every caller), new `furnaceSpeedRate(level)`, `moldPrice(ore, meta)`. Rewrite the comment block at `:81–86`
+    for molds (keep the "ore slot ≥ 2 × the top batch's cycle" reasoning, now per level).
+  - c. `furnace.ts`:
+    - `buildFurnace` unchanged (the copper mold comes with `createFurnace`).
+    - `cycleOre(f)` unchanged meaning (ore per cycle at the batch level).
+    - `loadOre(state, ore: OreId, max = Infinity)`: Order NO_FURNACE, LOCKED (mold not owned), FULL, NO_ORE.
+    - `collectBars(state, ore: OreId)`: one mold's tray; Order NO_FURNACE, LOCKED, NOTHING_TO_DO, BAG_FULL. Counters /
+      lifetime exactly as today per kind (`furnace.ts:131–150`).
+    - `collectAll(state)`: requires `f.collectAll` (else LOCKED); collects every owned mold's tray in copper → iron →
+      gold order as far as storage room goes; NOTHING_TO_DO when no tray has bars; BAG_FULL when nothing fit.
+    - `buyMold(state, ore)`: Order NO_FURNACE, ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH (via `pay`). Copper is never
+      for sale (ALREADY_OWNED).
+    - `buyFurnaceUpgrade(state, id)`: Order NO_FURNACE, MAX_LEVEL, LOCKED (batch rule above), NOT_ENOUGH_ITEMS, NO_CASH.
+      `furnaceUpgradeLevel` maps `smart` / `collectAll` to 0/1.
+    - `moldSmelting(f, ore)`: mold owned, `fire > 0`, `mold.ore >= cycleOre(f)`, `mold.ready + batchBars ≤ trayCap`.
+    - `tickFurnace(run)` (`:97–129`): `rate = furnaceSpeedRate(levels.speed)`. For each owned mold in `ORE_IDS` order
+      that is smelting: `burn = Math.min(fire, rate)`; `fire -= burn`; `progress += burn`; when
+      `progress >= barTicks(kind)`: `progress -= barTicks(kind)` (the overflow carries), `ore -= cycleOre`,
+      `ready += batchBars`, the per-kind lifetime counter as today. If NO mold smelted this tick and the fire is lit:
+      a smart furnace burns nothing; a plain one burns 1 (`fireWasted` += 1, as today). `fireBurnt` += every burn.
+      Still called once per tick, so `step(s, n) = n × step(s, 1)`.
+    - Remove `setOreKind` and `smelting`; grep and update every caller.
+  - d. Save `src/save/serialize.ts`: `SAVE_VERSION = 25`; freeze `SaveV24` with the v24 `Furnace` shape (old shape:
+    `{ built, oreKind, fire, ore, progress, ready, smart, levels: { fireCap, batch } }`); `Save = SaveV25`;
+    `migrateV24(save: SaveV24): SaveV25` chained after `migrateV23` in `migrate` (`:623–632`):
+    - the old slot (ore, progress, ready) becomes `molds[oreKind]`;
+    - the copper mold always exists;
+    - when the furnace is built, every kind the run's vein drops also gets an (empty) mold: vein level ≥ 3 → iron,
+      ≥ 4 → gold. Freeze those two levels as constants in serialize.ts (do not import the live table). Why: today's
+      furnace can smelt every kind the vein drops, so nothing is taken away;
+    - levels gain `speed: 0, tray: 0, slot: 0`; `collectAll: false`; fire and smart unchanged.
+  - Tests (`tests/furnace.test.ts`, `tests/save.test.ts`, `tests/balance.test.ts`):
+    - every fixture v1 … v24 migrates to v25; `save-v24.json` → molds `{ copperOre: empty, ironOre: empty, goldOre:
+      { ore: 4, progress: 12, ready: 0 } }`, fire 576, smart true, levels `{ fireCap: 2, batch: 2, speed: 0, tray: 0,
+      slot: 0 }`, `collectAll: false`, cash and inventory unchanged;
+    - two molds smelt at once on one fire; fire out stops both; a full copper tray does not stop gold;
+    - speed Lv2: a copper cycle ends on tick 39 and the 2nd on tick 77 (overflow carried), fire burnt per cycle 60;
+    - plain furnace with no mold smelting burns 1/tick, smart burns 0;
+    - batch Lv3 LOCKED until tray Lv1 + slot Lv1, then buyable; LOCKED for an unowned mold's load/collect;
+    - `collectAll` partial when storage runs short (copper first);
+    - the bar-price test (`tests/balance.test.ts:150–162`): pin the equality `price = ⌊inputs⌋ − 1` at batch level 2
+      (3 bars, the copper-bar ladder top), not at `furnaceUpgradeMaxLevel('batch')`. Comment: at batch 5 a gold bar (💰5)
+      sells above its ore + coal (💰4.4); allowed because ore cannot be bought, so there is no cash loop, and batch 34
+      replaces bar prices (DECISIONS "Batch 33 refined" call 8);
+    - every new price's item count ≤ the storage capacity at its stage (extend the sim's price-cap table: copper-bar rows
+      at vein Lv3 storage, iron/gold-bar rows at vein Lv4 storage);
+    - the bound: copper batch 5 + speed Lv2 = 468.75 bars/h, recomputed from the functions.
+
+- [ ] 178. **Callers: ore loader, orders, stats, away text.**
+  - Ore loader (`src/core/workers.ts:38–54`), one action per round: (1) collect the tray of the first owned mold in
+    copper → iron → gold order that has bars and fits storage (`collectBars(s, kind)` ok); else (2) load one cycle
+    (`cycleOre(f)`) into the owned mold with the FEWEST whole cycles loaded (`Math.floor(mold.ore / cycleOre(f))`) among
+    molds whose storage holds ≥ one cycle and whose slot has room for one; tie → copper → iron → gold. Update the
+    comment at `:38–40` and `WORKER_TIPS.ore` (`src/app/tips.ts:81`): "… move finished bars from every mold into
+    storage, and when there are none, load one smelt of ore into the mold that has the least."
+  - Fuel loader (`:55–58`) unchanged.
+  - `orderPool` (`src/core/orders.ts:51–54`): a bar is offered only when its mold is owned (`run.furnace.molds[ore]`).
+  - `orderPerMinute` bar rate (`orders.ts:67–68`): `batchBars(levels.batch) × 60 × furnaceSpeedRate(levels.speed) ÷
+    barTicks(ore)`.
+  - `feedbackSummary` (`src/core/stats.ts:170`): `furnace smart|plain fire LvF batch LvB speed LvS molds copper+iron+gold`.
+  - Away text (`src/app/useGame.ts:105`): `ready` = the sum of every mold's tray.
+  - `useGame.ts:52` `NOT_EMPTY` text stays only if another caller still uses it (grep); otherwise remove the key.
+  - Grep tests/ and src/ for `setOreKind`, `oreKind`, `furnace.ore`, `furnace.progress`, `furnace.ready`, `smelting(`,
+    `loadOre(`, `collectBars(`, `furnaceTrayCap(`, `oreSlotCap(`, `FURNACE_UPGRADE_IDS`, `buyFurnaceUpgrade(`
+    (today: tests/furnace.test.ts 70, tests/sim.test.ts 66, src/app/Mine.tsx 32, tests/workers.test.ts 13,
+    tests/save.test.ts 7, tests/Mine.test.tsx 7, src/core/orders.ts 2, src/core/stats.ts 1, src/app/useGame.ts 1) and
+    update each one.
+
+- [ ] 179. **UI: the furnace card shows one row per mold.** `src/app/Mine.tsx:116–287`, `src/app/tips.ts:68–75`.
+  - Summary (`:147–149`): `🔥 Furnace · fire {units}/{cap} · {sum of ready} ready` (the "ore n" part goes).
+  - Fire group (`:151–172`) unchanged, except the hint at `:160`: "burning with nothing to smelt" shows when the fire is
+    lit, the furnace is not smart and no mold is smelting.
+  - Smelt group (`:174–256`, keeps the `smeltActed` flash class): the kind picker and `confirmKind` state go. When
+    `collectAll` is owned and ≥ 2 molds are owned, first a button `Collect all` with second line `{n} bars` (or the short
+    reason). Then one sub-group per owned mold in copper → iron → gold order:
+    - line: `{ore emoji} {Ore name} · ore {mold.ore}/{slotCap} · {status}`, status first match: fire 0 → `fire out`;
+      tray cannot take a batch → `tray full`; `mold.ore < cycleOre` → `needs {n} more ore`; else `smelting`;
+    - the recipe line as today (`:217–237`) per mold, with the cycle seconds from the speed rule;
+    - a progress `Bar` (`value = progress / barTicks(kind)`) while progress > 0;
+    - one `.mine-furnace-actions` row with two buttons: `Load {ore emoji} ore` (second line `uses n` / short reason)
+      and `Collect {ready} {bar emoji}` (second line `tray {ready}/{trayCap}` / short reason).
+    - `have:` stock line stays once for the whole group: `🔶 n · 🔷 n · 🌟 n · coal n · wood n`, ores only for owned
+      molds.
+  - Upgrades group (`:265–284`): first the mold rows not yet owned, each shown once the vein drops that ore (the old
+    picker's rule, `tierVein`, `Mine.tsx:144`): `{ore emoji} Iron mold` / `{ore emoji} Gold mold` with the price line.
+    Then `FURNACE_UPGRADE_IDS` in this order: fireCap, batch, speed, tray, slot, smart, collectAll; `collectAll` shows
+    only with ≥ 2 molds owned. Labels: fireCap and batch as today (`UPGRADE_LABEL`, `:116–120`); speed
+    `Speed: cycles {round(100 × 0.8^l)} % → {round(100 × 0.8^(l+1))} %`; tray `Tray {cap} → {next} bars`; slot
+    `Ore slot {cap} → {next}`; collectAll `Collect all`. A LOCKED batch row's second line: `{price} · needs tray
+    {2 × next bars} + ore slot {2 × next cycle ore}`.
+  - `FURNACE_TIPS` (`tips.ts:69–75`) gains: speed "Every mold finishes a smelt 20 % sooner per level. Fuel per bar stays
+    the same."; tray "Each mold's tray holds more bars, so molds keep smelting longer before you collect."; slot "Each
+    mold's ore slot holds more ore."; collectAll "One button moves every mold's bars into storage."; molds (new key
+    `mold`) "A mold smelts one ore kind with its own ore slot and tray. All molds share the fire and smelt at the same
+    time."; fire: replace "also with no ore loaded or a full tray" by "also when no mold is smelting". `TIPS.furnace`
+    (`tips.ts:62`): "Smelts ore into bars with coal or wood, no energy needed. Comes with a copper mold; buy iron and
+    gold molds to smelt every kind at once. Bought once; it opens the next vein level."
+  - No new badge, no new `tiles.ui` field. Emoji only from `ITEMS.*.emoji` / `FIRE_EMOJI` (Unicode ≤ 11).
+  - jsdom tests (`tests/Mine.test.tsx`, update `:168–189`): copper-only furnace renders one mold row and no picker; a
+    vein-Lv3 save shows the `Iron mold` row, buying it adds a second mold row; two molds + `collectAll` owned shows
+    `Collect all`; a batch row at Lv2 without tray/slot Lv1 shows the `needs tray 8 + ore slot 16` line; the summary text.
+  - You have no browser: list what you could not verify under `### Deviations` (Hermes re-measures live at 375 / 1024 /
+    1440 / 2560 / 3440).
+
+- [ ] 180. **Sim: the bot uses molds; scenarios A / B; re-pins; changelog.**
+  - Bot policy (`tests/sim.test.ts`; the kind switch is `:906–967`, `ladderTicks.ironPicked / goldPicked` at
+    `:679, 909, 914`): the bot no longer picks a kind. It buys the iron mold when the next ladder goal needs iron bars
+    (where it called `setOreKind(s, 'ironOre')`) and the gold mold where it called `setOreKind(s, 'goldOre')`; rename
+    the ladder marks to `ironMold` / `goldMold`. Every step it collects and loads EVERY owned mold, and keeps the fire
+    fuelled while any mold has a cycle of ore. It never spends iron or gold bars on optional furnace rows (speed, batch
+    Lv3–4, tray, slot, fire Lv3–4, Collect all) inside the ladder; their throughput is reported by the max-furnace pin
+    below. The `goldReserveShort` / `keep` logic that guarded the shared slot (`:743–767`) is reduced to what molds
+    still need (grep its comment at `:669`).
+  - Scenario A (fresh, tick 0): add a test FIRST on the unchanged code that records, and report before → after: ladder
+    end (game-min), first iron bar, first gold bar, the minute the iron / gold mold is bought (after), the longest gap
+    between milestones tick 0 → ladder end, and for that gap the cash and bars held right before the purchase that
+    closed it (which one bound it). Guards that must hold: the batch-16 ladder gaps ≤ 60 game-min, PIN26b ≤ 90 game-min
+    to the Tractor, the batch-18 unlock step ≤ 60 game-min.
+  - Scenario A2 (hand player, no workers): from the copper-only furnace, buying the iron mold needs only what the copper
+    mold makes (🥉10 ⛰️20 💰6,500): assert reachable (no soft lock).
+  - Scenario B (veteran, `tests/fixtures/save-v24.json` as migrated): 2 game-hours with its own workers; report bars/h
+    per kind before (one kind) → after (three molds), fire burnt/h, and that every new row's cash part is < 2 % of its
+    cash (bars are the gate for veterans).
+  - Max-furnace pin: one mold per kind at every level max, fire kept full: bars/h per kind (copper 468.75 by
+    construction; report iron and gold).
+  - Re-pin every other moved pin old → new with the cause "molds: every kind smelts at once". A guard that fails (stall
+    gap cap, negative value, price above storage capacity, migration) is a blocker: record it under `### Deviations`
+    with the numbers and stop.
+  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`), verbatim:
+    `{ batch: '33', date: '<today, YYYY-MM-DD>', line: "The furnace has molds: buy iron and gold molds to smelt every ore at once, each with its own tray. New upgrades: speed, bigger trays and ore slots, a bigger fire, Collect all." }`
+  - Write `## Batch 33 results` + `### Deviations` at the TRUE END of docs/PLAN.md (the scenario table goes there) and
+    tick 177–180.
+
+### Two scenarios (skill rule 0a)
+- **A — fresh player from tick 0.** The copper mold comes with the furnace, so copper play is unchanged. The iron mold
+  (🥉10 ⛰️20 💰6,500) is a new step between vein Lv3 and the first iron bar, the gold mold (🥈8 ⛰️30 💰7,500) between
+  vein Lv4 and the first gold bar. Risk: these two steps lengthen the iron and gold ladder gaps; the ≤ 60 game-min gap
+  guard decides, and a failure stops the batch for Hermes. Hand-heavy player: every price is paid from what the
+  copper mold makes, so no soft lock.
+- **B — veteran with a migrated save** (`save-v24.json`: vein Lv4, fire Lv2, batch Lv2, smart, 💰447k, 🥉3 🥈5 🥇4).
+  Migration gives all three molds (the gold slot keeps ore 4, progress 12), so nothing is lost and all three kinds smelt
+  at once from the first tick. Every new row starts at Lv0 for veterans too; their cash parts are ~1.5 % of the save's
+  cash, so bars gate them (🥈6–10 / 🥇4–8 per row).

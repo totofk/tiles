@@ -768,3 +768,41 @@ Hermes's calls while refining (Toon may reject by number):
   references.
 - **Renumbered:** none. "32.1" was the Manager ⭐20 change, folded into batch 32, so this batch is 32.2. Batch 33
   (furnace molds, save v25) keeps its number and runs after 32.2.
+
+## Batch 33 refined: furnace molds + the Speed/Batch overlap with batch 34 (2026-11-13, Toon: "ปล่อย 33")
+
+Spec: PLAN.md "Batch 33" (tasks 177–180), save v24 → v25. The molds design itself is the batch 24 entry above (minor-
+feedback item 8, accepted 2026-11-09) and is not reopened.
+
+- **Option A (Toon, 2026-11-13):** Speed and Batch stay metal-bar, in-run furnace upgrades in batch 33 (speed ×0.8
+  cycle time per level, 2 levels: 🥈10 / 🥇8; batch 3 → 4 → 5: 🥈8 / 🥇5). The ⭐ Favours of batch 34 become EXTRA
+  furnace boosts on top of that ladder (more speed / batch levels past the bar-paid max), bought with ⭐ and reset on
+  Sell the farm like every ⭐ row. Why: one ladder per stat, so a fresh player and a veteran both climb the bar rows
+  first and meet ⭐ only past them (the ⭐ rule "a ⭐ row extends a cash ladder past its max"). Supersedes the batch 34
+  draft's "⭐ furnace batch past Lv2 (batch 4 ⭐15, batch 5 ⭐30)" and "⭐ speed from Lv1"; batch 34's furnace rows are
+  re-sized at its refine.
+
+Hermes's calls while refining (Toon may reject by number):
+1. Speed is a progress RATE (`1.25 ** level`: 1, 1.25, 1.5625) and a running mold burns fire at the same rate, so fuel
+   per bar stays the same (item 8.2) and only time shrinks; a cycle's overflow carries into the next one. Cycle
+   seconds: copper 60 / 48 / 39, iron 120 / 96 / 77, gold 180 / 144 / 116.
+2. Cash parts: copper-bar rows (tray Lv1, ore slot Lv1, iron mold, Collect all) 💰6,500 = 0.5 h of the measured
+   vein-Lv3 income (💰12,842/h); iron/gold-bar rows (speed, batch Lv3–4, fire Lv3–4, tray Lv2, slot Lv2, gold mold)
+   💰7,500 = 0.53 h of the measured vein-Lv4 income (💰14,118/h). Same yardsticks as Ore sorting and the gold vein.
+3. Batch 4 and 5 are locked until tray ≥ 2 × batch and ore slot ≥ 2 cycles (both need tray Lv1 + slot Lv1), the
+   item 8.4 guard written as a rule computed from the balance functions.
+4. Migration gives a built furnace a mold for every kind its vein drops today (vein Lv3 iron, Lv4 gold) plus the old
+   slot's kind, which keeps its ore, progress and tray. Why: today's furnace already smelts every dropped kind, so a
+   migration that charged for those molds would take something away.
+5. The ore loader collects first (copper → iron → gold), else loads one cycle into the owned mold with the fewest whole
+   cycles loaded ("order of need", item 8.6).
+6. The iron / gold mold rows appear once the vein drops that ore (the old kind picker's rule), so copper players see
+   no change.
+7. A plain furnace with no mold smelting burns 1 fire tick per tick (today's waste rule); running molds burn only their
+   own rate. Worst-case offline loss stays the fire cap (160 units = 80 coal).
+8. Bars keep 🥉2 🥈3 🥇5 this batch. At batch 5 a gold bar sells above its ore + coal (💰5 vs 💰4.4); allowed because
+   ore cannot be bought (no cash loop) and batch 34 replaces bar prices. The disposal test pins batch 3.
+9. The ladder bot buys only the two molds; it never spends bars on the optional furnace rows inside the ladder. A
+   separate max-furnace pin reports their throughput (copper 468.75 bars/h per mold by construction).
+10. Collect all (🥉10 🥈5 💰6,500) shows only with ≥ 2 molds owned.
+- **Renumbered:** none. Batch 33 = save v25 (as recorded in the batch 29 and 31.1 entries); batch 34 = save v26.
