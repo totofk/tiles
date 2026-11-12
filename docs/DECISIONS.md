@@ -806,3 +806,44 @@ Hermes's calls while refining (Toon may reject by number):
    separate max-furnace pin reports their throughput (copper 468.75 bars/h per mold by construction).
 10. Collect all (🥉10 🥈5 💰6,500) shows only with ≥ 2 molds owned.
 - **Renumbered:** none. Batch 33 = save v25 (as recorded in the batch 29 and 31.1 entries); batch 34 = save v26.
+
+## Batch 34 refined: ⭐ Favours, bar prices, order ⭐ by production-minutes, ⭐ carries a sale (2026-11-13, Hermes against `6fbb6eea`)
+
+Spec: PLAN.md "Batch 34" (tasks 181–187), save v25 → v26. Design sources: the "⭐ / deeds so far" bullet of the batch 31.1
+entry above, Toon's answers to the calc34 25-item list (docs/research/calc34.md §11, accepted 2026-11-12, with two later
+changes: copper 🥉100 not 🥉60, Manager ⭐20 not ⭐25), the prestige-layers answers q1–q2 (⭐ carry cap 50, ⭐ no longer
+converts to deeds; accepted 2026-11-13) and Option A of the "Batch 33 refined" entry. The ⭐ → deed rule of the batch 20
+entry (":395 ⭐ BALANCE converted first at 25 ⭐ = 1 deed") is superseded here.
+
+- **calc34 item 8 re-run on molds** (docs/research/calc34-item8-molds.md): with hit carry-over (batch 32) and parallel
+  molds (batch 33), one miner never needs a ⭐ furnace row; the ⭐ rows pay from 2 miners (+8 %; +33 % with 4 mastered
+  tiers), 3 miners (+52 %) and clickers (+135–237 %). One miner at vein Lv4 makes 💰240k/h of bars at sell 5, against
+  the pre-Fields farm's 💰161–336k/h — reported, not held down (2026-11-09 rule).
+
+Hermes's calls while refining (Toon may reject by number):
+1. Batch 33.1 (sim per-run log, task 181, test-only) is folded into batch 34 as its FIRST task instead of a separate
+   batch: 34 re-pins the sim anyway, the log helps diagnose those re-pins, and no extra worker spin-up is paid.
+2. Bar orders pay the bar's own sell price × 1.1 (like crop orders), so a bar order never pays less than selling the
+   bars; ore / stone / coal orders keep base × bonus. The old "bar = its ore + coal" value was written for
+   disposal-priced bars.
+3. ⭐ levels live on the existing ladders: Fine mist = fertilizer Lv6+, ⭐ sell = sellPrice Lv6+, ⭐ furnace speed =
+   speed Lv3+, ⭐ batch = batch Lv5+ (6 bars …). No parallel level state, and every reader of those levels picks the ⭐
+   part up. Grow time past Lv5 = 0.5 × 0.95^(level − 5).
+4. ⭐ furnace speed uncapped at ⭐ `round(10 × 1.5^k)` (calc34's price, now from speed Lv3); ⭐ batch 6 … 10 at
+   ⭐ `round(15 × 1.5^k)`, capped at 10 because the top tray (20) and ore slot (48) cannot hold two cycles past it.
+5. Seam survey re-aim is free and immediate (star-toys.md proposed "after 50 rocks"; no exploit found, one counter
+   less). Aim weights: chosen ore ×2, other ores ×0.5, stone absorbs the difference, coal unchanged.
+6. Stoker: certificate bought in the ⭐ Favours sheet, assigned in the Workers card, at most 1. "Hidden until the
+   furnace is busy" is read as: shown once the fuel certificate is owned and the bar ladder is done (speed Lv2, batch
+   5 bars). The boost lasts `workerActionTicks` ticks per paid action, so an unpaid stoker stops it.
+7. Fractional ⭐ is a separate `starsFrac`; `stars` stays a whole number everywhere it is shown or spent.
+8. Each offer stores its ⭐ when it is rolled (shown on the card, one decimal under 10); offers in a migrated v25 save
+   keep their tier's old ⭐ (1 / 2 / 4).
+9. Bunkhouse is buyable at any pool size once hiring is unlocked (not only with 6 hired).
+10. The Favours sheet lists every row with its lock reason (discoverability), except Stoker, hidden until ready. The
+    Sell card shows "⭐ N carried to the next farm · ⭐ M lost above 50".
+11. The ladder bot does not buy Favours; scenario pins set Favour levels directly.
+12. Chore: `tests/manager.test.ts:122` (8 h offline with a Manager on 20 fields) gets a 20 s timeout (flaky under load).
+- **Order slots** bought with ⭐ keep carrying across a sale as shipped in batch 20 (`prestige.ts:77`); not changed.
+- **Renumbered:** batch 33.1 is folded into batch 34 (its task 181 kept); batch 34 = tasks 181–187, save v26 as
+  recorded; batch 35 stays save v27.

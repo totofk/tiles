@@ -6692,3 +6692,273 @@ copper 468.75 bars/h (by construction, asserted), iron 234.375 bars/h, gold 156.
 - The `fire`, `fireWasted` and `fireBurnt` values can now hold fractions (speed burns 1.25 / 1.5625 per tick). Every
   place that shows them rounds already: the furnace summary and fire line (`Math.ceil` units), the welcome-back "fire
   burnt" (`Math.ceil`) and Stats "Fire wasted" (`Math.ceil`); the fire gauge is a fraction bar.
+
+## Batch 34 — ⭐ Favours, bar prices, order ⭐ by production-minutes, ⭐ carries a sale (tasks 181–187, save v25 → v26)
+
+Toon's go: batch order 33 → 34 → 35 → 36 (2026-11-13) and "release 34 after 33 is pushed" (relayed 2026-11-13). Design:
+docs/DECISIONS.md "⭐ / deeds so far" (Batch 31.1 refined entry, :705–714), "Batch 33 refined" (Option A: the ⭐
+furnace rows are EXTRA levels past the metal-bar ladder), and the new "Batch 34 refined" entry at the end of
+docs/DECISIONS.md (the calls made while refining). Calculator reports: docs/research/calc34.md (the 25 accepted items)
+and docs/research/calc34-item8-molds.md (the furnace ladder re-run on batch 33's molds). Anchors are against
+`6fbb6eea`. Do not pick other values than the ones below.
+
+**Why.** ⭐ buys only two Clerk/Manager certificate co-prices, two board slots and a reroll today
+(`src/core/balance.ts:231–233, 509–510`); a veteran sits on ⭐ with nothing to buy, and at a sale ⭐ turns into deeds
+(`src/core/prestige.ts:28–34, 60`), which contradicts "⭐ purchases reset; the ⭐ balance carries". Contracts pay ⭐ by
+tier while they ask only 15 % of the wet fields' output (`balance.ts:496–502`), so contract ⭐ leak ×5.4 (calc34 §2).
+Bars sell at disposal prices 🥉2 🥈3 🥇5 (`balance.ts:65–75`) although Toon asked for 🥉100 🥈500 🥇1000
+(DECISIONS.md:712).
+
+**Save.** v25 → v26 (`SAVE_VERSION`, `src/save/serialize.ts:27`). The real v25 save is committed as
+`tests/fixtures/save-v25.json` (captured from the live build: the v24 fixture loaded, migrated and re-saved by the shipped
+v25 code; cash 💰452,892, ⭐39, three molds). Never edit any file in tests/fixtures. ALL of this batch's save shape is in
+task 183's bump; no other task changes the save shape.
+
+**LOCKED (Toon; design around these, do not argue them away)**
+- Everything bought with ⭐ resets on Sell the farm; the ⭐ BALANCE carries, capped at 50.
+- A ⭐ row extends a cash (or metal-bar) ladder past its max; fresh and veteran players both meet it new. No ⭐ row
+  duplicates a deed row.
+- Order ⭐ = 0.2 × the production-minutes the order really consumes (option A), fractional ⭐ kept in the save. Item
+  orders use the BOARD rate (12 rocks/min), not the player's real hand rate. No global ⭐ meter, no ⭐/h ceiling.
+- Bars 🥉100 🥈500 🥇1000. No system is held down because it out-earns another; the sim REPORTS cash per system.
+- Manager ⭐20 and Clerk ⭐20 stay. Soil traits are not part of this batch.
+- The ⭐ furnace rows start where batch 33's metal-bar ladder ends (speed Lv2, batch Lv4 = 5 bars).
+
+### Numbers (all fixed here; balance.ts)
+
+| ⭐ row | Effect per level | Levels | ⭐ price of the k-th ⭐ level (k = 0, 1, …) | Shows / buyable when |
+| --- | --- | --- | --- | --- |
+| 🏠 Bunkhouse | worker pool cap +1 (6 → 10) | 4 | `Math.round(15 × 1.6^k)` = 15, 24, 38, 61 | hire unlocked; buyable at any pool size |
+| 💧 Fine mist | grow time × 0.95 (fertilizer Lv 5 + k) | uncapped | `Math.round(8 × 1.35^k)` = 8, 11, 15, 20, 27, 36, 48, 65, 88, 119 … | buyable once fertilizer Lv5 |
+| ⭐ Sell price | sell factor +0.1 (sellPrice Lv 5 + k) | uncapped | `Math.round(10 × 1.4^k)` = 10, 14, 20, 27, 38, 54, 75, 105, 148, 207 … | buyable once sell price Lv5 |
+| 🔥 Furnace speed | furnace speed Lv 3 + k, rate `1.25^level` | uncapped | `Math.round(10 × 1.5^k)` = 10, 15, 23, 34, 51, 76, 114, 171 … | furnace built; buyable once speed Lv2 |
+| 🔥 Furnace batch | furnace batch Lv 5 + k (6 … 10 bars) | 5 | `Math.round(15 × 1.5^k)` = 15, 23, 34, 51, 76 | furnace built; buyable once batch Lv4 (5 bars); batch lock rule applies |
+| ⛏ Seam survey | aim the vein: chosen ore weight ×2, other ores ×0.5 | one-time | ⭐12 | vein Lv3 |
+| 🔥 Stoker certificate | a worker job: while stoked, molds smelt ×1.5 at ×2 fire per bar | one-time | ⭐15 + 🥈6 (cash 0) | fuel certificate owned AND furnace speed ≥ Lv2 AND batch ≥ Lv4 |
+
+- Prices are JS `Math.round` (22.5 → 23). ⭐ is never scaled by the cost multiplier (`Price` comment,
+  `balance.ts:77–78`). The Stoker's 🥈6 goes through `scalePrice` like every item part.
+- Bar sell prices: `ITEM_SELL_PRICE` copperBar 100, ironBar 500, goldBar 1000 (`balance.ts:72–74`).
+- Order ⭐: `ORDER_STARS_PER_MINUTE = 0.2`. `ORDER_TIERS[].stars` (`balance.ts:496–500`) and `orderTierStars` go;
+  tiers keep minutes and weights.
+- ⭐ carry: `STAR_CARRY_CAP = 50`; `STARS_PER_DEED` (`balance.ts:590–591`) is removed.
+- Stoker: `STOKER = { speed: 1.5, fire: 2 }` (progress ×1.5, fire per unit of progress ×2, so a stoked mold burns
+  3 × rate fire per tick and fuel per bar doubles); wage 1 (`WORKER_WAGES`, `balance.ts:217`); at most 1 stoker
+  assigned.
+- Seam survey: weights after the mastery bonus (`veinWeights`, `balance.ts:921–934`): the aimed ore × 2, every other ore
+  × 0.5, stone absorbs the difference (stone += weight the ores lost − weight they gained), coal unchanged. Re-aim is
+  free and immediate; aim `null` = no survey effect.
+- Calculator reference (est. until the sim pins it; docs/research/calc34-item8-molds.md): at vein Lv4 with a gold
+  pickaxe (hits carry over) one miner brings 270 / 225 / 180 copper / iron / gold ore per hour and the bar ladder's top
+  (batch 5, speed Lv2) smelts all of it: 💰239,625/h of bars at sell Lv5. ⭐ furnace rows first matter for 2 miners
+  (+8 %, +33 % with 4 mastered tiers) and clickers (+135 % to +237 %).
+
+- [ ] 181. **Carried from batch 33.1 (test-only): the sim writes a per-run log file.** The batch-33.1 draft, folded in
+  as this batch's first task so the re-pins below have a diagnosis log.
+  - A helper `tests/simLog.ts` used by the ladder bot runs in `tests/sim.test.ts` writes ONE JSON file per sim run
+    under a gitignored folder `sim-logs/` (add it to `.gitignore`; file name `<describe>-<it>-<scenario>.json`,
+    overwritten each run), only when the env var `SIM_LOG=1` is set (CI time and disk unchanged).
+  - Contents: snapshots at every ladder rung / milestone / purchase (tick, game-minute, cash, ⭐, bars and ores held per
+    kind, per mold ore / ready / progress and the fire, home plots planted per crop, Estate plots sown, workers
+    assigned, the purchase); every buy attempt the bot makes, deduplicated per game-minute (item, `ok` or the error
+    code, `gatedBy` = the missing part of the price with amounts); furnace minutes per kind smelting / idle and why
+    (no fire, no ore, tray full); a longest-gap diagnosis at the end (the longest gap between milestones/purchases, the
+    next wanted purchase, its `gatedBy` at the gap's start and end, unlocked-but-unbought items with the reason, and
+    the buys that consumed the scarce resource during the gap).
+  - Test: with `SIM_LOG=1` one short ladder run writes a file with those keys; without it nothing is written. No
+    pinned number moves (logging only reads state). Do this BEFORE any core change.
+
+- [ ] 182. **Bar sell prices 🥉100 🥈500 🥇1000; bar orders pay the bar's price.** No save change.
+  - `balance.ts:72–74` → 100 / 500 / 1000. Rewrite the comment at `:62–64`: bars are income prices since batch 34
+    (DECISIONS.md:712); no cash loop because ore cannot be bought (only wood and seeds are bought: `buyWood`,
+    `buySeeds`); the old "bars sell below their inputs" rule is gone.
+  - `itemOrderValue` (`src/core/orders.ts:93–103`): a bar is valued at its own sell price
+    (`itemSellPrice(bar, meta, level)`), × (1 + `orderBonus()`) like a crop order, so delivering a bar order never pays
+    less than selling the bars; ores, stone and coal keep today's rule (base × bonus). Update the doc comment and the
+    card's `orderCash` comment (`src/app/Orders.tsx:18–21`; the function itself already calls `itemOrderValue`).
+  - Tests (`tests/balance.test.ts:151–163`, `tests/orders.test.ts:38, 227–228`): replace the "disposal, never a
+    profit" describe with a test of the three prices and one that no shop action sells ore (the reason no loop exists);
+    a delivered iron-bar order pays `count × 500 × sellFactor × 1.1`, rounded once; `SELL_WHEN_FULL`
+    (`src/app/Mine.tsx:80–82`) still excludes every bar (keep or add that test).
+
+- [ ] 183. **Order ⭐ by production-minutes (option A) + save v25 → v26 (every new field of the batch).**
+  - `src/core/state.ts`:
+    - `Offer` (`:93`) gains `stars: number` — the ⭐ the order pays, computed when it is rolled (fractional).
+    - `RunState` (`:84–85`) gains `starsFrac: number` (0 ≤ x < 1, the fractional ⭐ not yet whole) and
+      `favours: { bunkhouse: number; seam: boolean; aim: OreId | null }`.
+    - `Furnace` (`:126–133`) gains `stoked: number` (ticks of stoking left).
+    - `WORKER_JOBS` (`src/core/data/workers.ts:4`) appends `'stoker'` at the END (so the other jobs keep their action
+      order and every pin that depends on it); `createFreshRun` (`state.ts:265`) assigns `stoker: 0`;
+      `createFurnace` (`:280–289`) `stoked: 0`; `createFreshRun` `starsFrac: 0`,
+      `favours: { bunkhouse: 0, seam: false, aim: null }`.
+  - `src/core/orders.ts`:
+    - new `orderFullRate(state, good)`: crops = `run.tiles.length ÷ cropGrowTicks × 60` plus, when
+      `run.fields.unlocked && fieldsPlantable(run, good)`, `wetTiles ÷ pressuredCycle × 60` (the WHOLE wet output, no
+      `contractWetShare`); items and bars = `orderPerMinute(state, good)` (board rate; bars include the speed rate).
+      This is calc34's `fullRatePerMin` (docs/research/calc34.md §2), without double harvests.
+    - `rollOffer` (`:84–91`): `stars = ORDER_STARS_PER_MINUTE × count ÷ orderFullRate(state, good)` (no rounding).
+      A bag-clamped item order (`orderCount`, `:78–81`) therefore pays less, a contract ≈ ×0.15.
+    - `fillOrder` (`:115–136`): `total = run.starsFrac + offer.stars`; `whole = Math.floor(total + 1e-9)`;
+      `stars += whole`, `starsFrac = total − whole` (clamped to ≥ 0), `lifetime.starsEarned += whole`.
+    - Remove `orderTierStars` (`balance.ts:546–549`) and the `stars` field of `ORDER_TIERS`; update every caller:
+      `src/core/orders.ts:23, 124`, `src/app/Orders.tsx:2, 58`, `tests/orders.test.ts:24, 211, 213, 260`.
+  - Save `src/save/serialize.ts`: `SAVE_VERSION = 26`; freeze `SaveV25` / `RunV25` (the v25 `Offer` without `stars`,
+    `Furnace` without `stoked`, `Workers.assigned` without `stoker`, no `starsFrac` / `favours`) — never derived from
+    the live state; `Save = SaveV26`; `migrateV25(save: SaveV25): SaveV26` chained after `migrateV24` in `migrate`
+    (`:660–670`, every older branch ends in `migrateV25(…)`):
+    - every existing offer gets `stars` = its tier's OLD ⭐, frozen in serialize.ts as `TIER_STARS_V25 = [1, 2, 4]`
+      (never fewer ⭐ than the board showed when the save was written);
+    - `starsFrac: 0`, `favours: { bunkhouse: 0, seam: false, aim: null }`, `assigned.stoker: 0`, `furnace.stoked: 0`;
+    - `stars`, cash, inventory, upgrades, furnace levels unchanged.
+  - Tests (`tests/orders.test.ts`, `tests/save.test.ts`): a 5-min crop order at home pays ⭐1 (± rounding of the
+    count) and a 20-min one ⭐4; a contract after the Tractor pays ≈ 0.15 × its tier's old ⭐ (assert the exact value
+    from the formula); an item order clamped to half the storage pays `0.2 × count ÷ board rate`; 3 orders of ⭐0.4 add
+    ⭐1 and leave `starsFrac` 0.2 with `lifetime.starsEarned` +1; every fixture v1 … v25 migrates to v26;
+    `save-v25.json` → its three offers keep ⭐4 / ⭐1 / ⭐1 (tiers 2, 0, 0), ⭐39, cash 452,892, the new fields at their
+    defaults.
+
+- [ ] 184. **⭐ Favours core: Bunkhouse, Fine mist, ⭐ sell price, furnace ⭐ speed / batch, Seam survey, Stoker.**
+  - New `src/core/favours.ts` with `FAVOUR_IDS = ['bunkhouse', 'mist', 'sell', 'furnaceSpeed', 'furnaceBatch', 'seam',
+    'stoker']`, `favourLevel(run, id)` (⭐ levels bought: bunkhouse = `favours.bunkhouse`; mist = `max(0, fertilizer −
+    5)`; sell = `max(0, sellPrice − 5)`; furnaceSpeed = `max(0, levels.speed − 2)`; furnaceBatch = `max(0,
+    levels.batch − 4)`; seam / stoker = 0 or 1), `favourShown(run, id)`, `favourPrice(run, meta, id): Price | null`
+    (null at max) and `buyFavour(state, id)`. Order of errors in `buyFavour`: LOCKED (gate not met), MAX_LEVEL,
+    then `pay` (NOT_ENOUGH_ITEMS, NO_STARS). The base prices / growths / caps live in `balance.ts` as one
+    `FAVOURS` table next to `CERTIFICATES`; `favours.ts` holds no number.
+  - What each buy changes:
+    - bunkhouse: `favours.bunkhouse + 1`. `workerPoolCap()` (`balance.ts:1038–1040`) becomes
+      `workerPoolCap(run: RunState)` = `WORKER_POOL_CAP + run.favours.bunkhouse`; callers `src/core/workers.ts:189`,
+      `src/app/Workers.tsx:98`, `tests/workers.test.ts:17, 65`.
+    - mist: `upgrades.fertilizer + 1`. `growTimeFactor(level)` (`balance.ts:749–751`) = `1 − 0.1 × level` up to Lv5,
+      then `0.5 × 0.95^(level − 5)` (new constant `FINE_MIST_STEP = 0.95`). Every caller already passes the run's
+      level (`balance.ts:690`, `src/core/stats.ts:101`, `src/app/Upgrades.tsx:39`).
+    - sell: `upgrades.sellPrice + 1`. `sellPriceFactor` (`:744–746`) is already linear and unchanged; bars and items
+      follow it too.
+    - furnaceSpeed: `furnace.levels.speed + 1`. `furnaceSpeedRate(level)` (`balance.ts:843–846`) = `1.25 ** level`
+      (exact for the bar levels 0–2; `SPEED_RATE` goes).
+    - furnaceBatch: `furnace.levels.batch + 1`. `BATCH_BARS` (`:109`) → `[1 … 10]`. `batchLocked` (`src/core/furnace.ts
+      :181–186`) applies unchanged (batch 6 needs tray Lv2 + slot Lv1, batch 7–10 tray Lv2 + slot Lv2); a locked ⭐
+      batch level fails LOCKED.
+    - seam: `favours.seam = true`; `setSeamAim(state, aim: OreId | null)` (free, no energy; LOCKED without the survey;
+      BAD_ORE when `aim` is an ore the vein does not drop; add `BAD_ORE` to the error union, `src/core/actions.ts:51–67`,
+      and a toast text next to `NO_STARS`, `src/app/useGame.ts:56`). `veinWeights(level, mastered, aim = null)` gains the aim
+      rule above; callers `src/core/mining.ts:45, 153, 177` pass `run.favours.aim`; `tests/mining.test.ts:22, 188–191`.
+    - stoker: adds `'stoker'` to `workers.certificates` (it is bought here, not in the Workers card).
+  - The cash ladders stay as they are: `buyUpgrade` (`src/core/actions.ts:255–263`) and `buyFurnaceUpgrade`
+    (`furnace.ts:190–199`) keep failing MAX_LEVEL at their max, also when ⭐ levels are above it.
+  - Stoker job (`src/core/workers.ts`): `NO_TILE_WORK.stoker` = when the furnace is built and some owned mold is
+    `moldSmelting`, set `furnace.stoked = workerActionTicks(meta)` and return ok; else null (idles unpaid). Assign:
+    `assignWorker(state, 'stoker', 1)` fails MAX_LEVEL when one is already assigned (`workers.ts:247–255`).
+    `tickFurnace` (`furnace.ts:95–122`): while `stoked > 0`, each smelting mold advances `rate × 1.5` and burns
+    `2 × that` fire (`burn = min(fire, 3 × rate)`, `progress += burn ÷ 2`); `stoked −= 1` each tick (to 0). Stoking
+    never burns fire on its own; worst-case offline loss is unchanged (the fire cap). `step(s, n) = n × step(s, 1)`
+    still holds. The certificate's gate is `stokerReady(run)` (fuel certificate owned, `levels.speed ≥ 2`,
+    `levels.batch ≥ 4`), checked in `certificateUnlocked` (`workers.ts:179–183`); `CERTIFICATES.stoker` =
+    `{ price: { stars: 15, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 }`.
+  - Callers of the new job: every `assigned: { … manager: 0 }` literal in src/ and tests/ gains `stoker: 0`
+    (`src/core/state.ts:265`, `src/save/serialize.ts:601`, `tests/WorkersCard.test.tsx:37, 218, 274, 306`,
+    `tests/sim.test.ts:1309, 1764, 1945, 2189, 2547, 2722, 3438, 3683, 4085`, `tests/workers.test.ts:59, 143, 154,
+    739`, `tests/orders.test.ts:281, 335, 389`, `tests/fields.test.ts:385, 495, 604, 654`, `tests/save.test.ts:322,
+    1055`, `tests/milestones.test.ts:106, 131`, `tests/step.test.ts:89`, `tests/stats.test.ts:173`). The milestone list
+    (`src/core/data/milestones.ts:77`) gains `certStoker` by construction — keep it.
+  - Tests (new `tests/favours.test.ts`): each row's prices for k = 0 … 4 equal the table; Bunkhouse lets the 7th hire
+    and fails MAX_LEVEL after 4; Fine mist at fertilizer Lv5 + 2 gives `growTimeFactor = 0.5 × 0.9025`; ⭐ sell
+    LOCKED below sellPrice Lv5; furnace ⭐ speed LOCKED below speed Lv2 and Lv3 = rate 1.953125; ⭐ batch 6 LOCKED
+    without tray Lv2; Seam survey: aimed weights for every vein level 3–4 × mastered 0 … 4 × aim are never negative and
+    sum to the unaimed total; a stoked copper cycle at speed Lv2 ends 1.5× sooner and burns 2× the fire per bar;
+    an unpaid stoker (cash < wage) stops the boost within `workerActionTicks` ticks; a second stoker fails MAX_LEVEL;
+    NO_STARS when ⭐ is short.
+
+- [ ] 185. **⭐ carries a sale (capped at 50); ⭐ no longer converts to deeds.** No save shape change.
+  - `src/core/prestige.ts`: remove `starDeeds` (`:28–29`) and the ⭐ part of `saleDeeds` (`:31–34` → cash deeds only)
+    and of `sellFarm` (`:59–61`: `gained = fromCash`; NO_GAIN when `fromCash < 1`). `RunCarry` (`state.ts:228`) gains
+    `stars`; `sellFarm` passes `stars: run.stars`; `createFreshRun` (`state.ts:269`) sets
+    `stars: Math.min(carry?.stars ?? 0, STAR_CARRY_CAP)`, `starsFrac: 0`. Update the header comment (`prestige.ts:1–4`).
+    `STARS_PER_DEED` goes (`balance.ts:590–591`, imports `prestige.ts:11`).
+  - Readers: `src/app/Legacy.tsx:11, 105–112` (task 186 text), `tests/prestige.test.ts:3, 44` (`[8, 1, 9]` → cash deeds
+    only), `tests/sim.test.ts:79, 4180, 4208, 4216` (`fromStars` goes; the sale result reports `starsCarried`).
+  - Order slots bought with ⭐ keep carrying as today (`prestige.ts:77`); not changed in this batch.
+  - Tests: Toon's save-v23 fixture (⭐39, lifetime 💰804,344) sells for 8 deeds (was 9) and the next run starts with
+    ⭐39; a run with ⭐73 starts the next with ⭐50; ⭐ levels (fertilizer 7, furnace speed 4, Bunkhouse 2) are back to 0
+    after the sale.
+
+- [ ] 186. **UI: the ⭐ Favours sheet, order ⭐, the Sell card line, Seam aim, the Stoker row.** No browser: jsdom only.
+  - HUD (`src/app/Hud.tsx:27–31`): the ⭐ span becomes a `<button className="hud-stars">` (same text, title "⭐ Favours")
+    that opens a `Modal` (`src/app/Modal.tsx:12`) titled `⭐ Favours`. The modal state lives in `App.tsx` next to
+    `sheetOpen` (`App.tsx:285`); no new `tiles.ui` field.
+  - New `src/app/Favours.tsx`: first line `⭐ {count(run.stars)} to spend · resets when you sell the farm (up to 50 ⭐
+    carry over)`. Then one row per `FAVOUR_IDS` in that order, every row always listed except Stoker (listed only once
+    `stokerReady(run)` or owned). Row = a button: line 1 `{emoji} {name} Lv {k}` (one-time rows: `{emoji} {name}`), line 2
+    `{effect now → next} · ⭐{price}` or the short reason when locked (`needs fertilizer Lv5`, `needs sell price Lv5`,
+    `needs furnace speed Lv2`, `needs furnace batch 5 bars`, `needs tray Lv2` / `needs ore slot Lv2` (batch lock),
+    `needs vein Lv3`, `needs a furnace`, `owned`, `max`). Emojis: 🏠 Bunkhouse, 💧 Fine mist, `STAR_EMOJI` Sell price,
+    `FIRE_EMOJI` Furnace speed, `FIRE_EMOJI` Furnace batch, ⛏ Seam survey, `FIRE_EMOJI` Stoker (Unicode ≤ 11; put the
+    new ones as constants in `src/core/data/` like the others). Effects: Bunkhouse `pool {cap} → {cap+1}`; Fine mist
+    `grow −{pct} → −{pct}`; Sell `+{pct} → +{pct}`; speed `cycles {round(100 × 0.8^l)} % → {…} %`; batch `{b} → {b+1}
+    bars`; Seam `aim one ore ×2`; Stoker `furnace ×1.5, fuel ×2`. Tips (`src/app/tips.ts`, a `FAVOUR_TIPS` record):
+    one sentence each, e.g. Stoker "A worker who stokes the fire: molds smelt 1.5× faster but every bar burns twice
+    the fuel. Pays only when ore waits for the furnace."
+  - Orders (`src/app/Orders.tsx:57–58`): `{STAR_EMOJI}{starsText(s.stars)}` where `starsText` (new, `src/app/fmt.ts`) =
+    one decimal below 10, trailing `.0` dropped (`1`, `0.4`, `1.5`), whole number from 10 up.
+  - Legacy Sell card (`src/app/Legacy.tsx:105–112`): `Sell now: +{gain} deed{s} (💰{count(fromCash)})` and a second line
+    `⭐ {min(stars, 50)} carried to the next farm` plus ` · ⭐{stars − 50} lost above 50` when stars > 50.
+  - Upgrades (`src/app/Upgrades.tsx:94–104`): when `level > max` the row reads `Lv {max}/{max} +⭐{level − max}` and the
+    effect uses the real level; still disabled as max.
+  - Mine furnace upgrades (`src/app/Mine.tsx`, the speed and batch rows): at their bar max the second line reads
+    `max · more in ⭐ Favours`.
+  - Mine card, Seam survey owned: one line `⛏ Seam: [Off] [{copper emoji}] [{iron emoji}] [{gold emoji}]` (ores the
+    vein drops), the active one marked `aria-pressed`. Placed under the vein line of the Mine card.
+  - Workers card (`src/app/Workers.tsx:21–47, 86–98`): `stoker` shows NO certificate row (it is bought in Favours); once
+    owned it shows the normal `[−] n [+]` row, `+` disabled at 1. The hire button's `pool full` uses `workerPoolCap(run)`.
+  - jsdom tests (new `tests/FavoursSheet.test.tsx`; never a name that differs from `tests/favours.test.ts` only in
+    case or extension): the HUD ⭐ opens the sheet; a row's price and lock reason; buying Fine mist moves the
+    Upgrades row to `Lv 5/5 +⭐1`; an order card shows `⭐0.4`; the Sell card's carried / lost lines; the Seam buttons.
+  - You have no browser: list under `### Deviations` what you could not verify (Hermes re-measures the sheet live at
+    375 / 1024 / 1440 / 2560 / 3440).
+
+- [ ] 187. **Sim: scenarios A / B, the new pins, re-pins, changelog, results.**
+  - The ladder bot does NOT buy Favours (like batch 33's optional furnace rows) and its other policies stay; the
+    Favour scenarios below set levels directly.
+  - Scenario A (fresh, tick 0, the batch-19 170 h ladder run as `PIN33a`): add the test FIRST on the unchanged code
+    (record "before" at the start of task 182, after task 181), then report before → after: ladder end (game-min),
+    ⭐ held at the Tractor and at the Manager certificate, the minute the Clerk and Manager certificates are bought,
+    contract ⭐/h after the Tractor, the longest gap tick 0 → ladder end and what bound it. Guards that must hold:
+    batch-16 ladder gaps ≤ 60 game-min, PIN26b ≤ 90 game-min to the Tractor, batch-18 unlock step ≤ 60 game-min, and the
+    batch-31.1 Manager unlock path (its ⭐20 must still be reachable inside its existing gap bound).
+  - Scenario A-carry: a sold run starting with ⭐50 reaches the Fields unlock with no stall gap and stays within the
+    batch-20 run-2 speed-up pin (≥ 1.4× faster than run 1).
+  - Scenario B (veteran, `tests/fixtures/save-v25.json` as migrated, 2 game-hours with its own workers): report ⭐/h
+    and cash/h before → after; its three migrated offers pay ⭐4 / ⭐1 / ⭐1.
+  - `PIN34bars` (calculator check, report not guard): from `save-v25.json` with sellPrice Lv5, furnace batch Lv4 +
+    speed Lv2 + tray Lv2 + slot Lv2, 1 miner + 1 ore loader + 1 fuel loader, bars sold whenever storage is full,
+    2 game-hours: ore/h per kind, bars/h per kind, 💰/h from bars. Calculator (est.): 270 / 225 / 180 ore/h and
+    💰239,625/h; report measured ÷ calculator.
+  - `PIN34furnaceStars` (report): the same save with 2 miners: bars/h at the bar top vs ⭐ speed Lv3 (rate 1.953) vs ⭐
+    batch 6 + speed Lv3. Calculator (est.): +8 % at speed Lv3 for 2 miners with no mastered tier.
+  - `PIN34stoker` (guard): a stoked furnace burns exactly 2× the fire per bar of an unstoked one over 1 game-hour and
+    never more fire than the cap allows offline (8 h catch-up from a full fire with the stoker unpaid).
+  - Cash per system (report, not guard; DECISIONS batch 32): at vein Lv3 and Lv4 report the farm's and the mine's
+    cash/h side by side in the results table.
+  - Re-pin every other moved pin old → new with its cause ("bars 🥉100 🥈500 🥇1000", "order ⭐ by production-minutes"
+    or "⭐ carries a sale"). A guard that fails (stall gap cap, negative value, price above storage capacity,
+    migration, the Manager unlock path) is a blocker: record it under `### Deviations` with the numbers and stop.
+  - Chore carried from batch 33 (HANDOFF Pending): `tests/manager.test.ts:122` ("8 h offline with a Manager on 20
+    fields") times out under load — give that `it` a 20 000 ms timeout.
+  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`), verbatim:
+    `{ batch: '34', date: '<today, YYYY-MM-DD>', line: "⭐ Favours: tap ⭐ in the top bar for upgrades past the shop's max. Bars sell for 🥉100 🥈500 🥇1000. Orders pay ⭐ by real size; up to 50 ⭐ carry over when you sell the farm." }`
+  - Write `## Batch 34 results` + `### Deviations` at the TRUE END of docs/PLAN.md (the scenario tables go there) and
+    tick 181–187.
+
+### Two scenarios (skill rule 0a)
+- **A — fresh player from tick 0.** Nothing changes until the board (orders pay ⭐ as before at home: 5/10/20-min
+  orders still pay about 1/2/4). Bars become real income from vein Lv2; the calculator puts one miner at vein Lv4 at
+  💰240k/h of bars at sell 5 against the A3 farm's 💰161–336k/h (calc34 §2) — reported, not held down. After the
+  Tractor contract ⭐ drop ≈ ×0.15, so the Manager's ⭐20 relies on ⭐ banked before the Tractor and on item / bar
+  orders; the batch-31.1 Manager path is a guard. First ⭐ buys: ⭐ sell Lv6 (⭐10) or Fine mist (⭐8) as soon as the cash
+  ladders hit Lv5 (≈ the first game-hour); the furnace ⭐ rows only once the bar ladder is done. Hand-heavy clicker:
+  at the bar top a clicker + 1 miner already makes 💰483k/h of bars; ⭐ batch 6 + speed Lv6 (⭐97 ≈ 11 h of ⭐ at
+  ~9 ⭐/h) would make it 💰1.14M/h, outside the 1.6–8.7 h pre-Fields window.
+- **B — veteran with a migrated save** (`save-v25.json`: ⭐39, 💰452,892, sell 3 / fert 3, pool 6, vein Lv4, three molds,
+  8 fields). Every Favour starts at Lv0 (new to veterans too). With sell and fertilizer at Lv3 the ⭐ sell and Fine mist
+  rows say "needs … Lv5" (cash buys those first); Bunkhouse (⭐15) and Seam survey (⭐12) are buyable at once. The
+  v25 offers keep their shown ⭐. Its bars (🥉3 🥈5 🥇4) become worth 💰8,840 at sell 3 (were 💰53).
