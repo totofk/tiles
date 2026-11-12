@@ -101,7 +101,8 @@ const same = (at: [number, number] | null, k: number, j: number) => at !== null 
 
 /**
  * The Estate map's cell j of field k (batch 30, task 152c): an owned plot (empty / dry / growing / ready), the ghost
- * slot buyPlot fills next, or a blank slot after it. `marker` = the machine fleet works this plot next.
+ * slot buyPlot fills next, or a blank slot after it. `marker` = the machine fleet or the Fields workers work this plot
+ * next; the label adds the shared counter's tiles done ("3/10") once at least one is (batch 32.2).
  */
 export function plotCellView(state: GameState, k: number, j: number): PlotCellView {
   const { run } = state
@@ -114,10 +115,13 @@ export function plotCellView(state: GameState, k: number, j: number): PlotCellVi
     return { kind: 'ghost', emoji: '', pct: 0, label: `Buy plot ${j + 1} of Field ${k + 1} · 💰${price(ghostRowPrice(state))} · ${plotTiles()} tiles`, marker: false, ordered: false }
   }
   const m = run.fields.machines
-  const sowNextHere = m.seeder.length > 0 && same(nextSowTarget(run.fields), k, j)
-  const reapNextHere = m.harvester.length > 0 && same(nextReapTarget(run), k, j)
+  const { assigned } = run.workers
+  const sowNextHere = (m.seeder.length > 0 || assigned.plant > 0) && same(nextSowTarget(run.fields), k, j)
+  const reapNextHere = (m.harvester.length > 0 || assigned.harvest > 0) && same(nextReapTarget(run), k, j)
   const marker = sowNextHere || reapNextHere
-  const tail = marker ? ' · 🚜 next' : ''
+  // a plot cannot be both empty and ready
+  const done = Math.floor(reapNextHere ? m.carry.harvest : m.carry.plant)
+  const tail = !marker ? '' : done === 0 ? ' · 🚜 next' : ` · 🚜 next · ${done}/${plotTiles()}`
   if (plot.crop === null) {
     if (!field.pivot) return { kind: 'dry', emoji: '', pct: 0, label: `${at} · no pivot${tail}`, marker, ordered: false }
     return { kind: 'empty', emoji: '', pct: 0, label: `${at} · empty — sow${tail}`, marker, ordered: false }

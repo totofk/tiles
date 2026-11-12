@@ -222,4 +222,23 @@ describe('batch 30: the Estate map cells (plotCellView)', () => {
     expect(marked(ticked(at({ fields, machines: { seeder: [1] } })))).toEqual(['0,1'])
     expect(plotCellView(ticked(at({ fields, machines: { harvester: [1] } })), 0, 2).label).toMatch(/ · 🚜 next$/)
   })
+
+  it('batch 32.2: the marker shows the shared counter (n/10) and also counts the Fields workers', () => {
+    const fields = [field([plot('radish', 5), plot(null), plot('radish', 2)])]
+    const s = at({ fields, machines: { harvester: [1] } })
+    const carry = (harvest: number, plant = 0): GameState => ({
+      ...s,
+      run: { ...s.run, tick: 10, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry: { harvest, plant, maint: 0 } } } },
+    })
+    expect(plotCellView(carry(3), 0, 2).label).toMatch(/ · 🚜 next · 3\/10$/)
+    expect(plotCellView(carry(3.7), 0, 2).label).toMatch(/ · 🚜 next · 3\/10$/)
+    // the empty plot shows the plant counter, not the harvest one (no seeder and no planter here: no marker)
+    expect(plotCellView(carry(3, 4), 0, 1).marker).toBe(false)
+    const workers = (harvest: number): GameState => {
+      const w = at({ fields })
+      return { ...w, run: { ...w.run, tick: 10, workers: { ...w.run.workers, assigned: { ...w.run.workers.assigned, harvest } } } }
+    }
+    expect(plotCellView(workers(1), 0, 2)).toMatchObject({ marker: true, label: expect.stringMatching(/ · 🚜 next$/) })
+    expect(plotCellView(workers(0), 0, 2).marker).toBe(false)
+  })
 })

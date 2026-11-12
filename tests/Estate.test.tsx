@@ -60,9 +60,15 @@ function setup(state: GameState) {
 const plots = (s: GameState) => s.run.fields.list.reduce((n, f) => n + f.plots.length, 0)
 const plot = (crop: Plot['crop'], readyTick = 0): Plot => ({ crop, readyTick })
 const field = (ps: Plot[], pivot = true, crop: Field['crop'] = 'radish'): Field => ({ pivot, crop, pinned: false, plots: ps })
+// no machines and (batch 32.2: the 🚜 next marker counts them too) no Fields planters / harvesters
 const withFields = (list: Field[], run: Partial<GameState['run']> = {}): GameState => ({
   ...base,
-  run: { ...base.run, ...run, fields: { ...base.run.fields, machines: createMachines(), ...run.fields, list } },
+  run: {
+    ...base.run,
+    workers: { ...base.run.workers, assigned: { ...base.run.workers.assigned, plant: 0, harvest: 0 } },
+    ...run,
+    fields: { ...base.run.fields, machines: createMachines(), ...run.fields, list },
+  },
 })
 const cell = (name: string | RegExp) => screen.getByRole('button', { name })
 
