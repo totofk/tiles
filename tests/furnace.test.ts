@@ -443,11 +443,12 @@ describe('gold smelting (batch 16)', () => {
 })
 
 describe('copper items', () => {
-  it('ore sells for 1 and takes a storage slot; bars take a slot and sell below their inputs (batch 24)', () => {
+  // re-pinned batch 34 (was 💰6 for 3 copper bars, "below their inputs"): bars 🥉100 🥈500 🥇1000
+  it('ore sells for 1 and takes a storage slot; bars take a slot and sell for 🥉100 each (batch 34)', () => {
     const s = withRun({ cash: 0, inventory: { copperOre: 2, copperBar: 3 } })
     expect(bagCount(s.run)).toBe(5)
     expect(okState(sellItem(s, 'copperOre', 2)).run.cash).toBe(2)
     expect(isSellable('copperBar')).toBe(true)
-    expect(okState(sellItem(s, 'copperBar', 3)).run.cash).toBe(6)
+    expect(okState(sellItem(s, 'copperBar', 3)).run.cash).toBe(300)
   })
 })

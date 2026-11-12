@@ -393,21 +393,22 @@ describe('Mine panel', () => {
     expect(screen.queryByRole('button', { name: /^Sell all/ })).toBeNull()
   })
 
-  it('batch 24: bars sell as disposal through the shared item grid — sell 1 pays their price, sell all clears them', () => {
+  // re-pinned batch 34 (was 💰2 each, disposal): bars 🥉100 🥈500 🥇1000
+  it('batch 24: bars sell through the shared item grid — sell 1 pays their price, sell all clears them', () => {
     const t = setup({ cash: 0, inventory: { copperBar: 2, wood: 1 } })
     expect(document.querySelector('.mine .item-grid')).toBeTruthy()
     const barRow = () => screen.getByText(`${BAR} Copper bar`).closest('.item-row') as HTMLElement
     // the price-each column, ×N count and both sell buttons; every mine item is sellable since bars joined
-    expect(barRow().textContent).toBe(`${BAR} Copper bar×2💰2sell 1sell all`)
+    expect(barRow().textContent).toBe(`${BAR} Copper bar×2💰100sell 1sell all`)
     const woodRow = () => screen.getByText(`${WOOD} Wood`).closest('.item-row')!
     // batch 32: the sort column left the grid for the 🧺 Ore sorting table
     expect([...woodRow().children].map((c) => c.textContent)).toEqual([`${WOOD} Wood`, '×1', '💰2', 'sell 1', 'sell all'])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell 1' }))
     t.rerender()
-    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([2, 1])
+    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([100, 1])
     fireEvent.click(within(barRow()).getByRole('button', { name: 'sell all' }))
     t.rerender()
-    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([4, 0])
+    expect([t.get().run.cash, t.get().run.inventory.copperBar]).toEqual([200, 0])
   })
 
   it('batch 24.1: the grid sits inside its .item-grid-wrap, every row holds exactly 5 cells, the recipe is two lines', () => {

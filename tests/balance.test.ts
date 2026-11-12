@@ -10,8 +10,6 @@ import {
   cropSeedCost,
   cropSellPrice,
   energyMax,
-  fireUnitTicks,
-  fuelUnits,
   furnaceUpgradeMaxLevel,
   furnaceSpeedRate,
   isSellable,
@@ -26,10 +24,11 @@ import {
   oreBar,
   pickaxeDurability,
   preserveChance,
-  smeltOre,
   tileCost,
   upgradeCost,
 } from '../src/core/balance'
+import { buySeeds } from '../src/core/actions'
+import { buyWood } from '../src/core/mining'
 import { CROP_IDS } from '../src/core/data/crops'
 import { ORE_IDS, PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
 import { createInitialMeta, createInitialState, type MetaState } from '../src/core/state'
@@ -148,20 +147,24 @@ describe('pickaxe mastery', () => {
   })
 })
 
-describe('bar sell prices (batch 24: disposal, never a profit)', () => {
-  it('every bar is sellable at ≤ ⌊input sell value at the copper-bar ladder top (batch 3)⌋ − 1', () => {
-    // pinned at batch level 2 (3 bars), not the max: at batch 5 a gold bar (💰5) sells above its ore + coal (💰4.4);
-    // allowed because ore cannot be bought, so there is no cash loop, and batch 34 replaces bar prices (DECISIONS
-    // "Batch 33 refined" call 8)
-    const topBatch = batchBars(2)
-    const coalUnit = itemSellPrice('coal', meta, 0) / fuelUnits('coal')
-    for (const ore of ORE_IDS) {
-      const bar = oreBar(ore)
-      const inputs = smeltOre() * itemSellPrice(ore, meta, 0) + (barTicks(ore) / (fireUnitTicks() * topBatch)) * coalUnit
-      expect(isSellable(bar)).toBe(true)
-      expect(itemSellPrice(bar, meta, 0)).toBe(Math.floor(inputs) - 1)
-      expect(itemSellPrice(bar, meta, 0)).toBeLessThan(inputs) // selling the ore and coal always beats smelting to sell
+describe('bar sell prices (batch 34: income prices)', () => {
+  it('🥉100 🥈500 🥇1000 at sell price Lv0, sellable', () => {
+    expect(ORE_IDS.map((ore) => [isSellable(oreBar(ore)), itemSellPrice(oreBar(ore), meta, 0)])).toEqual([
+      [true, 100],
+      [true, 500],
+      [true, 1000],
+    ])
+  })
+
+  it('no shop action sells ore for cash, so smelting bought ore can never loop cash: wood and seeds are the only buys', () => {
+    const rich = { ...createInitialState(), run: { ...createInitialState().run, cash: 1e9, mineLicense: true } }
+    const wood = buyWood(rich, 10)
+    const seeds = buySeeds(rich, 'radish', 10)
+    for (const r of [wood, seeds]) {
+      if (!r.ok) throw new Error(r.error)
+      for (const ore of ORE_IDS) expect(r.state.run.inventory[ore] ?? 0).toBe(0)
     }
+    expect(wood.ok && wood.state.run.inventory).toEqual({ wood: 10 })
   })
 })
 

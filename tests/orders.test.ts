@@ -223,9 +223,15 @@ describe('accept / discard / deliver', () => {
     expect(deliverOrder(okState(acceptOrder(s, 0)), 0)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
   })
 
-  it('a bar is valued at its inputs: 2 ore + its coal', () => {
-    expect(itemOrderValue(init, 'copperBar')).toBe((2 * itemSellPrice('copperOre', meta, 0) + 1 * itemSellPrice('coal', meta, 0)) * orderBonus())
-    expect(itemOrderValue(init, 'ironBar')).toBe((2 * itemSellPrice('ironOre', meta, 0) + 2 * itemSellPrice('coal', meta, 0)) * orderBonus())
+  it('batch 34: a bar is valued at its own sell price × (1 + bonus); ores keep base × bonus', () => {
+    expect(itemOrderValue(init, 'copperBar')).toBe(itemSellPrice('copperBar', meta, 0) * (1 + orderBonus()))
+    expect(itemOrderValue(init, 'copperOre')).toBe(itemSellPrice('copperOre', meta, 0) * orderBonus())
+    // a delivered iron-bar order pays count × 500 × sellFactor × 1.1, rounded once (never less than selling the bars)
+    const s = board([offer({ good: 'ironBar', count: 3 })], { inventory: { ironBar: 3 }, upgrades: { ...init.run.upgrades, sellPrice: 2 } })
+    const done = okState(deliverOrder(s, 0))
+    expect(done.run.cash - s.run.cash).toBe(Math.round(3 * itemSellPrice('ironBar', meta, 2) * 1.1))
+    expect(itemSellPrice('ironBar', meta, 2)).toBe(Math.round(500 * 1.2))
+    expect(done.run.cash - s.run.cash).toBeGreaterThan(3 * itemSellPrice('ironBar', meta, 2))
   })
 })
 

@@ -93,7 +93,7 @@ import { assignWorker, buyCertificate, certificateUnlocked, freeWorkers, hireWor
 import { buildSprinkler, buildWorkshop } from '../src/core/workshop'
 import { buildPivot, buyMachine, buyPlot, buyPump, fieldsCropIncomePerHour, fieldsOverview, fieldsPaybackHours, fieldsPlantable, fillTank, pivotsOwned, reapPlot, setFieldCrop, unlockFields } from '../src/core/fields'
 import { managerPlan } from '../src/core/manager'
-import { acceptOrder, buyOrderBoard, discardOrder, isContract, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
+import { acceptOrder, buyOrderBoard, deliverOrder, discardOrder, isContract, isCropGood, isOffer, orderCount, orderPool, rollOffer } from '../src/core/orders'
 import type { OrderGood } from '../src/core/state'
 import type { ItemId } from '../src/core/data/items'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
@@ -3744,7 +3744,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // batch 32 (task 172c, report only): gold pickaxe repairs from its craft to the run's end
     const gold = { from: 0, prev: undefined as number | undefined, repairs: 0 }
     // batch 33 (task 180 scenario A, report only): cash and bars held at every tick, by tick
-    const held = { cash: new Float64Array(170 * HOUR_TICKS + 1), copperBar: new Float64Array(170 * HOUR_TICKS + 1), ironBar: new Float64Array(170 * HOUR_TICKS + 1), goldBar: new Float64Array(170 * HOUR_TICKS + 1) }
+    const held = { cash: new Float64Array(170 * HOUR_TICKS + 1), copperBar: new Float64Array(170 * HOUR_TICKS + 1), ironBar: new Float64Array(170 * HOUR_TICKS + 1), goldBar: new Float64Array(170 * HOUR_TICKS + 1), stars: new Float64Array(170 * HOUR_TICKS + 1) }
     const ladder = runBot(true, {
       ticks: 170 * HOUR_TICKS,
       licenses: LICENSE_ORDER,
@@ -3764,6 +3764,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       onEnd: (s) => (end = s),
       onTick: (s) => {
         held.cash[s.run.tick] = s.run.cash
+        held.stars[s.run.tick] = s.run.stars
         for (const id of ['copperBar', 'ironBar', 'goldBar'] as const) held[id][s.run.tick] = s.run.inventory[id] ?? 0
         const g = s.run.rack.gold
         if (g !== undefined && gold.prev === undefined) gold.from = s.run.tick
@@ -3949,6 +3950,44 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     }))
     expect(endTick).toBeGreaterThan(0)
   })
+
+  // batch 34 (task 187 scenario A, report + the Manager-path guard; reuses this ladder run): ⭐ held at the Tractor (the
+  // ladder bot fills no orders), then from the ladder end the contract bot of PIN311a with the board bought, reporting
+  // the minute the Clerk and the Manager certificates first buy, ⭐ held then, and contract ⭐/h
+  it('batch 34: scenario A — ladder end, ⭐ at the Tractor and the Manager, Clerk / Manager minutes, contract ⭐/h, longest gap', () => {
+    const t = ladder.ladderTicks as Partial<Record<string, number>>
+    const endTick = r.win.harvester3!
+    const marks = [...Object.entries(end.run.milestones), ...Object.entries(t)]
+      .filter((e): e is [string, number] => e[1] !== undefined && e[1] <= endTick)
+      .sort((a, b) => a[1] - b[1])
+    const gaps = marks.map(([id, tick], i) => ({ id, from: i ? marks[i - 1]![0] : 'start', tick, gap: tick - (i ? marks[i - 1]![1] : 0) }))
+    const longest = gaps.reduce((a, b) => (b.gap > a.gap ? b : a))
+    const before = Math.max(0, longest.tick - 1)
+    const min = (x: number | undefined) => (x === undefined ? null : Math.round((x / 60) * 10) / 10)
+    const board = buyOrderBoard({ ...end, run: { ...end.run, inventory: { ...end.run.inventory, stone: Math.max(10, end.run.inventory.stone ?? 0) } } })
+    const c = certRun(board.ok ? board.state : end, 48 * 60)
+    const endMin = Math.round(endTick / 60)
+    console.log('PIN34a', JSON.stringify({
+      ladderEndMin: min(endTick),
+      starsAtTractor: r.held.stars[end.run.milestones.fieldsUnlocked!],
+      clerkMin: c.clerk === null ? null : endMin + c.clerk,
+      managerMin: c.manager === null ? null : endMin + c.manager,
+      starsAtManager: c.starsAtManager,
+      stars20Min: c.stars20 === null ? null : endMin + c.stars20,
+      managerUnlockMin: c.unlock === null ? null : endMin + c.unlock,
+      // contracts + item / bar orders delivered from storage, per game-hour after the ladder end
+      orderStarsPerHour: c.starsPerHour,
+      contracts: c.contracts,
+      starsEnd: c.starsEnd,
+      shortAt48h: c.short,
+      longest: { closedBy: longest.id, after: longest.from, gapMin: min(longest.gap), atMin: min(longest.tick) },
+      heldBefore: { cash: Math.round(r.held.cash[before]!), copperBar: r.held.copperBar[before], ironBar: r.held.ironBar[before], goldBar: r.held.goldBar[before] },
+    }))
+    // guard (batch-31.1 Manager unlock path): the unlock and the Manager's ⭐20 are reached within PIN311a's 48 h window
+    // (the 💰1.5M part is the cash bound, not ⭐)
+    expect(c.unlock).not.toBeNull()
+    expect(c.stars20).not.toBeNull()
+  }, 300_000)
 
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
@@ -4593,6 +4632,57 @@ function contractRun(s0: GameState, maxMinutes: number) {
     if (buyable === null && buyCertificate(s, 'manager').ok) buyable = m + 1
   }
   return { reached, buyable, counter: s.run.counters.contractsByHand }
+}
+
+/**
+ * batch 34 (task 187): contractRun's accept / discard policy until the 💼 Manager certificate first buys (nothing is
+ * bought, so ⭐ is never spent): the minutes the Clerk and the Manager certificates first buy, ⭐ held at the Manager,
+ * and ⭐ earned per game-hour over the run
+ */
+function certRun(s0: GameState, maxMinutes: number) {
+  let s = s0
+  let clerk: number | null = null
+  let manager: number | null = null
+  let starsAtManager: number | null = null
+  // the Manager's ⭐ part (⭐20) held, and its unlock (10 contracts delivered)
+  let stars20: number | null = null
+  let unlock: number | null = null
+  let m = 0
+  for (; m < maxMinutes && (manager === null || clerk === null); m++) {
+    s.run.orders.offers.forEach((o, i) => {
+      if (!isOffer(o) || o.accepted) return
+      const grown = s.run.fields.list.some((f) => f.plots.some((p) => p.crop === o.good))
+      // an item / bar order storage already holds is delivered at once (the ⭐ the plan counts on besides contracts)
+      const delivered = !isCropGood(o.good) && (s.run.inventory[o.good] ?? 0) >= o.count ? acceptOrder(s, i) : null
+      const r = delivered?.ok ? deliverOrder(delivered.state, i) : isContract(s.run, o.good) && grown ? acceptOrder(s, i) : discardOrder(s, i)
+      if (r.ok) s = r.state
+    })
+    s = step(s, 60)
+    if (clerk === null && buyCertificate(s, 'clerk').ok) clerk = m + 1
+    if (manager === null && buyCertificate(s, 'manager').ok) [manager, starsAtManager] = [m + 1, s.run.stars]
+    if (stars20 === null && s.run.stars >= certificateCost('manager', s.meta).stars!) stars20 = m + 1
+    if (unlock === null && certificateUnlocked(s.run, 'manager')) unlock = m + 1
+  }
+  const starsPerHour = Math.round(((s.run.lifetime.starsEarned - s0.run.lifetime.starsEarned) / (m / 60)) * 100) / 100
+  // what each certificate still lacks at the end (empty = bought / buyable)
+  const short = (job: 'clerk' | 'manager') =>
+    Object.fromEntries(
+      Object.entries(certificateCost(job, s.meta)).flatMap(([id, n]) => {
+        const have = id === 'cash' ? s.run.cash : id === 'stars' ? s.run.stars : (s.run.inventory[id as ItemId] ?? 0)
+        return n! > have ? [[id, Math.round(n! - have)]] : []
+      }),
+    )
+  return {
+    clerk,
+    manager,
+    starsAtManager,
+    stars20,
+    unlock,
+    starsPerHour,
+    starsEnd: s.run.stars,
+    contracts: s.run.counters.contractsByHand - s0.run.counters.contractsByHand,
+    short: { clerk: short('clerk'), manager: short('manager') },
+  }
 }
 
 /**

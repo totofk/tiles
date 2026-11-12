@@ -60,8 +60,8 @@ const TILE_COST_GROWTH = 1.5
 const MINE_LICENSE_COST = 50
 const WOOD_BUY_COST = 4
 // wood sells below its buy price, so buying and reselling wood never makes money. Ore sells ≤ 1 (its value is
-// smelting). Bars sell below the sell value of their inputs at the cheapest recipe, so smelting to sell never
-// beats selling the ore and coal (batch 24: disposal for a bag full of unused bars, never a profit).
+// smelting). Bars are income prices since batch 34 (DECISIONS.md:712): no cash loop, because ore cannot be bought —
+// only wood and seeds are (buyWood, buySeeds).
 const ITEM_SELL_PRICE = {
   wood: 2,
   stone: 2,
@@ -69,9 +69,9 @@ const ITEM_SELL_PRICE = {
   copperOre: 1,
   ironOre: 1,
   goldOre: 1,
-  copperBar: 2,
-  ironBar: 3,
-  goldBar: 5,
+  copperBar: 100,
+  ironBar: 500,
+  goldBar: 1000,
 } satisfies Partial<Record<ItemId, number>>
 export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 /** a price in cash plus items from storage, and ⭐ (never scaled by the cost multiplier) */

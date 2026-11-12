@@ -23,8 +23,6 @@ import {
   orderTierStars,
   oreBar,
   rollOrderTier,
-  smeltFuel,
-  smeltOre,
   veinDrops,
 } from './balance'
 import { CROP_IDS, type CropId } from './data/crops'
@@ -90,16 +88,12 @@ export function rollOffer(state: GameState, rngState: number): [Offer, number] {
   return [{ good, count: orderCount(state, good, tier), done: 0, tier, accepted: false }, next]
 }
 
-/** cash one unit of an item order pays on delivery: its base value × the bonus; a bar is valued at its ore and coal */
+/** cash one unit of an item order pays on delivery: its base value × the bonus; a bar (batch 34) its own sell price ×
+ * (1 + bonus), like a crop order, so delivering bars never pays less than selling them */
 export function itemOrderValue(state: GameState, good: ItemId): number {
-  const level = state.run.upgrades.sellPrice
-  const ore = barOre(good)
-  const base = ore
-    ? smeltOre() * itemSellPrice(ore, state.meta, level) + smeltFuel('coal', ore) * itemSellPrice('coal', state.meta, level)
-    : isSellable(good)
-      ? itemSellPrice(good, state.meta, level)
-      : 0
-  return base * orderBonus()
+  if (!isSellable(good)) return 0
+  const price = itemSellPrice(good, state.meta, state.run.upgrades.sellPrice)
+  return barOre(good) ? price * (1 + orderBonus()) : price * orderBonus()
 }
 
 /** cash one ordered crop unit pays: the unglutted price × (1 + bonus) × `bonus` (hand-picked) */
