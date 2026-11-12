@@ -6094,7 +6094,7 @@ per hour is the same at every scale: 720 tiles/h.
 **Balance numbers.** None change. The wage stays 💰1 per action (`WORKER_WAGES`, `balance.ts:209`), so a plot now
 costs 💰10 of wages instead of 💰1.
 
-- [ ] 173. **Core: a Fields worker action = one tile on the shared counter.**
+- [x] 173. **Core: a Fields worker action = one tile on the shared counter.**
   - a. FIRST, before changing any code, add the scenario test of task 175 and run it on the unchanged code. Record its
     numbers as "before" in the results.
   - b. `fieldsHarvest(state)` (`fields.ts:366–370`): no ready plot → `null` (unchanged). Otherwise
@@ -6128,7 +6128,7 @@ costs 💰10 of wages instead of 💰1.
   - Grep every caller before changing (CI tsc fails on a stale one): `fieldsHarvest`, `fieldsPlantAction`,
     `machines.carry` / `carry.harvest` / `carry.plant` (src/core/fields.ts, src/app/useGame.ts:130, tests/fields.test.ts:419, 467).
 
-- [ ] 174. **UI: the "🚜 next" marker counts workers and shows the progress.** `src/app/estateText.ts:116–120`.
+- [x] 174. **UI: the "🚜 next" marker counts workers and shows the progress.** `src/app/estateText.ts:116–120`.
   - `sowNextHere` is true when (`machines.seeder.length > 0` OR `run.workers.assigned.plant > 0`) and the plot is
     `nextSowTarget`; `reapNextHere` likewise with `harvester` / `assigned.harvest` and `nextReapTarget`.
   - `done = Math.floor(reapNextHere ? carry.harvest : carry.plant)` (a plot cannot be both empty and ready).
@@ -6139,7 +6139,7 @@ costs 💰10 of wages instead of 💰1.
     harvest worker assigned → marker true; no machine and no worker → no marker.
   - `useGame.ts:130` (seeder waiting chip) is unchanged.
 
-- [ ] 175. **Sim: scenarios A and B, re-pins, changelog.** A new `describe('batch 32.2: estate worker speed')` in
+- [x] 175. **Sim: scenarios A and B, re-pins, changelog.** A new `describe('batch 32.2: estate worker speed')` in
   `tests/sim.test.ts`. Log lines `PIN322a` / `PIN322b`; numbers are REPORTS, not asserts, except the guards below.
   - **Scenario A (fresh player, ladder bot from tick 0 to its last unlock):** log the Estate income/h at the end, the
     game-minutes to the 💼 Manager unlock and to the first harvester machine, and the largest gap between milestones.
@@ -6267,3 +6267,66 @@ costs 💰10 of wages instead of 💰1.
   a plain fading tint; disabled / reduced motion → nothing; offline, prestige, migration, two tabs → not involved
   (no state); touches `.cell-flash` / `.mine-flash` / the worker ring only by sharing the button, on different
   properties (`box-shadow` / `outline` vs the `::after`).
+
+## Batch 32.2 results
+
+Commits: task 173 `f7416345`, task 174 `01598551`, task 175 (this commit), task 176 (next). No save bump: SAVE_VERSION
+stays 24, `src/save` untouched, no balance constant changed.
+
+- **173.** `fieldsHarvest` / `fieldsPlantAction` (`src/core/fields.ts`) add one tile to `fields.machines.carry`
+  (harvest / plant); a plot's worth reaps the oldest ready plot / sows the next one and keeps the remainder. A failed
+  sow (NO_SEEDS / NO_CASH) returns the error and banks nothing; a banked tile discards the sown state (seeds paid only
+  on the 10th). `machinesAct` and `workerAction` logic unchanged, comments updated. Tests: the seven one-call-one-plot
+  calls in `tests/fields.test.ts` / `tests/orders.test.ts` now start from carry 9; five new tests (9 rounds = 💰9 and
+  nothing reaped, the 10th reaps; carry 7 + 3 actions; a ripe home tile leaves carry; no seeds banks and pays nothing,
+  seeds drop only on the 10th; a hand reap leaves carry).
+- **174.** `plotCellView` (`src/app/estateText.ts`): the marker also shows with a planter / harvester worker assigned;
+  the label adds `· n/10` from `Math.floor(carry)` once n ≥ 1. Four new assertions in `tests/estateText.test.ts`.
+- **175.** Scenario A (`PIN322a`, nested in the batch-19 describe to reuse its 170 h ladder run) and scenario B
+  (`PIN322b`, `describe('batch 32.2: estate worker speed — scenario B …')`), measured first on the unchanged code
+  (task 173a), then after task 173:
+
+| Scenario | Measure | Before | After |
+| --- | --- | --- | --- |
+| A | ladder end (game-min) | 10,200 | 10,200 |
+| A | income/h, 1 game-hour from the ladder end, no player (`cashEarned`) | 💰1,190,805 | 💰758,527 |
+| A | income/h in the window before harvester3 | 💰1,063,021 | 💰612,121 |
+| A | first harvester machine (game-min) | 1,783 | 4,407 |
+| A | 💼 Manager unlock = 10th contract, PIN311a's contract bot from the ladder end (game-min) | 11,148 | 10,754 |
+| A | 💼 certificate buyable (⭐ / 🥇 price) within 48 h after the ladder end | no | no |
+| A | longest gap between milestones, tick 0 → ladder end | fields500, 1,011 min | harvester1, 3,372 min |
+| B1 (v23 as saved: harvester [1, 2], seeder [1]) | 💰 earned/h · net 💰/h | 283,995 · 273,621 | 153,831 · 147,977 |
+| B1 | plots reaped/h · sown/h | 327 · 327 | 219.3 · 218.6 |
+| B1 | wages/h | 💰1,080 | 💰1,394 |
+| B2 (same save, no machines) | 💰 earned/h · net 💰/h | 262,705 · 252,791 | 73,387 · 70,126 |
+| B2 | plots reaped/h · sown/h | 312.5 · 312.4 | 40.5 · 38.8 |
+| B2 | wages/h | 💰1,290 | 💰1,457 |
+
+  Re-pins, old → new, cause "workers do one tile per action on the Estate": PIN18b lemon
+  [48714, 114757, 209556, 495880, 551320] → [42020, 81507, 81507, 81507, 81507], mixed [193679, 284610] →
+  [75745, 63677]; PIN18c crossing 8 → 10; PIN18d `pairTiles` 720 → 72 and second pair 701 → 53 (formula
+  `Math.floor((1 / workerActionTicks) × grow)`, title "one tile per action"); the coal budget [978, 19] → [982, 11];
+  PIN19b curve [213,217] [492,604] [550,1801] → [81,211] [81,598] [81,758], 300-tile paybacks 0.6 / 8.9 / null / 102.5 →
+  0.4 / 1623.4 / 363.6 / 0.8, paysAtN 300 / 1000 / 1000 / null → 300 / null / null / 300; PIN20 run-2 speed-up 1.26 →
+  1.2 (run 3 stays 1.33); PIN28_1b sold runs' harvester3 37.9 / 34.7 h → 105.6 / 101 h; PIN22b vault speed-up ≥ 1.3 →
+  ≥ 1.29 (measured 1.291); PIN28_1c 56.6 / 35.9 h → 108.1 / 73.6 h; PIN311b 10th contract at minute 319 → 417 (⭐ 60,
+  💰1,513,614 still clear the ≥ 20 / ≥ 1.5M bars). PIN28c logs `plantWorkerTiles: 720` (was `plantWorkerWholePlots:
+  7200`). Gap guards: PIN26b (≤ 90 min to the Tractor) and the batch-18 unlock step (≤ 60 min) still pass; the PIN28a
+  Tractor → Pump 2 `it.fails` still fails as recorded. CHANGELOG entry 32.2 added verbatim.
+
+### Deviations
+
+- **The moved sim pins were re-pinned in the task 173 commit, not 175**, so each commit's full `pnpm test` is green;
+  175 carries the test-only PIN18d formula / title, the PIN28c key, the CHANGELOG and these results.
+- **`tests/Estate.test.tsx` changed (the plan said it stays unchanged).** Its base is the v19 save, which has 1
+  planter and 2 harvesters assigned, so under task 174's rule its plots carried the marker and four tests failed.
+  `withFields` (which already strips the machines) now also sets `assigned.plant` / `.harvest` to 0; every assertion is
+  unchanged.
+- **Balance flag for Hermes (not a blocker under the batch rules: no gap guard fails).** Without machines the Estate
+  is labor-bound at 72 plots/h per worker pair: the ladder's first harvester comes 1,783 → 4,407 game-min, the sold
+  runs reach harvester3 at 105.6 / 101 h (was 37.9 / 34.7), and scenario A's longest milestone gap grows to 3,372 min
+  (fields500 → harvester1; was 1,011). B2 (workers only) earns 💰73k/h instead of 💰263k/h.
+- **Scenario A measures.** "Estate income/h at the end" is `lifetime.cashEarned` over one game-hour stepped from the
+  ladder end with no player (all sources, not the Estate alone); the window income before harvester3 is reported next
+  to it. The 💼 certificate never becomes buyable within PIN311a's 48 h window (before or after), so the unlock minute
+  reported is the 10th contract.

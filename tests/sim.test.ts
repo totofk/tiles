@@ -3584,12 +3584,13 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     expect(crossing).toBe(10)
   })
 
-  it('one planter+harvester pair moves 2 × grow tiles per cycle — the throughput bound and the second pair', () => {
-    const pairTiles = Math.floor((plotTiles() / workerActionTicks(end.meta)) * cropGrowTicks('lemon', end.meta, end.run.upgrades.fertilizer))
+  it('one tile per action: a planter+harvester pair moves grow ÷ 5 tiles per cycle — the throughput bound and the second pair', () => {
+    const pairTiles = Math.floor((1 / workerActionTicks(end.meta)) * cropGrowTicks('lemon', end.meta, end.run.upgrades.fertilizer))
     const settled = step(forge(end, 300, 3, ['lemon']), 2 * HOUR_TICKS)
     console.log('PIN18d', { pairTiles, secondPairAt: pairTiles - end.run.tiles.length, stats300: fieldsOverview(settled.run) })
-    expect(pairTiles).toBe(720) // lemon: 10 tiles per 5 ticks × 360 grow — and the pair tends the home plot too
-    expect(pairTiles - end.run.tiles.length).toBe(701) // re-pinned batch 26: the bot now owns 19 tiles (beds 3–4 need them)
+    // re-pinned batch 32.2 (was 720 / 701): workers do one tile per action on the Estate (was a 10-tile plot)
+    expect(pairTiles).toBe(72) // lemon: 1 tile per 5 ticks × 360 grow — and the pair tends the home plot too
+    expect(pairTiles - end.run.tiles.length).toBe(53) // re-pinned batch 26: the bot now owns 19 tiles (beds 3–4 need them)
   })
 
   it('the coal budget (re-pinned batch 26): the beds burn none, so the miner covers the furnace and the pipes', () => {
@@ -3906,7 +3907,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     }
     const needed = Math.round((1000 * HOUR_TICKS) / Math.ceil(cropGrowTicks('strawberry', end.meta, end.run.upgrades.fertilizer) / FIELD_PRESSURE))
     const fleet = { reap: [1, 2, 3].reduce((a, t) => a + machineTilesPerHour('harvester', t), 0), sow: [1, 2].reduce((a, t) => a + machineTilesPerHour('seeder', t), 0) }
-    console.log('PIN28c', JSON.stringify({ income, coal, labor: { needed, fleet, sownPerHour: sown, reapedPerHour: reaped, plantWorkerWholePlots: plotTiles() * (HOUR_TICKS / workerActionTicks(end.meta)), incomeCap: income[3]!.strawberry } }))
+    console.log('PIN28c', JSON.stringify({ income, coal, labor: { needed, fleet, sownPerHour: sown, reapedPerHour: reaped, plantWorkerTiles: HOUR_TICKS / workerActionTicks(end.meta), incomeCap: income[3]!.strawberry } }))
     expect(income.every((row) => row.strawberry > 0 && row.lemon > 0)).toBe(true)
   })
 
