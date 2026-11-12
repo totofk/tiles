@@ -613,8 +613,8 @@ export function orderRerollStars(): number {
 export const DEED_DIVISOR = 10000
 /** the sale opens at this many lifetime-cash deeds AND every farm job covered by worker or machine */
 export const PRESTIGE_GATE_DEEDS = 8
-/** the ⭐ balance converts to deeds at this rate when the farm is sold (floored) */
-export const STARS_PER_DEED = 25
+/** batch 34: the ⭐ balance carries into the next run on a sale, up to this many (everything bought with ⭐ resets) */
+export const STAR_CARRY_CAP = 50
 /** how many sold runs meta.runs keeps */
 export const RUN_HISTORY_CAP = 20
 

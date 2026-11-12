@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
@@ -233,8 +233,9 @@ export function createInitialMeta(): MetaState {
 }
 
 /** what a sold run carries into the next one: the Legacy keep rows' licenses and farm certificates, the ⭐-bought
- * order slots, and the lifetime totals (they are Stats totals — and the deed meter reads them) */
-export type RunCarry = { licenses: CropId[]; certificates: WorkerJob[]; orderSlots: number; lifetime: Lifetime; renown: Partial<Record<CropId, number>> }
+ * order slots, the lifetime totals (they are Stats totals — and the deed meter reads them) and the ⭐ balance (batch 34,
+ * capped at STAR_CARRY_CAP) */
+export type RunCarry = { licenses: CropId[]; certificates: WorkerJob[]; orderSlots: number; lifetime: Lifetime; renown: Partial<Record<CropId, number>>; stars: number }
 
 /** a run at tick 0: what a new game starts, and what "Sell the farm" starts after it — honors the start-tiles and
  * energy Legacy rows and the keeps */
@@ -275,7 +276,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
-    stars: 0,
+    stars: Math.min(carry?.stars ?? 0, STAR_CARRY_CAP),
     starsFrac: 0,
     favours: { bunkhouse: 0, seam: false, aim: null },
     renown: carry?.renown ?? {},

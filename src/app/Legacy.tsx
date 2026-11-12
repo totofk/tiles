@@ -1,5 +1,6 @@
 import {
   DEED_ROW_IDS,
+  STAR_CARRY_CAP,
   deedCost,
   deedMaxLevel,
   energyMax,
@@ -8,7 +9,8 @@ import {
   workerActionTicks,
   type DeedRowId,
 } from '../core/balance'
-import { buyMetaUpgrade, deedsClaimable, saleDeeds, starDeeds } from '../core/prestige'
+import { STAR_EMOJI } from '../core/data/orders'
+import { buyMetaUpgrade, deedsClaimable } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
 import { count } from './fmt'
@@ -102,14 +104,18 @@ export function Legacy({ state, act }: { state: GameState; act: Act }) {
 export function SellCard({ state, sell }: { state: GameState; sell: () => void }) {
   const [armed, press] = useTwoPress(sell)
   const { run, meta } = state
-  const fromCash = deedsClaimable(state)
-  const fromStars = starDeeds(state)
-  const gain = saleDeeds(state)
+  // batch 34: cash deeds only (⭐ no longer converts); the ⭐ balance carries, capped
+  const gain = deedsClaimable(state)
+  const carried = Math.min(run.stars, STAR_CARRY_CAP)
   return (
     <section className="shop">
       <h2>🏆 Sell the farm</h2>
       <p className="deeds">
-        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{count(fromCash)} + {fromStars} from ⭐)
+        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
+      </p>
+      <p className="deeds">
+        {STAR_EMOJI} {carried} carried to the next farm
+        {run.stars > STAR_CARRY_CAP && ` · ${STAR_EMOJI}${run.stars - STAR_CARRY_CAP} lost above ${STAR_CARRY_CAP}`}
       </p>
       <h3>Resets</h3>
       <ul className="sell-list">
@@ -119,7 +125,7 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
           Licenses{meta.upgrades.keepLicenses > 0 ? ' — kept (Seed vault)' : ''}, workers and certificates
           {meta.upgrades.keepFirstCertificates > 0 ? ' — the 3 farm ones kept' : ''}
         </li>
-        <li>⭐ balance (it converts above) and this run's timeline</li>
+        <li>⭐ Favours (the ⭐ balance carries, see above) and this run's timeline</li>
         <li>Renown{meta.upgrades.keepRenown > 0 ? ' — tiers kept' : ''}</li>
       </ul>
       <h3>Carries</h3>

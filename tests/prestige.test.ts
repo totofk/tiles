@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { PRESTIGE_GATE_DEEDS, deedsFor, energyMax, startTiles, workerActsAt, workerActionTicks } from '../src/core/balance'
-import { deedsClaimable, saleDeeds, sellFarm, sellFarmUnlocked, starDeeds } from '../src/core/prestige'
+import { deedsClaimable, sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import { createInitialState, type GameState, type MetaState } from '../src/core/state'
 import { step } from '../src/core/step'
-import { catchUp } from '../src/save/serialize'
+import { catchUp, deserialize } from '../src/save/serialize'
+import v23 from './fixtures/save-v23.json?raw'
 
 /** a run at the sale gate: farm jobs covered (planter + harvester certificate, a sprinkler) and 💰640k lifetime (8 deeds) */
 const atGate = (over: Partial<GameState['run']> = {}): GameState => {
@@ -34,21 +35,23 @@ describe('the sale gate', () => {
 })
 
 describe('sellFarm', () => {
-  it('resets the run, moves lifetime and ⭐-bought order slots over, and pays cash + ⭐ deeds into the ledger', () => {
+  // re-pinned batch 34 (was [8, 1, 9] deeds, ⭐ 0 after): ⭐ carries a sale — cash deeds only, the ⭐ balance carries
+  it('resets the run, moves lifetime, ⭐-bought order slots and the ⭐ balance over, and pays the cash deeds into the ledger', () => {
     const s = atGate({ orders: { unlocked: true, slots: 5, offers: [] }, tick: 12_345 })
     const sale = sellFarm(s)
     expect(sale.ok).toBe(true)
     if (!sale.ok) return
     const { meta, run } = sale.state
-    expect(meta).toMatchObject({ prestigeCount: 1, deeds: 9, deedsClaimed: 8, runs: [{ endedAtTick: 12_345, deeds: 9 }] })
-    expect([deedsClaimable(s), starDeeds(s), saleDeeds(s)]).toEqual([8, 1, 9])
+    expect(meta).toMatchObject({ prestigeCount: 1, deeds: 8, deedsClaimed: 8, runs: [{ endedAtTick: 12_345, deeds: 8 }] })
+    expect(deedsClaimable(s)).toBe(8)
     expect(run).toMatchObject({
       tick: 0,
       cash: 20,
       tiles: Array.from({ length: 9 }, () => expect.objectContaining({ status: 'untilled' })),
       licenses: ['radish'],
       milestones: {},
-      stars: 0,
+      stars: 37,
+      starsFrac: 0,
       orders: { unlocked: false, slots: 5, offers: [] },
       workers: { pool: 0, certificates: [] },
       lifetime: s.run.lifetime,
@@ -63,8 +66,8 @@ describe('sellFarm', () => {
     expect(sale.ok).toBe(true)
     if (!sale.ok) return
     // gate re-opened on the fresh run (the certificates and sprinkler were lost with it): the same lifetime cash is
-    // never paid twice, and the ⭐ balance reset with the run
-    const again = atGate({ stars: 0 })
+    // never paid twice; ⭐ never adds a deed (batch 34)
+    const again = atGate({ stars: 1000 })
     const regated: GameState = { meta: sale.state.meta, run: { ...again.run, lifetime: sale.state.run.lifetime } }
     expect(sellFarm(regated)).toEqual({ ok: false, error: 'NO_GAIN' })
   })
@@ -94,6 +97,28 @@ describe('sellFarm', () => {
     expect([sale.state.run.workers.assigned.manager, sale.state.run.counters.contractsByHand]).toEqual([0, 0])
   })
 
+  it('batch 34: ⭐73 starts the next run with ⭐50; every ⭐ level (fertilizer 7, furnace speed 4, Bunkhouse 2) is back to 0', () => {
+    const g = atGate({ stars: 73, starsFrac: 0.6 })
+    const run = {
+      ...g.run,
+      upgrades: { ...g.run.upgrades, fertilizer: 7 },
+      furnace: { ...g.run.furnace, built: true, levels: { ...g.run.furnace.levels, speed: 4 } },
+      favours: { bunkhouse: 2, seam: true, aim: 'ironOre' as const },
+    }
+    const sale = sellFarm({ ...g, run })
+    if (!sale.ok) throw new Error(sale.error)
+    const next = sale.state.run
+    expect([next.stars, next.starsFrac, next.upgrades.fertilizer, next.furnace.levels.speed, next.favours]).toEqual([50, 0, 0, 0, { bunkhouse: 0, seam: false, aim: null }])
+  })
+
+  it('batch 34: Toon\'s v23 save (⭐39, lifetime 💰804,344) sells for 8 deeds (was 9) and the next run starts with ⭐39', () => {
+    const s = deserialize(v23)!.state
+    expect([s.run.stars, s.run.lifetime.cashEarned]).toEqual([39, 804_344])
+    const sale = sellFarm(s)
+    if (!sale.ok) throw new Error(sale.error)
+    expect([sale.state.meta.runs.at(-1)!.deeds, sale.state.run.stars]).toEqual([8, 39])
+  })
+
   it('caps the run history at RUN_HISTORY_CAP entries, newest last', () => {
     const old = Array.from({ length: 20 }, (_, i) => ({ endedAtTick: i, deeds: 1 }))
     const s: GameState = { meta: { ...atGate().meta, runs: old }, run: atGate().run }
@@ -101,7 +126,8 @@ describe('sellFarm', () => {
     expect(sale.ok).toBe(true)
     if (!sale.ok) return
     expect(sale.state.meta.runs).toHaveLength(20)
-    expect(sale.state.meta.runs[19]).toEqual({ endedAtTick: 0, deeds: 9 })
+    // re-pinned batch 34 (was 9): ⭐ carries a sale — the ⭐37 no longer adds a deed
+    expect(sale.state.meta.runs[19]).toEqual({ endedAtTick: 0, deeds: 8 })
   })
 })
 

@@ -108,7 +108,8 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     // 8 deeds on the meter, every job covered: the gate is open
     render(panel(atGate))
     expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
-    expect(screen.getByText('Sell now: +8 deeds (💰8 + 0 from ⭐)')).toBeTruthy()
+    // re-pinned batch 34 (was "(💰8 + 0 from ⭐)"): ⭐ carries a sale — no ⭐ part
+    expect(screen.getByText('Sell now: +8 deeds (💰8)')).toBeTruthy()
     expect(screen.queryByText(/needs /)).toBeNull()
   })
 

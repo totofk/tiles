@@ -84,12 +84,14 @@ describe('🏆 Sell the farm card', () => {
     const sold: GameState[] = []
     const s = atGate()
     render(<SellCard state={s} sell={() => sold.push(s)} />)
-    expect(screen.getByText('Sell now: +9 deeds (💰8 + 1 from ⭐)')).toBeTruthy()
+    // re-pinned batch 34 (was "+9 deeds (💰8 + 1 from ⭐)"): ⭐ carries a sale — cash deeds only, ⭐37 carried
+    expect(screen.getByText('Sell now: +8 deeds (💰8)')).toBeTruthy()
+    expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
     expect([...screen.getAllByRole('list')].map((l) => l.textContent)).toEqual([
       'Tiles, cash, market, storage, tools' +
         'Mine, furnace, workshop, fields, machines' +
         'Licenses, workers and certificates' +
-        "⭐ balance (it converts above) and this run's timeline" +
+        "⭐ Favours (the ⭐ balance carries, see above) and this run's timeline" +
         'Renown',
       '🏆 deeds and every Legacy row bought' + 'The ⭐-bought order slots (4)' + 'Lifetime totals — the deed meter keeps counting',
     ])
@@ -101,11 +103,12 @@ describe('🏆 Sell the farm card', () => {
     expect(sold).toHaveLength(1)
   })
 
-  it('is disabled with no gain (gate open, deeds already claimed, ⭐ under 25)', () => {
+  it('is disabled with no gain (gate open, deeds already claimed); ⭐ never adds a deed', () => {
     const claimed = { ...atGate(), meta: { ...atGate().meta, deedsClaimed: 8 } }
     const sold: GameState[] = []
-    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 3 } }} sell={() => sold.push(claimed)} />)
-    expect(screen.getByText('Sell now: +0 deeds (💰0 + 0 from ⭐)')).toBeTruthy()
+    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 300 } }} sell={() => sold.push(claimed)} />)
+    expect(screen.getByText('Sell now: +0 deeds (💰0)')).toBeTruthy()
+    expect(screen.getByText('⭐ 50 carried to the next farm · ⭐250 lost above 50')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
   })

@@ -76,7 +76,7 @@ import {
 import { debtDue, repayAll, takeLoan } from '../src/core/bank'
 import { ITEM_IDS } from '../src/core/data/items'
 import { addFuel, buildFurnace, buyFurnaceUpgrade, buyMold, collectBars, cycleOre, loadOre } from '../src/core/furnace'
-import { buyMetaUpgrade, sellFarm, sellFarmUnlocked, starDeeds } from '../src/core/prestige'
+import { buyMetaUpgrade, sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import { catchUp, deserialize } from '../src/save/serialize'
 import v17 from './fixtures/save-v17.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
@@ -4234,7 +4234,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     })
     return { ladder, end, gateTick: gateTick!, firstHour }
   })
-  // sale #1 at the cut-off: deeds from lifetime cash plus ⭐, then the Legacy rows bought breadth-first — the vault
+  // sale #1 at the cut-off: deeds from lifetime cash (batch 34: ⭐ carries, capped, instead of converting), then the
+  // Legacy rows bought breadth-first — the vault
   // (keepLicenses) is in, but a keep only shapes the NEXT sale, so run 2 starts with radish anyway
   const sale1 = (() => {
     const sold = sellFarm(r1.end)
@@ -4244,7 +4245,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
       ok: sold.ok,
       gained: fresh.meta.deeds - r1.end.meta.deeds,
       fromCash: deedsFor(r1.end.run.lifetime.cashEarned),
-      fromStars: starDeeds(r1.end),
+      starsCarried: fresh.run.stars,
       spent: fresh.meta.deeds - after.meta.deeds,
       rows: Object.fromEntries(DEED_ROW_IDS.map((id) => [id, after.meta.upgrades[id]])),
       after,
@@ -4272,7 +4273,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
       'PIN20',
       JSON.stringify({
         gateOpenH: hours(r1.gateTick),
-        sale1: { deeds: sale1.gained, fromCash: sale1.fromCash, fromStars: sale1.fromStars, spent: sale1.spent, rows: sale1.rows },
+        sale1: { deeds: sale1.gained, fromCash: sale1.fromCash, starsCarried: sale1.starsCarried, spent: sale1.spent, rows: sale1.rows },
         sale2: { deeds: sale2.gained, rows: Object.fromEntries(DEED_ROW_IDS.map((id) => [id, sale2.after.meta.upgrades[id]])) },
         fieldsUnlockH: [hours(run1Fields), hours(run2Fields), hours(run3Fields)],
         speedup: [Math.round((run1Fields / run2Fields) * 10) / 10, Math.round((run1Fields / run3Fields) * 10) / 10],
@@ -4280,7 +4281,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
       }),
     )
     expect(sale1.ok && r1.gateTick > 0).toBe(true)
-    expect(sale1.gained).toBe(sale1.fromCash + sale1.fromStars)
+    expect(sale1.gained).toBe(sale1.fromCash)
     expect(sale1.gained).toBeGreaterThanOrEqual(8)
     expect(sale2.ok).toBe(true)
     // DECISIONS pinned ≥ 1.8× off the research's ×2.2 model (flat 1-deed rows at +10 % steps, pre-Fields). The shipped
@@ -4322,9 +4323,11 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     const loaded = deserialize(v17)!
     const sold = sellFarm(loaded.state)
     expect(sold.ok).toBe(true)
-    // 9 gained (8 lifetime cash + 1 from ⭐37), 8 spent breadth-first on four L1 rows
+    // re-pinned batch 34 (was 9 gained = 8 lifetime cash + 1 from ⭐37, deeds 1 left): ⭐ carries a sale — 8 gained, all
+    // 8 spent breadth-first on four L1 rows, and the ⭐37 carries into run 2
     const after = buyDeedRows(sold.ok ? sold.state : loaded.state, DEED_ROW_IDS)
-    expect(after.meta).toMatchObject({ prestigeCount: 1, deeds: 1, deedsClaimed: 8, upgrades: { growTime: 1, sellPrice: 1, cost: 1, energy: 1 } })
+    expect(after.meta).toMatchObject({ prestigeCount: 1, deeds: 0, deedsClaimed: 8, upgrades: { growTime: 1, sellPrice: 1, cost: 1, energy: 1 } })
+    expect(after.run.stars).toBe(37)
     let one = after
     for (let i = 0; i < 600; i++) one = step(one, 1)
     expect(step(after, 600)).toEqual(one)

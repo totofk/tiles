@@ -749,11 +749,13 @@ describe('save v18: the deed ledger', () => {
       savedAtMs: old.savedAtMs,
       state: { meta: v18Meta(old.state.meta), run: v19Run(v20Run(old.state.run, old.state.meta)) },
     }))
-    // the migrated run sits at the sale gate (8 lifetime deeds, farm jobs covered) and sells 8 + ⭐1
+    // the migrated run sits at the sale gate (8 lifetime deeds, farm jobs covered) and sells for 8 (re-pinned batch 34,
+    // was 8 + ⭐1: ⭐ carries a sale — its ⭐37 carries instead)
     expect(deedsFor(save.state.run.lifetime.cashEarned)).toBe(8)
     expect(sellFarmUnlocked(save.state)).toBe(true)
     const sale = sellFarm(save.state) as { ok: true; state: GameState }
-    expect(sale.state.meta).toMatchObject({ prestigeCount: 1, deeds: 9, deedsClaimed: 8, runs: [{ endedAtTick: 31_000, deeds: 9 }] })
+    expect(sale.state.meta).toMatchObject({ prestigeCount: 1, deeds: 8, deedsClaimed: 8, runs: [{ endedAtTick: 31_000, deeds: 8 }] })
+    expect(sale.state.run.stars).toBe(37)
   })
 })
 
