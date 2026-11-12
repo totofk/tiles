@@ -6074,3 +6074,196 @@ balance numbers changed are exactly the plan's: Manager ⭐20, gold pickaxe 8 hi
   Dig, the rack row wrapping, the 🧺 table's `minmax(0, 1fr) 96px 120px` columns inside the 344 px Mine column at 375,
   the 44 px checkbox and stepper tap targets, the Unlock button's reason text in a 96 px column, the Keep N buy row.
   Hermes re-measures live.
+
+## Batch 32.2 — Estate workers work one tile per action, sharing the machines' counter; button ripple (tasks 173–176, no save bump)
+
+Toon's go: "ทำ" (Discord thread 1570378064167444551, 2026-11-12). Context: the "Estate worker speed" entry at the end
+of docs/DECISIONS.md. Anchors are against `65ae8fc4`. Task 176 (button ripple) added on Toon's request
+2026-11-12 23:38; it is src/app only and independent of 173–175.
+
+**Why.** On the home plot a worker action is 1 tile; on the Estate it is a whole 10-tile plot (`fieldsHarvest`
+`src/core/fields.ts:366–370` → `reapAt` loops `plotTiles()` tiles, `:307`; `fieldsPlantAction` `:376–379` → `sowNext`
+→ `sowPlot` sows 10 tiles, `:248`). With `WORKER_ACTION_TICKS = 5` (`balance.ts:207`) one worker moves
+3600 ÷ 5 × 10 = 7,200 tiles/h on the Estate for 💰720/h of wages, which equals the top harvester tier and is 4× the
+first (`MACHINE_TILES_PER_HOUR` harvester 1800 / 3600 / 7200, `balance.ts:375–378`). After this batch a worker's land
+per hour is the same at every scale: 720 tiles/h.
+
+**Save.** No bump. `fields.machines.carry` (`state.ts:149`) is already saved: `serialize` writes the whole state
+(`src/save/serialize.ts:177–179`). No new state field.
+
+**Balance numbers.** None change. The wage stays 💰1 per action (`WORKER_WAGES`, `balance.ts:209`), so a plot now
+costs 💰10 of wages instead of 💰1.
+
+- [ ] 173. **Core: a Fields worker action = one tile on the shared counter.**
+  - a. FIRST, before changing any code, add the scenario test of task 175 and run it on the unchanged code. Record its
+    numbers as "before" in the results.
+  - b. `fieldsHarvest(state)` (`fields.ts:366–370`): no ready plot → `null` (unchanged). Otherwise
+    `progress = machines.carry.harvest + 1`. If `progress < plotTiles()`: return ok with only `carry.harvest = progress`
+    (nothing reaped, nothing sold). Else reap the oldest ready plot exactly as today (`reapAt(state, at[0], at[1], 0)`)
+    and set `carry.harvest = progress − plotTiles()` on the RESULT's `fields.machines` (reapAt rebuilds `fields`, so
+    set carry after it). One worker action never reaps more than one plot.
+  - c. `fieldsPlantAction(state)` (`fields.ts:376–379`): not unlocked or no `nextSowTarget` → `null` (unchanged). Call
+    `sowNext(state)` first; a failed result (NO_SEEDS / NO_CASH) is returned as today (worker idles unpaid, the
+    "unpaid" badge for NO_CASH still works via `workerUnpaid`) and nothing is banked. On success:
+    `progress = carry.plant + 1`; if `progress < plotTiles()` return ok with only `carry.plant = progress` and DISCARD
+    the sown state (seeds and seed cash are paid only when the plot is actually sown); else return the sown state with
+    `carry.plant = progress − plotTiles()`.
+  - d. Machines unchanged (`machinesAct`, `fields.ts:458–504`): they still run before the workers (`step.ts:58–62`),
+    add their fleet rate to the same `carry.harvest` / `carry.plant`, and cap it at one plot. A machine and a worker
+    therefore finish each other's plots.
+  - e. `workerAction` (`workers.ts:87–98`) is unchanged: a worker still checks the home plot first EVERY round, so it
+    never stays on the Estate while a home tile has work. Update the batch-18 comment at `workers.ts:94–95` and the
+    doc comments of `fieldsHarvest` / `fieldsPlantAction` / `machinesAct` to say "one tile per action on the shared
+    counter".
+  - f. A hand reap (`reapPlot`) does NOT touch `carry`: banked progress moves on to the next ready plot. Test it.
+  - Tests (update + new), in `tests/fields.test.ts` / `tests/workers.test.ts`:
+    - Update every call that expects one call = one plot: `tests/fields.test.ts:289, 323, 327, 335, 390`,
+      `tests/orders.test.ts:437, 448`. Either seed `machines.carry.harvest = plotTiles() − 1` before the call or loop
+      10 calls; keep each test's original intent (sale routing, contracts by hand counter, gold sickle rolls).
+    - New: 9 worker rounds reap nothing and charge 💰9; the 10th reaps one plot (💰10 total).
+    - New: machine-banked `carry.harvest = 7` + 3 worker actions reap the plot.
+    - New: with a ripe home tile, the harvester works the home tile and `carry.harvest` is unchanged.
+    - New: planter with NO_SEEDS (auto-buy off) banks nothing and pays nothing; seed stock drops only on the 10th action.
+    - New: a hand reap of the "next" plot leaves `carry.harvest` as it was.
+  - Grep every caller before changing (CI tsc fails on a stale one): `fieldsHarvest`, `fieldsPlantAction`,
+    `machines.carry` / `carry.harvest` / `carry.plant` (src/core/fields.ts, src/app/useGame.ts:130, tests/fields.test.ts:419, 467).
+
+- [ ] 174. **UI: the "🚜 next" marker counts workers and shows the progress.** `src/app/estateText.ts:116–120`.
+  - `sowNextHere` is true when (`machines.seeder.length > 0` OR `run.workers.assigned.plant > 0`) and the plot is
+    `nextSowTarget`; `reapNextHere` likewise with `harvester` / `assigned.harvest` and `nextReapTarget`.
+  - `done = Math.floor(reapNextHere ? carry.harvest : carry.plant)` (a plot cannot be both empty and ready).
+  - Label tail: `' · 🚜 next'` when `done === 0` (unchanged text), else `` ` · 🚜 next · ${done}/${plotTiles()}` ``.
+  - Before the Tractor / Fields unlock: no change (the plot view is not shown).
+  - Existing tests stay green unchanged (`tests/Estate.test.tsx:163–164`, `tests/estateText.test.ts:223` have
+    carry 0). New tests: carry.harvest 3 → label ends `· 🚜 next · 3/10`; carry 3.7 → `3/10`; no machine but one
+    harvest worker assigned → marker true; no machine and no worker → no marker.
+  - `useGame.ts:130` (seeder waiting chip) is unchanged.
+
+- [ ] 175. **Sim: scenarios A and B, re-pins, changelog.** A new `describe('batch 32.2: estate worker speed')` in
+  `tests/sim.test.ts`. Log lines `PIN322a` / `PIN322b`; numbers are REPORTS, not asserts, except the guards below.
+  - **Scenario A (fresh player, ladder bot from tick 0 to its last unlock):** log the Estate income/h at the end, the
+    game-minutes to the 💼 Manager unlock and to the first harvester machine, and the largest gap between milestones.
+    Guard: every existing stall-gap pin still passes. A failing gap pin is a BLOCKER (record it under `### Deviations`
+    with the numbers and stop).
+  - **Scenario B (veteran):** start from `tests/fixtures/save-v23.json` migrated to v24 (never edit the fixture).
+    B1 = as saved; B2 = the same save with `fields.machines.harvester` and `.seeder` set to `[]` (workers only). Step
+    8 game-hours each; log cash/h, plots reaped/h, plots sown/h, wages/h.
+  - Run both on the unchanged code first (task 173a) and after 173; write a before → after table for A, B1, B2 in the
+    results.
+  - Re-pins that must move (old → new, with cause): `PIN18d` `pairTiles`, `tests/sim.test.ts:3582–3587` — the formula
+    becomes `Math.floor((1 / workerActionTicks(end.meta)) * cropGrowTicks('lemon', …))` (720 → 72) and the
+    "second pair" line moves with it; rename the test title to "one tile per action". `PIN28c` log
+    `plantWorkerWholePlots` (`:3880`) → `plantWorkerTiles: HOUR_TICKS / workerActionTicks(end.meta)`. The
+    "income vs N, machines vs workers-only" pins (`:3884+`) and any other pin that moves: re-pin old → new with the
+    cause "workers do one tile per action on the Estate".
+  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`), verbatim:
+    `{ batch: '32.2', date: '<today>', line: "Estate workers now work a plot one tile at a time and share the progress with your machines. The next plot shows how far along it is (3/10). Buttons ripple when pressed." }`
+    (169 code points ≤ 180; the last sentence is task 176's. One entry per batch: `tests/changelog.test.ts:18`
+    asserts batch ids are unique, so 176 does not add its own entry.)
+
+- [ ] 176. **UI: a Material-style ripple on every button press — one shared utility, no per-button code.** src/app only,
+  no save bump, no `tiles.ui` field, no balance or core change. A CSS-only polish pass (stopgap until Toon brings
+  animation references, skill rule 6g), not the final animation system.
+  - **What the player sees:** on press, a soft dark circle grows from the press point to the button's far corner and
+    fades: `rgb(0 0 0 / 0.12)`, 450 ms, `ease-out` (est., Toon may tune). Clipped to the button's rounded corners.
+    No ripple on disabled buttons, on non-primary mouse buttons, or by keyboard (the focus ring already shows it).
+    Pressing again restarts the ripple at the new point; a button never shows more than one ripple.
+  - **New file `src/app/ripple.ts`:** `export function installRipple(doc: Document = document): () => void`, returns
+    the uninstall. Called ONCE in `src/main.tsx` before `createRoot(...)` (today `main.tsx` only imports `app.css` and
+    renders `<App />`). It is the only JS; no component imports it.
+    - One delegated `pointerdown` listener on `doc`, `{ passive: true }`; never `preventDefault` / `stopPropagation`
+      (`Tools.tsx:71` has its own document `pointerdown` outside-click listener, which must keep working).
+    - Order inside the handler: `e.button > 0` → return; `reduced.matches` → return, where
+      `reduced = doc.defaultView?.matchMedia?.('(prefers-reduced-motion: reduce)')` is created once at install (the
+      optional calls mirror `Surface.tsx:78`; jsdom has no `matchMedia`); `b = (e.target as Element).closest('button')`,
+      none → return; `b.disabled` or `b.getAttribute('aria-disabled') === 'true'` → return.
+    - Read first, then write (one layout read per press, no forced reflow after a write):
+      `const r = b.getBoundingClientRect()`, then `b.style.setProperty('--rx', `${e.clientX - r.left}px`)`,
+      the same for `--ry` with `clientY`/`top`, then `b.dataset.ripple = b.dataset.ripple === 'a' ? 'b' : 'a'`.
+      Alternating two identical keyframe names restarts the animation without the remove-class / `offsetWidth`
+      reflow trick, which forces a layout on every Dig tap.
+    - Creates NO DOM nodes, NO React state, NO timers; nothing is cleaned up on `animationend` (with no fill mode the
+      `::after` returns to `opacity: 0`). React does not touch `data-ripple` or the two custom properties, since no
+      `<button>` in `src/app` has a `style` prop (`grep -rn '<button[^>]*style=' src/app` is empty).
+  - **CSS, one block in `src/app/app.css` right after `button:disabled` (`:289–294`), with a comment naming batch 32.2
+    task 176:**
+    - `@property --ripple { syntax: '<percentage>'; inherits: false; initial-value: 0%; }`
+    - `:where(button) { position: relative; }` — `:where()` has zero specificity, so every class that positions a
+      button keeps winning: `.bed-socket` absolute (`:398–399`), `.item > .info-btn` absolute (`:1794–1795`), the
+      fixed tab bar / `.panel-open` rules (`:102–107`, `:1605–1609`). Buttons with absolutely placed badges are already
+      `relative`, so no badge moves: `.cell` (`:449–450`, `.cell-pop` / `.cell-order` `:976`, `:987`), `.mine-dig`
+      (`:1095–1096`, `.mine-dig > .cell-pop` `:1103`), `.map-cell` / `.map-chip` (`:687–689`, `.map-bar` / `.map-badge`
+      `:732`, `:741`), `.mini-lot` (`:515`, `.mini-badge` `:543`), `.panel-tabs button, .tabbar button, .panel-open`
+      (`:1605–1609`, `.badge-dot` `:1611`). The worker re-greps `position:` in app.css and lists any button this
+      rule newly makes a containing block in `### Deviations`.
+    - `:where(button)::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      opacity: 0; background: radial-gradient(circle farthest-corner at var(--rx, 50%) var(--ry, 50%),
+      rgb(0 0 0 / 0.12) var(--ripple), transparent calc(var(--ripple) + 1px)); }` — no `::after` exists on any button
+      today (app.css `::after` appears only in the `*, *::before, *::after` box-sizing rule `:1–4`; `.tools-head` uses
+      `::before`, `:1508`).
+    - NO `overflow: hidden` on buttons: `.cell-pop` floats up 10 px (`@keyframes cell-pop`, `:1002–1011`) and would be
+      clipped. `border-radius: inherit` on the `::after` keeps the circle inside the corners instead.
+    - `:where(button)[data-ripple='a']::after { animation: ripple-a 450ms ease-out; }` and the same for `'b'` /
+      `ripple-b`; both keyframes: `0% { --ripple: 0%; opacity: 1 } 60% { --ripple: 100%; opacity: 1 } 100% { --ripple:
+      100%; opacity: 0 }`. Only `opacity` and `--ripple` animate — never `transform`, `width`, `height`, `top`, `left`,
+      `box-shadow` or `outline` (`.cell-flash` / `.mine-flash` own `box-shadow`, `:994–1000` / `:1017–1024`; the worker
+      ring owns `outline`, `:962–966`). Paint stays inside the button's own box; no layout runs.
+    - `button:disabled::after { display: none; }`
+    - Reduced motion: add `:where(button)::after` with `animation: none` to a new `@media (prefers-reduced-motion:
+      reduce)` block next to the ripple rules, following the existing ones (`:626`, `:771`, `:1026`, `:1054`).
+    - Without `@property` support the gradient stop does not interpolate (it flips at 50 %): the press still shows a
+      brief fading tint. Acceptable; no JS fallback.
+  - **Rapid-tap buttons:** the farm `Dig for seeds` button (`Farm.tsx:79–89`, no class), the mine `⛏️ Dig`
+    (`.mine-dig`, `Mine.tsx:351–352`, `disabled={!digCheck.ok}` → no ripple when it cannot dig) and the farm tiles
+    (`.cell`, `FarmGrid.tsx:67`, stable `key`s at `:133`, so a re-render keeps the ripple running). Cost per press:
+    one `getBoundingClientRect`, two custom-property writes, one attribute write, one style recalc of that button,
+    a paint of that button's box for 450 ms. A 10-taps/s burst restarts one animation per button; nothing stacks.
+  - **Not included (rejectable):** `<summary>` card headers (`details > summary`, `:1188`) and links — they are not
+    `<button>`s. Adding them is one more selector in the same block.
+  - **Tests** (`// @vitest-environment jsdom`, new `tests/ripple.test.ts`; jsdom has zero rects and no `matchMedia`,
+    so `--rx` equals `clientX`):
+    - a `pointerdown` (`new MouseEvent('pointerdown', { bubbles: true, clientX: 12, clientY: 7 })`) on a `<span>` inside
+      a `<button>` sets `data-ripple="a"`, `--rx: 12px`, `--ry: 7px`; the next press sets `"b"`, the third `"a"`;
+      the button's `childNodes.length` never changes.
+    - `disabled` button, `aria-disabled="true"` button, `button: 2` press, and a press outside any button: no
+      `data-ripple`, no throw.
+    - with `window.matchMedia` stubbed to `{ matches: true }` for the reduce query before `installRipple`: no
+      `data-ripple`.
+    - after the returned uninstall runs, a press sets nothing.
+    - CSS guard (read `src/app/app.css` as text, as `tests/changelog.test.ts` reads PLAN.md): `@property --ripple`
+      exists; the `ripple-a` / `ripple-b` keyframe bodies contain no `transform|width|height|top|left|box-shadow|outline`;
+      a `prefers-reduced-motion: reduce` block contains `button)::after` with `animation: none`.
+    - Every existing test stays green unchanged (only `main.tsx` installs the ripple, so component tests never see it).
+    - No save change: `SAVE_VERSION`, `src/core`, `src/save` untouched (`git diff --stat` in the results).
+  - **The worker has no browser:** list under `### Deviations` that the look, the frame cost and the iOS/Safari
+    behaviour were not seen.
+  - **Hermes live check after the deploy** (cache-busted `/tiles/?b=<now>` iframe, recipes in the skill's
+    `references/live-browser-checks.md`):
+    1. Layout shift: a `PerformanceObserver({ type: 'layout-shift', buffered: true })` sum over 20 real CDP taps at
+       50 ms intervals on `⛏️ Dig`, 20 on `Dig for seeds` and 20 on ripe `.cell`s = 0 at 375 and 1440; the rects of
+       each tapped button and its neighbours (rule: compare overlap, not position) are equal before and after.
+    2. Badges: at 375, 1440 and 3440, every absolutely positioned descendant of a `<button>` has that button as its
+       `offsetParent` (`.badge-dot`, `.map-badge`, `.mini-badge`, `.cell-pop`, `.cell-order`), and `.bed-socket` /
+       `.info-btn` keep `position: absolute`.
+    3. Frame cost: with `Emulation.setCPUThrottlingRate({ rate: 4 })` at 375, record rAF deltas and
+       `longtask` entries during the 20 Dig taps, once as shipped and once with
+       `<style>button::after{display:none}</style>` injected. Report both p95 deltas; ripple-on worse by more than
+       2 ms (est.) or any new long task = a fix before reporting done.
+    4. Reduced motion: `Emulation.setEmulatedMedia({ features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] })`,
+       tap Dig: no `data-ripple` attribute and `document.getAnimations()` has no `::after` ripple animation.
+    5. Look: screenshots ~150 ms after a tap on Dig and a farm tile at 375 and 1440 (`vision_analyze`): circle centred
+       on the tap, inside the rounded corners, `.cell-pop` still visible. A disabled Dig shows nothing.
+    6. Smoke: 2–3 min of play, no console error.
+
+**Door Problem check.**
+- State visible: "🚜 next · n/10" on the next plot. Workers' activity dots unchanged.
+- Fails / runs out: no cash → idle unpaid (never debt); no seeds → idle, nothing banked.
+- Offline 8 h: the same per-tick rule; capacity is lower, so less Estate work offline without machines (scenario B2
+  measures it).
+- Prestige reset / migration: `carry` already lives in the save; a fresh run starts it at 0 (`createMachines`).
+- Other systems: machines (shared counter), contracts (worker reaps still deliver to accepted orders, fewer per hour
+  without machines), 💼 Manager unlock counter (`contractsByHand`, untouched).
+- Task 176 ripple: state = the press itself (no persistent state, nothing saved); fails = no `@property` support →
+  a plain fading tint; disabled / reduced motion → nothing; offline, prestige, migration, two tabs → not involved
+  (no state); touches `.cell-flash` / `.mine-flash` / the worker ring only by sharing the button, on different
+  properties (`box-shadow` / `outline` vs the `::after`).

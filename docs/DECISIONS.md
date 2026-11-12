@@ -742,3 +742,29 @@ Hermes's calls while refining (Toon may reject by number):
 7. Migration scales an owned gold pickaxe's durability by 600 / 6500 (Toon's-style save: 3800 → 351).
 8. Mine card order: Dig → Pickaxe → vein → furnace → wood → items → 🧺 Ore sorting.
 - **Renumbered:** none. Batch 32 keeps save v24; batch 33 (furnace molds) and later batches keep their numbers.
+
+## Estate worker speed (batch 32.2, 2026-11-12, Toon go: "ทำ")
+
+- **A worker's land per hour is equal at every scale.** A Fields worker action is ONE tile of work (was a whole
+  10-tile plot): 720 tiles/h per worker on the home plot and on the Estate alike. Why: at a plot per action one worker
+  moved 7,200 tiles/h for 💰720/h, equal to the top harvester tier and 4× the first, so the machines were pointless
+  (Toon: "a 10-tile plot should take 10× the time"). Supersedes the throughput implied by "Fields part 1" (batch 18:
+  "same 5-s clock, same wage"); the clock and the 💰1 wage stay, a plot now costs 💰10 of wages.
+- **One shared counter, not per-plot progress.** Workers add 1 tile to `fields.machines.carry` (harvest / plant), the
+  counter the machines already use; at a plot's worth the oldest ready plot is reaped (or the next plot sown). Why:
+  no save bump (carry is already saved), and a machine and a worker finish each other's plots. Rejected: progress per
+  plot (save bump + migration for every plot).
+- **No lock-in.** A worker still checks the home plot first every round, so it returns to home work within one round
+  (5 s); its Estate progress stays on the counter.
+- **Seeds are paid when the plot is sown** (the 10th tile), and a worker with no seeds or cash banks nothing.
+- **Known trade-off:** a hand reap of the "next" plot leaves the counter untouched, so banked progress moves to the
+  next ready plot. Nothing is lost.
+- **UI:** the "🚜 next" marker also shows when only workers can reach the Estate, and adds "n/10" once progress ≥ 1.
+- **Button ripple (task 176, Toon 2026-11-12 23:38):** every `<button>` gets a Material-style press ripple from one
+  shared utility (a delegated `pointerdown` listener in `src/app/ripple.ts` + one `:where(button)::after` CSS block),
+  never per-button code. Why `::after` + an animated `@property` gradient and no `overflow: hidden`: no DOM nodes or
+  React state per tap (cheap on Dig and farm tiles), no layout shift, and the `.cell-pop` float is not clipped. Off
+  under `prefers-reduced-motion` and on disabled buttons; no save bump. A CSS stopgap until Toon brings animation
+  references.
+- **Renumbered:** none. "32.1" was the Manager ⭐20 change, folded into batch 32, so this batch is 32.2. Batch 33
+  (furnace molds, save v25) keeps its number and runs after 32.2.
