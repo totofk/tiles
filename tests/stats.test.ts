@@ -25,8 +25,8 @@ describe('stats(state)', () => {
       { label: 'Copper bars collected', value: '0' },
       { label: 'Orders completed', value: '0' },
       { label: 'Contracts delivered', value: '0' },
-      { label: 'Carrot harvests', value: '0' },
-      { label: 'Carrot renown', value: '0 · floor 50 % · next 250' },
+      { label: 'Potato harvests', value: '0' },
+      { label: 'Potato renown', value: '0 · floor 50 % · next 250' },
       { label: 'Copper bars smelted', value: '0' },
       { label: 'Iron bars smelted', value: '0' },
       { label: 'Iron bars collected', value: '0' },
@@ -113,7 +113,7 @@ describe('stats(state)', () => {
         vein: { level: 2, progress: 0, rock: 'stone' },
         tools: { water: 2, harvest: 3, plant: 0 },
         toolN: { water: 2, harvest: 1, plant: 1 },
-        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 31, ironBars: 4, ironBarsSmelted: 5, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
+        lifetime: { cashEarned: 1234, energySpent: 567, bars: 6, harvests: { radish: 40 }, wagesPaid: 0, fireBurnt: 400, fireWasted: 75, barsSmelted: 6, workerPlants: 0, workerMines: 31, ironBars: 4, ironBarsSmelted: 5, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0, fieldsGranted: [] },
       },
     }
     // a pumpkin harvest counts toward cash earned and the pumpkin row
@@ -154,7 +154,7 @@ describe('stats(state)', () => {
 describe('feedbackSummary(state)', () => {
   it('a fresh run in one line', () => {
     expect(feedbackSummary(createInitialState())).toBe(
-      `cash ${STARTING_CASH} · licenses radish · tools` +
+      `cash ${STARTING_CASH} · licenses potato · tools` +
         ' water Lv0 tier 0, harvest Lv0 tier 0, plant Lv0 tier 0 · pickaxe none · ' +
         'workers 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0, clerk 0, manager 0, stoker 0) · vein Lv0 · furnace none · played 0m 00s',
     )

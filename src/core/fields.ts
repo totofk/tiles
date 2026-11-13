@@ -122,9 +122,9 @@ export const fieldsUnlockable = (run: RunState): boolean => {
   return g.plant && g.harvest && g.water
 }
 
-/** a crop is fields-plantable with its license and FIELDS_CROP_HARVESTS home-plot harvests of it */
+/** a crop is fields-plantable with its license and FIELDS_CROP_HARVESTS home-plot harvests of it (or a v26 grant) */
 export function fieldsPlantable(run: RunState, crop: CropId): boolean {
-  return run.licenses.includes(crop) && (run.lifetime.harvests[crop] ?? 0) >= fieldsCropHarvests()
+  return run.licenses.includes(crop) && ((run.lifetime.harvests[crop] ?? 0) >= fieldsCropHarvests() || run.lifetime.fieldsGranted.includes(crop))
 }
 
 // Order: LOCKED, ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH. Field 1, its pivot and plot 1 come with the Tractor.

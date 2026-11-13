@@ -190,6 +190,8 @@ export type Lifetime = {
   starsEarned: number
   goldBars: number
   goldBarsSmelted: number
+  /** batch 35: crops fields-plantable without their home harvests (a v26 save's fields access kept over the re-ladder) */
+  fieldsGranted: CropId[]
 }
 
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
@@ -261,7 +263,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     furnace: createFurnace(),
     workshop: createWorkshop(),
     fields: createFields(),
-    lifetime: carry?.lifetime ?? { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 },
+    lifetime: carry?.lifetime ?? { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0, fieldsGranted: [] },
     mastery: {},
     masteredTiers: [],
     rngState: INITIAL_RNG_SEED,

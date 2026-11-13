@@ -29,7 +29,8 @@ const tilled: Tile = { ...createTile(), status: 'tilled' }
 
 function withRun(tiles: Tile[], run: Partial<GameState['run']> = {}): GameState {
   const s = createInitialState()
-  return { ...s, run: { ...s.run, tiles: [...tiles, ...s.run.tiles.slice(tiles.length)], ...run } }
+  // batch 35: these presses were pinned on carrot, now the first paid rung, so it is licensed here
+  return { ...s, run: { ...s.run, licenses: ['potato', 'radish'], tiles: [...tiles, ...s.run.tiles.slice(tiles.length)], ...run } }
 }
 const tools = (job: ToolJob, level: number) => ({ ...createInitialState().run.tools, [job]: level })
 

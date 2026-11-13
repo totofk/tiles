@@ -113,7 +113,7 @@ describe('factor and depth', () => {
 
   it('depth uses the base grow ticks (fertilizer deepens the glut only through faster harvests) (re-pinned batch 21: depth 240)', () => {
     expect(marketDepthGlut('radish')).toBeCloseTo(240 / (100 * (1 - MARKET_DECAY)), 9)
-    expect(marketDepthGlut('lemon')).toBeCloseTo(240 / (360 * (1 - MARKET_DECAY)), 9)
+    expect(marketDepthGlut('pumpkin')).toBeCloseTo(240 / (360 * (1 - MARKET_DECAY)), 9)
   })
 
   it('recovery: 0 when the factor is already ≥ 0.99, else the exact tick it gets there', () => {

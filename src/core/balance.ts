@@ -17,18 +17,23 @@ export const OFFLINE_CAP_TICKS = 8 * 3600
 export const FLOAT_EPSILON = 1e-9
 
 const CROP_BASE: Record<CropId, { growTicks: number; seedCost: number; sellPrice: number; licenseCost: number }> = {
-  // 100 ticks with a 60 s moisture bar = water at plant + once more
-  radish: { growTicks: 100, seedCost: 2, sellPrice: 10, licenseCost: 0 },
-  chilli: { growTicks: 160, seedCost: 5, sellPrice: 25, licenseCost: 50 },
-  // license 100 (was 150): affordable after the 2nd radish cycle, so pumpkins planted at ~300 mature by 600
-  pumpkin: { growTicks: 240, seedCost: 10, sellPrice: 60, licenseCost: 100 },
-  lemon: { growTicks: 360, seedCost: 20, sellPrice: 110, licenseCost: 400 },
+  // batch 35: the starting crop — 60 ticks = one water at planting covers the grow; floor margin 5 × 0.5 ÷ 1 = 2.5
+  potato: { growTicks: 60, seedCost: 1, sellPrice: 5, licenseCost: 0 },
+  // 100 ticks with a 60 s moisture bar = water at plant + once more; licence 25 ≈ one potato harvest of a 9-tile start
+  radish: { growTicks: 100, seedCost: 2, sellPrice: 10, licenseCost: 25 },
+  // batch 35: the paid rungs keep their rank's row (corn has chilli's old row, eggplant pumpkin's, pumpkin lemon's)
+  corn: { growTicks: 160, seedCost: 5, sellPrice: 25, licenseCost: 50 },
+  // license 100 (was 150): affordable after the 2nd carrot cycle, so this rung planted at ~300 matures by 600
+  eggplant: { growTicks: 240, seedCost: 10, sellPrice: 60, licenseCost: 100 },
+  pumpkin: { growTicks: 360, seedCost: 20, sellPrice: 110, licenseCost: 400 },
   // batch 22: the ladder keeps its compression — sell ×~1.8, seed ×~1.9, floor margin ≥ 2.2×, income/tick rising.
   // Licenses priced from the sim (task 115): ~0.6–1.0 h of the income at each unlock, all bought before the Fields
   tomato: { growTicks: 480, seedCost: 40, sellPrice: 200, licenseCost: 7_000 },
-  corn: { growTicks: 620, seedCost: 75, sellPrice: 360, licenseCost: 10_000 },
+  lemon: { growTicks: 620, seedCost: 75, sellPrice: 360, licenseCost: 10_000 },
   grape: { growTicks: 780, seedCost: 140, sellPrice: 640, licenseCost: 15_000 },
   strawberry: { growTicks: 960, seedCost: 260, sellPrice: 1_150, licenseCost: 22_000 },
+  // batch 35: the top row continues the compression (grow +200, seed ×1.77, sell ×1.8, licence ×1.45); margin 2.25
+  chilli: { growTicks: 1_160, seedCost: 460, sellPrice: 2_070, licenseCost: 32_000 },
 }
 const ROT_GRACE_FACTOR = 2
 
@@ -474,7 +479,7 @@ export function machineCost(kind: MachineKind, tier: number, meta: MetaState): P
 }
 
 /** dig for seeds (farm action): chance per dig of one seed of this crop */
-const DIG_SEED_CROP: CropId = 'radish'
+const DIG_SEED_CROP: CropId = 'potato'
 const DIG_SEED_CHANCE = 0.2
 
 // Bank v0 placeholders (PLAN.md batch 4.5): debt starts at principal × (1 + fee) and grows by
@@ -726,7 +731,7 @@ export function cropSeedCost(cropId: CropId, meta: MetaState): number {
 }
 
 /** applies the sellPrice upgrade and the meta multiplier to a base price */
-function sellPrice(base: number, meta: MetaState, sellPriceLevel: number): number {
+export function sellPrice(base: number, meta: MetaState, sellPriceLevel: number): number {
   return Math.round(base * sellPriceFactor(sellPriceLevel) * multiplier(meta, 'sellPrice'))
 }
 

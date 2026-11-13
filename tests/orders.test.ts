@@ -45,7 +45,9 @@ import {
 import { createInitialState, type GameState, type Offer, type RunState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 
-const init = createInitialState()
+const fresh = createInitialState()
+// batch 35: these pins were measured on a carrot-only start; carrot is now the first paid rung, so it is granted here
+const init = { ...fresh, run: { ...fresh.run, licenses: ['radish' as const], plantCrop: 'radish' as const } }
 const meta = init.meta
 
 function okState(r: ActionResult): GameState {
@@ -68,7 +70,7 @@ const workerReap = (s: GameState) =>
 
 describe('orderPool: only what the state can make now', () => {
   it('a new run: the starting crop only', () => {
-    expect(orderPool(init.run)).toEqual(['radish'])
+    expect(orderPool(fresh.run)).toEqual(['potato'])
   })
 
   it('licensed crops, the vein drops with the mine license, bars only for an ore that drops once the furnace is built', () => {

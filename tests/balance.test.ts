@@ -20,6 +20,7 @@ import {
   masteryThresholds,
   mineHits,
   moistureDrainPerTick,
+  digSeedDrop,
   multiplier,
   oreBar,
   pickaxeDurability,
@@ -36,7 +37,7 @@ import { createInitialMeta, createInitialState, type MetaState } from '../src/co
 const meta = createInitialMeta()
 
 describe('createInitialState', () => {
-  it('starts with 9 untilled tiles, starting cash, full energy and radish licensed', () => {
+  it('starts with 9 untilled tiles, starting cash, full energy and potato licensed and planted', () => {
     const { run, meta } = createInitialState()
     expect(run.tiles).toHaveLength(START_TILES)
     expect(START_TILES).toBe(9)
@@ -44,7 +45,7 @@ describe('createInitialState', () => {
     expect(run.cash).toBe(STARTING_CASH)
     expect(run.energy).toBe(energyMax(0, meta))
     expect(run.energy).toBe(10)
-    expect(run.licenses).toEqual(['radish'])
+    expect([run.licenses, run.plantCrop]).toEqual([['potato'], 'potato'])
     expect(run.upgrades).toEqual({ energyMax: 0, energyRegen: 0, sellPrice: 0, fertilizer: 0 })
     expect(run.counters).toEqual({ harvests: 0, sales: 0, mines: 0, digs: 0, waters: 0, plants: 0, bars: 0, orders: 0, contractsByHand: 0 })
     expect(run.seeds).toEqual({})
@@ -69,11 +70,13 @@ describe('balance', () => {
     expect(Math.ceil(cropGrowTicks('radish', meta, 0) / ticksPerFill)).toBe(2)
   })
 
-  it('crops in CROP_IDS order cost more to license (carrot < chilli < pumpkin < lemon)', () => {
-    expect(CROP_IDS).toEqual(['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'])
+  it('batch 35: the 10-crop ladder, potato free, licences rising along CROP_IDS from carrot on (the rows keep their rank)', () => {
+    expect(CROP_IDS).toEqual(['potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'lemon', 'grape', 'strawberry', 'chilli'])
     const costs = CROP_IDS.map((id) => licenseCost(id, meta))
-    expect(costs).toEqual([0, 50, 100, 400, 7_000, 10_000, 15_000, 22_000])
+    expect(costs).toEqual([0, 25, 50, 100, 400, 7_000, 10_000, 15_000, 22_000, 32_000])
+    for (let i = 2; i < costs.length; i++) expect(costs[i]).toBeGreaterThan(costs[i - 1])
     expect(CROP_IDS.map((id) => [cropSeedCost(id, meta), cropSellPrice(id, meta, 0), cropGrowTicks(id, meta, 0)])).toEqual([
+      [1, 5, 60],
       [2, 10, 100],
       [5, 25, 160],
       [10, 60, 240],
@@ -82,7 +85,15 @@ describe('balance', () => {
       [75, 360, 620],
       [140, 640, 780],
       [260, 1_150, 960],
+      [460, 2_070, 1_160],
     ])
+    // every row's market floor still covers its seed ≥ 2.2× (potato 2.5, chilli 2.25)
+    for (const id of CROP_IDS) expect((cropSellPrice(id, meta, 0) * 0.5) / cropSeedCost(id, meta)).toBeGreaterThanOrEqual(2.2)
+  })
+
+  it('batch 35: potato is one water at planting; a fresh run digs potato seeds', () => {
+    expect(cropGrowTicks('potato', meta, 0) * moistureDrainPerTick(meta)).toBeLessThanOrEqual(1)
+    expect(digSeedDrop()).toEqual({ crop: 'potato', chance: 0.2 })
   })
 
   it('tile cost grows geometrically and is Infinity at the cap', () => {
@@ -159,7 +170,7 @@ describe('bar sell prices (batch 34: income prices)', () => {
   it('no shop action sells ore for cash, so smelting bought ore can never loop cash: wood and seeds are the only buys', () => {
     const rich = { ...createInitialState(), run: { ...createInitialState().run, cash: 1e9, mineLicense: true } }
     const wood = buyWood(rich, 10)
-    const seeds = buySeeds(rich, 'radish', 10)
+    const seeds = buySeeds(rich, 'potato', 10)
     for (const r of [wood, seeds]) {
       if (!r.ok) throw new Error(r.error)
       for (const ore of ORE_IDS) expect(r.state.run.inventory[ore] ?? 0).toBe(0)

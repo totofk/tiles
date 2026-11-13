@@ -83,7 +83,7 @@ describe('buyLicense', () => {
     expect(buyLicense(s, 'pumpkin')).toEqual({ ok: false, error: 'NO_CASH' })
   })
   it('rejects an owned license', () => {
-    expect(buyLicense(withRun({ cash: 1e6 }), 'radish')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+    expect(buyLicense(withRun({ cash: 1e6 }), 'potato')).toEqual({ ok: false, error: 'ALREADY_OWNED' })
   })
 })
 
@@ -108,18 +108,18 @@ describe('buyTile', () => {
 
 describe('buySeeds', () => {
   it('adds n seeds to the pouch for n × the seed price, no energy, no bag space', () => {
-    const s = withRun({ cash: 50, seeds: { radish: 1 } })
-    const next = okState(buySeeds(s, 'radish', 10))
-    expect(next.run.seeds).toEqual({ radish: 11 })
-    expect(next.run.cash).toBe(50 - 10 * cropSeedCost('radish', meta))
+    const s = withRun({ cash: 50, seeds: { potato: 1 } })
+    const next = okState(buySeeds(s, 'potato', 10))
+    expect(next.run.seeds).toEqual({ potato: 11 })
+    expect(next.run.cash).toBe(50 - 10 * cropSeedCost('potato', meta))
     expect(next.run.energy).toBe(s.run.energy)
     expect(bagCount(next.run)).toBe(0)
   })
   it('rejects bad amounts, unlicensed crops and short cash', () => {
     const s = withRun({ cash: 50 })
-    for (const n of [0, -1, 1.5, NaN]) expect(buySeeds(s, 'radish', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    for (const n of [0, -1, 1.5, NaN]) expect(buySeeds(s, 'potato', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
     expect(buySeeds(s, 'pumpkin', 1)).toEqual({ ok: false, error: 'NO_LICENSE' })
-    expect(buySeeds(withRun({ cash: 1 }), 'radish', 1)).toEqual({ ok: false, error: 'NO_CASH' })
+    expect(buySeeds(withRun({ cash: 1 }), 'potato', 2)).toEqual({ ok: false, error: 'NO_CASH' })
   })
 })
 

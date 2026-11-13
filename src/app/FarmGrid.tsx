@@ -14,14 +14,16 @@ import { shortOf } from './Workshop'
 import { WORKER_JOB_EMOJI, type Act } from './useGame'
 
 export const CROP_EMOJI: Record<CropId, string> = {
+  potato: '🥔',
   radish: '🥕',
-  chilli: '🌶️',
-  pumpkin: '🎃',
-  lemon: '🍋',
-  tomato: '🍅',
   corn: '🌽',
+  eggplant: '🍆',
+  pumpkin: '🎃',
+  tomato: '🍅',
+  lemon: '🍋',
   grape: '🍇',
   strawberry: '🍓',
+  chilli: '🌶️',
 }
 /** empty tiles; Unicode ≤ 11 like ITEMS.*.emoji (the old 🟫 🟤 are Unicode 12 and show as a box on older fonts) */
 const SOIL_EMOJI = { untilled: '🌿', tilled: '🕳️' }

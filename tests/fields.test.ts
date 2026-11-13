@@ -35,6 +35,7 @@ import {
   fieldsOverview,
   fieldsPaybackHours,
   fieldsPlantAction,
+  fieldsPlantable,
   fillTank,
   machinesAct,
   pinField,
@@ -54,10 +55,10 @@ import { step } from '../src/core/step'
 import { catchUp } from '../src/save/serialize'
 
 const init = createInitialState()
-const LEMON = cropGrowTicks('lemon', init.meta, 0) // 360
+const LEMON = cropGrowTicks('pumpkin', init.meta, 0) // 360
 const empty = (): Plot => ({ crop: null, readyTick: 0 })
-const lemon = (readyTick: number): Plot => ({ crop: 'lemon', readyTick })
-const field = (plots: Plot[], crop: CropId | null = 'lemon', pivot = true): Field => ({ pivot, crop, pinned: false, plots })
+const lemon = (readyTick: number): Plot => ({ crop: 'pumpkin', readyTick })
+const field = (plots: Plot[], crop: CropId | null = 'pumpkin', pivot = true): Field => ({ pivot, crop, pinned: false, plots })
 const fleet = (m: Partial<Machines>): Machines => ({ ...createMachines(), ...m })
 const ok = (r: ReturnType<typeof buyPlot>): GameState => {
   if (!r.ok) throw new Error(r.error)
@@ -77,8 +78,8 @@ function withFields(list: Field[] = [field([empty()])], extra: Partial<GameState
     run: {
       ...init.run,
       cash: 1000,
-      licenses: [...init.run.licenses, 'lemon', 'pumpkin'],
-      lifetime: { ...init.run.lifetime, harvests: { lemon: 50, pumpkin: 50 } },
+      licenses: [...init.run.licenses, 'radish', 'pumpkin', 'eggplant'],
+      lifetime: { ...init.run.lifetime, harvests: { pumpkin: 50, eggplant: 50 } },
       fields: { ...init.run.fields, unlocked: true, list, tank: tankCapCoal(0) * TANK_UNITS_PER_COAL, ...f },
       workers: { ...init.run.workers, certificates: [...init.run.workers.certificates, 'plant', 'harvest'] },
       workshop: { built: true, beds: [true, false, false, false], valve: false },
@@ -200,24 +201,32 @@ describe('buyPump', () => {
 
 describe('setFieldCrop: the field chip', () => {
   it('order LOCKED, BAD_TILE, NOTHING_TO_DO (same chip), NO_LICENSE, LOCKED (under the harvest gate); null clears it; free', () => {
-    expect(setFieldCrop(init, 0, 'lemon')).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withFields([field([lemon(999)], 'lemon')])
-    expect(setFieldCrop(s, 1, 'lemon')).toEqual({ ok: false, error: 'BAD_TILE' })
-    expect(setFieldCrop(s, 0, 'lemon')).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+    expect(setFieldCrop(init, 0, 'pumpkin')).toEqual({ ok: false, error: 'LOCKED' })
+    const s = withFields([field([lemon(999)], 'pumpkin')])
+    expect(setFieldCrop(s, 1, 'pumpkin')).toEqual({ ok: false, error: 'BAD_TILE' })
+    expect(setFieldCrop(s, 0, 'pumpkin')).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(setFieldCrop(s, 0, 'grape')).toEqual({ ok: false, error: 'NO_LICENSE' })
     expect(setFieldCrop(s, 0, 'radish')).toEqual({ ok: false, error: 'LOCKED' }) // licensed, 0 home harvests
-    const r = ok(setFieldCrop(s, 0, 'pumpkin'))
-    expect(r.run.fields.list[0].crop).toBe('pumpkin')
+    const r = ok(setFieldCrop(s, 0, 'eggplant'))
+    expect(r.run.fields.list[0].crop).toBe('eggplant')
     expect(r.run.fields.list[0].plots).toEqual([lemon(999)]) // standing plots finish as they are
     expect(r.run.cash).toBe(s.run.cash)
     expect(ok(setFieldCrop(r, 0, null)).run.fields.list[0].crop).toBeNull()
+  })
+
+  it('batch 35: a fields grant (a v26 row carried over) opens a licensed crop without its home harvests, never an unlicensed one', () => {
+    const s = withFields([field([lemon(999)], 'pumpkin')])
+    const granted = { ...s, run: { ...s.run, lifetime: { ...s.run.lifetime, fieldsGranted: ['radish' as const, 'grape' as const] } } }
+    expect([fieldsPlantable(s.run, 'radish'), fieldsPlantable(granted.run, 'radish'), fieldsPlantable(granted.run, 'grape')]).toEqual([false, true, false])
+    expect(ok(setFieldCrop(granted, 0, 'radish')).run.fields.list[0].crop).toBe('radish')
+    expect(setFieldCrop(granted, 0, 'grape')).toEqual({ ok: false, error: 'NO_LICENSE' })
   })
 })
 
 describe('batch 29: pinField', () => {
   it('order LOCKED, BAD_TILE; toggles pinned, free, chip and plots untouched', () => {
     expect(pinField(init, 0)).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withFields([field([lemon(999)], 'lemon')])
+    const s = withFields([field([lemon(999)], 'pumpkin')])
     expect(pinField(s, 1)).toEqual({ ok: false, error: 'BAD_TILE' })
     const pinned = ok(pinField(s, 0))
     expect(pinned.run.fields.list[0]).toEqual({ ...s.run.fields.list[0], pinned: true })
@@ -229,44 +238,44 @@ describe('batch 29: pinField', () => {
 describe('sowPlot / sowNext', () => {
   it('sowPlot order LOCKED, BAD_TILE, NO_PIVOT, NO_CROP, NOTHING_TO_DO, NO_SEEDS, NO_CASH', () => {
     expect(sowPlot(init, 0, 0)).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withFields([field([empty(), lemon(999)]), field([empty()], 'lemon', false), field([empty()], null)])
+    const s = withFields([field([empty(), lemon(999)]), field([empty()], 'pumpkin', false), field([empty()], null)])
     expect(sowPlot(s, 3, 0)).toEqual({ ok: false, error: 'BAD_TILE' })
     expect(sowPlot(s, 0, 2)).toEqual({ ok: false, error: 'BAD_TILE' })
     expect(sowPlot(s, 1, 0)).toEqual({ ok: false, error: 'NO_PIVOT' })
     expect(sowPlot(s, 2, 0)).toEqual({ ok: false, error: 'NO_CROP' })
     expect(sowPlot(s, 0, 1)).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
-    expect(sowPlot({ ...s, run: { ...s.run, autoBuySeeds: false, seeds: { lemon: 9 } } }, 0, 0)).toEqual({ ok: false, error: 'NO_SEEDS' })
-    expect(sowPlot({ ...s, run: { ...s.run, cash: 9 * 20 - 1, seeds: { lemon: 1 } } }, 0, 0)).toEqual({ ok: false, error: 'NO_CASH' })
+    expect(sowPlot({ ...s, run: { ...s.run, autoBuySeeds: false, seeds: { pumpkin: 9 } } }, 0, 0)).toEqual({ ok: false, error: 'NO_SEEDS' })
+    expect(sowPlot({ ...s, run: { ...s.run, cash: 9 * 20 - 1, seeds: { pumpkin: 1 } } }, 0, 0)).toEqual({ ok: false, error: 'NO_CASH' })
   })
 
   it('all-or-nothing: ten pouch seeds, or auto-buy for the missing ones; ripens at tick + ceil(grow / 2); no energy', () => {
-    const s = withFields([field([empty()])], { tick: 7, seeds: { lemon: 4 }, cash: 6 * 20 })
+    const s = withFields([field([empty()])], { tick: 7, seeds: { pumpkin: 4 }, cash: 6 * 20 })
     const r = ok(sowPlot(s, 0, 0))
     expect(r.run.fields.list[0].plots[0]).toEqual(lemon(7 + Math.ceil(LEMON / FIELD_PRESSURE)))
-    expect([r.run.seeds.lemon, r.run.cash, r.run.energy]).toEqual([0, 0, s.run.energy])
+    expect([r.run.seeds.pumpkin, r.run.cash, r.run.energy]).toEqual([0, 0, s.run.energy])
     // a full pouch: no cash moves
-    const pouch = ok(sowPlot({ ...s, run: { ...s.run, seeds: { lemon: 15 }, cash: 0 } }, 0, 0))
-    expect([pouch.run.seeds.lemon, pouch.run.cash]).toEqual([5, 0])
+    const pouch = ok(sowPlot({ ...s, run: { ...s.run, seeds: { pumpkin: 15 }, cash: 0 } }, 0, 0))
+    expect([pouch.run.seeds.pumpkin, pouch.run.cash]).toEqual([5, 0])
     // fertilizer applies like the home plot
     const fert = ok(sowPlot({ ...s, run: { ...s.run, upgrades: { ...s.run.upgrades, fertilizer: 2 } } }, 0, 0))
-    expect(fert.run.fields.list[0].plots[0].readyTick).toBe(7 + Math.ceil(cropGrowTicks('lemon', init.meta, 2) / 2))
+    expect(fert.run.fields.list[0].plots[0].readyTick).toBe(7 + Math.ceil(cropGrowTicks('pumpkin', init.meta, 2) / 2))
   })
 
   it('the dibber rolls its seed-keep once per tile above the basic tier (tier 0 keeps the RNG untouched)', () => {
-    const s = withFields([field([empty()])], { seeds: { lemon: 10 }, cash: 0 })
+    const s = withFields([field([empty()])], { seeds: { pumpkin: 10 }, cash: 0 })
     const basic = ok(sowPlot(s, 0, 0))
-    expect([basic.run.seeds.lemon, basic.run.rngState]).toEqual([0, s.run.rngState])
+    expect([basic.run.seeds.pumpkin, basic.run.rngState]).toEqual([0, s.run.rngState])
     const gold = ok(sowPlot({ ...s, run: { ...s.run, toolTier: { ...s.run.toolTier, plant: 3 } } }, 0, 0))
     expect(gold.run.rngState).not.toBe(s.run.rngState)
-    expect(gold.run.seeds.lemon).toBeGreaterThan(0) // 50 % keep over ten rolls: some seeds stay (this seed's sequence)
-    expect(gold.run.seeds.lemon).toBeLessThan(10)
+    expect(gold.run.seeds.pumpkin).toBeGreaterThan(0) // 50 % keep over ten rolls: some seeds stay (this seed's sequence)
+    expect(gold.run.seeds.pumpkin).toBeLessThan(10)
   })
 
   it('sowNext takes the first empty plot of the first field with pivot + chip; NOTHING_TO_DO with none, then sowPlot errors', () => {
     expect(sowNext(init)).toEqual({ ok: false, error: 'LOCKED' })
-    const s = withFields([field([lemon(999)]), field([empty()], null), field([empty()], 'lemon', false), field([lemon(999), empty(), empty()])])
+    const s = withFields([field([lemon(999)]), field([empty()], null), field([empty()], 'pumpkin', false), field([lemon(999), empty(), empty()])])
     const r = ok(sowNext(s))
-    expect(r.run.fields.list[3].plots.map((p) => p.crop)).toEqual(['lemon', 'lemon', null])
+    expect(r.run.fields.list[3].plots.map((p) => p.crop)).toEqual(['pumpkin', 'pumpkin', null])
     expect(sowNext(withFields([field([lemon(999)]), field([empty()], null)]))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(sowNext({ ...s, run: { ...s.run, cash: 0 } })).toEqual({ ok: false, error: 'NO_CASH' })
   })
@@ -297,7 +306,7 @@ describe('reapPlot / reapNext (by hand)', () => {
   })
 
   it('batch 32: the sickle finds seeds per reaped tile — two draws per tile (double, then seed), none with the basic sickle', () => {
-    const gold = withFields([field([lemon(5)])], { tick: 10, energy: 10, toolTier: { water: 0, harvest: 3, plant: 0 }, seeds: { lemon: 1 } })
+    const gold = withFields([field([lemon(5)])], { tick: 10, energy: 10, toolTier: { water: 0, harvest: 3, plant: 0 }, seeds: { pumpkin: 1 } })
     let rng = gold.run.rngState
     let seeds = 0
     for (let k = 0; k < plotTiles(); k++) {
@@ -307,7 +316,7 @@ describe('reapPlot / reapNext (by hand)', () => {
       rng = next
     }
     const r = ok(reapPlot(gold, 0, 0))
-    expect([seedDropChance(3), r.run.rngState, r.run.seeds.lemon]).toEqual([0.3, rng, 1 + seeds])
+    expect([seedDropChance(3), r.run.rngState, r.run.seeds.pumpkin]).toEqual([0.3, rng, 1 + seeds])
     const basic = withFields([field([lemon(5)])], { tick: 10, energy: 10 })
     const b = ok(reapPlot(basic, 0, 0))
     expect([b.run.rngState, b.run.seeds]).toEqual([basic.run.rngState, basic.run.seeds])
@@ -317,13 +326,13 @@ describe('reapPlot / reapNext (by hand)', () => {
     expect(reapNext(init)).toEqual({ ok: false, error: 'LOCKED' })
     const s = withFields([field([lemon(8), lemon(3)]), field([lemon(3)])], { tick: 10, energy: 20 })
     const r = ok(reapNext(s))
-    expect(r.run.fields.list.map((f) => f.plots.map((p) => p.crop))).toEqual([['lemon', null], ['lemon']]) // tie → field order
+    expect(r.run.fields.list.map((f) => f.plots.map((p) => p.crop))).toEqual([['pumpkin', null], ['pumpkin']]) // tie → field order
     expect(reapNext(withFields([field([lemon(99)])], { tick: 10 }))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(reapNext({ ...s, run: { ...s.run, energy: 0 } })).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
 
   it('a reaped plot fills an accepted order first at the order price, exactly like a home-plot harvest', () => {
-    const orders = { unlocked: true, slots: 1, offers: [{ good: 'lemon' as const, count: 3, done: 0, tier: 0, accepted: true, stars: 1 }] }
+    const orders = { unlocked: true, slots: 1, offers: [{ good: 'pumpkin' as const, count: 3, done: 0, tier: 0, accepted: true, stars: 1 }] }
     const s = withFields([field([lemon(900)])], { cash: 0, tick: 1000, orders })
     const r = fieldsHarvest(lastTile(s))
     if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
@@ -348,10 +357,10 @@ describe('reapPlot / reapNext (by hand)', () => {
 
 describe('helpers', () => {
   it('plotState, fieldsOverview, plantedTiles, pivotsOwned', () => {
-    const s = withFields([field([lemon(5), lemon(99), empty()]), field([empty(), { crop: 'pumpkin', readyTick: 99 }], null), field([empty()], 'lemon', false)], { tick: 10 })
+    const s = withFields([field([lemon(5), lemon(99), empty()]), field([empty(), { crop: 'eggplant', readyTick: 99 }], null), field([empty()], 'pumpkin', false)], { tick: 10 })
     expect([lemon(5), lemon(99), empty()].map((p) => plotState(p, 10))).toEqual(['ready', 'growing', 'empty'])
     expect(fieldsOverview(s.run)).toEqual({ plots: 6, tiles: 60, fields: 3, wetFields: 2, empty: 3, emptyWet: 1, growing: 2, ready: 1 })
-    expect([plantedTiles(s.run.fields, 'lemon'), plantedTiles(s.run.fields, 'pumpkin'), plantedTiles(s.run.fields, 'radish')]).toEqual([20, 10, 0])
+    expect([plantedTiles(s.run.fields, 'pumpkin'), plantedTiles(s.run.fields, 'eggplant'), plantedTiles(s.run.fields, 'radish')]).toEqual([20, 10, 0])
     expect(pivotsOwned(s.run.fields)).toBe(2)
   })
 
@@ -367,7 +376,7 @@ describe('helpers', () => {
   })
 
   it('marginal income runs on the pressured cycle; the payback = plotCost ÷ (10 × marginal per tile)', () => {
-    const s = withFields([field([empty(), empty()])], { market: { ...init.run.market, pumpkin: 0, lemon: 31.5 } })
+    const s = withFields([field([empty(), empty()])], { market: { ...init.run.market, eggplant: 0, pumpkin: 31.5 } })
     const income = fieldsMarginalIncomePerHour(s)
     expect(income).toBeGreaterThan(0)
     expect(fieldsPaybackHours(s)).toBe(Math.round(plotCost(2, init.meta) / (10 * income)))
@@ -378,7 +387,7 @@ describe('helpers', () => {
 describe('workers on the fields (one tile per action on the shared counter, batch 32.2)', () => {
   /** every home tile planted and still growing, so the planter and harvester fall through to the Fields */
   function fieldsRun(list: Field[], assigned = { plant: 1, harvest: 0 }, extra: Partial<GameState['run']> = {}): GameState {
-    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'pumpkin' as const, growth: 10, moisture: 4 }))
     return withFields(list, {
       tiles,
       tick: 5,
@@ -440,11 +449,11 @@ describe('workers on the fields (one tile per action on the shared counter, batc
     const plots = [field([lemon(999), empty()])]
     const none = rounds(fieldsRun(plots, undefined, { seeds: {}, autoBuySeeds: false }), 3)
     expect([sown(none), none.run.lifetime.wagesPaid, none.run.fields.machines.carry.plant]).toEqual([1, 0, 0])
-    const s = fieldsRun(plots, undefined, { seeds: { lemon: plotTiles() }, autoBuySeeds: false })
+    const s = fieldsRun(plots, undefined, { seeds: { pumpkin: plotTiles() }, autoBuySeeds: false })
     const nine = rounds(s, 9)
-    expect([sown(nine), nine.run.seeds.lemon, nine.run.lifetime.wagesPaid, nine.run.fields.machines.carry.plant]).toEqual([1, 10, 9, 9])
+    expect([sown(nine), nine.run.seeds.pumpkin, nine.run.lifetime.wagesPaid, nine.run.fields.machines.carry.plant]).toEqual([1, 10, 9, 9])
     const ten = rounds(s, 10)
-    expect([sown(ten), ten.run.seeds.lemon, ten.run.lifetime.wagesPaid, ten.run.fields.machines.carry.plant]).toEqual([2, 0, 10, 0])
+    expect([sown(ten), ten.run.seeds.pumpkin, ten.run.lifetime.wagesPaid, ten.run.fields.machines.carry.plant]).toEqual([2, 0, 10, 0])
   })
 
   it('batch 32.2: a hand reap of the next plot leaves the shared counter as it was (the progress moves to the next plot)', () => {
@@ -454,7 +463,7 @@ describe('workers on the fields (one tile per action on the shared counter, batc
   })
 
   it('a planter with no sowable plot idles unpaid', () => {
-    const after = step(fieldsRun([field([lemon(999)]), field([empty()], 'lemon', false)]), 1)
+    const after = step(fieldsRun([field([lemon(999)]), field([empty()], 'pumpkin', false)]), 1)
     expect(after.run.lifetime.wagesPaid).toBe(0)
     expect(sown(after)).toBe(1)
   })
@@ -488,7 +497,7 @@ describe('machinesAct on whole plots', () => {
   })
 
   it('machines first, workers fill the gap: with one ready plot the machine takes it and the worker idles unpaid', () => {
-    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'pumpkin' as const, growth: 10, moisture: 4 }))
     const base = withFields([field([lemon(4)])], {
       tiles,
       tick: 5,
@@ -516,7 +525,7 @@ describe('machinesAct on whole plots', () => {
     // Mk2 = 1 tile/tick: 20 ticks = two plots
     const s = withFields([field([empty(), empty(), empty()])], {}, { machines: fleet({ seeder: [2] }) })
     const after = step(s, 20)
-    expect(after.run.fields.list[0].plots.map((p) => p.crop)).toEqual(['lemon', 'lemon', null])
+    expect(after.run.fields.list[0].plots.map((p) => p.crop)).toEqual(['pumpkin', 'pumpkin', null])
     expect(after.run.cash).toBe(1000 - 20 * 20) // seeds only: no wage, maintenance under a whole cash
     const broke = step({ ...s, run: { ...s.run, cash: 5 } }, 30)
     expect(sown(broke)).toBe(0)
@@ -573,7 +582,7 @@ describe('pressure: the tank, the valve, the loader (task 147)', () => {
 
   it('valve on: empty and ready plots burn nothing; valve off: they burn; a dry field burns nothing and grows ×1', () => {
     const plots = [lemon(999), empty(), lemon(1)]
-    const valve = (on: boolean) => withFields([field(plots), field([lemon(999)], 'lemon', false)], { tick: 10, workshop: { built: true, beds: [true, false, false, false], valve: on } }, { tank: 10 })
+    const valve = (on: boolean) => withFields([field(plots), field([lemon(999)], 'pumpkin', false)], { tick: 10, workshop: { built: true, beds: [true, false, false, false], valve: on } }, { tank: 10 })
     expect(step(valve(true), 1).run.fields.tank).toBe(9)
     expect(step(valve(false), 1).run.fields.tank).toBe(7)
     // tick 11 is odd: the dry field's growing plot slips one tick, the pressured one does not
@@ -643,16 +652,16 @@ describe('pressure: the tank, the valve, the loader (task 147)', () => {
 
 describe('step identity over plots', () => {
   it('step(s, 600) = 600 × step(s, 1) with plots, workers, both machine kinds, the market, an accepted order; catch-up equal', () => {
-    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const tiles = init.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'pumpkin' as const, growth: 10, moisture: 4 }))
     const s = withFields(
-      [field([lemon(300), lemon(3600), empty(), empty(), empty()]), field([{ crop: 'pumpkin', readyTick: 5000 }, empty()], 'pumpkin'), field([empty()], 'lemon', false)],
+      [field([lemon(300), lemon(3600), empty(), empty(), empty()]), field([{ crop: 'eggplant', readyTick: 5000 }, empty()], 'eggplant'), field([empty()], 'pumpkin', false)],
       {
         tiles,
         tick: 4,
         cash: 5000,
         energy: 30,
         workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
-        orders: { unlocked: true, slots: 1, offers: [{ good: 'lemon', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }] },
+        orders: { unlocked: true, slots: 1, offers: [{ good: 'pumpkin', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }] },
       },
       { pump: 1, machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9 } }) },
     )

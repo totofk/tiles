@@ -34,8 +34,8 @@ function okState(r: ActionResult): GameState {
 
 const meta = createInitialState().meta
 const tilled = { status: 'tilled' } as const
-const planted = { status: 'planted', cropId: 'radish' } as const
-const mature = { ...planted, growth: cropGrowTicks('radish', meta, 0) }
+const planted = { status: 'planted', cropId: 'potato' } as const
+const mature = { ...planted, growth: cropGrowTicks('potato', meta, 0) }
 
 describe('till', () => {
   it('turns an untilled tile into tilled and costs energy', () => {
@@ -60,9 +60,9 @@ describe('till', () => {
 describe('selectCrop ("Crop to plant", saved for the plant worker)', () => {
   it('sets plantCrop for free; needs the license', () => {
     const s = createInitialState()
-    expect(s.run.plantCrop).toBe('radish')
+    expect(s.run.plantCrop).toBe('potato')
     expect(actions.selectCrop(s, 'pumpkin')).toEqual({ ok: false, error: 'NO_LICENSE' })
-    const next = okState(actions.selectCrop({ ...s, run: { ...s.run, licenses: ['radish', 'pumpkin'] } }, 'pumpkin'))
+    const next = okState(actions.selectCrop({ ...s, run: { ...s.run, licenses: ['potato', 'pumpkin'] } }, 'pumpkin'))
     expect(next.run).toMatchObject({ plantCrop: 'pumpkin', cash: s.run.cash, energy: s.run.energy })
   })
 })
@@ -70,45 +70,45 @@ describe('selectCrop ("Crop to plant", saved for the plant worker)', () => {
 describe('plant', () => {
   it('plants a licensed crop on a tilled tile and pays the seed', () => {
     const s = withTile(tilled)
-    const next = okState(plant(s, 0, 'radish'))
-    expect(next.run.tiles[0]).toMatchObject({ status: 'planted', cropId: 'radish', growth: 0 })
-    expect(next.run.cash).toBe(s.run.cash - cropSeedCost('radish', meta))
+    const next = okState(plant(s, 0, 'potato'))
+    expect(next.run.tiles[0]).toMatchObject({ status: 'planted', cropId: 'potato', growth: 0 })
+    expect(next.run.cash).toBe(s.run.cash - cropSeedCost('potato', meta))
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
   })
   it('rejects a tile that is not tilled', () => {
-    expect(plant(createInitialState(), 0, 'radish')).toEqual({ ok: false, error: 'NOT_TILLED' })
+    expect(plant(createInitialState(), 0, 'potato')).toEqual({ ok: false, error: 'NOT_TILLED' })
   })
   it('rejects an unlicensed crop', () => {
     expect(plant(withTile(tilled, { cash: 1000 }), 0, 'pumpkin')).toEqual({ ok: false, error: 'NO_LICENSE' })
   })
   it('rejects when the seed is unaffordable', () => {
-    const cash = cropSeedCost('radish', meta) - 1
-    expect(plant(withTile(tilled, { cash }), 0, 'radish')).toEqual({ ok: false, error: 'NO_CASH' })
+    const cash = cropSeedCost('potato', meta) - 1
+    expect(plant(withTile(tilled, { cash }), 0, 'potato')).toEqual({ ok: false, error: 'NO_CASH' })
   })
   it('rejects without energy', () => {
-    expect(plant(withTile(tilled, { energy: 0 }), 0, 'radish')).toEqual({ ok: false, error: 'NO_ENERGY' })
+    expect(plant(withTile(tilled, { energy: 0 }), 0, 'potato')).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
   it('rejects bad indexes', () => {
-    expect(plant(createInitialState(), 99, 'radish')).toEqual({ ok: false, error: 'BAD_TILE' })
+    expect(plant(createInitialState(), 99, 'potato')).toEqual({ ok: false, error: 'BAD_TILE' })
   })
   it('uses 1 seed from the pouch and no cash when in stock, and counts the plant', () => {
-    const s = withTile(tilled, { cash: 0, seeds: { radish: 2 } })
-    const next = okState(plant(s, 0, 'radish'))
-    expect(next.run.seeds).toEqual({ radish: 1 })
+    const s = withTile(tilled, { cash: 0, seeds: { potato: 2 } })
+    const next = okState(plant(s, 0, 'potato'))
+    expect(next.run.seeds).toEqual({ potato: 1 })
     expect(next.run.cash).toBe(0)
     expect(next.run.counters.plants).toBe(1)
   })
   it('auto-buy (default on) buys the one seed with 0 in stock and leaves the pouch empty', () => {
     const s = withTile(tilled)
     expect(s.run.autoBuySeeds).toBe(true)
-    expect(okState(plant(s, 0, 'radish')).run.seeds).toEqual({})
+    expect(okState(plant(s, 0, 'potato')).run.seeds).toEqual({})
   })
   it('with auto-buy off and 0 in stock returns NO_SEEDS; with stock it plants', () => {
-    expect(plant(withTile(tilled, { autoBuySeeds: false }), 0, 'radish')).toEqual({ ok: false, error: 'NO_SEEDS' })
-    expect(plant(withTile(tilled, { autoBuySeeds: false, seeds: { radish: 1 } }), 0, 'radish').ok).toBe(true)
+    expect(plant(withTile(tilled, { autoBuySeeds: false }), 0, 'potato')).toEqual({ ok: false, error: 'NO_SEEDS' })
+    expect(plant(withTile(tilled, { autoBuySeeds: false, seeds: { potato: 1 } }), 0, 'potato').ok).toBe(true)
   })
   it('batch 22: auto-buy buys a new crop\'s seed at its price (tomato, licensed)', () => {
-    const next = okState(plant(withTile(tilled, { cash: 40, licenses: ['radish', 'tomato'] }), 0, 'tomato'))
+    const next = okState(plant(withTile(tilled, { cash: 40, licenses: ['potato', 'tomato'] }), 0, 'tomato'))
     expect(next.run.seeds).toEqual({})
     expect(next.run.cash).toBe(0)
     expect(next.run.tiles[0].cropId).toBe('tomato')
@@ -141,31 +141,31 @@ describe('digForSeeds', () => {
     expect(next.run.rngState).toBe(rngState)
     expect(next.run.counters.digs).toBe(1)
     expect(next.run.counters.mines).toBe(0)
-    expect(next.run.seeds.radish ?? 0).toBe(r < digSeedDrop().chance ? 1 : 0)
+    expect(next.run.seeds.potato ?? 0).toBe(r < digSeedDrop().chance ? 1 : 0)
     expect(next.run.cash).toBe(s.run.cash)
     expect(digForSeeds(s)).toEqual({ ok: true, state: next }) // same seed, same result
   })
-  it('drops a radish seed about DIG_SEED_CHANCE (0.2) of the time', () => {
-    expect(digSeedDrop()).toEqual({ crop: 'radish', chance: 0.2 })
+  it('drops a potato seed about DIG_SEED_CHANCE (0.2) of the time', () => {
+    expect(digSeedDrop()).toEqual({ crop: 'potato', chance: 0.2 })
     let s = withTile({}, { energy: 1e6 })
     for (let k = 0; k < 2000; k++) s = okState(digForSeeds(s))
     expect(s.run.counters.digs).toBe(2000)
-    expect(s.run.seeds.radish! / 2000).toBeCloseTo(0.2, 1)
+    expect(s.run.seeds.potato! / 2000).toBeCloseTo(0.2, 1)
   })
   it('rejects without energy', () => {
     expect(digForSeeds(withTile({}, { energy: 0.5 }))).toEqual({ ok: false, error: 'NO_ENERGY' })
   })
   it('dug and bought seeds are one stock: planting uses a dug seed for no cash', () => {
-    const next = okState(plant(withTile(tilled, { cash: 0, seeds: { radish: 1 } }), 0, 'radish'))
-    expect(next.run.seeds.radish).toBe(0)
+    const next = okState(plant(withTile(tilled, { cash: 0, seeds: { potato: 1 } }), 0, 'potato'))
+    expect(next.run.seeds.potato).toBe(0)
     expect(next.run.cash).toBe(0)
   })
   it('no sell path accepts seeds: there is no sell-seed action and sellItem refuses crop ids', () => {
     const sellers = [actions, mining, bank].flatMap((m) => Object.keys(m)).filter((k) => /sell/i.test(k))
     expect(sellers).toEqual(['sellItem'])
-    expect(ITEM_IDS as readonly string[]).not.toContain('radish')
-    const s = withTile({}, { seeds: { radish: 5 } })
-    expect(mining.sellItem(s, 'radish' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_SELLABLE' })
+    expect(ITEM_IDS as readonly string[]).not.toContain('potato')
+    const s = withTile({}, { seeds: { potato: 5 } })
+    expect(mining.sellItem(s, 'potato' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_SELLABLE' })
   })
 })
 
@@ -173,7 +173,7 @@ describe('harvest', () => {
   it('sells a mature crop instantly and leaves the tile tilled', () => {
     const s = withTile(mature)
     const next = okState(harvest(s, 0))
-    expect(next.run.cash).toBe(s.run.cash + picked(cropSellPrice('radish', meta, 0)))
+    expect(next.run.cash).toBe(s.run.cash + picked(cropSellPrice('potato', meta, 0)))
     expect(next.run.tiles[0]).toMatchObject({ status: 'tilled', growth: 0, ticksSinceMature: 0 })
     expect(next.run.tiles[0].cropId).toBeUndefined()
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
@@ -181,11 +181,13 @@ describe('harvest', () => {
   })
   it('applies the sellPrice upgrade (+10 % per level)', () => {
     const s = withTile(mature, { upgrades: { ...createInitialState().run.upgrades, sellPrice: 2 } })
-    expect(okState(harvest(s, 0)).run.cash).toBe(s.run.cash + picked(Math.round(cropSellPrice('radish', meta, 0) * 1.2)))
+    expect(okState(harvest(s, 0)).run.cash).toBe(s.run.cash + picked(Math.round(cropSellPrice('potato', meta, 0) * 1.2)))
   })
   it('batch 13: the player sells hand-picked at ×1.25 (after the market factor); the same harvest with no energy (a worker) at ×1, same glut', () => {
     expect(handPickedBonus()).toBe(1.25)
-    const glutted = withTile(mature, { market: { ...createInitialState().run.market, radish: 400 } })
+    // carrot (💰10): potato's 💰5 rounds a 400 glut back to 5
+    const carrot = { status: 'planted', cropId: 'radish', growth: cropGrowTicks('radish', meta, 0) } as const
+    const glutted = withTile(carrot, { market: { ...createInitialState().run.market, radish: 400 } })
     const byHand = okState(harvest(glutted, 0))
     const byWorker = okState(harvest(glutted, 0, 0))
     const market = marketCropPrice(glutted, 'radish', 400)
@@ -196,11 +198,11 @@ describe('harvest', () => {
   })
   it('fertilizer shortens grow time (−10 % per level) but not the rot window', () => {
     const fertilized = { ...createInitialState().run.upgrades, fertilizer: 3 }
-    const grow = cropGrowTicks('radish', meta, 3)
-    expect(grow).toBe(Math.round(cropGrowTicks('radish', meta, 0) * 0.7))
+    const grow = cropGrowTicks('potato', meta, 3)
+    expect(grow).toBe(Math.round(cropGrowTicks('potato', meta, 0) * 0.7))
     expect(harvest(withTile({ ...planted, growth: grow }, { upgrades: fertilized }), 0).ok).toBe(true)
     expect(harvest(withTile({ ...planted, growth: grow }), 0)).toEqual({ ok: false, error: 'NOT_MATURE' })
-    expect(cropRotGraceTicks('radish', meta)).toBe(2 * cropGrowTicks('radish', meta, 0))
+    expect(cropRotGraceTicks('potato', meta)).toBe(2 * cropGrowTicks('potato', meta, 0))
   })
   it('rejects an immature crop', () => {
     expect(harvest(withTile({ ...planted, growth: 1 }), 0)).toEqual({ ok: false, error: 'NOT_MATURE' })
@@ -221,13 +223,13 @@ describe('lifetime totals', () => {
     let s = withTile(mature, { cash: 100, mineLicense: true, inventory: { stone: 3 } })
     s = okState(harvest(s, 0))
     s = okState(till(s, 1))
-    s = okState(plant(s, 0, 'radish'))
+    s = okState(plant(s, 0, 'potato'))
     s = okState(water(s, 0))
     s = okState(digForSeeds(s))
     s = okState(mining.dig(s))
     s = okState(mining.sellItem(s, 'stone', 3))
     s = okState(bank.takeLoan(s))
-    const income = picked(cropSellPrice('radish', meta, 0)) + 3 * 2
-    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { radish: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0 })
+    const income = picked(cropSellPrice('potato', meta, 0)) + 3 * 2
+    expect(s.run.lifetime).toEqual({ cashEarned: income, energySpent: 6, bars: 0, harvests: { potato: 1 }, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0, fieldsGranted: [] })
   })
 })

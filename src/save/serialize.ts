@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, energyMax, fieldPlots, itemSellPrice, pickaxeDurability, plotTiles, pumpFieldCap, tankCapCoal, type MineDropId } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
 import type { MilestoneId } from '../core/data/milestones'
@@ -20,17 +20,42 @@ import {
   type Machines,
   type Mold,
   type MultiplierKey,
+  type Offer,
   type OrderGood,
   type Pickaxe,
   type Plot,
   type Tile,
   type Workshop,
+  type Favours,
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 26
+export const SAVE_VERSION = 27
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
+/** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
+type CropIdV26 = 'radish' | 'chilli' | 'pumpkin' | 'lemon' | 'tomato' | 'corn' | 'grape' | 'strawberry'
+const CROP_IDS_V26: readonly CropIdV26[] = ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry']
+/** up to v26: no fields grants */
+type LifetimeV26 = Omit<Lifetime, 'fieldsGranted'>
+/** a v12–v26 market / v16–v20 planted table: every v26 crop at 0 */
+const zerosV26 = () => Object.fromEntries(CROP_IDS_V26.map((crop) => [crop, 0])) as Record<CropIdV26, number>
+/** batch 35: old rung k → new paid rung k (the eight rows keep their rank) */
+const RANK_MAP_V26: Record<CropIdV26, CropId> = {
+  radish: 'radish',
+  chilli: 'corn',
+  pumpkin: 'eggplant',
+  lemon: 'pumpkin',
+  tomato: 'tomato',
+  corn: 'lemon',
+  grape: 'grape',
+  strawberry: 'strawberry',
+}
+/** the v26 base seed / sell prices (balance.ts at 1a961fff) */
+const CROP_SEED_V26: Record<CropIdV26, number> = { radish: 2, chilli: 5, pumpkin: 10, lemon: 20, tomato: 40, corn: 75, grape: 140, strawberry: 260 }
+const CROP_SELL_V26: Record<CropIdV26, number> = { radish: 10, chilli: 25, pumpkin: 60, lemon: 110, tomato: 200, corn: 360, grape: 640, strawberry: 1_150 }
+/** the v26 FIELDS_CROP_HARVESTS */
+const FIELDS_CROP_HARVESTS_V26 = 50
 type JobV10 = JobV9 | 'plant'
 type RunV10 = Omit<RunV9, 'workers' | 'lifetime'> & {
   plantCrop: CropId
@@ -111,7 +136,7 @@ type CohortV20 = { crop: CropId; count: number; readyTick: number }
 type FieldsV20 = {
   unlocked: boolean
   count: number
-  planted: Record<CropId, number>
+  planted: Record<CropIdV26, number>
   cohorts: CohortV20[]
   pipes: number
   plantCrop: CropId | null
@@ -155,7 +180,7 @@ type RunV25 = {
   furnace: FurnaceV25
   workshop: Workshop
   fields: Fields
-  lifetime: Lifetime
+  lifetime: LifetimeV26
   mastery: Partial<Record<PickaxeTier, number>>
   masteredTiers: PickaxeTier[]
   rngState: number
@@ -167,7 +192,7 @@ type RunV25 = {
   toolN: Record<ToolJob, number>
   toolTier: Record<ToolJob, number>
   workers: { pool: number; assigned: Record<JobV25, number>; certificates: JobV25[] }
-  market: Record<CropId, number>
+  market: Record<CropIdV26, number>
   milestones: Partial<Record<MilestoneId, number>>
   orders: { unlocked: boolean; slots: number; offers: (OfferV25 | { cooldownTicks: number })[] }
   stars: number
@@ -203,7 +228,7 @@ type RunV20 = Omit<RunV21, 'fields' | 'counters' | 'workers'> & {
 }
 type RunV12 = Omit<RunV20, 'orders' | 'stars' | 'counters' | 'lifetime' | 'workers' | 'workshop' | 'fields'> & {
   counters: Omit<RunV20['counters'], 'orders'>
-  lifetime: Omit<Lifetime, 'ordersCompleted' | 'starsEarned' | 'goldBars' | 'goldBarsSmelted'>
+  lifetime: Omit<LifetimeV26, 'ordersCompleted' | 'starsEarned' | 'goldBars' | 'goldBarsSmelted'>
   workers: { pool: number; assigned: Record<JobV11, number>; certificates: JobV11[] }
 }
 type RunV11 = Omit<RunV12, 'market' | 'milestones'>
@@ -211,7 +236,7 @@ type SaveV11 = { version: 11; savedAtMs: number; state: { meta: MetaV11; run: Ru
 /** meta from v12 to v17: the five multiplier rows only (batch 20 added the deed rows and the ledger) */
 type MetaV12 = { prestigeCount: number; upgrades: Record<MultiplierKey, number>; legacyMultipliers?: Record<MultiplierKey, number> }
 type SaveV12 = { version: 12; savedAtMs: number; state: { meta: MetaV12; run: RunV12 } }
-type RunV13 = Omit<RunV20, 'lifetime' | 'workshop' | 'fields'> & { lifetime: Omit<Lifetime, 'goldBars' | 'goldBarsSmelted'> }
+type RunV13 = Omit<RunV20, 'lifetime' | 'workshop' | 'fields'> & { lifetime: Omit<LifetimeV26, 'goldBars' | 'goldBarsSmelted'> }
 type SaveV13 = { version: 13; savedAtMs: number; state: { meta: MetaV12; run: RunV13 } }
 type RunV14 = Omit<RunV20, 'workshop' | 'fields'>
 type SaveV14 = { version: 14; savedAtMs: number; state: { meta: MetaV12; run: RunV14 } }
@@ -242,8 +267,17 @@ type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: Ru
 type SaveV23 = { version: 23; savedAtMs: number; state: { meta: GameState['meta']; run: RunV23 } }
 type SaveV24 = { version: 24; savedAtMs: number; state: { meta: GameState['meta']; run: RunV24 } }
 type SaveV25 = { version: 25; savedAtMs: number; state: { meta: GameState['meta']; run: RunV25 } }
-type SaveV26 = { version: 26; savedAtMs: number; state: GameState }
-export type Save = SaveV26
+/** v26: ⭐ Favours on the eight-crop ladder (no potato / eggplant, no fields grants) */
+type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
+  orders: { unlocked: boolean; slots: number; offers: ((OfferV25 & { stars: number }) | { cooldownTicks: number })[] }
+  starsFrac: number
+  favours: Favours
+  workers: { pool: number; assigned: Record<WorkerJob, number>; certificates: WorkerJob[] }
+  furnace: FurnaceV25 & { stoked: number }
+}
+type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
+type SaveV27 = { version: 27; savedAtMs: number; state: GameState }
+export type Save = SaveV27
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -456,7 +490,7 @@ function migrateV11(save: SaveV11): SaveV12 {
     savedAtMs: save.savedAtMs,
     state: {
       meta: { prestigeCount: meta.prestigeCount, upgrades: fresh.meta.upgrades, ...legacy },
-      run: { ...run, market: fresh.run.market, milestones: { trackingStarted: run.tick } },
+      run: { ...run, market: zerosV26(), milestones: { trackingStarted: run.tick } },
     },
   }
 }
@@ -505,8 +539,7 @@ function migrateV14(save: SaveV14): SaveV15 {
 // planter's fields crop is unset (planting sets it) and the shared pump's fractional coal starts at 0.
 function migrateV15(save: SaveV15): SaveV16 {
   const { meta, run } = save.state
-  const planted = Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>
-  const fields = { unlocked: false, count: 0, planted, cohorts: [], pipes: 0, plantCrop: null, coalCarry: 0 }
+  const fields = { unlocked: false, count: 0, planted: zerosV26(), cohorts: [], pipes: 0, plantCrop: null, coalCarry: 0 }
   return { version: 16, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields } } }
 }
 
@@ -602,7 +635,7 @@ function migrateV20(save: SaveV20): SaveV21 {
     }
     const size = plotTiles()
     const planted: Plot[] = []
-    for (const crop of CROP_IDS) {
+    for (const crop of CROP_IDS_V26) {
       const dates = kept
         .filter((c) => c.crop === crop)
         .sort((a, b) => a.readyTick - b.readyTick)
@@ -617,7 +650,7 @@ function migrateV20(save: SaveV20): SaveV21 {
     const list: Field[] = []
     for (let i = 0; i < plots.length; i += fieldPlots()) {
       const chunk = plots.slice(i, i + fieldPlots())
-      const most = CROP_IDS.reduce<{ crop: CropId | null; n: number }>((best, crop) => {
+      const most = CROP_IDS_V26.reduce<{ crop: CropId | null; n: number }>((best, crop) => {
         const n = chunk.filter((p) => p.crop === crop).length
         return n > best.n ? { crop, n } : best
       }, { crop: null, n: 0 })
@@ -737,20 +770,71 @@ function migrateV25(save: SaveV25): SaveV26 {
   }
 }
 
+// v26 → v27 (batch 35): the 10-crop ladder. Licences, crop-to-plant, field chips and crop offers move by RANK_MAP_V26
+// (same price row) plus 🥔 potato free; fields access follows the row (fieldsGranted). Planted tiles and plots keep
+// their crop and finish; where a crop's base sale fell (corn) the drop is credited now. Seeds of a crop no longer
+// licensed, or whose seed got cheaper (corn), are refunded at the old seed price. Renown, harvests, milestones and the
+// market stay on their crop id.
+function migrateV26(save: SaveV26): SaveV27 {
+  const { meta, run } = save.state
+  const rank = (c: CropId) => RANK_MAP_V26[c as CropIdV26] ?? c
+  const licenses = CROP_IDS.filter((c) => c === 'potato' || run.licenses.some((o) => rank(o) === c))
+  const harvests = (c: CropId) => run.lifetime.harvests[c] ?? 0
+  const fieldsGranted = CROP_IDS.filter(
+    (c) => harvests(c) < FIELDS_CROP_HARVESTS_V26 && run.licenses.some((o) => rank(o) === c && harvests(o) >= FIELDS_CROP_HARVESTS_V26),
+  )
+  const fresh = createInitialMeta()
+  let cash = run.cash
+  const seeds = { ...run.seeds }
+  for (const c of CROP_IDS_V26) {
+    const n = seeds[c] ?? 0
+    if (n > 0 && (!licenses.includes(c) || cropSeedCost(c, fresh) < CROP_SEED_V26[c])) {
+      cash += n * Math.round(CROP_SEED_V26[c] * multiplier(meta, 'cost'))
+      delete seeds[c]
+    }
+    if (cropSellPrice(c, fresh, 0) < CROP_SELL_V26[c]) {
+      const planted =
+        run.tiles.filter((t) => t.status === 'planted' && t.cropId === c).length +
+        run.fields.list.reduce((a, f) => a + f.plots.filter((p) => p.crop === c).length, 0) * plotTiles()
+      cash += planted * (sellPrice(CROP_SELL_V26[c], meta, run.upgrades.sellPrice) - cropSellPrice(c, meta, run.upgrades.sellPrice))
+    }
+  }
+  const offers = run.orders.offers.map((o): Offer | { cooldownTicks: number } => ('good' in o && o.good in RANK_MAP_V26 ? { ...o, good: rank(o.good as CropId) } : o))
+  return {
+    version: 27,
+    savedAtMs: save.savedAtMs,
+    state: {
+      meta,
+      run: {
+        ...run,
+        cash,
+        seeds,
+        licenses,
+        plantCrop: rank(run.plantCrop),
+        fields: { ...run.fields, list: run.fields.list.map((f) => ({ ...f, crop: f.crop && rank(f.crop) })) },
+        orders: { ...run.orders, offers },
+        market: { ...run.market, potato: 0, eggplant: 0 },
+        lifetime: { ...run.lifetime, fieldsGranted },
+      },
+    },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 26) return data as SaveV26
-  if (data.version === 25) return migrateV25(data as SaveV25)
-  if (data.version === 24) return migrateV25(migrateV24(data as SaveV24))
-  if (data.version === 23) return migrateV25(migrateV24(migrateV23(data as SaveV23)))
-  if (data.version === 22) return migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))
-  if (data.version === 21) return migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))
+  if (data.version === 27) return data as SaveV27
+  if (data.version === 26) return migrateV26(data as SaveV26)
+  if (data.version === 25) return migrateV26(migrateV25(data as SaveV25))
+  if (data.version === 24) return migrateV26(migrateV25(migrateV24(data as SaveV24)))
+  if (data.version === 23) return migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23))))
+  if (data.version === 22) return migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22)))))
+  if (data.version === 21) return migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))))
   const v20 = toV20(data)
-  return v20 && migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))
+  return v20 && migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

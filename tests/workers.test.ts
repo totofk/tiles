@@ -738,7 +738,7 @@ describe('new runs', () => {
   it('start with no workers, no certificates and no wages paid', () => {
     expect(init.run.workers).toEqual({ pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: [] })
     expect([init.run.lifetime.wagesPaid, freeWorkers(init.run)]).toEqual([0, 0])
-    expect([init.run.plantCrop, init.run.lifetime.workerPlants, init.run.lifetime.workerMines]).toEqual(['radish', 0, 0])
+    expect([init.run.plantCrop, init.run.lifetime.workerPlants, init.run.lifetime.workerMines]).toEqual(['potato', 0, 0])
   })
 })
 

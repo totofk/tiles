@@ -48,7 +48,7 @@ describe('sellFarm', () => {
       tick: 0,
       cash: 20,
       tiles: Array.from({ length: 9 }, () => expect.objectContaining({ status: 'untilled' })),
-      licenses: ['radish'],
+      licenses: ['potato'],
       milestones: {},
       stars: 37,
       starsFrac: 0,

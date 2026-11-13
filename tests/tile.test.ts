@@ -53,7 +53,7 @@ describe('tapTile', () => {
   it('tills, plants, waters, harvests in turn', () => {
     let s = createInitialState()
     const tap = () => {
-      const r = tapTile(s, 0, 'radish')
+      const r = tapTile(s, 0, 'potato')
       if (!r?.ok) throw new Error(String(r && r.error))
       s = r.state
     }

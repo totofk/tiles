@@ -8,14 +8,16 @@ import type { FavourId } from '../core/favours'
 // ⓘ texts for every Shop and Upgrades row: what it does, what it costs over time. No numbers (those live in balance.ts).
 
 export const CROP_TIPS: Record<CropId, string> = {
-  radish: 'Your starting crop: cheap seeds and the fastest harvest. It earns the least per energy, so it is the crop to grow out of.',
-  chilli: 'Grows slower than carrot but earns more per energy. The license is paid once; each seed costs a little.',
-  pumpkin: 'A long grow for a big sale, more cash per energy than chilli. Seeds cost more, so keep cash for replanting.',
-  lemon: 'The slowest crop and the best cash per energy. Seeds are expensive, and waiting, not energy, becomes the limit.',
-  tomato: 'The first of the second ladder: slower than lemon again, with more cash per harvest. Its market is its own, so it dilutes a glut.',
-  corn: 'A long grow with a big sale. Beyond lemon the seeds get dear — keep cash for replanting before buying anything else.',
+  potato: 'Your starting crop: seeds cost almost nothing and it is ready fast. It earns the least, so it is the crop to grow out of.',
+  radish: 'A cheap step up from potato: slower, with twice the cash per harvest. The license is paid once; each seed costs a little.',
+  corn: 'Grows slower than carrot but earns more per energy. Seeds stay cheap, so it is an easy third crop.',
+  eggplant: 'A long grow for a big sale, more cash per energy than corn. Seeds cost more, so keep cash for replanting.',
+  pumpkin: 'The slowest of the early crops and the best cash per energy among them. Waiting, not energy, becomes the limit.',
+  tomato: 'The first of the second ladder: slower than pumpkin again, with more cash per harvest. Its market is its own, so it dilutes a glut.',
+  lemon: 'A long grow with a big sale. Beyond tomato the seeds get dear — keep cash for replanting before buying anything else.',
   grape: 'Slow and rich. Each seed costs a lot, so plant it on land you will not need to re-plan quickly.',
-  strawberry: 'The slowest, richest crop. Waiting, not energy or water, is the limit; its deep market absorbs a whole farm alone.',
+  strawberry: 'Slow and very rich. Waiting, not energy or water, is the limit; its deep market absorbs a whole farm alone.',
+  chilli: 'The top crop: the slowest grow and the richest sale. Each seed costs a lot, so plant it where you will not re-plan soon.',
 }
 
 /** index 0 = level 1 */

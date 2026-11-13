@@ -25,7 +25,8 @@ import v22 from './fixtures/save-v22.json?raw'
 import v23 from './fixtures/save-v23.json?raw'
 import v24 from './fixtures/save-v24.json?raw'
 import v25 from './fixtures/save-v25.json?raw'
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, renownFloor } from '../src/core/balance'
+import v26 from './fixtures/save-v26.json?raw'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, plotTiles, renownFloor, sellPrice } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
@@ -92,7 +93,9 @@ const v19Run = (run: { market: Record<string, number>; fields: { planted: Record
   market: { ...run.market, ...v19Zeros },
   fields: { ...run.fields, planted: { ...run.fields.planted, ...v19Zeros } },
 })
-const v12Run = (run: { tick: number }) => ({ market: createInitialState().run.market, milestones: { trackingStarted: run.tick } })
+/** the v12–v26 market / v16–v20 planted table: the eight v26 crops at 0 */
+const v26Zeros = () => Object.fromEntries(Object.keys(RANK_V26).map((c) => [c, 0]))
+const v12Run = (run: { tick: number }) => ({ market: v26Zeros(), milestones: { trackingStarted: run.tick } })
 /** a pre-v20 run: its workshop is the old hoppers shape */
 type HopperRun = {
   cash: number
@@ -120,7 +123,7 @@ function v20Run<T extends HopperRun>(run: T, meta: GameState['meta']) {
 /** a v20-era expectation carried through the real v20 → v21 step (that step is pinned in 'v20 → v21: plots') */
 const viaV20 = (save: { version: 20; savedAtMs: number; state: object }) => deserialize(JSON.stringify(save))
 /** the v16–v20 Fields before the unlock (the v20 shape: count, cohorts, pipes) */
-const v20Fields = () => ({ unlocked: false, count: 0, planted: Object.fromEntries(CROP_IDS.map((c) => [c, 0])), cohorts: [], pipes: 0, plantCrop: null, coalCarry: 0, machines: createMachines() })
+const v20Fields = () => ({ unlocked: false, count: 0, planted: v26Zeros(), cohorts: [], pipes: 0, plantCrop: null, coalCarry: 0, machines: createMachines() })
 /** v12 → v13: the 📋 Noticeboard not bought, no ⭐, no orders completed; v13 → v14: no gold yet */
 const v13Lifetime = { ordersCompleted: 0, starsEarned: 0 }
 const v14Lifetime = { ...v13Lifetime, goldBars: 0, goldBarsSmelted: 0 }
@@ -147,7 +150,56 @@ function asV24Furnace({ molds, levels: { speed, tray, slot, ...levels }, collect
   for (const k of kinds) if (k !== kind) expect(molds[k]).toEqual({ ore: 0, progress: 0, ready: 0 })
   return { ...f, oreKind: kind, ...molds[kind]!, levels }
 }
-function asV12(save: Save) {
+/** batch 35: old rung k → new paid rung k (the frozen RANK_MAP_V26) and its inverse */
+const RANK_V26: Record<string, CropId> = { radish: 'radish', chilli: 'corn', pumpkin: 'eggplant', lemon: 'pumpkin', tomato: 'tomato', corn: 'lemon', grape: 'grape', strawberry: 'strawberry' }
+const UNRANK_V26 = Object.fromEntries(Object.entries(RANK_V26).map(([a, b]) => [b, a])) as Record<CropId, CropId>
+/** a v27 save back in the v26 shape: licences (potato dropped), crop-to-plant, field chips and crop offers back by the
+ *  rank map, no potato / eggplant market keys, no fields grants. Cash and seeds stay as migrated (checked per test). */
+function asV26(save: Save): Save {
+  const { run } = save.state
+  const { potato, eggplant, ...market } = run.market
+  const { fieldsGranted, ...lifetime } = run.lifetime
+  void [potato, eggplant, fieldsGranted]
+  const offers = run.orders.offers.map((o) => ('good' in o && o.good in UNRANK_V26 ? { ...o, good: UNRANK_V26[o.good as CropId] } : o))
+  return {
+    ...save,
+    version: 26 as Save['version'],
+    state: {
+      ...save.state,
+      run: {
+        ...run,
+        licenses: run.licenses.filter((c) => c !== 'potato').map((c) => UNRANK_V26[c]),
+        plantCrop: UNRANK_V26[run.plantCrop],
+        fields: { ...run.fields, list: run.fields.list.map((f) => ({ ...f, crop: f.crop && UNRANK_V26[f.crop] })) },
+        orders: { ...run.orders, offers },
+        market: market as Save['state']['run']['market'],
+        lifetime: lifetime as Save['state']['run']['lifetime'],
+      },
+    },
+  }
+}
+const SEED_V26: Record<string, number> = { radish: 2, chilli: 5, pumpkin: 10, lemon: 20, tomato: 40, corn: 75, grape: 140, strawberry: 260 }
+type MoneyRun = { cash: number; seeds: Partial<Record<CropId, number>>; licenses: CropId[]; upgrades: { sellPrice: number } }
+/** an expected v26 run with v26 → v27's money applied (written apart from serialize.ts): seeds of a crop no longer
+ *  licensed, or cheaper now (corn), refunded at the old seed price; planted corn (read from the migrated run, which
+ *  keeps every planted crop) credited its sale drop 360 → 25 */
+function v27Of<T extends object>(expected: T, v27: Save['state']['run'], meta: GameState['meta']): T & MoneyRun {
+  const v26 = expected as T & MoneyRun
+  const licensed: string[] = ['potato', ...v26.licenses.map((c) => RANK_V26[c])]
+  let cash = v26.cash
+  const seeds = { ...v26.seeds }
+  for (const [c, n] of Object.entries(v26.seeds) as [CropId, number][]) {
+    if (n > 0 && (!licensed.includes(c) || c === 'corn')) {
+      cash += n * Math.round(SEED_V26[c] * multiplier(meta, 'cost'))
+      delete seeds[c]
+    }
+  }
+  const corn = v27.tiles.filter((t) => t.status === 'planted' && t.cropId === 'corn').length + v27.fields.list.flatMap((f) => f.plots).filter((p) => p.crop === 'corn').length * plotTiles()
+  cash += corn * (sellPrice(360, meta, v26.upgrades.sellPrice) - cropSellPrice('corn', meta, v26.upgrades.sellPrice))
+  return { ...v26, cash, seeds }
+}
+function asV12(v27: Save) {
+  const save = asV26(v27)
   const { orders, stars, starsFrac, favours, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = { ...asV23Run(save.state.run), furnace: asV24Furnace(save.state.run.furnace) }
   const { orders: completed, contractsByHand, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
@@ -171,7 +223,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 26, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 27, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -345,7 +397,7 @@ describe('serialize / deserialize', () => {
           stoked: 3,
         },
         inventory: { copperOre: 4, copperBar: 1, ironOre: 3, ironBar: 2, goldOre: 2, goldBar: 1 },
-        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3, ordersCompleted: 0, starsEarned: 0, goldBars: 1, goldBarsSmelted: 2 },
+        lifetime: { cashEarned: 900, energySpent: 412, bars: 6, harvests: { radish: 40, lemon: 2 }, wagesPaid: 0, fireBurnt: 500, fireWasted: 80, barsSmelted: 8, workerPlants: 0, workerMines: 9, ironBars: 2, ironBarsSmelted: 3, ordersCompleted: 0, starsEarned: 0, goldBars: 1, goldBarsSmelted: 2, fieldsGranted: [] },
       },
     }
     expect(deserialize(serialize(state, 0))?.state).toEqual(state)
@@ -410,7 +462,7 @@ describe('serialize / deserialize', () => {
     [4, v4, 140, { radish: 27 }],
     [5, v5, 246, {}],
   ])('v%i lifetime totals start from the counters that map, cash earned at 0', (_, raw, energySpent, harvests) => {
-    expect(deserialize(raw)!.state.run.lifetime).toEqual({ cashEarned: 0, energySpent, bars: 0, harvests, wagesPaid: 0, ...noFire })
+    expect(deserialize(raw)!.state.run.lifetime).toEqual({ cashEarned: 0, energySpent, bars: 0, harvests, wagesPaid: 0, ...noFire, fieldsGranted: [] })
   })
 
   it('round-trips mining progress: half-mined stone, mastery, a blunt pickaxe, storage level', () => {
@@ -445,10 +497,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v26 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v27 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(26)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 27 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(27)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 28 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -562,7 +614,7 @@ describe('serialize / deserialize', () => {
       ...v12Run(old.run),
     })
     expect(run.energy).toBe(energyMax(old.run.upgrades.energyMax, meta))
-    expect([run.cash, run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
+    expect([run.cash, asV26(save).state.run.licenses, run.tick]).toEqual([old.run.cash, old.run.licenses, old.run.tick])
     // the migrated state plays on
     expect(step(save.state, 5).run.tick).toBe(old.run.tick + 5)
   })
@@ -796,9 +848,13 @@ describe('save v20: bed sprinklers', () => {
     const room = old.state.run.bagCapacity - bagCount(old.state.run)
     // (v21 then fills the Tractor's tank from that storage: storage + tank holds it all)
     expect([room, (run.inventory.coal ?? 0) + run.fields.tank / TANK_UNITS_PER_COAL]).toEqual([2, old.state.run.inventory.coal + 2])
-    expect(run.cash).toBe(old.state.run.cash + 30 * itemSellPrice('coal', old.state.meta, old.state.run.upgrades.sellPrice))
+    // (v27 then refunds the seeds of crops the re-ladder no longer licenses)
+    const v26Cash = old.state.run.cash + 30 * itemSellPrice('coal', old.state.meta, old.state.run.upgrades.sellPrice)
+    const back = v20Stats(asV20Run(v19)).back
+    const v26Seeds = Object.fromEntries(CROP_IDS.map((c) => [c, (old.state.run.seeds[c] ?? 0) + (back[c] ?? 0)]).filter(([, n]) => n))
+    expect(run.cash).toBe(v27Of({ ...old.state.run, cash: v26Cash, seeds: v26Seeds }, run, save.state.meta).cash)
     expect(run.cash).toBeGreaterThanOrEqual(old.state.run.cash)
-    expect([run.tiles.length, run.licenses, run.workers.certificates, run.counters.sales, run.lifetime.cashEarned]).toEqual([
+    expect([run.tiles.length, asV26(save).state.run.licenses, run.workers.certificates, run.counters.sales, run.lifetime.cashEarned]).toEqual([
       old.state.run.tiles.length,
       old.state.run.licenses,
       old.state.run.workers.certificates,
@@ -890,7 +946,8 @@ describe('v20 → v21: plots', () => {
     expect(unlocked.length).toBeGreaterThanOrEqual(5) // v16 … v20
     for (const raw of unlocked) {
       const old = asV20Run(raw)
-      const { run } = deserialize(raw)!.state
+      const save = deserialize(raw)!
+      const { run } = save.state
       const { covered, ready, back, kept } = v20Stats(old)
       const plots = run.fields.list.flatMap((f) => f.plots)
       // owned tiles never shrink
@@ -898,8 +955,10 @@ describe('v20 → v21: plots', () => {
       // wet tiles (fields with a pivot) cover what the old pipes watered plus what stood ready
       const wet = run.fields.list.filter((f) => f.pivot).reduce((n, f) => n + 10 * f.plots.length, 0)
       expect(wet).toBeGreaterThanOrEqual(covered + ready)
-      // stalled cohorts went back to the pouch, per crop
-      for (const crop of CROP_IDS) expect((run.seeds[crop] ?? 0) - (old.seeds[crop] ?? 0)).toBe(back[crop] ?? 0)
+      // stalled cohorts went back to the pouch, per crop (then v27 refunds the crops the re-ladder no longer licenses)
+      const v26Seeds = Object.fromEntries(CROP_IDS.map((c) => [c, (old.seeds[c] ?? 0) + (back[c] ?? 0)]))
+      const want = v27Of({ cash: 0, seeds: v26Seeds, licenses: asV26(save).state.run.licenses, upgrades: run.upgrades }, run, save.state.meta).seeds
+      for (const crop of CROP_IDS) expect(run.seeds[crop] ?? 0).toBe(want[crop] ?? 0)
       // the tank drew its coal from storage, none lost
       expect((run.inventory.coal ?? 0) + run.fields.tank / TANK_UNITS_PER_COAL).toBe(old.inventory.coal ?? 0)
       // fields are chunks of five plots, P = max(ceil(count / 10), planted plots, 1)
@@ -937,6 +996,8 @@ describe('v20 → v21: plots', () => {
     fresh.version = 20
     delete fresh.state.run.counters.contractsByHand
     delete fresh.state.run.workers.assigned.manager
+    // a v20 run starts on carrot (potato is batch 35)
+    Object.assign(fresh.state.run, { licenses: ['radish'], plantCrop: 'radish' })
     fresh.state.run.fields = { ...v20Fields(), unlocked: true, ...fields }
     Object.assign(fresh.state.run, run)
     return deserialize(JSON.stringify(fresh))!.state.run
@@ -955,7 +1016,8 @@ describe('v20 → v21: plots', () => {
       { crop: 'radish' as const, count: 10, readyTick: 700 },
     ]
     const run = forgedV20({ count: 30, pipes: 0, cohorts }, { tick: 100, seeds: { radish: 3 }, inventory: { coal: 50 } })
-    expect(run.seeds).toEqual({ radish: 23, lemon: 10 })
+    // v27: the 10 lemon seeds back from the stall are unlicensed, so they are refunded at 💰20 each
+    expect([run.seeds, run.cash]).toEqual([{ radish: 23 }, createInitialState().run.cash + 10 * 20])
     expect(run.fields.list).toHaveLength(1)
     expect(run.fields.list[0].plots).toEqual([0, 1, 2].map(() => ({ crop: null, readyTick: 0 })))
     // pipes 0 = pump 0: a 40-coal tank filled from the 50 in storage
@@ -978,21 +1040,24 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(26)
+    expect(SAVE_VERSION).toBe(27)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
-      const run = deserialize(raw)!.state.run
-      expect(run.licenses).toEqual(old.licenses)
-      // batch 28: v21 returns the stalled Fields cohorts to the pouch (pinned in 'v20 → v21: plots')
+      const save = deserialize(raw)!
+      const run = save.state.run
+      expect(asV26(save).state.run.licenses).toEqual(old.licenses)
+      // batch 28: v21 returns the stalled Fields cohorts to the pouch (pinned in 'v20 → v21: plots'); v27 refunds
       const back = JSON.parse(raw).version >= 16 && asV20Run(raw).fields.unlocked ? v20Stats(asV20Run(raw)).back : {}
-      for (const crop of CROP_IDS) expect(run.seeds[crop] ?? 0).toBe((old.seeds?.[crop] ?? 0) + (back[crop] ?? 0))
+      const v26Seeds = Object.fromEntries(CROP_IDS.map((c) => [c, (old.seeds?.[c] ?? 0) + (back[c] ?? 0)]))
+      const want = v27Of({ cash: 0, seeds: v26Seeds, licenses: old.licenses, upgrades: run.upgrades }, run, save.state.meta).seeds
+      for (const crop of CROP_IDS) expect(run.seeds[crop] ?? 0).toBe(want[crop] ?? 0)
       expect(run.tiles.slice(0, old.tiles.length).map((t) => t.cropId)).toEqual(old.tiles.map((t: { cropId?: string }) => t.cropId))
     }
   })
 
   it('a current save written before the new crops loads unchanged', () => {
     const before = JSON.parse(serialize(step(createInitialState(), 42), 7))
-    expect(before.state.run.licenses).toEqual(['radish'])
+    expect(before.state.run.licenses).toEqual(['potato'])
     expect(deserialize(JSON.stringify(before))).toEqual(before)
   })
 
@@ -1181,8 +1246,9 @@ describe('save v22: 🧺 ore sorting', () => {
     const old = JSON.parse(v21)
     expect(old.version).toBe(21)
     const meta = { ...old.state.meta, upgrades: { ...old.state.meta.upgrades, keepRenown: 0 } }
-    const run = { ...v24Run(old.state.run), oreSort: {}, renown: old.state.run.lifetime.harvests }
-    expect(deserialize(v21)).toEqual({ version: 26, savedAtMs: old.savedAtMs, state: { meta, run } })
+    const save = deserialize(v21)!
+    const run = v27Of({ ...v24Run(old.state.run), oreSort: {}, renown: old.state.run.lifetime.harvests }, save.state.run, save.state.meta)
+    expect(asV26(save)).toEqual({ version: 26, savedAtMs: old.savedAtMs, state: { meta, run } })
   })
 })
 
@@ -1220,7 +1286,7 @@ describe('save v23: renown', () => {
     expect(run.renown).toEqual({ radish: 150, chilli: 95, pumpkin: 300, lemon: 2413 })
     expect([renownFloor(run.renown.lemon!), renownFloor(run.renown.pumpkin!)]).toEqual([0.6, 0.55])
     expect(meta).toEqual({ ...old.state.meta, upgrades: { ...old.state.meta.upgrades, keepRenown: 0 } })
-    expect(run).toEqual({ ...v24Run(old.state.run), renown: run.renown })
+    expect(asV26(save).state.run).toEqual(v27Of({ ...v24Run(old.state.run), renown: run.renown }, run, meta))
   })
 
   it('every fixture v1 … v23 migrates to the latest with renown = its lifetime harvests', () => {
@@ -1242,15 +1308,16 @@ describe('save v24: the pickaxe rack and Keep N (batch 32)', () => {
     expect(save.version).toBe(SAVE_VERSION)
     const { run, meta } = save.state
     expect([run.rack, run.selectedPickaxe, run.keepN, run.oreKeep]).toEqual([{ gold: 351 }, 'gold', false, {}])
-    expect([run.cash, run.tiles, run.licenses, run.mastery, run.masteredTiers]).toEqual([
-      old.state.run.cash,
+    const want = v27Of(v24Run(old.state.run), run, meta)
+    expect([run.cash, run.tiles, asV26(save).state.run.licenses, run.mastery, run.masteredTiers]).toEqual([
+      want.cash,
       old.state.run.tiles,
       old.state.run.licenses,
       { wooden: 400, copper: 700, iron: 1300, gold: 310 },
       ['wooden'],
     ])
     expect(meta).toEqual(old.state.meta)
-    expect(run).toEqual(v24Run(old.state.run))
+    expect(asV26(save).state.run).toEqual(want)
     expect('pickaxe' in run).toBe(false)
   })
 
@@ -1286,8 +1353,9 @@ describe('save v25: furnace molds (batch 33)', () => {
     const { furnace, ...rest } = old.state.run
     void furnace
     expect(meta).toEqual(old.state.meta)
-    expect({ ...run, furnace: undefined }).toEqual({ ...rest, ...v26Fields(rest), furnace: undefined })
-    expect([run.cash, run.inventory]).toEqual([old.state.run.cash, old.state.run.inventory])
+    const want = v27Of({ ...rest, ...v26Fields(rest) }, run, meta)
+    expect({ ...asV26(save).state.run, furnace: undefined }).toEqual({ ...want, furnace: undefined })
+    expect([run.cash, run.inventory]).toEqual([want.cash, old.state.run.inventory])
   })
 
   it('every fixture v1 … v24 migrates to v25; a built furnace gets a mold per kind its vein drops, the old slot keeps its ore, progress and tray', () => {
@@ -1322,17 +1390,20 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
     const old = JSON.parse(v25)
     expect(old.version).toBe(25)
     const save = deserialize(v25)!
-    expect(save.version).toBe(26)
+    expect(save.version).toBe(27)
     const { run, meta } = save.state
     expect(run.orders.offers.map((o) => ('good' in o ? [o.tier, o.stars] : null))).toEqual([
       [2, 4],
       [0, 1],
       [0, 1],
     ])
-    expect([run.stars, run.cash, run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([39, 452_892, 0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+    // v27: 💰452,892 + the refund of the seeds the re-ladder no longer licenses
+    const want = v27Of(old.state.run, run, meta)
+    expect([run.stars, run.cash, run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([39, want.cash, 0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+    expect(old.state.run.cash).toBe(452_892)
     expect(meta).toEqual(old.state.meta)
     const strip = (r: typeof run | typeof old.state.run) => ({ ...r, orders: undefined, starsFrac: undefined, favours: undefined, workers: undefined, furnace: undefined })
-    expect(strip(run)).toEqual(strip(old.state.run))
+    expect(strip(asV26(save).state.run)).toEqual(strip(want))
     expect(run.furnace).toEqual({ ...old.state.run.furnace, stoked: 0 })
     expect(run.workers).toEqual({ ...old.state.run.workers, assigned: { ...old.state.run.workers.assigned, stoker: 0 } })
     expect([run.inventory, run.upgrades]).toEqual([old.state.run.inventory, old.state.run.upgrades])
@@ -1341,10 +1412,84 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
   it('every fixture v1 … v25 migrates to v26 with the new fields at their defaults; every offer keeps its tier ⭐ 1 / 2 / 4', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25]) {
       const save = deserialize(raw)!
-      expect(save.version).toBe(26)
+      expect(save.version).toBe(27)
       const { run } = save.state
       expect([run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
       for (const o of run.orders.offers) if ('good' in o) expect(o.stars).toBe([1, 2, 4][o.tier])
+    }
+  })
+})
+
+describe('save v27: the 10-crop ladder (batch 35)', () => {
+  /** the real v26 fixture with these run fields replaced (a synthetic v26 save) */
+  const v26With = (run: object) => {
+    const old = JSON.parse(v26)
+    return deserialize(JSON.stringify({ ...old, state: { ...old.state, run: { ...old.state.run, ...run } } }))!.state.run
+  }
+
+  it('migrates the real v26 fixture: licences up the ladder rung for rung, chips and crop-to-plant follow, 💰325 seed refund', () => {
+    const old = JSON.parse(v26)
+    expect(old.version).toBe(26)
+    const save = deserialize(v26)!
+    expect(save.version).toBe(27)
+    const { run, meta } = save.state
+    expect(run.licenses).toEqual(['potato', 'radish', 'corn', 'eggplant', 'pumpkin'])
+    expect(run.plantCrop).toBe('pumpkin')
+    expect(run.fields.list.map((f) => f.crop)).toEqual(['corn', 'pumpkin', 'pumpkin', 'radish', 'radish', 'radish', 'radish', 'radish'])
+    expect(run.fields.list.map((f) => f.pinned)).toEqual(old.state.run.fields.list.map((f: { pinned: boolean }) => f.pinned))
+    // planted plots keep their crop and date: they finish and sell as themselves
+    expect(run.fields.list.map((f) => f.plots)).toEqual(old.state.run.fields.list.map((f: { plots: unknown }) => f.plots))
+    expect(run.lifetime.fieldsGranted).toEqual(['corn', 'eggplant'])
+    // lemon 15 × 💰20 + chilli 5 × 💰5 refunded (neither is licensed any more); carrot and pumpkin seeds stay
+    expect([run.seeds, run.cash - old.state.run.cash]).toEqual([{ radish: 50, pumpkin: 5 }, 325])
+    expect(run.tiles).toEqual(old.state.run.tiles)
+    expect(run.tiles.filter((t) => t.cropId === 'lemon')).toHaveLength(24)
+    expect([run.stars, run.renown, run.lifetime.harvests, run.milestones]).toEqual([39, old.state.run.renown, old.state.run.lifetime.harvests, old.state.run.milestones])
+    expect(run.renown.lemon).toBe(2427)
+    expect(run.market).toEqual({ ...old.state.run.market, potato: 0, eggplant: 0 })
+    expect(run.orders).toEqual(old.state.run.orders)
+    expect(meta).toEqual(old.state.meta)
+    expect([run.inventory, run.upgrades, run.workers, run.furnace]).toEqual([old.state.run.inventory, old.state.run.upgrades, old.state.run.workers, old.state.run.furnace])
+  })
+
+  it('all eight v26 licences → nine rungs plus potato, chilli not granted; a skipped rung keeps its row', () => {
+    expect(v26With({ licenses: ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'] }).licenses).toEqual([
+      'potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'lemon', 'grape', 'strawberry',
+    ])
+    expect(v26With({ licenses: ['radish', 'strawberry'] }).licenses).toEqual(['potato', 'radish', 'strawberry'])
+  })
+
+  it('planted corn is credited its sale drop and held corn seeds are refunded at the old price', () => {
+    const old = JSON.parse(v26)
+    const tiles = old.state.run.tiles.map((t: object, i: number) => (i < 3 ? { ...t, cropId: 'corn' } : t))
+    const list = old.state.run.fields.list.map((f: { plots: { crop: string | null }[] }, i: number) =>
+      i === 3 ? { ...f, plots: f.plots.map((p, j) => (j === 0 ? { crop: 'corn', readyTick: old.state.run.tick + 100 } : p)) } : f,
+    )
+    const run = v26With({ licenses: ['radish', 'corn'], plantCrop: 'corn', seeds: { corn: 4 }, tiles, upgrades: { ...old.state.run.upgrades, sellPrice: 0 }, fields: { ...old.state.run.fields, list } })
+    expect(run.cash - old.state.run.cash).toBe(13 * (360 - 25) + 4 * 75)
+    expect([run.seeds, run.licenses, run.plantCrop]).toEqual([{}, ['potato', 'radish', 'lemon'], 'lemon'])
+    expect(run.tiles.slice(0, 3).map((t) => t.cropId)).toEqual(['corn', 'corn', 'corn'])
+  })
+
+  it('an accepted chilli offer becomes a corn offer with its progress, count and ⭐', () => {
+    const old = JSON.parse(v26)
+    const offer = { good: 'chilli', count: 20, done: 3, tier: 1, accepted: true, stars: 2 }
+    const run = v26With({ orders: { ...old.state.run.orders, offers: [offer, ...old.state.run.orders.offers.slice(1)] } })
+    expect(run.orders.offers[0]).toEqual({ ...offer, good: 'corn' })
+    expect(run.orders.offers.slice(1)).toEqual(old.state.run.orders.offers.slice(1))
+  })
+
+  it('every fixture v1 … v26 migrates to v27: potato licensed, every licence and setting on the new ladder', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26]) {
+      const { version, state } = deserialize(raw)!
+      expect(version).toBe(27)
+      const { run } = state
+      expect(run.licenses[0]).toBe('potato')
+      expect(run.licenses).toEqual(CROP_IDS.filter((c) => run.licenses.includes(c)))
+      expect(run.licenses).toContain(run.plantCrop)
+      expect(Array.isArray(run.lifetime.fieldsGranted)).toBe(true)
+      expect([run.market.potato, run.market.eggplant]).toEqual([0, 0])
+      expect(run.cash).toBeGreaterThanOrEqual(JSON.parse(raw).state.run.cash)
     }
   })
 })

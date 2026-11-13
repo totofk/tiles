@@ -32,7 +32,8 @@ describe('availableKeys', () => {
     const s = createInitialState()
     const rich = withRun({ cash: 3e4, mineLicense: true, inventory: { stone: 30 }, upgrades: { ...s.run.upgrades, energyMax: 3 } })
     const keys = availableKeys(rich)
-    expect(keys.shop).toEqual(['license:chilli', 'license:pumpkin', 'license:lemon', 'license:tomato', 'license:corn', 'license:grape', 'license:strawberry', 'tile:9'])
+    // batch 35: the 10-crop ladder; chilli (💰32,000) is above this 💰30,000
+    expect(keys.shop).toEqual(['license:radish', 'license:corn', 'license:eggplant', 'license:pumpkin', 'license:tomato', 'license:lemon', 'license:grape', 'license:strawberry', 'tile:9'])
     expect(keys.upgrades).toEqual(['energyMax', 'energyMax@3', 'energyRegen', 'energyRegen@0', 'mine', 'storage@0', 'vein@0'])
   })
 

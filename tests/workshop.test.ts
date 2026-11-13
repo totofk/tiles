@@ -26,9 +26,9 @@ function withWorkshop(beds: boolean[], tiles: Tile[], extra: Partial<GameState['
   }
 }
 
-/** growing lemon tiles with the given moistures (growth far from done, fertilizer 0 → grow 360) */
+/** growing pumpkin tiles (lemon's old row, batch 35) with the given moistures (growth far from done, fertilizer 0 → grow 360) */
 const growingTiles = (moistures: number[]): Tile[] =>
-  moistures.map((moisture) => ({ status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture, ticksSinceMature: 0 }))
+  moistures.map((moisture) => ({ status: 'planted' as const, cropId: 'pumpkin' as const, growth: 10, moisture, ticksSinceMature: 0 }))
 
 describe('workshop: balance', () => {
   it('workshop costs 30 stone + 6 iron bars + its cash part and needs vein Lv4; sprinkler recipe unchanged', () => {
@@ -140,7 +140,7 @@ describe('watering skips irrigated tiles', () => {
 describe('step with irrigated beds', () => {
   it('an irrigated planted tile at moisture 0 grows to full and never drains; rot is unchanged', () => {
     const s = withWorkshop([true, false, false, false], growingTiles([0, 0, 0, 0, 0, 0, 2]), { tick: 5 })
-    // lemon grows 360 ticks from 10, then rots after a 720-tick grace → tilled at step 1,071, still holding moisture 4
+    // pumpkin grows 360 ticks from 10, then rots after a 720-tick grace → tilled at step 1,071, still holding moisture 4
     const after = step(s, 1100)
     expect(after.run.tiles.slice(0, 6).map((t) => t.status)).toEqual(Array(6).fill('tilled'))
     expect(after.run.tiles.slice(0, 6).every((t) => t.moisture === 4)).toBe(true)
