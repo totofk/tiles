@@ -29,20 +29,41 @@ const pouchRow = (name: RegExp) => screen.getAllByText(name).map((el) => el.clos
 
 describe('Shop seeds', () => {
   it('lists every crop in license order: owned ones as seed buttons, the rest as 🔒 license cards', () => {
-    const { get } = setup({ cash: 60, licenses: ['radish', 'pumpkin'] })
+    // batch 35: the 10-crop ladder (was carrot + pumpkin owned, chilli and lemon the next rungs: the same rows)
+    const { get } = setup({ cash: 60, licenses: ['potato', 'radish', 'eggplant'] })
     const row = btn(/Carrot/).closest('.shop-row')!
     expect([...row.querySelectorAll('button:not(.info-btn)')].map((b) => b.textContent)).toEqual([
+      `🥔 Potatoseed 💰1${priceTag(get(), 'potato')}`,
       `🥕 Carrotseed 💰2${priceTag(get(), 'radish')}`,
-      '🔒 Chillilicense 💰50',
-      `🎃 Pumpkinseed 💰10${priceTag(get(), 'pumpkin')}`,
-      '🔒 Lemonlicense 💰400',
+      '🔒 Cornlicense 💰50',
+      `🍆 Eggplantseed 💰10${priceTag(get(), 'eggplant')}`,
+      '🔒 Pumpkinlicense 💰400',
       '🔒 Tomatolicense 💰7,000',
-      '🔒 Cornlicense 💰10,000',
+      '🔒 Lemonlicense 💰10,000',
       '🔒 Grapelicense 💰15,000',
       '🔒 Strawberrylicense 💰22,000',
+      '🔒 Chillilicense 💰32,000',
     ])
-    expect(btn(/Chilli/).disabled).toBe(false)
-    expect(btn(/Lemon/).disabled).toBe(true)
+    expect(btn(/Corn/).disabled).toBe(false)
+    expect(btn(/Pumpkin/).disabled).toBe(true)
+  })
+
+  it('batch 35: a fresh game owns only potato; carrot is the first licence at 💰25, chilli the last at 💰32,000', () => {
+    setup({})
+    const row = btn(/Potato/).closest('.shop-row')!
+    const labels = [...row.querySelectorAll('button:not(.info-btn)')].map((b) => b.textContent!)
+    expect(labels[0]).toMatch(/^🥔 Potatoseed 💰1/)
+    expect(labels.slice(1)).toEqual([
+      '🔒 Carrotlicense 💰25',
+      '🔒 Cornlicense 💰50',
+      '🔒 Eggplantlicense 💰100',
+      '🔒 Pumpkinlicense 💰400',
+      '🔒 Tomatolicense 💰7,000',
+      '🔒 Lemonlicense 💰10,000',
+      '🔒 Grapelicense 💰15,000',
+      '🔒 Strawberrylicense 💰22,000',
+      '🔒 Chillilicense 💰32,000',
+    ])
   })
 
   it('an owned crop row shows its market price and a depth bar filled to the factor', () => {
@@ -66,12 +87,12 @@ describe('Shop seeds', () => {
     expect(btn(/Carrot/).textContent).toMatch(/\(50 % ▼ floor\)$/)
   })
 
-  it('buying the chilli license adds a 🌶️ pouch row', () => {
-    const t = setup({ cash: 50 })
-    fireEvent.click(btn(/Chilli/))
+  it('buying the corn license adds a 🌽 pouch row', () => {
+    const t = setup({ cash: 50, licenses: ['potato', 'radish'] })
+    fireEvent.click(btn(/Corn/))
     t.rerender()
-    expect(t.get().run.licenses).toEqual(['radish', 'chilli'])
-    expect(pouchRow(/Chilli/)!.textContent).toContain('×0')
+    expect(t.get().run.licenses).toEqual(['potato', 'radish', 'corn'])
+    expect(pouchRow(/Corn/)!.textContent).toContain('×0')
   })
 
   it('batch 24.1: the seed pouch renders through the shared grid inside its wrapper, 5 cells per row', () => {
@@ -88,10 +109,10 @@ describe('Shop seeds', () => {
     )
     expect(btn(/Tomato/).textContent).toBe(`🍅 Tomatoseed 💰40${priceTag(t.get(), 'tomato', 0.7)}`)
     expect(btn(/Tomato/).textContent).toMatch(/\(60 % ▼\)$/)
-    fireEvent.click(btn(/Corn/))
+    fireEvent.click(btn(/Lemon/))
     t.rerender()
-    expect(t.get().run.licenses).toEqual(['radish', 'tomato', 'corn'])
-    expect(pouchRow(/Corn/)!.textContent).toContain('×0')
+    expect(t.get().run.licenses).toEqual(['radish', 'tomato', 'lemon'])
+    expect(pouchRow(/Lemon/)!.textContent).toContain('×0')
   })
 })
 
@@ -173,7 +194,7 @@ describe('Farm tools in the Shop', () => {
 describe('Shop seed pouch', () => {
   it('shows a row per licensed crop with its stock; ×1 and ×10 fill the pouch', () => {
     const seed = cropSeedCost('radish', createInitialState().meta)
-    const t = setup({ cash: 100, seeds: { radish: 3 } })
+    const t = setup({ cash: 100, seeds: { radish: 3 }, licenses: ['radish'] })
     // batch 24: the shared item grid — name and ×N count in their own cells
     expect(pouchRow(/Carrot/)?.textContent).toContain('×3')
     expect(pouchRow(/Pumpkin/)).toBeUndefined()

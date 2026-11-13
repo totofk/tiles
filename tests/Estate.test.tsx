@@ -19,6 +19,7 @@ import { ERROR_TEXT, type Act } from '../src/app/useGame'
 import { deserialize } from '../src/save/serialize'
 import v19 from './fixtures/save-v19.json?raw'
 import v20 from './fixtures/save-v20.json?raw'
+import v26 from './fixtures/save-v26.json?raw'
 
 // every React.memo component records which plot cell (k,j) rendered: the memo render-count spy (task 152e)
 const renders = vi.hoisted(() => [] as string[])
@@ -292,6 +293,18 @@ describe('task 153: the field chip and its sheet', () => {
       ['No crop', false, 'false'],
     ])
     expect(buttons.find((b) => b.textContent!.includes(CROPS.grape.name))!.textContent).toMatch(/· 🏡 3\/50$/)
+  })
+
+  it('batch 35: the migrated v26 save — chips Corn / Pumpkin, Corn and Eggplant open on the fields without 🏡 (granted)', () => {
+    const s = deserialize(v26)!.state
+    setup(s)
+    expect([chip(/^Field 1 ·/).textContent, chip(/^Field 2 ·/).textContent]).toEqual([`${CROP_EMOJI.corn}F1⛲`, `${CROP_EMOJI.pumpkin}F2⛲`])
+    fireEvent.click(chip(/^Field 1 ·/))
+    const buttons = [...sheet().querySelectorAll<HTMLButtonElement>('.map-crops > button')]
+    for (const c of ['corn', 'eggplant'] as const) {
+      const b = buttons.find((x) => x.textContent!.includes(CROPS[c].name))!
+      expect([b.textContent!.includes('🏡'), b.disabled]).toEqual([false, false])
+    }
   })
 
   it('a crop pick goes through setFieldCrop, toasts and closes; it pins the field while a Manager is assigned', () => {

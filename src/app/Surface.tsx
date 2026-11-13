@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type RefObject, type SetStateAction } from 'react'
-import type { CropId } from '../core/data/crops'
+import { CROP_IDS, type CropId } from '../core/data/crops'
 import { fieldsOverview, plantedTiles } from '../core/fields'
 import type { GameState } from '../core/state'
 import { Estate, EstateBar } from './Estate'
@@ -138,7 +138,8 @@ export function Surface({ state, act, ui, setUi, banner, farmRef, phone, plantin
   }, [stop, both])
 
   const planted = (c: CropId) => plantedTiles(state.run.fields, c)
-  const standing = state.run.licenses.filter((c) => planted(c) > 0)
+  // every planted crop, licensed or not: a re-laddered save's old plots still finish (batch 35)
+  const standing = CROP_IDS.filter((c) => planted(c) > 0)
   const ready = fieldsOverview(state.run).ready
   const lot = (
     <div className="home-block" ref={homeRef}>

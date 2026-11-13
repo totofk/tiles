@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import App from '../src/app/App'
 import { UI_KEY } from '../src/app/uiState'
 import { ERROR_TEXT } from '../src/app/useGame'
@@ -191,7 +191,7 @@ describe('persisted UI state (tiles.ui)', () => {
   it('records the factor each licensed crop\'s price tag showed while the Shop tab is on screen (batch 21 trend arrows)', async () => {
     render(<App />)
     fireEvent.click(mobileTab(/Shop/))
-    await waitFor(() => expect(JSON.parse(localStorage.getItem(UI_KEY)!).priceShown).toEqual({ radish: 1 }))
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(UI_KEY)!).priceShown).toEqual({ potato: 1 }))
   })
 
   it('restores view, tab and collapse after a reload', () => {
@@ -395,7 +395,21 @@ describe('layout content', () => {
     render(<App />)
     const dig = within(document.querySelector<HTMLElement>('.farm')!).getByRole('button', { name: /Dig for seeds/ })
     fireEvent.click(dig)
-    expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥕 Carrot seed!|Nothing this time/)
+    expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥔 Potato seed!|Nothing this time/)
+  })
+
+  it('batch 35: a fresh game picks only 🥔 Potato and digs potato seeds', () => {
+    window.matchMedia = ((q: string) => ({ matches: /min-width: (768|1024)px/.test(q) })) as typeof window.matchMedia
+    onTestFinished(() => void Reflect.deleteProperty(window, 'matchMedia'))
+    render(<App />)
+    const panel = within(document.querySelector<HTMLElement>('.panel')!)
+    const picker = panel.getByRole('heading', { name: 'Crop to plant' }).nextElementSibling!
+    const crops = [...picker.querySelectorAll('button')].map((b) => b.textContent!)
+    expect([crops.length, crops[0]!.startsWith('🥔 Potato')]).toEqual([1, true])
+    const dig = panel.getByRole('button', { name: /Dig for seeds/ })
+    const status = () => within(dig.parentElement!).queryByRole('status')?.textContent
+    for (let i = 0; i < 20 && !status()?.startsWith('Found'); i++) fireEvent.click(dig)
+    expect(status()).toBe('Found a 🥔 Potato seed!')
   })
 
   it('the 📊 Stats feedback draft survives a tab switch (the form lives in the 💬 modal)', () => {
@@ -457,7 +471,7 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v26/)).toBeTruthy()
+    expect(screen.getByText(/Will migrate v15 → v27/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(SAVE_VERSION)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)
@@ -522,8 +536,9 @@ describe('the Estate surface, two stops (batch 27, task 142; the migrated v19 fi
     load({ stop: 'home' })
     render(<App />)
     // v19 plants lemon 100, pumpkin 40, chilli 30, nothing ready yet; the v21 migration returns the 20 tiles the old
-    // pipes stalled (a lemon and a chilli cohort) to the pouch
-    expect(switchBtn(/🚜 Fields ·/).textContent).toBe('🚜 Fields · 🌶️ 20 · 🎃 40 · 🍋 90 · 🌾 0 ready')
+    // pipes stalled (a lemon and a chilli cohort) to the pouch. Batch 35: the plots keep their crops (listed in the
+    // new ladder order) though the licences moved up a rung
+    expect(switchBtn(/🚜 Fields ·/).textContent).toBe('🚜 Fields · 🎃 40 · 🍋 90 · 🌶️ 20 · 🌾 0 ready')
     fireEvent.click(switchBtn(/🚜 Fields ·/))
     expect(pressed(switchBtn(/🚜 Estate/))).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /Home lot —/ }))
