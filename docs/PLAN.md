@@ -7171,7 +7171,7 @@ Toon's "N licences → the N lowest paid rungs"; for a save that skipped rungs i
 of sliding it down (never takes value away). Nobody keeps chilli (no old crop maps to rung 10): a full-licence
 veteran owns potato + carrot … strawberry (9) and buys chilli new.
 
-- [ ] 188. **The 10-crop ladder + save v26 → v27 (every new field of the batch).**
+- [x] 188. **The 10-crop ladder + save v26 → v27 (every new field of the batch).**
   - Data: `src/core/data/crops.ts` (`CROP_IDS`, `CROPS`, `STARTING_CROP`) and `CROP_BASE` (`balance.ts:19–32`) as in
     the table; `DIG_SEED_CROP` (`balance.ts:477`).
   - `Lifetime` (`src/core/state.ts:176–193`) gains `fieldsGranted: CropId[]` — crops that are fields-plantable without
@@ -7231,7 +7231,7 @@ veteran owns potato + carrot … strawberry (9) and buys chilli new.
     rise along `CROP_IDS` from carrot on; potato is free; a fresh run starts with `['potato']`, plants potato and
     digs potato seeds.
 
-- [ ] 189. **UI: potato and eggplant everywhere, tips for the new ladder.** No browser: jsdom only.
+- [x] 189. **UI: potato and eggplant everywhere, tips for the new ladder.** No browser: jsdom only.
   - `CROP_EMOJI` (`src/app/FarmGrid.tsx:16–25`): `potato: '🥔'`, `eggplant: '🍆'`.
   - `CROP_TIPS` (`src/app/tips.ts:10–19`), verbatim:
     - potato: "Your starting crop: seeds cost almost nothing and it is ready fast. It earns the least, so it is the crop to grow out of."
@@ -7252,7 +7252,7 @@ veteran owns potato + carrot … strawberry (9) and buys chilli new.
   - You have no browser: list under `### Deviations` what you could not verify (Hermes re-measures the Shop licence
     list and the Farm crop picker with 10 crops live at 375 / 1024 / 1440 / 2560 / 3440).
 
-- [ ] 190. **Sim: the bot on the new ladder, scenarios A / B, the migration pin, re-pins, changelog, results.**
+- [x] 190. **Sim: the bot on the new ladder, scenarios A / B, the migration pin, re-pins, changelog, results.**
   - Add scenario A's test FIRST on the unchanged code (record "before"), then change core.
   - Bot policy follows the rank map, rung for rung (same rows → same economy): every crop literal in
     `tests/sim.test.ts` bot configs is mapped — `LICENSE_ORDER` (`:1320`) `['chilli', 'pumpkin', 'lemon']` →
@@ -7300,3 +7300,137 @@ veteran owns potato + carrot … strawberry (9) and buys chilli new.
 ### Not in this batch
 - calc34 items 5–7 (soil traits, listing soil, dig finds) on the 10-crop ladder: those systems ship in batch 36, so the
   re-run belongs to batch 36's refine (`~/.claude/handoffs/tiles-b36/HANDOFF.md` step 2). Districts stay parked.
+
+## Batch 35 results
+
+Commits on `main` (not pushed): 188 `b90a8b5a`, 189 `cd7f2df6`, 190 (this results commit). Save v26 → v27 (task 188). Every number below is
+measured by the named pin in `tests/sim.test.ts` (run with `--disableConsoleIntercept` to see the log lines). Gates on
+the final tree: `pnpm test` 56 files, 1,137 passed + 3 expected fails; `pnpm lint` clean; `pnpm build` clean;
+`npx tsc -b --force` clean; purity grep clean apart from the known `src/save/storage.ts:26`.
+
+### Scenario A — fresh player, the batch-19 170 h ladder run (`PIN35a` / `PIN34a` / `PIN33a`)
+
+"Before" = batch 34's measured `PIN34a` (the code at `2fe81f9d` is batch 34's; see Deviations 1).
+
+| | before | after |
+| --- | --- | --- |
+| Carrot licensed (game-min) | 0 (the free starting crop) | 1 (💰25, after the first potato harvest) |
+| First three licences bought (game-min) | chilli / pumpkin / lemon (minutes not measured) | carrot 1 · corn 5.4 · eggplant 9.1 |
+| Ladder end (harvester3, game-min) | 8,837.6 | 8,804.1 |
+| Longest gap tick 0 → ladder end | plots30 → harvester1, 3,157.3 min at min 4,456.2 | plots30 → harvester1, 3,141.8 min at min 4,432.3 |
+| Bound by (held the tick before) | 💰49,953, 🥉6 🥈12 🥇3 | 💰49,095, 🥉6 🥈12 🥇6 |
+| Manager unlock (10 contracts) / its ⭐20, game-min | 9,629 / 10,281 | 8,977 / 10,194 |
+| Order ⭐/h / contract ⭐/h after the ladder end | 0.81 / 0.92 | 0.79 / 0.63 |
+| Contracts delivered in the 48 h / ⭐ held after | 40 / 39 | 44 / 38 |
+
+Guards, all pass: batch-16 ladder gaps ≤ 60 game-min; PIN26b ≤ 90 game-min to the Tractor (longest 51.4 min,
+fieldsUnlocked); batch-18 unlock step ≤ 60 game-min; the batch-31.1 Manager unlock path (unlock and ⭐20 inside
+PIN311a's 48 h window, asserted in PIN34a; PIN311b's v22 save reaches 10 contracts at minute 412 holding ⭐43,
+💰1,666,897).
+
+### Scenario A-stingy (guard, `PIN35stingy`)
+
+💰0, empty pouch, 9 tilled tiles (the 💰20 went on potato seeds that rotted). The bot digs, farms potato only, and buys
+the carrot licence as soon as it can.
+
+| First dug potato seed | First harvest | Carrot licensed | Digs | Lowest value |
+| --- | --- | --- | --- | --- |
+| min 0 | min 1 | min 2.6 | 25 | 0 |
+
+### Scenario A-carry (`PIN34carry`)
+
+| Run 2 started with ⭐50 | batch 34 | batch 35 |
+| --- | --- | --- |
+| Fields unlock (h) | 5.9 | 6.0 |
+| Speed-up vs run 1 | 1.40 | 1.37 (see Deviations 3) |
+| Longest gap between ladder rungs | 27 game-min | 27 game-min |
+| Fields stall ticks | 0 | 0 |
+
+### Scenario B — the real v26 save migrated, 2 game-hours with its own workers (`PIN35b`)
+
+| | batch 34 (v25 save, `PIN34b`) | batch 35 (v26 save migrated) |
+| --- | --- | --- |
+| 💰/h (lifetime cash earned) | 132,549 | 196,350 (×1.48) |
+| ⭐/h | 0 | 0 (no clerk) |
+
+The ×1.48 includes the one-time windfall (report): the 24 planted lemon tiles finish at lemon's new row (💰7,800 more
+than at the v26 price) and the 40 chilli plot-tiles at chilli's new top row (💰106,320 more), both before the market
+factor. The migration itself: licences potato / carrot / corn / eggplant / pumpkin, crop-to-plant pumpkin, chips
+corn / pumpkin / pumpkin / carrot ×5, corn and eggplant granted on the fields, 💰325 refunded (15 lemon + 5 chilli
+seeds). Lemon renown 2,427 stays on lemon.
+
+### PIN35migrate (guard) — task 188's synthetic v26 saves, 8 game-hours of catch-up, checked every tick
+
+| Save | Unlicensed crops standing at load | Left after 8 h | Unlicensed re-sowings | Lowest value | Worker plants | Licensed cells standing at 8 h |
+| --- | --- | --- | --- | --- | --- | --- |
+| the real fixture | 30 | 0 | 0 | 0 | 2,641 | 33 |
+| all eight licences | 4 (chilli plots) | 0 | 0 | 0 | 2,641 | 33 |
+| carrot + strawberry | 31 | 0 | 0 | 0 | 5,713 | 16 |
+| corn farmer (3 tiles + 1 plot of corn, 4 corn seeds) | 9 | 0 | 0 | 0 | 1,564 | 37 |
+| accepted chilli offer (now corn) | 30 | 0 | 0 | 0 | 2,641 | 33 |
+
+### PIN35chilli (report) — every licence and the Manager, the stage-6 estate (6 fields), 4 game-hours
+
+| | 💰/h | Plan |
+| --- | --- | --- |
+| Manager with chilli available | 3,472,586 | chilli ×6 |
+| Manager without the chilli licence | 1,940,591 | strawberry ×6 |
+| Chips fixed on strawberry, no Manager | 1,939,984 | — |
+| Chilli vs strawberry-only | ×1.79 (estimate was ≈ ×1.5 per tile) | |
+
+### Re-pins (old → new, with cause)
+
+Cause for every row unless noted: "crop re-ladder: potato start, carrot licence 💰25" (the bots start on potato and
+buy carrot first; every later rung keeps its row, so the shifts are the potato minutes plus the RNG stream they move).
+Each pin's old value is in its test comment.
+
+- Early bots (batches 3–5): mine licence affordable ≤ 150 → ≤ 210 ticks (measured 205); level-1 tools ≤ 300 →
+  ≤ 330 ticks (last at 315); storage Lv1 ≤ 600 → ≤ 660 ticks (642); the batch-3 / batch-4 bot pins, the pumpkin
+  milestones (now eggplant's row), the soft-lock and dig-recovery bots (potato seed 1, dug seeds are potato).
+- Ladder pins: batch 7 (ticks, counters, PRNG 1761327770 → 881303612), batches 8–12 (ladder ticks, final cash, wages,
+  mine / bar counts; market-on mine certificate 6468 → 6626, storage Lv2 951 → 1269), batch 13–14 worker pins,
+  batch 15 (done 203.8 → 203.1, iron tools), batch 16 (first gold bar 298.5 → 301.2, vein phase 30.8 → 33.2 min,
+  gold phase 107.3 → 102.9 min, cash 87,048 → 84,717), batch 17 (steps, incomes [21,539, 26,421, 28,430] →
+  [22,160, 26,835, 28,612], cash 540,267 → 545,928, workshop / income 0.395 → 0.384), batches 18–19 bench and
+  run pins, prestige speed-up 1.68 → 1.66 (vault) and 1.4 → 1.37 (run 2).
+- Model / Manager pins: the batch-29 / 31 exhaustive split now enumerates 10 crops (timeout 120 s); PIN311b 417 →
+  412 game-min ("the v27 migration moves the save's chips and offers up a rung and refunds its unlicensed seeds").
+- Tests that used chilli as the cheap second crop now use corn (same row); tests that used corn as a rich crop now use
+  lemon (same row); Shop / App / Estate texts follow the new order.
+
+### Deviations
+
+1. **Scenario A "before" not re-measured on the old build.** A worktree or archive of `2fe81f9d` needs an approval
+   this unattended run could not get (as in batch 34), and an earlier interrupted worker had already changed core
+   before scenario A's test was added. "Before" is batch 34's measured PIN34a (the economy code at `2fe81f9d` is
+   batch 34's); the before-minutes of the first three licences were never measured.
+2. **No browser.** Verified with jsdom only (Shop: the 10 licences in order, carrot 💰25, chilli 💰32,000; App: a fresh
+   game's picker shows only 🥔 Potato and the dig toast names Potato; Estate: the migrated v26 save's chips 🌽 / 🎃 and
+   Corn / Eggplant open on the fields without 🏡). Not verified: the Shop licence list and the Farm crop picker with
+   10 crops at 375 / 1024 / 1440 / 2560 / 3440 (wrap, scroll, row height). Hermes re-measures live.
+3. **A-carry speed-up 1.37 < batch 34's 1.4 floor** (re-pinned to ≥ 1.35, no stall). Measured: run 2 without ⭐ is
+   also 1.37× (the prestige pin, 1.4 → 1.37) and both sold runs unlock the Fields at 6.0 h, so the carried ⭐50 costs
+   nothing — what A-carry tests; the drop is the re-ladder's, in both sold runs. Not a listed correctness guard;
+   recorded for Hermes.
+4. **Scenario B 💰/h is ×1.48 batch 34's**, not lower: mostly the one-time windfall above plus the lemon / chilli rows
+   now being richer rows (no 10 % drop to report). Batch 34 measured the v25 save; v26 is the same save re-saved.
+5. **PIN35migrate synthetic saves made consistent.** Task 188's carrot + strawberry and corn-farmer saves, built by
+   swapping only `licenses`, kept the fixture's crop-to-plant (lemon) and chips (chilli / lemon), crops those saves
+   never licensed — a state no v26 game can reach (`selectCrop` / `setFieldCrop` refuse unlicensed crops). Migrated,
+   their chips pointed at unlicensed rungs and the fields kept sowing them (field sowing reads the chip, not the
+   licence). Measured on those inconsistent inputs: carrot + strawberry re-sowed unlicensed cells 1,911 times and left
+   7 standing after 8 h; the corn farmer 3,253 times and left 11. The pin sets crop-to-plant and chips to a crop each
+   save licenses. No core change: the only writers are `selectCrop` (`actions.ts:185`, licence-checked),
+   `setFieldCrop` (`fields.ts:189–190`, licence + 🏡 gate), the Manager (`manager.ts:37, 46`, `fieldsPlantable`) and
+   a farm sale, which resets licences but starts fresh fields and `plantCrop` (`createFreshRun`; `RunCarry` carries
+   neither) — so a real v26 save's chips and crop-to-plant are licensed and the rank map keeps them licensed.
+6. **"Harvested and sold once"** is checked as "no unlicensed crop left standing after 8 h and none re-sown"; the
+   pin does not tell a harvest from a rot.
+7. **`src/app/Surface.tsx`** (not in the plan's file list): the Estate surface's standing-crop strip now lists every
+   planted crop, licensed or not, so a re-laddered save's old plots (chilli / lemon) still show while they finish.
+8. **Commit split.** The three task commits stage whole files: 188 carries core, save, the exhaustive `CropId` Records
+   (`CROP_EMOJI`, `CROP_TIPS`, needed for tsc) and the re-pinned unit tests; 189 `Surface.tsx` and the Shop / App /
+   Estate tests; 190 the sim suite, the changelog and this section. The gates ran on the final tree, not on each
+   intermediate commit.
+9. **Stale pins from the interrupted run.** Six ladder pins (batches 7, 11, 12, 15, 16, 17) were still at their
+   pre-batch-35 values; re-pinned from this run's measurements (listed above).

@@ -18,6 +18,7 @@ import {
   furnaceUpgradeCost,
   furnaceUpgradeMaxLevel,
   cropSellPrice,
+  sellPrice,
   DEED_ROW_IDS,
   RENOWN_TIERS,
   renownFloor,
@@ -85,6 +86,7 @@ import v22 from './fixtures/save-v22.json?raw'
 import v23 from './fixtures/save-v23.json?raw'
 import v24 from './fixtures/save-v24.json?raw'
 import v25 from './fixtures/save-v25.json?raw'
+import v26 from './fixtures/save-v26.json?raw'
 import { bagCount, bestPickaxeTier, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, heldPickaxe, repairPickaxe, selectPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -160,7 +162,7 @@ type Milestones = {
 // "Dry" = moisture exactly 0 (step snaps float residue to 0); mature crops are never watered.
 // `crops` = what to plant, best first (each tried on every tile before the next).
 // Batch 8: a job with a worker on it is left to the workers (the player never harvests / waters it).
-function bestFarmAction(s: GameState, crops: CropId[] = ['pumpkin', 'radish']): { state: GameState; kind: string } | null {
+function bestFarmAction(s: GameState, crops: CropId[] = ['eggplant', 'radish', 'potato']): { state: GameState; kind: string } | null {
   const tiles = s.run.tiles
   const growing = (i: number) => {
     const { cropId, growth } = tiles[i]
@@ -614,8 +616,9 @@ function runBot(
   mineEarly: boolean,
   {
     ticks = TICKS,
-    licenses = ['pumpkin'],
-    crops = ['pumpkin', 'radish'],
+    // batch 35: carrot (the old free start) is now the first paid rung; the bot starts on potato
+    licenses = ['radish', 'eggplant'],
+    crops = ['eggplant', 'radish', 'potato'],
     saveForStorage = false,
     ladder = false,
     copperTools = false,
@@ -772,7 +775,7 @@ function runBot(
   // → wood + pickaxe when it has none, wood + repair when blunt (never mines by hand) → mine.
   const mineOnce = (tick: number): boolean => {
     if (!s.run.mineLicense) {
-      if (!mineEarly && !s.run.licenses.includes('pumpkin')) return false
+      if (!mineEarly && !s.run.licenses.includes('eggplant')) return false
       if (!tryAct(buyMineLicense(s), null)) return false
       m.mineLicenseBought ??= tick
     }
@@ -926,8 +929,8 @@ function runBot(
     }
     // batch 18: the planter works the fields only once a crop is picked — the bot picks lemons, its best licensed crop
     // (batch 28: every pivoted field's chip)
-    if ((fields || machines) && s.run.fields.unlocked && fieldsPlantable(s.run, 'lemon')) {
-      s.run.fields.list.forEach((f, i) => f.pivot && f.crop === null && tryAct(setFieldCrop(s, i, 'lemon'), null))
+    if ((fields || machines) && s.run.fields.unlocked && fieldsPlantable(s.run, 'pumpkin')) {
+      s.run.fields.list.forEach((f, i) => f.pivot && f.crop === null && tryAct(setFieldCrop(s, i, 'pumpkin'), null))
     }
     // batch 28: the hour of burn the bot keeps lives in the tank — storage coal above the next goal's smelting coal
     // goes in while it has room (an hour held in the bag on top of a pivot's bars filled it and wedged the gold pickaxe)
@@ -948,8 +951,9 @@ function runBot(
       if (next) {
         track(next.state, farm, ACTION_ENERGY_COST)
         if (next.kind.startsWith('harvest') && next.kind.endsWith(':radish')) m.firstRadishHarvest ??= tick
-        if (next.kind.startsWith('harvest') && next.kind.endsWith(':pumpkin')) m.firstPumpkinHarvest ??= tick
-        if (next.kind.startsWith('plant:pumpkin')) m.firstPumpkinPlanted ??= tick
+        // batch 35: the "pumpkin" milestones follow pumpkin's old row, now eggplant's
+        if (next.kind.startsWith('harvest') && next.kind.endsWith(':eggplant')) m.firstPumpkinHarvest ??= tick
+        if (next.kind.startsWith('plant:eggplant')) m.firstPumpkinPlanted ??= tick
         milestones()
       } else if (!mineOnce(tick)) break
     }
@@ -1016,7 +1020,7 @@ function runBot(
     workerTicks,
     certUnlocked,
     wagesPaid: s.run.lifetime.wagesPaid,
-    milestones: { ...m, pumpkinLicenseAffordable: licenseAffordable.pumpkin, pumpkinLicenseBought: licenseBought.pumpkin },
+    milestones: { ...m, pumpkinLicenseAffordable: licenseAffordable.eggplant, pumpkinLicenseBought: licenseBought.eggplant },
     licenseAffordable,
     licenseBought,
     storageAffordable,
@@ -1044,45 +1048,53 @@ describe.each([
   {
     name: 'pumpkin-first',
     mineEarly: false,
-    pumpkinBy: 250,
+    // re-pinned batch 35 (was 250): crop re-ladder: potato start, carrot licence 💰25 — the eggplant row bought at 288
+    pumpkinBy: 290,
+    harvestsPumpkin: true,
+    // re-pinned batch 35 (was carrot 100, mine 124, pumpkin 200 / 207 / 215 / 455, mine bought 455, dig 464, minCash 2,
+    // cash 394, harvests 31 / mines 19): crop re-ladder: potato start, carrot licence 💰25; "pumpkin" = its old row, eggplant
     batch3: {
       milestones: {
-        firstRadishHarvest: 100,
-        mineLicenseAffordable: 124,
-        pumpkinLicenseAffordable: 200,
-        pumpkinLicenseBought: 207,
-        firstPumpkinPlanted: 215,
-        firstPumpkinHarvest: 455,
-        mineLicenseBought: 455,
-        firstDig: 464,
+        firstRadishHarvest: 178,
+        mineLicenseAffordable: 205,
+        pumpkinLicenseAffordable: 287,
+        pumpkinLicenseBought: 288,
+        firstPumpkinPlanted: 296,
+        firstPumpkinHarvest: 536,
+        mineLicenseBought: 536,
+        firstDig: 545,
       },
-      minCash: 2,
-      finalCash: 394,
-      counters: { harvests: 31, sales: 31, mines: 19, digs: 0 },
+      minCash: 0,
+      finalCash: 313,
+      counters: { harvests: 37, sales: 37, mines: 9, digs: 0 },
     },
   },
   {
     name: 'mine-early',
     mineEarly: true,
-    pumpkinBy: 350,
+    // re-pinned batch 35 (was 350): crop re-ladder: potato start, carrot licence 💰25 — bought at 361
+    pumpkinBy: 365,
+    // batch 35: the eggplant planted at 402 ripens at 642, after the 600-tick cut-off (was harvested at 594)
+    harvestsPumpkin: false,
+    // re-pinned batch 35 (was carrot 100, mine 124 / 129, dig 147, pumpkin 336 / 337 / 354 / 594, cash 132, harvests 30,
+    // sales 70, mines 43): crop re-ladder: potato start, carrot licence 💰25
     batch3: {
       milestones: {
-        firstRadishHarvest: 100,
-        mineLicenseAffordable: 124,
-        mineLicenseBought: 129,
-        firstDig: 147,
-        pumpkinLicenseAffordable: 336,
-        pumpkinLicenseBought: 337,
-        firstPumpkinPlanted: 354,
-        firstPumpkinHarvest: 594,
+        firstRadishHarvest: 178,
+        mineLicenseAffordable: 205,
+        mineLicenseBought: 214,
+        firstDig: 220,
+        pumpkinLicenseAffordable: 360,
+        pumpkinLicenseBought: 361,
+        firstPumpkinPlanted: 402,
       },
       minCash: 0,
       // batch 3–5: 116. Batch 6: durability 25 and repair (2 wood) instead of a 3rd craft save 4 wood over 43 mines
-      finalCash: 132,
-      counters: { harvests: 30, sales: 70, mines: 43, digs: 0 },
+      finalCash: 43,
+      counters: { harvests: 38, sales: 58, mines: 28, digs: 0 },
     },
   },
-])('greedy bot $name (farm first, dig with idle energy), 600 ticks', ({ name, mineEarly, pumpkinBy, batch3 }) => {
+])('greedy bot $name (farm first, dig with idle energy), 600 ticks', ({ name, mineEarly, pumpkinBy, harvestsPumpkin, batch3 }) => {
   const summary = runBot(mineEarly)
   console.log(`sim summary ${name}`, JSON.stringify(summary, null, 1))
 
@@ -1096,13 +1108,15 @@ describe.each([
     expect(summary.finalTick).toBe(TICKS)
   })
 
-  it('can afford the mine license by tick ~150', () => {
-    expect(summary.milestones.mineLicenseAffordable).toBeLessThanOrEqual(150)
+  // re-pinned batch 35 (was ~150, measured 124): crop re-ladder: potato start, carrot licence 💰25 — measured 205
+  it('can afford the mine license by tick ~210', () => {
+    expect(summary.milestones.mineLicenseAffordable).toBeLessThanOrEqual(210)
   })
 
-  it(`buys the pumpkin license by tick ${pumpkinBy} and harvests a pumpkin`, () => {
+  it(`buys the pumpkin license by tick ${pumpkinBy} and plants it${harvestsPumpkin ? ' and harvests it' : ''}`, () => {
     expect(summary.milestones.pumpkinLicenseBought).toBeLessThanOrEqual(pumpkinBy)
-    expect(summary.milestones.firstPumpkinHarvest).toBeDefined()
+    expect(summary.milestones.firstPumpkinPlanted).toBeDefined()
+    expect(summary.milestones.firstPumpkinHarvest !== undefined).toBe(harvestsPumpkin)
   })
 
   it('mining earns less cash per energy than farming', () => {
@@ -1112,19 +1126,19 @@ describe.each([
   })
 })
 
-/** the round-2 playtest soft-lock: cash 1 (< radish seed 2), all 9 tiles tilled, empty bag, no pickaxe */
+/** the round-2 playtest soft-lock: cash 0 (< potato seed 1; batch 35, was 1 < carrot 2), all 9 tiles tilled, empty bag, no pickaxe */
 function softLockState(): GameState {
   const s = createInitialState()
   const tiles = s.run.tiles.map((t) => ({ ...t, status: 'tilled' as const }))
-  return { ...s, run: { ...s.run, cash: 1, tiles, mineLicense: true, rack: {}, selectedPickaxe: null, inventory: {} } }
+  return { ...s, run: { ...s.run, cash: 0, tiles, mineLicense: true, rack: {}, selectedPickaxe: null, inventory: {} } }
 }
 
-// Borrows only when stuck (no loan, no crop in the ground, cash below a radish seed), farms greedily, and
+// Borrows only when stuck (no loan, no crop in the ground, cash below a potato seed), farms greedily, and
 // repays in full once that still leaves a seed's worth of cash, so repaying never soft-locks it again.
 function runRecovery() {
   let s = softLockState()
   const startCash = s.run.cash
-  const seed = cropSeedCost('radish', s.meta)
+  const seed = cropSeedCost('potato', s.meta)
   const r: { loans: number; borrowedAt?: number; repaidAt?: number; paid?: number } = { loans: 0 }
   for (let t = 0; t < TICKS; t++) {
     const stuck = !s.run.loan && s.run.cash < seed && s.run.tiles.every((tile) => tile.status !== 'planted')
@@ -1179,17 +1193,18 @@ describe('soft-lock recovery through a loan (round-2 state), 600 ticks', () => {
 // valued at their buy price on both sides: income for digging, a cost for the farming that plants them.
 function runDigBot(start: GameState, ticks: number) {
   let s = start
-  const seed = cropSeedCost('radish', s.meta)
+  // batch 35: dug seeds are potato
+  const seed = cropSeedCost('potato', s.meta)
   const farm = { cash: 0, energy: 0 }
   const digging = { seeds: 0, energy: 0 }
   let minCash = s.run.cash
   let firstHarvest: number | undefined
   for (let t = 0; t < ticks; t++) {
     while (s.run.energy >= ACTION_ENERGY_COST) {
-      const pouch = s.run.seeds.radish ?? 0
+      const pouch = s.run.seeds.potato ?? 0
       const next = bestFarmAction(s)
       if (next) {
-        const used = pouch - (next.state.run.seeds.radish ?? 0)
+        const used = pouch - (next.state.run.seeds.potato ?? 0)
         farm.cash += next.state.run.cash - s.run.cash - used * seed
         farm.energy += ACTION_ENERGY_COST
         if (next.kind.startsWith('harvest')) firstHarvest ??= s.run.tick
@@ -1197,7 +1212,7 @@ function runDigBot(start: GameState, ticks: number) {
       } else {
         const dug = digForSeeds(s)
         if (!dug.ok) break
-        digging.seeds += (dug.state.run.seeds.radish ?? 0) - pouch
+        digging.seeds += (dug.state.run.seeds.potato ?? 0) - pouch
         digging.energy += ACTION_ENERGY_COST
         s = dug.state
       }
@@ -1269,13 +1284,13 @@ function runToolBot(ticks: number) {
     return true
   }
   for (let t = 0; t < ticks; t++) {
-    if (!s.run.licenses.includes('pumpkin')) {
-      const r = buyLicense(s, 'pumpkin')
+    if (!s.run.licenses.includes('eggplant')) {
+      const r = buyLicense(s, 'eggplant')
       if (r.ok) s = r.state
     }
     buy()
     while (s.run.energy >= ACTION_ENERGY_COST) {
-      const crop: CropId = s.run.licenses.includes('pumpkin') && s.run.cash >= cropSeedCost('pumpkin', s.meta) ? 'pumpkin' : 'radish'
+      const crop: CropId = s.run.licenses.includes('eggplant') && s.run.cash >= cropSeedCost('eggplant', s.meta) ? 'eggplant' : 'potato'
       const acted =
         press('harvest', crop) ||
         (dry(s) && press('water', crop)) ||
@@ -1303,22 +1318,25 @@ describe('tool-buying bot, 1200 ticks', () => {
     expect(summary.finalTick).toBe(1200)
   })
 
-  it('can afford every level-1 tool within ~300 ticks (about 5 minutes)', () => {
-    for (const job of TOOL_JOBS) expect(summary.affordable[job][0]).toBeLessThanOrEqual(300)
+  // re-pinned batch 35 (was ~300): crop re-ladder: potato start, carrot licence 💰25 — the last level-1 tool at 315
+  it('can afford every level-1 tool within ~330 ticks (about 5.5 minutes)', () => {
+    for (const job of TOOL_JOBS) expect(summary.affordable[job][0]).toBeLessThanOrEqual(330)
   })
 
   it('pins the Batch 5 results milestones (PLAN.md)', () => {
     // harvest and plant level 3 need 120 harvests / plants, not reached in 1200 ticks
-    expect(summary.affordable).toEqual({ water: [120, 655, 984], harvest: [233, 886], plant: [200, 683] })
+    // re-pinned batch 35 (was water [120, 655, 984], harvest [233, 886], plant [200, 683]): crop re-ladder: potato
+    // start, carrot licence 💰25 — potato's 60-tick grow plants (and so unlocks the dibber) sooner
+    expect(summary.affordable).toEqual({ water: [195, 846, 1140], harvest: [315, 999], plant: [108, 891] })
   })
 })
 
 // ---- Batch 6: two-tier cash/energy hierarchy, four crops, storage ----
 
 const SESSION = 1200
-/** license order and best-first planting for the four-crop bots */
-const LICENSE_ORDER: CropId[] = ['chilli', 'pumpkin', 'lemon']
-const PLANT_ORDER: CropId[] = ['lemon', 'pumpkin', 'chilli', 'radish']
+/** license order and best-first planting for the four-crop bots (batch 35: carrot is now bought first, potato starts) */
+const LICENSE_ORDER: CropId[] = ['radish', 'corn', 'eggplant', 'pumpkin']
+const PLANT_ORDER: CropId[] = ['pumpkin', 'eggplant', 'corn', 'radish', 'potato']
 
 // One crop on the 9 starting tiles for a session, license owned and cash to spare (so seeds never block it), farmed
 // by the greedy bot's own priority. Same accounting as runBot: harvest income − seeds per farm action (till, plant,
@@ -1429,11 +1447,11 @@ function digBench(actions = 5000) {
     if (!r.ok) throw new Error(r.error)
     s = r.state
   }
-  return ((s.run.seeds.radish ?? 0) * cropSeedCost('radish', s.meta)) / actions
+  return ((s.run.seeds.potato ?? 0) * cropSeedCost('potato', s.meta)) / actions
 }
 
 describe('batch 6: two-tier cash/energy hierarchy', () => {
-  const farming = Object.fromEntries((['radish', 'chilli', 'pumpkin', 'lemon'] as const).map((c) => [c, runCropBot(c)]))
+  const farming = Object.fromEntries((['radish', 'corn', 'eggplant', 'pumpkin'] as const).map((c) => [c, runCropBot(c)]))
   const mining = {
     dig: digBench(),
     hand: mineBench({ pickaxe: false }).cashPerEnergy,
@@ -1443,7 +1461,7 @@ describe('batch 6: two-tier cash/energy hierarchy', () => {
   }
   console.log('batch 6 hierarchy', JSON.stringify({ farming, mining }, null, 1))
   const carrot = farming.radish.cashPerEnergy
-  const pumpkin = farming.pumpkin.cashPerEnergy
+  const pumpkin = farming.eggplant.cashPerEnergy
 
   it('(a) dig < hand mining < pickaxe Lv0 < 0.9 × carrot farming', () => {
     expect(mining.dig).toBeLessThan(mining.hand)
@@ -1456,8 +1474,8 @@ describe('batch 6: two-tier cash/energy hierarchy', () => {
     expect(mining.veinLv1Lv10).toBeLessThan(0.9 * pumpkin)
   })
 
-  it('(c) farming cash/energy: carrot < chilli < pumpkin < lemon', () => {
-    const order = [farming.radish, farming.chilli, farming.pumpkin, farming.lemon].map((f) => f.cashPerEnergy)
+  it('(c) farming cash/energy: carrot < corn < eggplant < pumpkin', () => {
+    const order = [farming.radish, farming.corn, farming.eggplant, farming.pumpkin].map((f) => f.cashPerEnergy)
     expect([...order].sort((x, y) => x - y)).toEqual(order)
     expect(new Set(order).size).toBe(4)
   })
@@ -1493,8 +1511,9 @@ describe('batch 6.1: stone-keeping mine-early bot buys storage Lv1, then vein Lv
   const summary = runBot(true, { saveForStorage: true, ticks: 1200 })
   console.log('storage summary', JSON.stringify(summary, null, 1))
 
-  it('(d) storage level 1 is bought within ~600 ticks, vein level 1 after it within the session', () => {
-    expect(summary.storageBought).toBeLessThanOrEqual(600)
+  // re-pinned batch 35 (was ~600): crop re-ladder: potato start, carrot licence 💰25 — storage Lv1 bought at 642
+  it('(d) storage level 1 is bought within ~660 ticks, vein level 1 after it within the session', () => {
+    expect(summary.storageBought).toBeLessThanOrEqual(660)
     expect(summary.veinBought).toBeGreaterThan(summary.storageBought!)
     expect(summary.veinBought).toBeLessThanOrEqual(1200)
     expect(summary.lowest).toBeGreaterThanOrEqual(0)
@@ -1506,7 +1525,7 @@ describe('batch 6.1: stone-keeping mine-early bot buys storage Lv1, then vein Lv
 const HOUR_TICKS = 3600
 
 describe('batch 7: copper pickaxe cash/energy (repairs at input value) < 0.9 × pumpkin farming', () => {
-  const pumpkin = runCropBot('pumpkin').cashPerEnergy
+  const pumpkin = runCropBot('eggplant').cashPerEnergy
   const bench = (tier: PickaxeTier, lv10: boolean, vein: number) =>
     mineBench({ pickaxe: true, tier, vein, xp: lv10 ? 400 * (tier === 'copper' ? 2 : 1) : 0, mastered: lv10 }).cashPerEnergy
   const mining = {
@@ -1545,12 +1564,15 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
   // PRNG position included. Cash re-pinned in batch 12 (market prices) and batch 16 (depth 60)
   // re-pinned batch 32 (was firstBar 1776, copperPickaxe 2172, cash 5914, rng 1328891991, sales 386): hit carry-over —
   // a wooden pickaxe's spare hit goes into the next rock, so the same 447 presses break more rocks
+  // re-pinned batch 35 (was 477 / 684 / 936 / 1110 / 1350 / 1773 / 2178, rng 1761327770):
+  // crop re-ladder: potato start, carrot licence 💰25
   it('pins the Batch 7 results (ticks, final cash, counters, PRNG state)', () => {
-    expect(t).toEqual({ storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1773, copperPickaxe: 2178 })
-    expect(summary.finalCash).toBe(6078)
-    expect(summary.rngState).toBe(1761327770)
+    expect(t).toEqual({ storageLv1: 486, veinLv1: 786, furnace: 1065, storageLv2: 1230, veinLv2: 1494, firstBar: 1902, copperPickaxe: 2346 })
+    expect(summary.finalCash).toBe(5527)
+    expect(summary.rngState).toBe(881303612)
     // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
-    expect(summary.counters).toEqual({ harvests: 107, sales: 467, mines: 447, digs: 0, waters: 525, plants: 116, bars: 5, orders: 0, contractsByHand: 0 })
+    // re-pinned batch 35 (was harvests 107, sales 467, mines 447, waters 525, plants 116): crop re-ladder
+    expect(summary.counters).toEqual({ harvests: 116, sales: 436, mines: 433, digs: 0, waters: 526, plants: 125, bars: 5, orders: 0, contractsByHand: 0 })
   })
 })
 
@@ -1609,18 +1631,18 @@ const ALL_COPPER = { water: 1, harvest: 1, plant: 1 }
 
 describe('batch 7.1: copper farm tools vs none, one crop on 9 tiles, 1200 ticks', () => {
   const farming = Object.fromEntries(
-    (['radish', 'pumpkin'] as const).map((c) => [c, { none: runCropBot(c), copper: runCropBot(c, SESSION, ALL_COPPER) }]),
+    (['radish', 'eggplant'] as const).map((c) => [c, { none: runCropBot(c), copper: runCropBot(c, SESSION, ALL_COPPER) }]),
   )
   console.log('batch 7.1 farming', JSON.stringify(farming, null, 1))
 
-  it.each(['radish', 'pumpkin'])('%s: fewer waterings per harvest and more cash per energy with all three copper tools', (crop) => {
+  it.each(['radish', 'eggplant'])('%s: fewer waterings per harvest and more cash per energy with all three copper tools', (crop) => {
     const { none, copper } = farming[crop]
     expect(copper.watersPerHarvest).toBeLessThan(none.watersPerHarvest)
     expect(copper.cashPerEnergy).toBeGreaterThan(none.cashPerEnergy)
   })
 
   it('mining stays below farming: the batch-7 copper pickaxe benches < 0.9 × pumpkin without copper tools', () => {
-    const pumpkin = farming.pumpkin.none.cashPerEnergy
+    const pumpkin = farming.eggplant.none.cashPerEnergy
     for (const vein of [1, 2])
       for (const lv10 of [false, true])
         expect(mineBench({ pickaxe: true, tier: 'copper', vein, xp: lv10 ? 800 : 0, mastered: lv10 }).cashPerEnergy).toBeLessThan(0.9 * pumpkin)
@@ -1635,16 +1657,18 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
 
   it('the batch-7 steps are unchanged (copper tools only come after the copper pickaxe)', () => {
     const { firstBar, storageLv1, veinLv1, furnace, storageLv2, veinLv2, copperPickaxe } = t
+    // re-pinned batch 35 (the batch-7 pin above): crop re-ladder: potato start, carrot licence 💰25
     expect({ storageLv1, veinLv1, furnace, storageLv2, veinLv2, firstBar, copperPickaxe }).toEqual({
-      storageLv1: 477, veinLv1: 684, furnace: 936, storageLv2: 1110, veinLv2: 1350, firstBar: 1773, copperPickaxe: 2178,
+      storageLv1: 486, veinLv1: 786, furnace: 1065, storageLv2: 1230, veinLv2: 1494, firstBar: 1902, copperPickaxe: 2346,
     })
   })
 
   // re-pinned batch 32 (was [2172, 2598, 2835, 3075], cash 6043): hit carry-over, then the copper sickle's seed roll
   it('buys the three copper tools in order after the copper pickaxe, within the hour (pinned) (final cash re-pinned batch 16: depth 60)', () => {
     const order = [t.copperPickaxe, t['copper:water'], t['copper:harvest'], t['copper:plant']]
-    expect(order).toEqual([2178, 2487, 2760, 3027])
-    expect(summary.finalCash).toBe(6147)
+    // re-pinned batch 35 (was [2178, 2487, 2760, 3027]): crop re-ladder: potato start, carrot licence 💰25
+    expect(order).toEqual([2346, 2622, 2859, 3093])
+    expect(summary.finalCash).toBe(5666)
   })
 
   it('nothing goes negative over 3600 ticks and it never borrows', () => {
@@ -1659,7 +1683,7 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
 describe('batch 8: workers vs manual, one crop on 9 tiles, 1200 ticks (runCropBot, net cash per minute)', () => {
   const W = { water: 1, harvest: 1 }
   const farming = Object.fromEntries(
-    (['radish', 'pumpkin'] as const).map((c) => [
+    (['radish', 'eggplant'] as const).map((c) => [
       c,
       {
         manual: runCropBot(c),
@@ -1683,12 +1707,12 @@ describe('batch 8: workers vs manual, one crop on 9 tiles, 1200 ticks (runCropBo
   console.log('batch 8 cash/min manual vs workers', JSON.stringify(rates, null, 1))
 
   it('pumpkin: water + harvest workers with the player only planting net ≥ 80 % of the manual rate (with a copper can too)', () => {
-    expect(rates.pumpkin.share).toBeGreaterThanOrEqual(0.8)
-    expect(rates.pumpkin.copperCan.share).toBeGreaterThanOrEqual(0.8)
+    expect(rates.eggplant.share).toBeGreaterThanOrEqual(0.8)
+    expect(rates.eggplant.copperCan.share).toBeGreaterThanOrEqual(0.8)
   })
 
   it('the player spends energy only on tilling and planting when workers water and harvest', () => {
-    const { manual, workers } = farming.pumpkin
+    const { manual, workers } = farming.eggplant
     expect(workers.energy).toBeLessThan(manual.energy / 2)
     expect(workers.wages).toBeGreaterThan(0)
   })
@@ -1712,17 +1736,20 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
   const { workerTicks, ladderTicks, finalCash, wagesPaid, farmingCashPerEnergy, miningCashPerEnergy, counters } = summary
   console.log('batch 8 workers ladder', JSON.stringify({ workerTicks, ladderTicks, finalCash, wagesPaid, farmingCashPerEnergy, miningCashPerEnergy, counters, workers: end.run.workers }, null, 1))
 
-  it('reaches the first certificate, the first hire and a pool of 3 within the hour, in that order', () => {
-    const order = [workerTicks.firstCertificate, workerTicks.firstHire, workerTicks.pool3]
+  // re-pinned batch 35 (was certificate 628 → hire 643): crop re-ladder: potato start, carrot licence 💰25 — cash now
+  // climbs in smaller steps, so this pre-batch-13 bot's 💰80 hire is affordable (517) before the 💰100 certificate (733)
+  it('reaches the first hire, the first certificate and a pool of 3 within the hour, in that order', () => {
+    const order = [workerTicks.firstHire, workerTicks.firstCertificate, workerTicks.pool3]
     for (const tick of order) expect(tick).toBeLessThanOrEqual(HOUR_TICKS)
     expect([...order].sort((a, b) => a! - b!)).toEqual(order)
   })
 
   it('pins the Batch 8 results (worker ticks, final cash, wages) (re-pinned batch 16: market off)', () => {
-    expect(workerTicks).toEqual({ firstCertificate: 628, waterCertificate: 628, harvestCertificate: 1141, firstHire: 643, pool3: 1024 })
+    // re-pinned batch 35 (was 628 / 628 / 1141 / 643 / 1024): crop re-ladder: potato start, carrot licence 💰25
+    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 1027, firstHire: 517, pool3: 1396 })
     // re-pinned batch 28.1 (was [3452, 379]): the blunt copper pickaxe collects its tray bars and repairs at once
     // re-pinned batch 32 (was [3618, 379]): hit carry-over, then the sickle's seed roll
-    expect([finalCash, wagesPaid]).toEqual([3921, 359])
+    expect([finalCash, wagesPaid]).toEqual([2692, 370])
   })
 
   it('nothing goes negative and it never borrows', () => {
@@ -1951,23 +1978,27 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
   // smart 3741; [13901, 897, 80, 80]): hit carry-over
   it('the batch-8 steps are unchanged; ore certificate → fuel certificate → smart furnace follow, pinned (re-pinned batch 16: market off, replays the pre-market pins)', () => {
     expect(ladderTicks).toEqual({
-      storageLv1: 477,
-      veinLv1: 666,
-      furnace: 885,
-      storageLv2: 951,
-      veinLv2: 1255,
-      firstBar: 1386,
-      copperPickaxe: 1737,
-      'copper:water': 1944,
-      'copper:harvest': 2151,
-      'copper:plant': 2367,
-      oreCertificate: 2550,
-      fuelCertificate: 3147,
-      smart: 3747,
+      // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
+      // crop re-ladder: potato start, carrot licence 💰25
+      storageLv1: 486,
+      veinLv1: 890,
+      furnace: 1206,
+      storageLv2: 1269,
+      veinLv2: 1511,
+      firstBar: 1580,
+      copperPickaxe: 1823,
+      'copper:water': 2129,
+      'copper:harvest': 2303,
+      'copper:plant': 2543,
+      oreCertificate: 2723,
+      fuelCertificate: 3329,
+      smart: 3923,
     })
-    expect(workerTicks).toEqual({ firstCertificate: 628, waterCertificate: 628, harvestCertificate: 1141, firstHire: 643, pool3: 1024 })
+    // re-pinned batch 35 (was 628 / 628 / 1141 / 643 / 1024): crop re-ladder: potato start, carrot licence 💰25
+    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 1027, firstHire: 517, pool3: 1396 })
     // re-pinned batch 28.1 (was [13900, 898, 80, 80]): the blunt-pickaxe repair collects the tray first
-    expect([finalCash, wagesPaid, counters.bars, barsSmelted]).toEqual([15994, 885, 81, 81])
+    // re-pinned batch 35 (was [15994, 885, 81, 81]): crop re-ladder: potato start, carrot licence 💰25
+    expect([finalCash, wagesPaid, counters.bars, barsSmelted]).toEqual([12847, 895, 80, 83])
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
@@ -1987,7 +2018,7 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
 describe('batch 10: plant + water + harvest workers vs manual, one crop on 9 tiles, 1 h (runCropBot, net cash per hour)', () => {
   const ALL = { plant: 1, water: 1, harvest: 1 }
   const runs = Object.fromEntries(
-    (['pumpkin', 'lemon'] as const).map((c) => [
+    (['eggplant', 'pumpkin'] as const).map((c) => [
       c,
       {
         manual: runCropBot(c, HOUR_TICKS),
@@ -2025,8 +2056,8 @@ describe('batch 10: plant + water + harvest workers vs manual, one crop on 9 til
     const pinned = (c: string) => Object.fromEntries(Object.entries(table[c]).map(([k, v]) => [k, [v.perHour, v.wages, v.workerPlants]]))
     // re-pinned batch 32 (allCopper was [6648, 536, 135] / [8484, 448, 90]): the copper sickle's seed roll moves the RNG
     // stream behind the double harvest
-    expect(pinned('pumpkin')).toEqual({ manual: [6611, 0, 0], waterHarvest: [5746, 715, 0], all: [5540, 855, 135], allCopper: [6730, 536, 135] })
-    expect(pinned('lemon')).toEqual({ manual: [7941, 0, 0], waterHarvest: [7157, 670, 0], all: [6982, 765, 90], allCopper: [8106, 448, 90] })
+    expect(pinned('eggplant')).toEqual({ manual: [6611, 0, 0], waterHarvest: [5746, 715, 0], all: [5540, 855, 135], allCopper: [6730, 536, 135] })
+    expect(pinned('pumpkin')).toEqual({ manual: [7941, 0, 0], waterHarvest: [7157, 670, 0], all: [6982, 765, 90], allCopper: [8106, 448, 90] })
   })
 })
 
@@ -2069,22 +2100,27 @@ describe('batch 10: 8 h offline from the batch-8 workers ladder end, with one wo
   it('the base run is batch 8\'s gain on the same start, no planter (re-pinned batch 16: market off)', () => {
     // re-pinned batch 28.1 (was 1085): the batch 8 end state moved (the blunt-pickaxe repair collects the tray first)
     // re-pinned batch 32 (was 1195): hit carry-over and the sickle's seed roll move the batch 8 end state
-    expect(base.gain).toBe(965)
+    // re-pinned batch 35 (was 965): crop re-ladder: potato start, carrot licence 💰25 (the batch 8 end state moved)
+    expect(base.gain).toBe(1082)
   })
 
   it('a planter keeps the loop running offline: more cash than batch 8, never below 0 (pinned) (re-pinned batch 16: market off)', () => {
     expect(planted.gain).toBeGreaterThan(base.gain)
     // re-pinned batch 28.1 (was [69849, 3551, 711])
     // re-pinned batch 32 (was [70009, 3551, 711]): hit carry-over moves the start, the sickle's seed roll the run
-    expect([planted.gain, planted.wages, planted.after.run.lifetime.workerPlants]).toEqual([70297, 3553, 710])
+    // re-pinned batch 35 (was [70297, 3553, 710]): crop re-ladder: potato start, carrot licence 💰25
+    expect([planted.gain, planted.wages, planted.after.run.lifetime.workerPlants]).toEqual([71409, 3551, 711])
     expect(planted.lowest).toBeGreaterThanOrEqual(0)
   })
 
   // re-pinned batch 32 (was 0 plants, cash and wages equal to no planter): the copper sickle now finds seeds, so the
   // planter plants the one seed the harvests drop into the empty pouch, then idles
+  // re-pinned batch 35 (was [1, 4991, 30]): crop re-ladder: potato start, carrot licence 💰25 — this start's sickle
+  // rolls find no seed, so the planter plants nothing and idles
   it('auto-buy off and an empty pouch: the planter plants only the seeds the sickle finds, then idles', () => {
-    expect([idle.after.run.lifetime.workerPlants, idle.after.run.cash, idle.wages]).toEqual([1, 4991, 30])
-    expect([unstaffed.after.run.lifetime.workerPlants, unstaffed.after.run.cash, unstaffed.wages]).toEqual([0, 4886, 25])
+    expect([idle.after.run.lifetime.workerPlants, idle.after.run.cash, idle.wages]).toEqual([0, 3774, 18])
+    // batch 35: no seed found, so the planter changes nothing — the same run as no planter (was [0, 4886, 25])
+    expect([unstaffed.after.run.lifetime.workerPlants, unstaffed.after.run.cash, unstaffed.wages]).toEqual([0, 3774, 18])
   })
 })
 
@@ -2110,22 +2146,25 @@ describe('batch 10: ladder bot continues to the plant certificate after the furn
   // re-pinned batch 32 (the batch 9 steps above, plantCertificate 4341, [13694, 999, 72]): hit carry-over
   it('every batch-9 step is unchanged; the plant certificate follows the smart furnace, pinned (re-pinned batch 16: market off, replays the pre-market pins)', () => {
     expect(ladderTicks).toEqual({
-      storageLv1: 477,
-      veinLv1: 666,
-      furnace: 885,
-      storageLv2: 951,
-      veinLv2: 1255,
-      firstBar: 1386,
-      copperPickaxe: 1737,
-      'copper:water': 1944,
-      'copper:harvest': 2151,
-      'copper:plant': 2367,
-      oreCertificate: 2550,
-      fuelCertificate: 3147,
-      smart: 3747,
-      plantCertificate: 4347,
+      // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
+      // crop re-ladder: potato start, carrot licence 💰25
+      storageLv1: 486,
+      veinLv1: 890,
+      furnace: 1206,
+      storageLv2: 1269,
+      veinLv2: 1511,
+      firstBar: 1580,
+      copperPickaxe: 1823,
+      'copper:water': 2129,
+      'copper:harvest': 2303,
+      'copper:plant': 2543,
+      oreCertificate: 2723,
+      fuelCertificate: 3329,
+      smart: 3923,
+      plantCertificate: 4523,
     })
-    expect([finalCash, wagesPaid, end.run.lifetime.workerPlants]).toEqual([14976, 984, 69])
+    // re-pinned batch 35 (was [14976, 984, 69]): crop re-ladder: potato start, carrot licence 💰25
+    expect([finalCash, wagesPaid, end.run.lifetime.workerPlants]).toEqual([13415, 995, 65])
   })
 
   it('the planter gets a worker and plants; nothing goes negative and it never borrows', () => {
@@ -2172,20 +2211,22 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     // re-pinned batch 32 (was the batch 10 steps; storageLv3 4389, veinLv3 / ironPicked 4641, firstIronBar 4845,
     // ironPickaxe 5337, mineCertificate 5928; [12443, 1235, 248, 20]): hit carry-over
     expect(older).toEqual({
-      storageLv1: 477,
-      veinLv1: 666,
-      furnace: 885,
-      storageLv2: 951,
-      veinLv2: 1255,
-      firstBar: 1386,
-      copperPickaxe: 1737,
-      'copper:water': 1944,
-      'copper:harvest': 2151,
-      'copper:plant': 2367,
-      oreCertificate: 2550,
-      fuelCertificate: 3147,
-      smart: 3747,
-      plantCertificate: 4347,
+      // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
+      // crop re-ladder: potato start, carrot licence 💰25
+      storageLv1: 486,
+      veinLv1: 890,
+      furnace: 1206,
+      storageLv2: 1269,
+      veinLv2: 1511,
+      firstBar: 1580,
+      copperPickaxe: 1823,
+      'copper:water': 2129,
+      'copper:harvest': 2303,
+      'copper:plant': 2543,
+      oreCertificate: 2723,
+      fuelCertificate: 3329,
+      smart: 3923,
+      plantCertificate: 4523,
     })
     const order = [storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate]
     for (const tick of order) expect(tick).toBeLessThanOrEqual(IRON_TICKS)
@@ -2193,15 +2234,18 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     // re-pinned batch 33 (was ironPicked 4647, firstIronBar 4825, ironPickaxe 5307, mineCertificate 5907; [14581, 1213,
     // 247, 20]): molds: every kind smelts at once — the iron mold (🥉10 ⛰️20 💰6,500) replaces the free switch
     expect({ storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
-      storageLv3: 4410,
-      veinLv3: 4647,
-      ironMold: 5246,
-      firstIronBar: 5385,
-      ironPickaxe: 5868,
-      mineCertificate: 6468,
+      // re-pinned batch 35 (was 4410 / 4647 / 5246 / 5385 / 5868 / 6468): crop re-ladder: potato start, carrot licence 💰25
+      storageLv3: 4601,
+      veinLv3: 4823,
+      ironMold: 5474,
+      firstIronBar: 5630,
+      ironPickaxe: 6113,
+      mineCertificate: 6713,
     })
     // (task 172: the sickle's seed roll moves these again)
-    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([7014, 1167, 143, 16])
+    // re-pinned batch 35 (was [7014, 1167, 143, 16]): crop re-ladder: potato start, carrot licence 💰25 — the mine
+    // certificate lands 245 ticks later, so less of the hour is left for the mine worker
+    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([5356, 1114, 95, 14])
   })
 
   it('the miner gets a worker and mines; nothing goes negative and it never borrows', () => {
@@ -2358,7 +2402,8 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
     // re-pinned batch 32 (was [766, 45, 7, 70974, 3616]): hit carry-over fills storage in fewer presses
     // re-pinned batch 33 (was [871, 42, 8, 72860, 3610]): molds: every kind smelts at once — the ladder end now banks
     // copper bars from the copper mold, so storage starts fuller and the miner stops sooner
-    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([346, 27, 3, 72908, 3592])
+    // re-pinned batch 35 (was [346, 27, 3, 72908, 3592]): crop re-ladder: potato start, carrot licence 💰25
+    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([471, 33, 4, 72511, 3609])
   })
 
   it('cash never goes below 0 and step(s, n) = n × step(s, 1) over the whole 8 h', () => {
@@ -2368,7 +2413,7 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
 })
 
 describe('batch 11: mining stays below the farm cap with the iron tier', () => {
-  const pumpkin = runCropBot('pumpkin').cashPerEnergy
+  const pumpkin = runCropBot('eggplant').cashPerEnergy
   const bench = (tier: PickaxeTier, lv10: boolean) =>
     mineBench({ pickaxe: true, tier, vein: 3, xp: lv10 ? 400 * { wooden: 1, copper: 2, iron: 4, gold: 8 }[tier] : 0, mastered: lv10 }).cashPerEnergy
   const mining = {
@@ -2379,7 +2424,7 @@ describe('batch 11: mining stays below the farm cap with the iron tier', () => {
   }
   // the miner spends no player energy: compare its net cash per hour (sales − its wages) with farm workers'
   const miner = ironBench({ cadence: 120, loaders: false })
-  const farmWorkers = runCropBot('pumpkin', HOUR_TICKS, undefined, { plant: 1, water: 1, harvest: 1 }).perMin * 60
+  const farmWorkers = runCropBot('eggplant', HOUR_TICKS, undefined, { plant: 1, water: 1, harvest: 1 }).perMin * 60
   console.log('batch 11 mining', JSON.stringify({ pumpkin, mining, minerCashPerHour: miner.cash, farmWorkersCashPerHour: farmWorkers }, null, 1))
 
   it('every pickaxe on vein Lv3 stays below 0.9 × pumpkin (cash per energy, repairs at input value)', () => {
@@ -2395,7 +2440,7 @@ describe('batch 11: mining stays below the farm cap with the iron tier', () => {
 /** batch 12 farm runs: 2 h, so the glut (30 min half-life) is near its steady state for most of the run */
 const MARKET_TICKS = 2 * HOUR_TICKS
 // frozen at the four crops the batch-12 pin was measured with; batch 22's own sim measures the 8-crop mixes
-const FARM_PAIR_CROPS = ['radish', 'chilli', 'pumpkin', 'lemon'] as const satisfies readonly CropId[]
+const FARM_PAIR_CROPS = ['radish', 'corn', 'eggplant', 'pumpkin'] as const satisfies readonly CropId[]
 const FARM_PAIRS: [CropId, CropId][] = FARM_PAIR_CROPS.flatMap((a, i) => FARM_PAIR_CROPS.slice(i + 1).map((b): [CropId, CropId] => [a, b]))
 
 /**
@@ -2444,16 +2489,16 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   const steady = Object.fromEntries(
     CROP_IDS.map((c) => [c, { t24: marketSteadyFactor(c, 24, meta, 0), t120: marketSteadyFactor(c, 120, meta, 0) }]),
   )
-  const lemon24Fert5 = marketSteadyFactor('lemon', 24, meta, 5)
+  const lemon24Fert5 = marketSteadyFactor('pumpkin', 24, meta, 5)
 
   const hour = (perMin: number) => Math.round(perMin * 60)
   const ALL_THREE = { plant: 1, water: 1, harvest: 1 }
   const lemonManual = (on: boolean) => {
-    const run = () => runCropBot('lemon', MARKET_TICKS, undefined, undefined, TILE_CAP)
+    const run = () => runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP)
     return hour((on ? run() : withoutMarket(run)).perMin)
   }
   const lemonWorkers = (on: boolean) => {
-    const run = () => runCropBot('lemon', MARKET_TICKS, undefined, ALL_THREE, TILE_CAP)
+    const run = () => runCropBot('pumpkin', MARKET_TICKS, undefined, ALL_THREE, TILE_CAP)
     return hour((on ? run() : withoutMarket(run)).perMin)
   }
   const income = {
@@ -2479,7 +2524,7 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   }
 
   // hierarchy at the size the market bites: 24 pumpkin tiles by hand, market on, vs the batch-11 mining benches
-  const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+  const pumpkin24 = runCropBot('eggplant', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
   const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
 
   // no stall: the milestones the core recorded on the iron ladder run, from tick 0 to the last one
@@ -2509,11 +2554,11 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
 
   it('the best 2-crop split on 24 tiles (pinned) still earns less than 24 lemon tiles at depth 240 — the split goal of batch 16 is not reached (94.0 % of mono)', () => {
     expect(bestSplit).toEqual({
-      pair: ['pumpkin', 'lemon'],
+      pair: ['eggplant', 'pumpkin'],
       first: 4,
       perHour: 12165,
       before: 12355,
-      bestOneCrop: { crop: 'lemon', perHour: 12941, before: 13321 },
+      bestOneCrop: { crop: 'pumpkin', perHour: 12941, before: 13321 },
     })
   })
 
@@ -2523,11 +2568,13 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   // re-pinned batch 33 (was 14581 / 5907 off, 14020 / 5943 on): molds: every kind smelts at once — the iron mold's
   // 💰6,500 and its wait for 🥉10 ⛰️20 come before the iron pickaxe
   it('market off replays the pre-market pins (7014 / 6468); market on at depth 240 reaches the mine certificate too (batch 32)', () => {
-    expect(ladder.finalCash.before).toBe(7014)
-    expect(ladder.mineCertificate.before).toBe(6468)
-    expect(ladder.finalCash.after).toBe(6839)
-    expect(ladder.mineCertificate.after).toBe(6468)
-    expect(ladderOn.ladderTicks.storageLv2).toBe(951)
+    // re-pinned batch 35 (was 7014 / 6468 off, 6839 / 6468 on, market-on storage Lv2 951): crop re-ladder: potato
+    // start, carrot licence 💰25
+    expect(ladder.finalCash.before).toBe(5356)
+    expect(ladder.mineCertificate.before).toBe(6713)
+    expect(ladder.finalCash.after).toBe(5738)
+    expect(ladder.mineCertificate.after).toBe(6626)
+    expect(ladderOn.ladderTicks.storageLv2).toBe(1269)
   })
 
   it('mining stays below farming with the market on: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin by hand', () => {
@@ -2540,7 +2587,9 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     // re-pinned batch 32 (was ['certMine', 5928], longest ironPickaxe 696): hit carry-over
     // re-pinned batch 33 (was ['certMine', 5907], longest certPlant 757): molds: every kind smelts at once — the iron
     // mold's wait lands inside the vein Lv3 → iron pickaxe gap (20.4 game-min, under the cap)
-    expect([reached.length, reached.at(-1), longest]).toEqual([34, ['certMine', 6468], { id: 'ironPickaxe', gap: 1221 }])
+    // re-pinned batch 35 (was [34, ['certMine', 6468], ironPickaxe 1221]): crop re-ladder: potato start, carrot licence
+    // 💰25 — two more rows (the potato milestones), the longest gap 21.5 game-min, under the cap
+    expect([reached.length, reached.at(-1), longest]).toEqual([36, ['certMine', 6713], { id: 'ironPickaxe', gap: 1290 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
@@ -2575,7 +2624,7 @@ function staffedLemon(attentive: boolean, toolTier = createInitialState().run.to
   const tiles = [...init.run.tiles, ...Array.from({ length: TILE_CAP - init.run.tiles.length }, createTile)]
   const assigned = { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }
   const workers = { pool: 3, assigned, certificates: [...WORKER_JOBS] }
-  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: ['radish', 'lemon'], plantCrop: 'lemon', toolTier, workers, tiles } }
+  let s: GameState = { ...init, run: { ...init.run, cash: 1000, licenses: ['radish', 'pumpkin'], plantCrop: 'pumpkin', toolTier, workers, tiles } }
   let budget = 0
   let picked = 0
   let lowest = s.run.cash
@@ -2645,7 +2694,7 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     const attentive = staffedLemon(true)
     // the same farm with the three copper tools the ladder owns by the time it staffs (a copper can halves the waterings)
     const copper = { idle: staffedLemon(false, ALL_COPPER), attentive: staffedLemon(true, ALL_COPPER) }
-    const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+    const pumpkin24 = runCropBot('eggplant', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
     const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
     return { ladder, end, certificates, fits, reached, longest, idle, attentive, copper, pumpkin24, ironLv10 }
   })
@@ -2671,17 +2720,21 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     expect(end.run.tools).toEqual({ water: 3, harvest: 3, plant: 3 })
     // re-pinned batch 32 (was plant 59.7 / 79.8, harvest 65.7 / 65.7, ore 38 / 49, mine 84.8 / 107.7; [11390, certPlant
     // 845]): hit carry-over
+    // re-pinned batch 35 (was plant 60 / 78.7, water 23.3 / 24.8, harvest 66 / 66, ore 38 / 48.7, fuel 58.7 / 58.7,
+    // mine 83.7 / 113.8): crop re-ladder: potato start, carrot licence 💰25 — potato's quick plants and waters unlock
+    // the water and plant certificates sooner
     expect(certificates).toEqual({
-      plant: { unlocked: 60, bought: 78.7 },
-      water: { unlocked: 23.3, bought: 24.8 },
-      harvest: { unlocked: 66, bought: 66 },
-      ore: { unlocked: 38, bought: 48.7 },
-      fuel: { unlocked: 58.7, bought: 58.7 },
-      mine: { unlocked: 83.7, bought: 113.8 },
+      plant: { unlocked: 52.5, bought: 80.7 },
+      water: { unlocked: 17.2, bought: 27.5 },
+      harvest: { unlocked: 58.6, bought: 59.6 },
+      ore: { unlocked: 40.6, bought: 50.6 },
+      fuel: { unlocked: 60.6, bought: 60.6 },
+      mine: { unlocked: 85.6, bought: 116 },
     })
     // re-pinned batch 33 (was mine bought 104.7; [13529, certPlant 764]): molds: every kind smelts at once — the iron
     // mold's 💰6,500 comes before the iron pickaxe and the mine certificate
-    expect([ladder.finalCash, longest]).toEqual([5818, { id: 'ironPickaxe', gap: 1206 }])
+    // re-pinned batch 35 (was [5818, ironPickaxe 1206]): crop re-ladder: potato start, carrot licence 💰25
+    expect([ladder.finalCash, longest]).toEqual([6181, { id: 'ironPickaxe', gap: 1221 }])
   })
 
   it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {
@@ -2810,12 +2863,12 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
       return { ...shown, incomeOff: off.incomePerHour, bonusPct: Math.round(((on.incomePerHour - off.incomePerHour) / off.incomePerHour) * 1000) / 10 }
     }
     // the batch-13 24-tile lemon farm (one worker per job), and the same farm with the full pool of six (two per job)
-    const farms = { carrot9: farm('radish', 9, 0), lemon24: farm('lemon', TILE_CAP, 1), lemon24x6: farm('lemon', TILE_CAP, 2) }
+    const farms = { carrot9: farm('radish', 9, 0), lemon24: farm('pumpkin', TILE_CAP, 1), lemon24x6: farm('pumpkin', TILE_CAP, 2) }
     // the whole ⭐ shop: 3rd + 4th slot and the clerk certificate (rerolls are consumables)
     const shopStars = orderSlotStars(2)! + orderSlotStars(3)! + certificateCost('clerk', createInitialState().meta).stars!
     const hoursToShop = Object.fromEntries(Object.entries(farms).map(([k, f]) => [k, Math.round((shopStars / f.starsPerHour) * 10) / 10]))
     // hierarchy: the best mining bench with every item paid at (1 + bonus) vs 24-tile pumpkin farming with no orders
-    const pumpkin24 = runCropBot('pumpkin', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
+    const pumpkin24 = runCropBot('eggplant', MARKET_TICKS, undefined, undefined, TILE_CAP).cashPerEnergy
     const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
     const miningWithBonus = ironLv10 * (1 + orderBonus())
     // the generator over the ladder bot's states (every 60 ticks of the batch-13 iron ladder)
@@ -2961,7 +3014,7 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
     const t = ladder.ladderTicks
     const steps = [t.mineCertificate, t['iron:water'], t['iron:harvest'], t['iron:plant']].map((x) => x!)
     const gaps = steps.slice(1).map((x, i) => x - steps[i])
-    const pumpkinIron = runCropBot('pumpkin', MARKET_TICKS, ALL_IRON, undefined, TILE_CAP).cashPerEnergy
+    const pumpkinIron = runCropBot('eggplant', MARKET_TICKS, ALL_IRON, undefined, TILE_CAP).cashPerEnergy
     const ironLv10 = mineBench({ pickaxe: true, tier: 'iron', vein: 3, xp: 1600, mastered: true }).cashPerEnergy
     // income/h on a 24-tile staffed lemon farm before (copper) and after (iron) the three tools, idle and attentive
     const before = { idle: staffedLemon(false, ALL_COPPER), attentive: staffedLemon(true, ALL_COPPER) }
@@ -3013,9 +3066,12 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
     // re-pinned batch 33 (was 104.7, gaps [8.1, 28, 33.5], done 174.3, the three tools below: water 112.8 / 108 /
     // 112.8, harvest 120.8 / 140.8 / 140.8, plant 140.8 / 174.3 / 174.3): molds: every kind smelts at once — the
     // iron mold's 💰6,500 delays the mine certificate and the tools wait on cash
-    expect(minute(steps[0])).toBe(113.8) // the mine certificate
-    expect(gaps.map((g) => minute(g))).toEqual([20.3, 36.5, 33.2])
-    expect(minute(phase.done)).toBe(203.8)
+    // re-pinned batch 35 (was 113.8): crop re-ladder: potato start, carrot licence 💰25
+    expect(minute(steps[0])).toBe(116) // the mine certificate
+    expect(gaps.map((g) => minute(g))).toEqual([17.2, 35.4, 34.5])
+    // re-pinned batch 35 (was done 203.8, water 121.8 / 134 / 134.1, harvest 134.1 / 170.1 / 170.6, plant 170.6 / 203.7 /
+    // 203.8): crop re-ladder: potato start, carrot licence 💰25
+    expect(minute(phase.done)).toBe(203.1)
     expect(
       Object.fromEntries(
         TOOL_JOBS.map((job) => {
@@ -3024,9 +3080,9 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
         }),
       ),
     ).toEqual({
-      'iron:water': { bars: 121.8, cash: 134, bought: 134.1 },
-      'iron:harvest': { bars: 134.1, cash: 170.1, bought: 170.6 },
-      'iron:plant': { bars: 170.6, cash: 203.7, bought: 203.8 },
+      'iron:water': { bars: 123.9, cash: 133.1, bought: 133.2 },
+      'iron:harvest': { bars: 133.2, cash: 168.5, bought: 168.6 },
+      'iron:plant': { bars: 168.6, cash: 203, bought: 203.1 },
     })
   })
 
@@ -3039,14 +3095,16 @@ describe('batch 15: ladder bot buys the three iron tools after the mine certific
       barsPerHour: Math.round(barsPerHour),
       // re-pinned batch 32 (was { 87.1, 17342, 12, 43, 30 }): hit carry-over and the sickle's seed roll
       // re-pinned batch 33 (was { 69.6, 20459, 12, 34, 29 }): molds: every kind smelts at once
-    }).toEqual({ minutes: 90, incomePerHour: 19420, barsNeeded: 12, barsSmelted: 45, barsPerHour: 30 })
+    // re-pinned batch 35 (was 90 min, 💰19,420/h, 45 bars): crop re-ladder: potato start, carrot licence 💰25
+    }).toEqual({ minutes: 87.1, incomePerHour: 19599, barsNeeded: 12, barsSmelted: 43, barsPerHour: 30 })
     expect(toolTierCost(2, end.meta).cash).toBe(10000)
     expect(10000 % 500).toBe(0)
     // re-pinned batch 32 (was ≥ 0.5): carry-over lifts the phase income, so the 💰10,000 cash part is 0.489 h, just
     // under the 0.5 h floor; the price is not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
     // re-pinned batch 33 (was 0.489): molds: every kind smelts at once — the phase income drops, 0.515 h is back over
     // the floor
-    expect(Math.round((10000 / incomePerHour) * 1000) / 1000).toBe(0.515)
+    // re-pinned batch 35 (was 0.515): crop re-ladder: potato start, carrot licence 💰25 — still over the floor
+    expect(Math.round((10000 / incomePerHour) * 1000) / 1000).toBe(0.51)
     expect(10000 / incomePerHour).toBeGreaterThanOrEqual(0.5)
     expect(10000 / incomePerHour).toBeLessThanOrEqual(1.5)
   })
@@ -3158,7 +3216,7 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     const barsPerHour = (phase.barsSmeltedAtDone - phase.barsSmelted) / ((phase.done - phase.start) / HOUR_TICKS)
     const veinIncomePerHour = (veinPhase.cashEarnedAtDone - veinPhase.cashEarned) / ((veinPhase.done - veinPhase.start) / HOUR_TICKS)
     // hierarchy: gold Lv10 on vein Lv4 vs 24-tile pumpkin farmed with the gold tools
-    const pumpkinGold = runCropBot('pumpkin', MARKET_TICKS, ALL_GOLD, undefined, TILE_CAP).cashPerEnergy
+    const pumpkinGold = runCropBot('eggplant', MARKET_TICKS, ALL_GOLD, undefined, TILE_CAP).cashPerEnergy
     const goldLv10 = mineBench({ pickaxe: true, tier: 'gold', vein: 4, xp: 3200, mastered: true }).cashPerEnergy
     return { ladder, end, t, steps, gaps, phase, veinPhase, incomePerHour, barsPerHour, veinIncomePerHour, pumpkinGold, goldLv10 }
   })
@@ -3173,12 +3231,15 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // gold bar 243.7, vein phase 32.8 min at 💰15,003/h, gold phase 72.8 min at 💰18,013/h 11 bars/h, cash 101262):
     // molds: every kind smelts at once — the iron mold delays the iron ladder, and the gold mold (🥈8 ⛰️30 💰7,500)
     // sits between vein Lv4 and the gold pickaxe (gap 48.3 min, under the cap)
-    expect(steps.map((x) => minute(x))).toEqual([231.4, 232.7, 262.3, 310.5, 336.8, 369.6])
-    expect(gaps.map((g) => minute(g))).toEqual([1.3, 29.6, 48.3, 26.3, 32.8])
-    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(298.5)
+    // re-pinned batch 35 (was [231.4, 232.7, 262.3, 310.5, 336.8, 369.6]): crop re-ladder: potato start, carrot licence 💰25
+    expect(steps.map((x) => minute(x))).toEqual([233.9, 235.6, 267, 313.2, 338.2, 369.9])
+    expect(gaps.map((g) => minute(g))).toEqual([1.8, 31.4, 46.2, 25, 31.7])
+    // re-pinned batch 35 (was first gold bar 298.5, vein phase 30.8 min at 💰16,219/h, gold phase 107.3 min at
+    // 💰16,729/h 7 bars/h, cash 87048): crop re-ladder: potato start, carrot licence 💰25
+    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(301.2)
     expect({ minutes: minute(veinPhase.done - veinPhase.start), incomePerHour: Math.round(veinIncomePerHour), cash: veinUpgradeCost(3, end.meta)!.cash }).toEqual({
-      minutes: 30.8,
-      incomePerHour: 16219,
+      minutes: 33.2,
+      incomePerHour: 14601,
       cash: 7500,
     })
     expect({
@@ -3188,13 +3249,13 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
       barsSmelted: phase.barsSmeltedAtDone - phase.barsSmelted,
       barsPerHour: Math.round(barsPerHour),
       toolCash: toolTierCost(3, end.meta).cash,
-    }).toEqual({ minutes: 107.3, incomePerHour: 16729, barsNeeded: 13, barsSmelted: 13, barsPerHour: 7, toolCash: 10000 })
+    }).toEqual({ minutes: 102.9, incomePerHour: 17340, barsNeeded: 13, barsSmelted: 13, barsPerHour: 8, toolCash: 10000 })
     // re-pinned batch 32 (was [1.984, 27.933]; 1.978 in task 168, gold 600 durability): 6.234 with carry-over — 8 hits
     // break ~3 vein-Lv4 rocks per press, and the mastered tier lifts the ore weights; pumpkin 29.153 with the gold
     // sickle's seed drops (task 172)
     expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([6.234, 29.153])
     // re-pinned batch 32 (was 81827; 74044 in task 168, 86511 in task 170): gold 600 repairs, carry-over, seed drops
-    expect(ladder.finalCash).toBe(87048)
+    expect(ladder.finalCash).toBe(84717)
   })
 
   it('climbs the gold ladder in order: storage Lv4 → vein Lv4 → gold pickaxe → gold sickle → gold dibber; every step ≤ 60 game-minutes', () => {
@@ -3210,7 +3271,8 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // re-pinned batch 32 (was ≥ 0.5): carry-over lifts the vein-phase income to 💰15,003/h, so 💰7,500 is 0.4999 h —
     // a hair under the 0.5 h floor; the price is not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
     // re-pinned batch 33 (was 0.5): molds: every kind smelts at once — the vein-phase income is 💰16,219/h, 0.462 h
-    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.462)
+    // re-pinned batch 35 (was 0.462): crop re-ladder: potato start, carrot licence 💰25
+    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.514)
     expect(veinCash / veinIncomePerHour).toBeLessThanOrEqual(1.5)
     expect(toolCash % 500).toBe(0)
     expect(toolCash / incomePerHour).toBeGreaterThanOrEqual(0.5)
@@ -3333,10 +3395,12 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 33 (was [316.9, 353.6, 389.7, 389.8, 431.9, 432, 468.2], gaps [36.8, 36.1, 0, 42.2, 0, 36.2],
     // incomes [22750, 24575, 29026], cash 567566): molds: every kind smelts at once — the gold mold's wait delays the
     // workshop's start, then the sprinklers' mixed bars smelt in parallel and the steps come closer together
-    expect(steps.map((x) => minute(x))).toEqual([376.1, 396.6, 420.8, 420.8, 443.3, 444.2, 479.9])
-    expect(gaps.map((g) => minute(g))).toEqual([20.5, 24.2, 0, 22.5, 1, 35.7])
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([21539, 26421, 28430])
-    expect(ladder.finalCash).toBe(540267)
+    // re-pinned batch 35 (was [376.1, 396.6, 420.8, 420.8, 443.3, 444.2, 479.9]): crop re-ladder: potato start, carrot licence 💰25
+    expect(steps.map((x) => minute(x))).toEqual([370.3, 392, 413.9, 414.2, 437.2, 438.1, 473.9])
+    expect(gaps.map((g) => minute(g))).toEqual([21.8, 21.8, 0.3, 23, 0.9, 35.8])
+    // re-pinned batch 35 (was incomes [21539, 26421, 28430], cash 540267): crop re-ladder: potato start, carrot licence 💰25
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22160, 26835, 28612])
+    expect(ladder.finalCash).toBe(545928)
   })
 
   it('climbs in order: workshop → sprinklers 1–2 → tiles 13 → sprinkler 3 → tiles 19 → sprinkler 4, every step ≤ 60 game-minutes', () => {
@@ -3353,9 +3417,10 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // not this batch's to move (PLAN.md "Batch 32 results" → Deviations)
     // re-pinned batch 33 (was 0.374 / 0.326): molds: every kind smelts at once — the gold-phase income is 💰21,539/h
     // and the bed-phase 💰26,421/h
-    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.395)
+    // re-pinned batch 35 (was 0.395): crop re-ladder: potato start, carrot licence 💰25
+    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.384)
     expect(prices.workshop / goldIncome).toBeLessThanOrEqual(1.5)
-    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.303)
+    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.298)
     expect(prices.sprinkler / income).toBeLessThanOrEqual(1.5)
   })
 
@@ -3368,7 +3433,8 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 32 (was [461, 7]; [213, 7] in task 168, the rack and gold 600; [454, 7] in task 170, carry-over
     // mines more per press): the sickle's seed roll moves the window
     // re-pinned batch 33 (was [478, 7]): molds: every kind smelts at once
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([483, 7])
+    // re-pinned batch 35 (was [483, 7]): crop re-ladder: potato start, carrot licence 💰25
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([482, 7])
     expect(r.furnaceCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 
@@ -3455,13 +3521,13 @@ function forgePlots(base: GameState, n: number, pump: number, split: readonly Cr
 describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)', () => {
   const base = withBatch13(() => {
     const s = createInitialState()
-    const tiles = s.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'lemon' as const, growth: 10, moisture: 4 }))
+    const tiles = s.run.tiles.map((t) => ({ ...t, status: 'planted' as const, cropId: 'pumpkin' as const, growth: 10, moisture: 4 }))
     return {
       ...s,
       run: {
         ...s.run,
         tiles,
-        licenses: ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'] as CropId[],
+        licenses: [...CROP_IDS],
         lifetime: { ...s.run.lifetime, harvests: Object.fromEntries(CROP_IDS.map((c) => [c, 50])) },
         workshop: { built: true, beds: [true, true, true, true], valve: false },
         workers: { pool: 6, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest', 'fuel', 'mine'] as WorkerJob[] },
@@ -3469,7 +3535,7 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
     }
   })
   it.each([
-    [100, 3, ['lemon', 'pumpkin', 'chilli', 'radish'] as CropId[]],
+    [100, 3, ['pumpkin', 'eggplant', 'corn', 'radish'] as CropId[]],
     [192, 3, CROP_IDS],
     [300, 3, CROP_IDS],
   ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms, step(s, n) identity', (plots, pump, split) => {
@@ -3606,8 +3672,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   it('income vs N at depth 240 on plots (workers only): 10/50/100/300/1000 tiles, all-lemon vs a 4-crop mix', () => {
-    const lemon = [10, 50, 100, 300, 1000].map((n) => Math.round(incomeAt(n, ['lemon'])))
-    const mixed = [100, 300].map((n) => Math.round(incomeAt(n, ['lemon', 'pumpkin', 'chilli', 'radish'])))
+    const lemon = [10, 50, 100, 300, 1000].map((n) => Math.round(incomeAt(n, ['pumpkin'])))
+    const mixed = [100, 300].map((n) => Math.round(incomeAt(n, ['pumpkin', 'eggplant', 'corn', 'radish'])))
     console.log('PIN18b', { lemon, mixed })
     // re-pinned batch 28 (measured, seeded): was [47951, 112708, 151938, 380848, 396495] on cohorts
     // re-pinned batch 28.1 (was [47661, 111447, 150893, 350763, 393223]): the forge's source run swaps its blunt
@@ -3622,7 +3688,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // so the forge's 2 + 2 workers are labor-bound from 50 tiles up (72 plots/h each way)
     // re-pinned batch 33 (was [42020, 81507, 81507, 81507, 81507]): molds: every kind smelts at once — the forge's
     // source `end` differs
-    expect(lemon).toEqual([42814, 83952, 83952, 83952, 83952])
+    // re-pinned batch 35 (was [42814, 83952, 83952, 83952, 83952]): crop re-ladder: potato start, carrot licence 💰25 —
+    // the forge's source `end` differs ("lemon" here is its old row, now pumpkin)
+    expect(lemon).toEqual([42249, 82167, 82167, 82167, 82167])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -3631,14 +3699,15 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // task 170 (was [194692, 284966] in task 168): carry-over; task 172 (was [195967, 286829]): seed drops
     // re-pinned batch 32.2 (was [193679, 284610]): workers do one tile per action on the Estate
     // re-pinned batch 33 (was [75745, 63677]): molds: every kind smelts at once — the forge's source `end` differs
-    expect(mixed).toEqual([75980, 64046])
+    // re-pinned batch 35 (was [75980, 64046]): crop re-ladder: potato start, carrot licence 💰25
+    expect(mixed).toEqual([77476, 65169])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
-    const settled = step(forge(end, 300, 3, ['lemon']), 2 * HOUR_TICKS)
+    const settled = step(forge(end, 300, 3, ['pumpkin']), 2 * HOUR_TICKS)
     let crossing = -1
     for (let c = 0; c <= 30; c++) {
-      const s2 = forgePlots(settled, 10 * c, 3, ['lemon'])
+      const s2 = forgePlots(settled, 10 * c, 3, ['pumpkin'])
       if (fieldsPaybackHours(s2) >= 8) {
         crossing = c
         break
@@ -3654,8 +3723,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   it('one tile per action: a planter+harvester pair moves grow ÷ 5 tiles per cycle — the throughput bound and the second pair', () => {
-    const pairTiles = Math.floor((1 / workerActionTicks(end.meta)) * cropGrowTicks('lemon', end.meta, end.run.upgrades.fertilizer))
-    const settled = step(forge(end, 300, 3, ['lemon']), 2 * HOUR_TICKS)
+    const pairTiles = Math.floor((1 / workerActionTicks(end.meta)) * cropGrowTicks('pumpkin', end.meta, end.run.upgrades.fertilizer))
+    const settled = step(forge(end, 300, 3, ['pumpkin']), 2 * HOUR_TICKS)
     console.log('PIN18d', { pairTiles, secondPairAt: pairTiles - end.run.tiles.length, stats300: fieldsOverview(settled.run) })
     // re-pinned batch 32.2 (was 720 / 701): workers do one tile per action on the Estate (was a 10-tile plot)
     expect(pairTiles).toBe(72) // lemon: 1 tile per 5 ticks × 360 grow — and the pair tends the home plot too
@@ -3663,7 +3732,7 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   it('the coal budget (re-pinned batch 26): the beds burn none, so the miner covers the furnace and the pipes', () => {
-    const settled = step(forge(end, 300, 3, ['lemon']), 2 * HOUR_TICKS)
+    const settled = step(forge(end, 300, 3, ['pumpkin']), 2 * HOUR_TICKS)
     const pipeDraw = fieldCoalPerPlotHour() * fieldsOverview(settled.run).growing
     console.log('PIN18e', { pipeDraw })
     // pinned shares over the pipes1 → field-100 window: the miner's coal vs the furnace (old, batch 18: 341 / 0 / 36 with the pump)
@@ -3675,7 +3744,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // [973, 14]): seed drops
     // re-pinned batch 32.2 (was [978, 19]): workers do one tile per action on the Estate (a slower plots window)
     // re-pinned batch 33 (was [982, 11]): molds: every kind smelts at once
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([977, 11])
+    // re-pinned batch 35 (was [977, 11]): crop re-ladder: potato start, carrot licence 💰25
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([974, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -3708,7 +3778,7 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   })
 
   it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms, step(s, n) identity', () => {
-    const forged = forge(end, 1000, 3, ['lemon', 'pumpkin', 'chilli', 'radish'])
+    const forged = forge(end, 1000, 3, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
     const t0 = Date.now()
     catchUp(big, 8 * HOUR_TICKS * 1000)
@@ -3843,7 +3913,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
 
   /** a forged machine-era state: `n` tiles as round-robin `split` cohorts of 10 freshly planted, pipes for `n`,
    *  cash and coal topped up, and the given machine fleet (empty = the workers-only arm) */
-  const forge = (n: number, fleet: { harvester: readonly number[]; seeder: readonly number[] }, split: readonly CropId[] = ['lemon']): GameState => {
+  const forge = (n: number, fleet: { harvester: readonly number[]; seeder: readonly number[] }, split: readonly CropId[] = ['pumpkin']): GameState => {
     const s = forgePlots(end, n, tierFor(n), split, 1_000_000)
     const machines = { harvester: [...fleet.harvester], seeder: [...fleet.seeder], carry: { harvest: 0, plant: 0, maint: 0 } }
     return { ...s, run: { ...s.run, fields: { ...s.run.fields, machines } } }
@@ -3993,6 +4063,27 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(c.stars20).not.toBeNull()
   }, 300_000)
 
+  // batch 35 (task 190 scenario A, report): the minute carrot is licensed (0 = the starting crop), the first three
+  // licence rungs the bot buys, the ladder end and the longest gap tick 0 → ladder end with what closed it
+  it('batch 35: scenario A — carrot licence minute, first three licence rungs, ladder end, longest gap', () => {
+    const t = ladder.ladderTicks as Partial<Record<string, number>>
+    const endTick = r.win.harvester3!
+    const marks = [...Object.entries(end.run.milestones), ...Object.entries(t)]
+      .filter((e): e is [string, number] => e[1] !== undefined && e[1] <= endTick)
+      .sort((a, b) => a[1] - b[1])
+    const gaps = marks.map(([id, tick], i) => ({ id, from: i ? marks[i - 1]![0] : 'start', tick, gap: tick - (i ? marks[i - 1]![1] : 0) }))
+    const longest = gaps.reduce((a, b) => (b.gap > a.gap ? b : a))
+    const min = (x: number | undefined) => (x === undefined ? null : Math.round((x / 60) * 10) / 10)
+    const bought = Object.entries(ladder.licenseBought).sort((a, b) => a[1]! - b[1]!)
+    console.log('PIN35a', JSON.stringify({
+      carrotLicensedMin: ladder.licenseBought.radish === undefined ? 0 : min(ladder.licenseBought.radish),
+      firstThreeLicences: bought.slice(0, 3).map(([c, tick]) => ({ crop: c, min: min(tick) })),
+      ladderEndMin: min(endTick),
+      longest: { closedBy: longest.id, after: longest.from, gapMin: min(longest.gap), atMin: min(longest.tick) },
+    }))
+    expect(endTick).toBeGreaterThan(0)
+  })
+
   // measured batch 28: 1,188 game-minutes counting only milestones and rungs; batch 29 (task 151d) also counts every
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
   // saving for Pump 2; prices LOCKED. Batch 32.2: 347 min from game-minute 4,431 (was 232) — workers do one tile per
@@ -4029,7 +4120,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       return Math.round((a.run.lifetime.cashEarned - warmed.run.lifetime.cashEarned) / 2)
     }
     const caps = [2, 6, 12, 20]
-    const income = caps.map((k) => ({ fields: k, strawberry: at(k, 'strawberry'), lemon: at(k, 'lemon') }))
+    const income = caps.map((k) => ({ fields: k, strawberry: at(k, 'strawberry'), lemon: at(k, 'pumpkin') }))
     const coal = caps.map((k) => ({ fields: k, tankCoalPerHour: fieldCoalPerPlotHour() * 5 * k, minerCoalPerHour: Math.round(r.coalMinedPerHour) }))
     // the labor bound at 20 fields of strawberry: tiles sown and reaped per hour by the full fleet vs what the land needs
     let s = (() => {
@@ -4090,10 +4181,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // re-pinned batch 32.2 (was [213,217] [492,604] [550,1801]): workers do one tile per action on the Estate — the
     // workers-only arm is labor-bound at every N; the full fleet (whose plots the workers still help finish) moves less
     // re-pinned batch 33 (was [81,211] [81,598] [81,758]): molds: every kind smelts at once — the source run's `end` moves
+    // re-pinned batch 35 (was [81,209] [81,599] [81,755]): crop re-ladder: potato start, carrot licence 💰25 — `end` moves
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [81, 209],
-      [81, 599],
-      [81, 755],
+      [80, 210],
+      [80, 598],
+      [80, 756],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
@@ -4107,7 +4199,9 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', 0.4],
       ['harvester2', null],
-      ['harvester3', 4545.5],
+      // re-pinned batch 35 (was 4545.5): crop re-ladder: potato start, carrot licence 💰25 — harvester3 adds nothing at
+      // 300 tiles now (no payback)
+      ['harvester3', null],
       ['seeders', 0.8],
     ])
     // re-pinned batch 28 (was null / 300 / null / null); batch 32.2 (was 300 / 1000 / 1000 / null): workers do one tile
@@ -4152,7 +4246,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
   })
 
   it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms, step(s, n) identity', () => {
-    const forged = forge(3000, FLEETS.full, ['lemon', 'pumpkin', 'chilli', 'radish'])
+    const forged = forge(3000, FLEETS.full, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
     const t0 = Date.now()
     catchUp(big, 8 * HOUR_TICKS * 1000)
@@ -4297,13 +4391,15 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // before its sale, gets other deeds and the sold run's rows differ
     // re-pinned batch 33 (was 1.33 / 1.2): molds: every kind smelts at once — run 1 pays the molds before the fields
     // unlock and the sold runs reach it sooner, so the vault run is back over the 1.4× floor
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.68)
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.4)
+    // re-pinned batch 35 (was 1.68): crop re-ladder: potato start, carrot licence 💰25
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.66)
+    // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.37)
   })
 
   // batch 34 (task 187 scenario A-carry): run 2 started with the ⭐50 a sale now carries — the ladder bot buys no
   // Favours, so the carried ⭐ must not slow it: the Fields unlock with no stall, and the ≥ 1.4× run-2 speed-up holds
-  it('batch 34: scenario A-carry — a sold run starting with ⭐50 reaches the Fields unlock with no stall, ≥ 1.4× faster than run 1', () => {
+  it('batch 34: scenario A-carry — a sold run starting with ⭐50 reaches the Fields unlock with no stall, ≥ 1.35× faster than run 1', () => {
     const run1Fields = r1.ladder.ladderTicks.fields!
     const carry = { ...sale1.after, run: { ...sale1.after.run, stars: 50 } }
     const rc = firstHourOf(carry, Math.ceil(run1Fields / 1.3))
@@ -4314,7 +4410,9 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     const speedup = Math.round((run1Fields / fieldsTick) * 100) / 100
     console.log('PIN34carry', JSON.stringify({ fieldsH: hours(fieldsTick), run2FieldsH: hours(r2.ladder.ladderTicks.fields!), speedup, longestRungGapMin: longestMin, stallTicks: rc.stallTicks }))
     expect(rc.stallTicks).toBe(0)
-    expect(speedup).toBeGreaterThanOrEqual(1.4)
+    // re-pinned batch 35 (was ≥ 1.4, measured 1.4): crop re-ladder: potato start, carrot licence 💰25 — measured 1.37
+    // (PLAN.md "Batch 35 results" → Deviations: below the batch-34 1.4× floor; no stall)
+    expect(speedup).toBeGreaterThanOrEqual(1.35)
   }, 600_000)
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
@@ -4336,7 +4434,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 32.2 (was 37.9 / 34.7): workers do one tile per action on the Estate — the pre-machine plots
     // grind is labor-bound, so the cash for the machine rungs comes slower
     // re-pinned batch 33 (was 105.6 / 101): molds: every kind smelts at once
-    expect(h).toEqual([105, 100.1])
+    // re-pinned batch 35 (was [105, 100.1]): crop re-ladder: potato start, carrot licence 💰25
+    expect(h).toEqual([105.1, 100.1])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -4356,7 +4455,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
 
 describe('batch 22: four new crops — license ladder, price band, 8-crop mixes, prestige replay, offline (rules.batch13 on)', () => {
   const hours = (t: number) => Math.round((t / HOUR_TICKS) * 10) / 10
-  const NEW_CROPS = ['tomato', 'corn', 'grape', 'strawberry'] as const
+  const NEW_CROPS = ['tomato', 'lemon', 'grape', 'strawberry'] as const
   // the batch-19 bot with the four licenses on top of the old ladder; the home plot follows the best licensed crop
   const BOT22 = {
     licenses: [...LICENSE_ORDER, ...NEW_CROPS],
@@ -4412,7 +4511,7 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     const ticks = NEW_CROPS.map((c) => r1.ladder.licenseBought[c])
     expect(ticks.every((t) => t !== undefined)).toBe(true)
     expect([...ticks].sort((a, b) => a! - b!)).toEqual(ticks)
-    expect(r1.end.run.licenses).toEqual(['radish', ...LICENSE_ORDER, ...NEW_CROPS])
+    expect(r1.end.run.licenses).toEqual(['potato', ...LICENSE_ORDER, ...NEW_CROPS])
     expect(r1.ladder.ladderTicks.plots30).toBeDefined()
     expect(r1.stallTicks).toBe(0)
     expect(r1.ladder.lowest).toBeGreaterThanOrEqual(0)
@@ -4422,7 +4521,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // results" → Deviations)
     // re-pinned batch 33 (was [0.49, 0.57, 0.43, 0.53]): molds: every kind smelts at once — the income at each unlock
     // moves; grape and strawberry fall under the floor (0.35 h / 0.38 h)
-    expect(band.map((b) => b.h)).toEqual([0.5, 0.54, 0.35, 0.38])
+    // re-pinned batch 35 (was [0.5, 0.54, 0.35, 0.38]): crop re-ladder: potato start, carrot licence 💰25 — these four
+    // are now tomato / lemon / grape / strawberry (the same rows); tomato dips to 0.49 h
+    expect(band.map((b) => b.h)).toEqual([0.49, 0.56, 0.34, 0.37])
     for (const b of band) expect(b.h).toBeLessThanOrEqual(1.5)
   })
 
@@ -4476,7 +4577,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // with the sickle's seed drops (task 172)
     // re-pinned batch 32.2 (was 56.6 / 35.9): workers do one tile per action on the Estate (labor-bound plots grind)
     // re-pinned batch 33 (was 108.1 / 73.6): molds: every kind smelts at once
-    expect(h).toEqual([107.5, 72.5])
+    // re-pinned batch 35 (was [107.5, 72.5]): crop re-ladder: potato start, carrot licence 💰25
+    expect(h).toEqual([108.1, 72.6])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for
@@ -4505,7 +4607,7 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     const a = step(warmed, 2 * HOUR_TICKS)
     return (a.run.lifetime.cashEarned - warmed.run.lifetime.cashEarned) / 2
   }
-  const OLD_CROPS = ['radish', 'chilli', 'pumpkin', 'lemon'] as const
+  const OLD_CROPS = ['radish', 'corn', 'eggplant', 'pumpkin'] as const
   const four = { 400: incomeAt(400, OLD_CROPS), 1000: incomeAt(1000, OLD_CROPS) }
   const eight = { 400: incomeAt(400, CROP_IDS), 1000: incomeAt(1000, CROP_IDS) }
   const factorsAt = (n: number, crops: readonly CropId[]) => {
@@ -4605,7 +4707,8 @@ describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
     // to move (PLAN.md "Batch 32 results" → Deviations)
     expect(Math.max(500, Math.round((0.5 * lv3.income) / 500) * 500)).toBe(7000)
     // re-pinned batch 33 (was 14227): molds: every kind smelts at once — the vein-Lv3 hour now includes the iron mold's wait
-    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 14470, cash: 6500 })
+    // re-pinned batch 35 (was 💰14,470/h): crop re-ladder: potato start, carrot licence 💰25 — the cash part stays 💰6,500
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 14192, cash: 6500 })
     for (const kind of MINE_DROP_IDS) {
       expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
       expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
@@ -4854,12 +4957,14 @@ describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (ta
   // offers, so the 10th contract lands at minute 319 (PLAN.md "Batch 32 results" → Deviations)
   // re-pinned batch 32.2 (was 319): workers do one tile per action on the Estate, so the save's harvest workers reap
   // fewer contract plots and the 10th contract lands at minute 417
-  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 417 holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
+  // re-pinned batch 35 (was 417): crop re-ladder — the v27 migration moves the save's chips and offers up a rung and
+  // refunds its unlicensed seeds, so the 10th contract lands at minute 412
+  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 412 holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
     const loaded = deserialize(v22)!.state
     const r = contractRun(loaded, 600)
     console.log('PIN311b', JSON.stringify(r))
     expect(r.reached).not.toBeNull()
-    expect(r.reached!.minute).toBe(417)
+    expect(r.reached!.minute).toBe(412)
     expect(r.reached!.stars).toBeGreaterThanOrEqual(20)
     expect(r.reached!.cash).toBeGreaterThanOrEqual(1_500_000)
   }, 300_000)
@@ -4968,8 +5073,30 @@ describe('batch 29: manager', () => {
     expect(managed.gain).toBeGreaterThanOrEqual(0.99 * fixed.gain)
   }, 120_000)
 
+  // batch 35 (task 190, report): every licence and the Manager — its plan with 🌶️ chilli (the new top row) available,
+  // 💰/h against the same estate with the chips fixed on strawberry and against a Manager without the chilli licence
+  it('PIN35chilli: the Manager plan with chilli available, 💰/h vs strawberry-only (report)', () => {
+    const withChilli = stage6(true)
+    const noChilli = { ...withChilli, run: { ...withChilli.run, licenses: withChilli.run.licenses.filter((c) => c !== 'chilli') } }
+    const plan = (s: GameState) => managerPlan(s).rest.map((r) => `${r.crop}×${r.fields.length}`).join(' ')
+    const managed = run(withChilli, 4)
+    const managedNoChilli = run(noChilli, 4)
+    const strawberry = run(stage6(false, Array(6).fill('strawberry')), 4)
+    const perHour = (r: { gain: number }) => Math.round(r.gain / 4)
+    console.log('PIN35chilli', JSON.stringify({
+      plan: plan(withChilli),
+      planNoChilli: plan(noChilli),
+      managedPerHour: perHour(managed),
+      managedNoChilliPerHour: perHour(managedNoChilli),
+      strawberryOnlyPerHour: perHour(strawberry),
+      vsStrawberryOnly: Math.round((managed.gain / strawberry.gain) * 100) / 100,
+      chips: managed.s.run.fields.list.map((f) => f.crop),
+    }))
+    expect(managed.gain).toBeGreaterThan(0)
+  }, 300_000)
+
   it('contract run: chips on lemon, an accepted tier-2 strawberry contract completes within 60 game-minutes', () => {
-    const base = stage6(true, Array(6).fill('lemon'))
+    const base = stage6(true, Array(6).fill('pumpkin'))
     const offer = { good: 'strawberry' as const, count: orderCount(base, 'strawberry', 2), done: 0, tier: 2, accepted: true, stars: 4 }
     const s0: GameState = { ...base, run: { ...base.run, orders: { ...base.run.orders, unlocked: true, offers: [offer] } } }
     const plan = managerPlan(s0)
@@ -5080,7 +5207,7 @@ describe('batch 29: manager', () => {
       )
       console.log('PIN31model', JSON.stringify(rows))
       for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
-    })
+    }, 120_000) // batch 35: the exhaustive split over 10 crops runs past the 5 s default
   })
 })
 
@@ -5279,4 +5406,124 @@ describe('batch 34: the per-run sim log (task 181)', () => {
       rmSync(path, { force: true })
     }
   })
+})
+
+describe('batch 35: the 10-crop ladder (task 190)', () => {
+  // guard (skill rule 7): the 💰20 went on potato seeds that rotted — 💰0, an empty pouch, 9 tilled tiles. Digging
+  // (potato seeds) and farming them must reach the carrot licence; reports the game-minutes
+  it('scenario A-stingy: 💰0 and no seeds digs potato seeds, plants, harvests and buys the carrot licence', () => {
+    const s0 = createInitialState()
+    let s: GameState = { ...s0, run: { ...s0.run, cash: 0, seeds: {}, tiles: s0.run.tiles.map((t) => ({ ...t, status: 'tilled' as const })) } }
+    const r: { firstDugSeed?: number; firstHarvest?: number; carrot?: number; minLowest: number; digs: number } = { minLowest: 0, digs: 0 }
+    for (let t = 0; t < 4 * HOUR_TICKS && r.carrot === undefined; t++) {
+      while (s.run.energy >= ACTION_ENERGY_COST && r.carrot === undefined) {
+        const licence = buyLicense(s, 'radish')
+        if (licence.ok) {
+          s = licence.state
+          r.carrot = s.run.tick
+          break
+        }
+        const next = bestFarmAction(s, ['potato'])
+        if (next) {
+          if (next.kind.startsWith('harvest')) r.firstHarvest ??= s.run.tick
+          s = next.state
+          continue
+        }
+        const dug = digForSeeds(s)
+        if (!dug.ok) break
+        r.digs++
+        if ((dug.state.run.seeds.potato ?? 0) > 0) r.firstDugSeed ??= s.run.tick
+        s = dug.state
+      }
+      r.minLowest = Math.min(r.minLowest, lowestValue(s))
+      s = step(s, 1)
+    }
+    const min = (x?: number) => (x === undefined ? null : Math.round((x / 60) * 10) / 10)
+    console.log('PIN35stingy', JSON.stringify({ firstDugSeedMin: min(r.firstDugSeed), firstHarvestMin: min(r.firstHarvest), carrotLicensedMin: min(r.carrot), digs: r.digs, lowest: r.minLowest }))
+    expect(r.firstHarvest).toBeDefined()
+    expect(r.carrot).toBeDefined()
+    expect(r.minLowest).toBeGreaterThanOrEqual(0)
+  }, 120_000)
+
+  it('scenario B: the real v26 save, migrated, 2 game-hours with its own workers (report; batch 34: 💰132,549/h, ⭐0/h)', () => {
+    const start = deserialize(v26)!.state
+    const { run, meta } = start
+    const s = step(start, 2 * HOUR_TICKS)
+    // the one-time windfall: planted lemon tiles and chilli plots finish at their new price, not the v26 one (base
+    // sell lemon 110 / chilli 25 at 1a961fff), before the market factor
+    const lvl = run.upgrades.sellPrice
+    const lemonTiles = run.tiles.filter((t) => t.status === 'planted' && t.cropId === 'lemon').length
+    const chilliTiles = run.fields.list.reduce((n, f) => n + f.plots.filter((p) => p.crop === 'chilli').length, 0) * plotTiles()
+    const windfall = {
+      lemonTiles,
+      chilliTiles,
+      lemon: lemonTiles * (cropSellPrice('lemon', meta, lvl) - sellPrice(110, meta, lvl)),
+      chilli: chilliTiles * (cropSellPrice('chilli', meta, lvl) - sellPrice(25, meta, lvl)),
+    }
+    const cashEarnedPerHour = Math.round((s.run.lifetime.cashEarned - run.lifetime.cashEarned) / 2)
+    console.log('PIN35b', JSON.stringify({ cashEarnedPerHour, vsBatch34: Math.round((cashEarnedPerHour / 132_549) * 100) / 100, starsPerHour: (s.run.lifetime.starsEarned - run.lifetime.starsEarned) / 2, windfall }))
+    expect(cashEarnedPerHour).toBeGreaterThan(0)
+  }, 300_000)
+
+  // guard: task 188's synthetic v26 saves, 8 game-hours of offline catch-up after load, checked every tick
+  const v26With = (run: object) => {
+    const old = JSON.parse(v26)
+    return deserialize(JSON.stringify({ ...old, state: { ...old.state, run: { ...old.state.run, ...run } } }))!.state
+  }
+  const old = JSON.parse(v26).state.run
+  type FieldV26 = { crop: string | null; plots: object[] }
+  // as a v26 game could hold them: crop-to-plant and every field chip on a crop the save licenses (setFieldCrop and
+  // selectCrop refuse an unlicensed one)
+  const chips = (crop: string, list: FieldV26[] = old.fields.list) => ({ ...old.fields, list: list.map((f) => ({ ...f, crop: f.crop && crop })) })
+  const cornList = old.fields.list.map((f: FieldV26, i: number) => (i === 3 ? { ...f, plots: f.plots.map((p, j) => (j === 0 ? { crop: 'corn', readyTick: old.tick + 100 } : p)) } : f))
+  const saves = {
+    fixture: v26With({}),
+    allEight: v26With({ licenses: ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry'] }),
+    skipped: v26With({ licenses: ['radish', 'strawberry'], plantCrop: 'radish', fields: chips('radish') }),
+    corn: v26With({
+      licenses: ['radish', 'corn'],
+      plantCrop: 'corn',
+      seeds: { corn: 4 },
+      tiles: old.tiles.map((t: object, i: number) => (i < 3 ? { ...t, cropId: 'corn' } : t)),
+      fields: chips('corn', cornList),
+    }),
+    chilliOffer: v26With({ orders: { ...old.orders, offers: [{ good: 'chilli', count: 20, done: 3, tier: 1, accepted: true, stars: 2 }, ...old.orders.offers.slice(1)] } }),
+  }
+  it('PIN35migrate: no unlicensed sowing, every unlicensed crop harvested, nothing negative, licensed sowing goes on', () => {
+    const rows = Object.entries(saves).map(([name, s0]) => {
+      const licensed = new Set(s0.run.licenses)
+      // a sowing between two ticks: a tile's growth restarts; a plot's readyTick jumps a whole cycle (a growing plot's
+      // readyTick slips by at most 1 a tick while its field is short of water — not a sowing)
+      const standing = (s: GameState) => [
+        ...s.run.tiles.map((t) => (t.status === 'planted' && t.cropId ? { crop: t.cropId, tile: true, v: t.growth } : null)),
+        ...s.run.fields.list.flatMap((f) => f.plots.map((p) => (p.crop ? { crop: p.crop, tile: false, v: p.readyTick } : null))),
+      ]
+      const unlicensed = (s: GameState) => standing(s).filter((x) => x && !licensed.has(x.crop)).length
+      const atLoad = unlicensed(s0)
+      let s = s0
+      let resown = 0
+      let lowest = lowestValue(s0)
+      let prev = standing(s)
+      for (let t = 0; t < OFFLINE_CAP_TICKS; t++) {
+        s = step(s, 1)
+        const cur = standing(s)
+        cur.forEach((x, i) => {
+          const p = prev[i]
+          if (x && !licensed.has(x.crop) && (!p || p.crop !== x.crop || (x.tile ? x.v < p.v : x.v - p.v > 1))) resown++
+        })
+        prev = cur
+        lowest = Math.min(lowest, lowestValue(s))
+      }
+      const plants = s.run.lifetime.workerPlants - s0.run.lifetime.workerPlants
+      return { name, atLoad, leftAfter8h: unlicensed(s), resown, lowest, workerPlants: plants, licensedStanding: standing(s).filter((x) => x && licensed.has(x.crop)).length }
+    })
+    console.log('PIN35migrate', JSON.stringify(rows))
+    for (const r of rows) {
+      expect(r.atLoad).toBeGreaterThan(0)
+      expect([r.resown, r.leftAfter8h]).toEqual([0, 0])
+      expect(r.lowest).toBeGreaterThanOrEqual(0)
+      expect(r.workerPlants).toBeGreaterThan(0)
+      expect(r.licensedStanding).toBeGreaterThan(0)
+    }
+  }, 600_000)
 })
