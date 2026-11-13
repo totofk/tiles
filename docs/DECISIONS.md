@@ -847,3 +847,40 @@ Hermes's calls while refining (Toon may reject by number):
 - **Order slots** bought with ⭐ keep carrying across a sale as shipped in batch 20 (`prestige.ts:77`); not changed.
 - **Renumbered:** batch 33.1 is folded into batch 34 (its task 181 kept); batch 34 = tasks 181–187, save v26 as
   recorded; batch 35 stays save v27.
+
+## Batch 35 refined: potato, eggplant, the 10-crop ladder with chilli on top (2026-11-13, Hermes against `1a961fff`)
+
+Spec: PLAN.md "Batch 35" (tasks 188–190), save v26 → v27. Design sources (Toon): the new ladder potato < carrot < corn <
+eggplant < pumpkin < tomato < lemon < grape < strawberry < chilli and potato as the new starting / dig crop (accepted
+2026-11-11, "Crops — ACCEPTED A + B"); the licence migration "swap by tier/count, potato free, chilli renown kept,
+planted crops finish and sell" (2026-11-12, decisions draft item 3). Edge cases a–k of that item are settled here
+under "a migration never takes earned value away". No newer batch 35 refinement by Toon exists in the drafts or the
+repo (checked 2026-11-13: no b35 draft, no PLAN section); batch 33.1 is already folded into batch 34 (task 181), so
+nothing runs before 35.
+
+Hermes's calls while refining (Toon may reject by number):
+1. **Stat rows keep their rank.** The 8 shipped rows (grow / seed / sell / licence) stay at their rung and the crops are
+   re-labelled: corn takes chilli's old row (rung 3), eggplant pumpkin's, pumpkin lemon's, lemon corn's; carrot,
+   tomato, grape and strawberry keep theirs. The pinned economy holds rung for rung, and the sim re-pins stay small.
+   Corn drops from 💰360 to 💰25 a sale (the "nerf overnight" Toon accepted with the order).
+2. **Two new rows (est., the sim pins them):** potato 60 ticks / seed 1 / sell 5 / free; chilli 1,160 ticks / seed 460 /
+   sell 2,070 / licence 💰32,000 (the batch-22 compression continued: sell ×1.8, seed ×1.77, licence ×1.45).
+3. **Carrot licence 💰25 (est.)**, about one potato harvest in. Carrot was free; it is now the first paid rung.
+4. **Licences map by rank** (old rung k → new paid rung k). This equals "N licences → the N lowest paid rungs" for
+   every save that bought in shop order, and keeps the price row for a save that skipped rungs (radish + strawberry
+   stays radish + strawberry instead of sliding to radish + corn).
+5. **Settings and promises follow the row:** home crop-to-plant, field chips (pins kept) and every crop offer (accepted
+   or not) move by the rank map, so planters, the Manager and order cash keep the same value. Chips are not cleared.
+6. **Fields access follows the row:** a mapped crop whose source crop was fields-plantable is granted (new
+   `lifetime.fieldsGranted`), so a migrated estate does not drop back to carrot until 50 home harvests.
+7. **Planted crops keep their crop and finish** (Toon). Where the base sale price falls (only corn), the migration credits
+   the difference for what is planted; where it rises (chilli, lemon, pumpkin), the one harvest sells at the new price.
+   That is a bounded one-time windfall, and it is not clawed back.
+8. **Seeds:** stock of a crop that is no longer licensed, or whose seed got cheaper (corn), is refunded at the old seed
+   price; other stock stays.
+9. **Renown, lifetime harvests, milestones and market glut stay on their crop id** (Toon: chilli renown kept). Toon's
+   own fixture keeps lemon renown 2,427 on lemon, which it no longer licenses; it waits until lemon is bought (💰10,000).
+10. Old migrations iterate a frozen `CROP_IDS_V26`, so v1 … v25 fixtures migrate exactly as before.
+11. calc34 items 5–7 (soil traits, listing soil, dig finds) re-run on the 10-crop ladder moves to batch 36's refine:
+    those systems ship in 36.
+- **Renumbered:** none. Batch 35 = tasks 188–190, save v27, as recorded in the batch 34 entry.

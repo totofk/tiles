@@ -7102,3 +7102,201 @@ trails speed Lv3 alone.
     old toast); and the HUD ⭐ button also shows when ⭐ > 0 with no board, because a sold run starts with up to ⭐50
     before its board is bought and the HUD ⭐ is the sheet's only entry.
 
+
+## Batch 35 — Crops: 🥔 potato, 🍆 eggplant, the 10-crop ladder with 🌶️ chilli on top (tasks 188–190, save v26 → v27)
+
+Toon's go: batch order 33 → 34 → 35 → 36 (2026-11-13) and "start batch 35 only" (relayed 2026-11-13). Design:
+the "Crops — ACCEPTED A + B" section and "Toon decisions 2026-11-12" item 3 (chilli migration, edge cases a–k) of
+Hermes's decisions draft `tiles-new-players-feedback-decisions.md`, summarised in the new "Batch 35 refined" entry at
+the end of docs/DECISIONS.md (the calls made while refining). Anchors are against `1a961fff`. Do not pick other values
+than the ones below.
+
+**Why.** New players start on carrot and dig carrot seeds (`src/core/data/crops.ts:18`, `src/core/balance.ts:477`);
+Toon wants a cheaper first crop (🥔 potato), one more early crop (🍆 eggplant) and a re-ordered ladder, cheap →
+expensive: potato < carrot < corn < eggplant < pumpkin < tomato < lemon < grape < strawberry < chilli. Today's order is
+carrot < chilli < pumpkin < lemon < tomato < corn < grape < strawberry (`crops.ts:3`, `balance.ts:19–32`).
+
+**Save.** v26 → v27 (`SAVE_VERSION`, `src/save/serialize.ts:31`). The real v26 save is committed as
+`tests/fixtures/save-v26.json` (written by the live v26 build: the v25 fixture loaded, migrated and re-saved by the
+shipped code; cash 💰460,383, ⭐39, licences carrot / chilli / pumpkin / lemon, 24 home tiles of lemon, 8 fields with
+chips chilli / lemon / lemon / carrot ×5). Never edit any file in tests/fixtures. ALL of this batch's save shape is in
+task 188's bump.
+
+**LOCKED (Toon; design around these, do not argue them away)**
+- The ladder order above, chilli on top. Potato is the new starting crop and the dig-seed crop.
+- Licence migration = swap by tier/count: a save keeps as many licences as it owns, mapped onto the paid rungs of the
+  new ladder (carrot, corn, eggplant, pumpkin, tomato, lemon, grape, strawberry, chilli), plus 🥔 potato free.
+- Existing chilli renown points are kept (renown stays on its crop id).
+- Crops already planted finish and sell.
+- Edge cases follow "a migration never takes earned value away".
+
+### Numbers (all fixed here; balance.ts)
+
+The 8 shipped stat rows (grow / seed / sell / licence, `balance.ts:21–31`) keep their RANK: the crop at new paid rung k
+takes the row of the old rung k, so the economy the sim pinned stays rung for rung. Two new rows: potato at the bottom,
+chilli at the top. `(est.)` = Hermes's number, pinned by this batch's sim (guards below), not measured yet.
+
+| Rung | Crop (id) | growTicks | seedCost | sellPrice | licenseCost | Row comes from |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 🥔 Potato (`potato`) | 60 | 1 | 5 | 0 (free, starting crop) | new (est.) |
+| 2 | 🥕 Carrot (`radish`) | 100 | 2 | 10 | 25 (est.; was 0) | old rung 1 (carrot) |
+| 3 | 🌽 Corn (`corn`) | 160 | 5 | 25 | 50 | old rung 2 (chilli) |
+| 4 | 🍆 Eggplant (`eggplant`) | 240 | 10 | 60 | 100 | old rung 3 (pumpkin) |
+| 5 | 🎃 Pumpkin (`pumpkin`) | 360 | 20 | 110 | 400 | old rung 4 (lemon) |
+| 6 | 🍅 Tomato (`tomato`) | 480 | 40 | 200 | 7,000 | old rung 5 (tomato, unchanged) |
+| 7 | 🍋 Lemon (`lemon`) | 620 | 75 | 360 | 10,000 | old rung 6 (corn) |
+| 8 | 🍇 Grape (`grape`) | 780 | 140 | 640 | 15,000 | old rung 7 (grape, unchanged) |
+| 9 | 🍓 Strawberry (`strawberry`) | 960 | 260 | 1,150 | 22,000 | old rung 8 (strawberry, unchanged) |
+| 10 | 🌶️ Chilli (`chilli`) | 1,160 | 460 | 2,070 | 32,000 | new (est.) |
+
+- Potato: one water at planting covers its grow (60 ticks = `MOISTURE_FULL_TICKS`, `balance.ts:35`); net 4 per harvest
+  vs carrot 8; floor margin 5 × 0.5 ÷ 1 = 2.5 (≥ 2.2 like the rest, `MARKET_FLOOR` `balance.ts:494`).
+- Chilli (top): grow +200 (the step after +140 / +160 / +180), seed ×1.77, sell ×1.8, licence ×1.45 (the batch-22
+  compression); floor margin 2,070 × 0.5 ÷ 460 = 2.25; net/tick 1.388 vs strawberry 0.927.
+- Carrot licence 💰25 (est.): about one potato harvest of a 9-tile start. Potato is free.
+- `CROP_IDS` (`crops.ts:3`) = `['potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'lemon', 'grape',
+  'strawberry', 'chilli']` (licence order; Shop, Farm picker, Manager tie-break and milestones follow it). `CROPS`
+  names: Potato, Carrot (id stays `radish`), Corn, Eggplant, Pumpkin, Tomato, Lemon, Grape, Strawberry, Chilli.
+  `STARTING_CROP = 'potato'` (`crops.ts:18`); `DIG_SEED_CROP = 'potato'` (`balance.ts:477`, chance 0.2 unchanged).
+- Rewrite the `CROP_BASE` comments (`balance.ts:20, 23, 26–27`) for the new rows (the "pumpkin licence 100" note is
+  now eggplant's row).
+- Emoji (Unicode ≤ 11): 🥔 U+1F954 (Unicode 9), 🍆 U+1F346 (Unicode 6); every other crop keeps its glyph.
+
+### The rank map (migration)
+
+`RANK_MAP_V26` (frozen in `src/save/serialize.ts`): old rung k → new paid rung k:
+radish → radish, chilli → corn, pumpkin → eggplant, lemon → pumpkin, tomato → tomato, corn → lemon, grape → grape,
+strawberry → strawberry. For every save that bought its licences in shop order (cheapest first) this is exactly
+Toon's "N licences → the N lowest paid rungs"; for a save that skipped rungs it keeps each licence's price row instead
+of sliding it down (never takes value away). Nobody keeps chilli (no old crop maps to rung 10): a full-licence
+veteran owns potato + carrot … strawberry (9) and buys chilli new.
+
+- [ ] 188. **The 10-crop ladder + save v26 → v27 (every new field of the batch).**
+  - Data: `src/core/data/crops.ts` (`CROP_IDS`, `CROPS`, `STARTING_CROP`) and `CROP_BASE` (`balance.ts:19–32`) as in
+    the table; `DIG_SEED_CROP` (`balance.ts:477`).
+  - `Lifetime` (`src/core/state.ts:176–193`) gains `fieldsGranted: CropId[]` — crops that are fields-plantable without
+    their 50 home harvests because the save carried that row's fields access over the re-ladder. Fresh runs `[]`
+    (`createFreshRun`, and every place that builds a fresh `Lifetime`); it carries through a sale with the rest of
+    `lifetime` (`RunCarry`, `state.ts:238`).
+  - `fieldsPlantable` (`src/core/fields.ts:126–128`) = licensed AND (`lifetime.harvests[crop] ≥ fieldsCropHarvests()`
+    OR `lifetime.fieldsGranted.includes(crop)`). `src/app/estateText.ts:63` already calls it; keep its `🏡 n/50` text
+    for crops that are neither.
+  - Save `src/save/serialize.ts`: `SAVE_VERSION = 27`; freeze `SaveV26` / `RunV26` with a frozen
+    `CropIdV26` union and `CROP_IDS_V26 = ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape',
+    'strawberry']`, never derived from the live state. Every OLDER migration that iterates `CROP_IDS` or builds a
+    fresh market (`serialize.ts:459, 508, 605, 620`) switches to `CROP_IDS_V26` / a v26-keyed market, so old fixtures
+    migrate exactly as before (no potato / eggplant keys before v27). `Save = SaveV27`; `migrateV26(save: SaveV26):
+    SaveV27` chained after `migrateV25` in `migrate` (`serialize.ts:743–754`; every older branch ends in
+    `migrateV26(…)`). Frozen old rows `CROP_SEED_V26` and `CROP_SELL_V26` (the base seed / sell of `balance.ts:21–31`
+    at `1a961fff`) live in serialize.ts. `migrateV26`, in this order:
+    1. `licenses` = `['potato', ...old licences mapped by RANK_MAP_V26]`, deduplicated, sorted in `CROP_IDS` order.
+    2. `plantCrop` = `RANK_MAP_V26[old plantCrop]` (always licensed after step 1).
+    3. Field chips: every field's `crop` = `RANK_MAP_V26[crop]` (null stays null); `pinned` unchanged. Planted plots
+       keep their own `crop` and `readyTick` (they finish and sell as that crop).
+    4. Home tiles keep their `cropId`, growth and status (they finish and sell as that crop; the planter worker then
+       plants `plantCrop`).
+    5. `lifetime.fieldsGranted` = for each old licence c with `harvests[c] ≥ 50` (frozen 50): `RANK_MAP_V26[c]`, when
+       that crop's own `harvests` are below 50; deduplicated.
+    6. Seeds: every `run.seeds[c] > 0` whose crop is NOT licensed after step 1, or whose base seed cost falls
+       (`CROP_BASE[c].seedCost < CROP_SEED_V26[c]`: only corn, 75 → 5) is refunded to `cash` at
+       `Math.round(CROP_SEED_V26[c] × multiplier(meta, 'cost'))` each and removed from `seeds`. Other seeds stay.
+    7. Planted crops whose base sell falls (`CROP_BASE[c].sellPrice < CROP_SELL_V26[c]`: only corn, 360 → 25): `cash +=`
+       (home tiles with `cropId === c` + field plots with `crop === c` × `plotTiles()`) × (old − new) sale price, both
+       computed like `cropSellPrice` (`balance.ts:729–735`) with the save's `upgrades.sellPrice` and meta, the old one
+       from `CROP_SELL_V26`. Planted crops whose price rises sell at the new price (no clawback).
+    8. Offers (`run.orders.offers`, accepted or not): every crop `good` becomes `RANK_MAP_V26[good]`; `count`, `done`,
+       `stars`, `accepted`, `tier` unchanged (same price row → same cash value). Item / bar offers unchanged.
+    9. `market` gains `potato: 0` and `eggplant: 0`; every other crop key unchanged. `renown`, `lifetime.harvests` and
+       `milestones` stay on their crop ids (Toon: chilli renown kept). `meta`, cash (except steps 6–7), ⭐, inventory,
+       upgrades, workers, furnace and mine unchanged.
+  - Callers of what changes (grep `src/` and `tests/` for each; CI tsc fails on a stale one): `CROP_IDS`, `CropId`
+    Records (`src/app/FarmGrid.tsx:16`, `src/app/tips.ts:10`, `src/core/state.ts:276`, `src/core/manager.ts:24`),
+    `STARTING_CROP` (`state.ts:247, 271`, `prestige.ts:66`), `fieldsPlantable` (`manager.ts:37, 46`, `orders.ts:65,
+    90`, `fields.ts:190, 531`, `src/app/EstateMap.tsx:199`, `estateText.ts:63`), every `lifetime: {` literal in src/
+    and tests/ (gains `fieldsGranted: []`), and the crop-literal tests (`tests/balance.test.ts:72–76` ladder order and
+    rows, `tests/actions.shop.test.ts`, `tests/actions.farm.test.ts`, `tests/market.test.ts`, `tests/fields.test.ts`,
+    `tests/orders.test.ts`, `tests/manager.test.ts`, `tests/renown.test.ts`, `tests/milestones.test.ts`,
+    `tests/prestige.test.ts`, `tests/stats.test.ts`, `tests/Shop.test.tsx`, `tests/App.test.tsx`, `tests/estateText
+    .test.ts`, `tests/marketText.test.ts`, `tests/uiState.test.ts`, `tests/workers.test.ts`, `tests/workshop.test.ts`,
+    `tests/WorkshopCard.test.tsx`, `tests/step.test.ts`, `tests/save.test.ts`). A test that used chilli as "the cheap
+    second crop" now uses corn (same row); one that used corn as a rich crop now uses lemon (same row).
+  - Tests (`tests/save.test.ts`, `tests/balance.test.ts`, `tests/fields.test.ts`): every fixture v1 … v26 migrates to
+    v27; `save-v26.json` → licences `['potato', 'radish', 'corn', 'eggplant', 'pumpkin']`, `plantCrop` `pumpkin`,
+    chips `corn / pumpkin / pumpkin / radish ×5`, `fieldsGranted` `['corn', 'eggplant']`, seeds `{ radish: 50,
+    pumpkin: 5 }` and cash +💰325 (lemon 15 × 20 + chilli 5 × 5), the 24 lemon tiles still lemon, ⭐39, renown
+    unchanged (lemon 2,427 stays on lemon); a synthetic v26 save with all 8 licences → 9 licences, chilli absent; one
+    with `['radish', 'strawberry']` → `['potato', 'radish', 'strawberry']`; one with 3 home tiles + 1 field plot of
+    corn planted at sellPrice Lv0 → cash + 13 × (360 − 25); corn seeds 4 held → refunded 4 × 75; an accepted chilli
+    offer (done 3) → a corn offer with done 3; the ladder test lists the 10 crops with the table's rows; licence costs
+    rise along `CROP_IDS` from carrot on; potato is free; a fresh run starts with `['potato']`, plants potato and
+    digs potato seeds.
+
+- [ ] 189. **UI: potato and eggplant everywhere, tips for the new ladder.** No browser: jsdom only.
+  - `CROP_EMOJI` (`src/app/FarmGrid.tsx:16–25`): `potato: '🥔'`, `eggplant: '🍆'`.
+  - `CROP_TIPS` (`src/app/tips.ts:10–19`), verbatim:
+    - potato: "Your starting crop: seeds cost almost nothing and it is ready fast. It earns the least, so it is the crop to grow out of."
+    - radish: "A cheap step up from potato: slower, with twice the cash per harvest. The license is paid once; each seed costs a little."
+    - corn: "Grows slower than carrot but earns more per energy. Seeds stay cheap, so it is an easy third crop."
+    - eggplant: "A long grow for a big sale, more cash per energy than corn. Seeds cost more, so keep cash for replanting."
+    - pumpkin: "The slowest of the early crops and the best cash per energy among them. Waiting, not energy, becomes the limit."
+    - tomato: keep today's text but "slower than lemon again" → "slower than pumpkin again".
+    - lemon: "A long grow with a big sale. Beyond tomato the seeds get dear — keep cash for replanting before buying anything else."
+    - grape: unchanged.
+    - strawberry: "Slow and very rich. Waiting, not energy or water, is the limit; its deep market absorbs a whole farm alone."
+    - chilli: "The top crop: the slowest grow and the richest sale. Each seed costs a lot, so plant it where you will not re-plan soon."
+  - Shop licence list (`src/app/Shop.tsx:103`), Farm crop picker (`src/app/Farm.tsx:105`), badges (`src/app/badges.ts:28`),
+    Stats and milestones already loop `CROP_IDS`: no code change beyond the Records; check them in tests.
+  - jsdom tests: a fresh game's Farm picker shows only 🥔 Potato and the dig toast names Potato; the Shop lists the 10
+    licences in the new order with carrot at 💰25 and chilli at 💰32,000 (`fmt` as shown today); a migrated
+    `save-v26.json` renders the Estate chips (Corn, Pumpkin) with no `🏡 n/50` lock on Corn / Eggplant (granted).
+  - You have no browser: list under `### Deviations` what you could not verify (Hermes re-measures the Shop licence
+    list and the Farm crop picker with 10 crops live at 375 / 1024 / 1440 / 2560 / 3440).
+
+- [ ] 190. **Sim: the bot on the new ladder, scenarios A / B, the migration pin, re-pins, changelog, results.**
+  - Add scenario A's test FIRST on the unchanged code (record "before"), then change core.
+  - Bot policy follows the rank map, rung for rung (same rows → same economy): every crop literal in
+    `tests/sim.test.ts` bot configs is mapped — `LICENSE_ORDER` (`:1320`) `['chilli', 'pumpkin', 'lemon']` →
+    `['radish', 'corn', 'eggplant', 'pumpkin']` (carrot is now bought first), `PLANT_ORDER` (`:1321`) →
+    `['pumpkin', 'eggplant', 'corn', 'radish', 'potato']`, `FARM_PAIR_CROPS` (`:2398`) and the `farming` map (`:1436`)
+    → `['radish', 'corn', 'eggplant', 'pumpkin']`, the all-licences scenario (`:3464–3474`) → every `CROP_IDS` crop.
+    Any other crop literal: map it by `RANK_MAP_V26`. The bot starts on potato and buys the carrot licence as soon as
+    it can afford it. Other policies stay.
+  - Scenario A (fresh, tick 0, the batch-19 170 h ladder run as `PIN33a` / batch 34's scenario A): report before →
+    after: the minute carrot is licensed, the first three ladder rungs, ladder end, the longest gap tick 0 → ladder end
+    and what bound it. Guards that must hold: batch-16 ladder gaps ≤ 60 game-min, PIN26b ≤ 90 game-min to the Tractor,
+    batch-18 unlock step ≤ 60 game-min, the batch-31.1 Manager unlock path.
+  - Scenario A-stingy (guard, skill rule 7): a fresh run that spends its 💰20 on potato seeds, lets them rot and has 💰0
+    and no seeds can dig potato seeds, plant, harvest and reach the carrot licence; report the game-minutes.
+  - Scenario B (veteran, `tests/fixtures/save-v26.json` as migrated, 2 game-hours with its own workers): report cash/h
+    and ⭐/h after, next to batch 34's scenario B figures; the one-time windfall of the planted lemon tiles and chilli
+    plots that finish at their new price (report, not guard). If cash/h after is more than 10 % below batch 34's, record
+    it under `### Deviations` (not a stop).
+  - `PIN35migrate` (guard): the synthetic saves of task 188 run 8 game-hours of offline catch-up after load: no tile or
+    plot is ever sown with an unlicensed crop, every planted unlicensed crop is harvested and sold once, no cash /
+    seed / stock goes negative, and the planter / Manager keep sowing licensed crops.
+  - `PIN35chilli` (report): an estate save with every licence and the Manager — its plan with chilli available, cash/h
+    vs strawberry-only (the new top row; est. ≈ +50 % per tile from the net/tick ratio).
+  - Re-pin every other moved pin old → new with its cause ("crop re-ladder: potato start, carrot licence 💰25" or
+    "chilli top row"). A guard that fails (stall gap cap, negative value, price above storage capacity, migration, the
+    Manager unlock path) is a blocker: record it under `### Deviations` with the numbers and stop.
+  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`), verbatim:
+    `{ batch: '35', date: '<today, YYYY-MM-DD>', line: "New crops: 🥔 Potato is the new starter, 🍆 Eggplant joins and 🌶️ Chilli is now the top crop. Your licences move up the new ladder rung for rung; nothing you paid for is lost." }`
+  - Write `## Batch 35 results` + `### Deviations` at the TRUE END of docs/PLAN.md (the scenario tables go there) and
+    tick 188–190.
+
+### Two scenarios (skill rule 0a)
+- **A — fresh player from tick 0.** Starts with 💰20, potato licensed, 9 tiles. Potato (net 4 per 60 ticks, one water)
+  is weaker than carrot (net 8 per 100 ticks, two waters), so carrot at 💰25 is the first purchase, about one potato
+  harvest in. From carrot on the rows are the old ladder's, so every later rung keeps its pinned pace plus the potato
+  minutes. Stingy / digging players dig potato seeds (chance 0.2 unchanged). Hand-heavy players see 10 crops in the
+  picker over the run. Chilli (💰32,000) arrives after strawberry; the Manager then plans with it.
+- **B — veteran with a migrated save** (`save-v26.json`: carrot / chilli / pumpkin / lemon licensed, 24 lemon tiles,
+  8 fields). After the migration: potato / carrot / corn / eggplant / pumpkin, crop-to-plant pumpkin (lemon's old
+  row), chips corn and pumpkin (the old chilli and lemon rows), corn and eggplant granted on the fields, 💰325 refunded
+  for 15 lemon + 5 chilli seeds. Planted lemon and chilli finish and sell once at their new (higher) prices. Lemon
+  renown (2,427) waits on lemon until it is re-licensed (💰10,000). A full-licence veteran keeps 9 of 10 rungs and
+  buys chilli new; a corn farmer's planted corn is credited the price drop.
+
+### Not in this batch
+- calc34 items 5–7 (soil traits, listing soil, dig finds) on the 10-crop ladder: those systems ship in batch 36, so the
+  re-run belongs to batch 36's refine (`~/.claude/handoffs/tiles-b36/HANDOFF.md` step 2). Districts stay parked.
