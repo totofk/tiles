@@ -7,6 +7,7 @@ import { SellCard } from '../src/app/Legacy'
 import { Mine } from '../src/app/Mine'
 import { Orders } from '../src/app/Orders'
 import { Upgrades } from '../src/app/Upgrades'
+import { UI_KEY } from '../src/app/uiState'
 import type { Act } from '../src/app/useGame'
 import { ITEMS } from '../src/core/data/items'
 import { createInitialState, type GameState, type RunState } from '../src/core/state'
@@ -38,6 +39,16 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     fireEvent.click(star)
     const sheet = screen.getByRole('dialog', { name: '⭐ Favours' })
     expect(within(sheet).getByText('⭐ 12 to spend · resets when you sell the farm (up to 50 ⭐ carry over)')).toBeTruthy()
+  })
+
+  it('after a sale the carried ⭐ shows in the HUD with no board bought yet (and nothing shows at ⭐0 with no board)', () => {
+    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 50 }), Date.now()))
+    render(<App />)
+    expect(document.querySelector('button.hud-stars')!.textContent).toBe('⭐ 50')
+    cleanup()
+    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 0 }), Date.now()))
+    render(<App />)
+    expect(document.querySelector('button.hud-stars')).toBeNull()
   })
 
   it('every row but the Stoker is listed, with its price or its lock reason', () => {
@@ -86,6 +97,26 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     const gate = withRun({ stars: 64, lifetime: { ...init.run.lifetime, cashEarned: 640_000 }, workers: { ...init.run.workers, certificates: ['plant', 'harvest'] }, workshop: { built: true, beds: [true, false, false, false], valve: false } })
     render(<SellCard state={gate} sell={() => {}} />)
     expect(screen.getByText('⭐ 50 carried to the next farm · ⭐14 lost above 50')).toBeTruthy()
+  })
+
+  it('reaching the Stoker\'s gate (the last bar batch level) does not toast "New worker" — its certificate is in ⭐ Favours', () => {
+    const furnace = { ...init.run.furnace, built: true, levels: { fireCap: 4, batch: 3, speed: 2, tray: 2, slot: 2 } }
+    const run = {
+      ...init.run,
+      cash: 1e5,
+      mineLicense: true,
+      vein: { level: 4, progress: 0, rock: 'stone' as const },
+      inventory: { goldBar: 5 },
+      furnace,
+      counters: { ...init.run.counters, bars: 30 },
+      workers: { ...init.run.workers, certificates: ['fuel' as const] },
+    }
+    localStorage.setItem(SAVE_KEY, serialize({ ...init, run }, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'mine', pulledBack: true }))
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /^Batch 4 → 5 bars/ }))
+    expect(screen.queryByRole('status')?.textContent ?? '').not.toContain('New worker')
+    expect(screen.getByRole('button', { name: /^Batch 5 bars/ })).toBeTruthy()
   })
 
   it('Seam survey owned: one aim line under the vein — Off and the ores the vein drops, the active one pressed', () => {

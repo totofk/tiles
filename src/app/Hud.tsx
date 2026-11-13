@@ -25,7 +25,8 @@ export function Hud({ state, rates = null, openFavours }: { state: GameState; ra
           {income}
         </span>
       )}
-      {run.orders.unlocked && (
+      {/* batch 34: also with no board when ⭐ carried over a sale, so the ⭐ Favours sheet stays reachable */}
+      {(run.orders.unlocked || run.stars > 0) && (
         <button className="hud-stars" title={`${STAR_EMOJI} Favours`} onClick={openFavours}>
           {STAR_EMOJI} {count(run.stars)}
         </button>

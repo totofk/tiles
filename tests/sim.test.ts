@@ -84,6 +84,7 @@ import v21 from './fixtures/save-v21.json?raw'
 import v22 from './fixtures/save-v22.json?raw'
 import v23 from './fixtures/save-v23.json?raw'
 import v24 from './fixtures/save-v24.json?raw'
+import v25 from './fixtures/save-v25.json?raw'
 import { bagCount, bestPickaxeTier, buyMineLicense, buyStorage, buyWood, craftPickaxe, dig, heldPickaxe, repairPickaxe, selectPickaxe, sellItem, upgradeVein } from '../src/core/mining'
 import { createFurnace, createInitialState, createMachines, createTile, type Field, type GameState, type MetaState, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -3966,6 +3967,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     const min = (x: number | undefined) => (x === undefined ? null : Math.round((x / 60) * 10) / 10)
     const board = buyOrderBoard({ ...end, run: { ...end.run, inventory: { ...end.run.inventory, stone: Math.max(10, end.run.inventory.stone ?? 0) } } })
     const c = certRun(board.ok ? board.state : end, 48 * 60)
+    // contracts only (every item offer discarded, PIN311a's policy), the plan's "contract ⭐/h after the Tractor"
+    const contractsOnly = certRun(board.ok ? board.state : end, 48 * 60, false)
     const endMin = Math.round(endTick / 60)
     console.log('PIN34a', JSON.stringify({
       ladderEndMin: min(endTick),
@@ -3977,6 +3980,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
       managerUnlockMin: c.unlock === null ? null : endMin + c.unlock,
       // contracts + item / bar orders delivered from storage, per game-hour after the ladder end
       orderStarsPerHour: c.starsPerHour,
+      contractStarsPerHour: contractsOnly.starsPerHour,
       contracts: c.contracts,
       starsEnd: c.starsEnd,
       shortAt48h: c.short,
@@ -4296,6 +4300,22 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.68)
     expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.4)
   })
+
+  // batch 34 (task 187 scenario A-carry): run 2 started with the ⭐50 a sale now carries — the ladder bot buys no
+  // Favours, so the carried ⭐ must not slow it: the Fields unlock with no stall, and the ≥ 1.4× run-2 speed-up holds
+  it('batch 34: scenario A-carry — a sold run starting with ⭐50 reaches the Fields unlock with no stall, ≥ 1.4× faster than run 1', () => {
+    const run1Fields = r1.ladder.ladderTicks.fields!
+    const carry = { ...sale1.after, run: { ...sale1.after.run, stars: 50 } }
+    const rc = firstHourOf(carry, Math.ceil(run1Fields / 1.3))
+    const t = rc.ladder.ladderTicks as Partial<Record<string, number>>
+    const fieldsTick = t.fields!
+    const marks = Object.values(t).filter((x): x is number => x !== undefined && x <= fieldsTick).sort((a, b) => a - b)
+    const longestMin = Math.round(Math.max(...marks.map((x, i) => x - (i ? marks[i - 1]! : 0))) / 60)
+    const speedup = Math.round((run1Fields / fieldsTick) * 100) / 100
+    console.log('PIN34carry', JSON.stringify({ fieldsH: hours(fieldsTick), run2FieldsH: hours(r2.ladder.ladderTicks.fields!), speedup, longestRungGapMin: longestMin, stallTicks: rc.stallTicks }))
+    expect(rc.stallTicks).toBe(0)
+    expect(speedup).toBeGreaterThanOrEqual(1.4)
+  }, 600_000)
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
     for (const r of [r2, r3]) {
@@ -4642,7 +4662,7 @@ function contractRun(s0: GameState, maxMinutes: number) {
  * bought, so ⭐ is never spent): the minutes the Clerk and the Manager certificates first buy, ⭐ held at the Manager,
  * and ⭐ earned per game-hour over the run
  */
-function certRun(s0: GameState, maxMinutes: number) {
+function certRun(s0: GameState, maxMinutes: number, items = true) {
   let s = s0
   let clerk: number | null = null
   let manager: number | null = null
@@ -4656,7 +4676,7 @@ function certRun(s0: GameState, maxMinutes: number) {
       if (!isOffer(o) || o.accepted) return
       const grown = s.run.fields.list.some((f) => f.plots.some((p) => p.crop === o.good))
       // an item / bar order storage already holds is delivered at once (the ⭐ the plan counts on besides contracts)
-      const delivered = !isCropGood(o.good) && (s.run.inventory[o.good] ?? 0) >= o.count ? acceptOrder(s, i) : null
+      const delivered = items && !isCropGood(o.good) && (s.run.inventory[o.good] ?? 0) >= o.count ? acceptOrder(s, i) : null
       const r = delivered?.ok ? deliverOrder(delivered.state, i) : isContract(s.run, o.good) && grown ? acceptOrder(s, i) : discardOrder(s, i)
       if (r.ok) s = r.state
     })
@@ -5062,6 +5082,176 @@ describe('batch 29: manager', () => {
       for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
     })
   })
+})
+
+/**
+ * batch 34 (task 187): the real v25 save, migrated, with `miners` more workers on the mine (the pool grows by that
+ * many Bunkhouse levels, set directly), its own ore and fuel loaders and farm workers, the given vein / sell price /
+ * furnace levels (default: the bar ladder's top), for `hours` game-hours. Every tick a blunt gold pickaxe is repaired
+ * from storage, and when storage is full the bars sell (2 gold bars kept for repairs), then stone and the coal above
+ * 20. Per game-hour: ore mined and bars smelted per kind, the bars' value at the run's sell price (sold or not), and
+ * the farm's 💰 (lifetime cash less every sale made here).
+ */
+function barsBench({ miners = 1, vein = 4, sellPrice = 5, levels = {}, hours = 2 }: { miners?: number; vein?: number; sellPrice?: number; levels?: Partial<GameState['run']['furnace']['levels']>; hours?: number } = {}) {
+  const loaded = deserialize(v25)!.state
+  const r = loaded.run
+  const start: GameState = {
+    ...loaded,
+    run: {
+      ...r,
+      vein: { ...r.vein, level: vein },
+      upgrades: { ...r.upgrades, sellPrice },
+      favours: { ...r.favours, bunkhouse: miners },
+      furnace: { ...r.furnace, levels: { ...r.furnace.levels, batch: 4, speed: 2, tray: 2, slot: 2, ...levels } },
+      workers: { ...r.workers, pool: r.workers.pool + miners, assigned: { ...r.workers.assigned, mine: miners } },
+    },
+  }
+  let s = start
+  const sold = { bars: 0, junk: 0 }
+  const sell = (id: ItemId, n: number, into: 'bars' | 'junk') => {
+    const r = n > 0 ? sellItem(s, id, n) : null
+    if (r?.ok) {
+      sold[into] += r.state.run.cash - s.run.cash
+      s = r.state
+    }
+  }
+  for (let t = 0; t < hours * HOUR_TICKS; t++) {
+    if (s.run.rack.gold === 0) {
+      const fixed = repairPickaxe(s, 'gold')
+      if (fixed.ok) s = fixed.state
+    }
+    if (bagCount(s.run) >= s.run.bagCapacity) {
+      for (const bar of ['copperBar', 'ironBar'] as const) sell(bar, s.run.inventory[bar] ?? 0, 'bars')
+      sell('goldBar', (s.run.inventory.goldBar ?? 0) - 2, 'bars')
+      sell('stone', s.run.inventory.stone ?? 0, 'junk')
+      sell('coal', (s.run.inventory.coal ?? 0) - 20, 'junk')
+    }
+    s = step(s, 1)
+  }
+  const KINDS = [
+    ['copper', 'copperOre', 'barsSmelted', 'copperBar'],
+    ['iron', 'ironOre', 'ironBarsSmelted', 'ironBar'],
+    ['gold', 'goldOre', 'goldBarsSmelted', 'goldBar'],
+  ] as const
+  const ore = (g: GameState, k: OreId) => (g.run.inventory[k] ?? 0) + (g.run.furnace.molds[k]?.ore ?? 0)
+  const per = (n: number) => Math.round(n / hours)
+  const bars = Object.fromEntries(KINDS.map(([name, , smelted]) => [name, per(s.run.lifetime[smelted] - start.run.lifetime[smelted])]))
+  const oreMined = Object.fromEntries(
+    KINDS.map(([name, k, smelted]) => [name, per(ore(s, k) - ore(start, k) + smeltOre() * (s.run.lifetime[smelted] - start.run.lifetime[smelted]))]),
+  )
+  const barValuePerHour = KINDS.reduce((sum, [name, , , bar]) => sum + bars[name]! * itemSellPrice(bar, s.meta, sellPrice), 0)
+  return {
+    oreMined,
+    bars,
+    barValuePerHour,
+    barSalesPerHour: per(sold.bars),
+    junkPerHour: per(sold.junk),
+    farmPerHour: per(s.run.lifetime.cashEarned - start.run.lifetime.cashEarned - sold.bars - sold.junk),
+    end: s,
+  }
+}
+
+describe('batch 34: scenario B — the real v25 save, migrated, 2 game-hours with its own workers (report)', () => {
+  it('reports ⭐/h and 💰/h; its three migrated offers pay ⭐4 / ⭐1 / ⭐1', () => {
+    const start = deserialize(v25)!.state
+    const s = step(start, 2 * HOUR_TICKS)
+    const offers = start.run.orders.offers.map((o) => (isOffer(o) ? o.stars : null))
+    console.log('PIN34b', JSON.stringify({ starsPerHour: (s.run.lifetime.starsEarned - start.run.lifetime.starsEarned) / 2, cashEarnedPerHour: Math.round((s.run.lifetime.cashEarned - start.run.lifetime.cashEarned) / 2), offers, stars: s.run.stars }))
+    expect(offers).toEqual([4, 1, 1])
+  }, 120_000)
+})
+
+describe('batch 34: PIN34bars — one miner at vein Lv4 with the bar ladder at its top, sell Lv5, 2 game-hours (report)', () => {
+  it('ore/h and bars/h per kind and 💰/h from bars, measured ÷ calculator (270 / 225 / 180 ore/h, 💰239,625/h)', () => {
+    const b = barsBench()
+    const calc = { ore: { copper: 270, iron: 225, gold: 180 }, cash: 239_625 }
+    console.log('PIN34bars', JSON.stringify({
+      oreMined: b.oreMined,
+      bars: b.bars,
+      barValuePerHour: b.barValuePerHour,
+      barSalesPerHour: b.barSalesPerHour,
+      ratio: {
+        ore: Object.fromEntries(Object.entries(calc.ore).map(([k, v]) => [k, Math.round((b.oreMined[k]! / v) * 100) / 100])),
+        cash: Math.round((b.barValuePerHour / calc.cash) * 100) / 100,
+      },
+      rack: b.end.run.rack,
+    }))
+    expect(b.barValuePerHour).toBeGreaterThan(0)
+  }, 300_000)
+})
+
+describe('batch 34: PIN34furnaceStars — two miners: the bar top vs ⭐ speed Lv3 vs ⭐ batch 6 + speed Lv3 (report)', () => {
+  it('bars/h per setup (calculator: +8 % at speed Lv3 for 2 miners, no mastered tier past wooden)', () => {
+    const top = barsBench({ miners: 2 })
+    const speed3 = barsBench({ miners: 2, levels: { speed: 3 } })
+    const both = barsBench({ miners: 2, levels: { speed: 3, batch: 5 } })
+    const total = (b: ReturnType<typeof barsBench>) => Object.values(b.bars).reduce((a, n) => a + n, 0)
+    console.log('PIN34furnaceStars', JSON.stringify({
+      barsPerHour: { top: top.bars, speed3: speed3.bars, batch6speed3: both.bars },
+      barValuePerHour: { top: top.barValuePerHour, speed3: speed3.barValuePerHour, batch6speed3: both.barValuePerHour },
+      gain: { speed3: Math.round((speed3.barValuePerHour / top.barValuePerHour - 1) * 1000) / 10, batch6speed3: Math.round((both.barValuePerHour / top.barValuePerHour - 1) * 1000) / 10 },
+      oreMined: top.oreMined,
+      totals: [total(top), total(speed3), total(both)],
+    }))
+    expect(total(top)).toBeGreaterThan(0)
+  }, 600_000)
+})
+
+describe('batch 34: PIN34stoker — 2× fire per bar, and never more fire than the cap offline (guard)', () => {
+  const init = createInitialState()
+  const empty = { ore: 0, progress: 0, ready: 0 }
+  const forge = (stokers: number, cash: number, run: Partial<GameState['run']> = {}): GameState => ({
+    ...init,
+    run: {
+      ...init.run,
+      cash,
+      bagCapacity: 1e7,
+      inventory: { copperOre: 1e5, ironOre: 1e5, goldOre: 1e5, coal: 1e5 },
+      furnace: { ...createFurnace(), built: true, smart: true, fire: fireCapTicks(4), levels: { fireCap: 4, batch: 4, speed: 2, tray: 2, slot: 2 }, molds: { copperOre: empty, ironOre: empty, goldOre: empty } },
+      workers: { pool: 3, assigned: { ...init.run.workers.assigned, ore: 1, fuel: 1, stoker: stokers }, certificates: ['ore', 'fuel', 'stoker'] },
+      ...run,
+    },
+  })
+  /** fire burnt per tick of cycle progress done (bars × the kind's barTicks + the progress change) */
+  const firePerProgress = (a: GameState, b: GameState) => {
+    const done = ORE_IDS.reduce((sum, k) => {
+      const smelted = { copperOre: 'barsSmelted', ironOre: 'ironBarsSmelted', goldOre: 'goldBarsSmelted' } as const
+      const cycles = (b.run.lifetime[smelted[k]] - a.run.lifetime[smelted[k]]) / batchBars(4)
+      return sum + cycles * barTicks(k) + (b.run.furnace.molds[k]!.progress - a.run.furnace.molds[k]!.progress)
+    }, 0)
+    return (b.run.lifetime.fireBurnt - a.run.lifetime.fireBurnt) / done
+  }
+
+  it('over 1 game-hour a stoked furnace burns exactly 2× the fire per bar of an unstoked one', () => {
+    const plain = forge(0, 1e6)
+    const stoked = forge(1, 1e6)
+    const p = step(plain, HOUR_TICKS)
+    const k = step(stoked, HOUR_TICKS)
+    const bars = (g: GameState) => g.run.lifetime.barsSmelted + g.run.lifetime.ironBarsSmelted + g.run.lifetime.goldBarsSmelted
+    console.log('PIN34stoker', JSON.stringify({ barsPerHour: { plain: bars(p), stoked: bars(k) }, firePerProgress: { plain: firePerProgress(plain, p), stoked: firePerProgress(stoked, k) }, fireBurnt: { plain: p.run.lifetime.fireBurnt, stoked: k.run.lifetime.fireBurnt } }))
+    expect(firePerProgress(plain, p)).toBeCloseTo(1, 9)
+    expect(firePerProgress(stoked, k)).toBeCloseTo(2, 9)
+  }, 120_000)
+
+  it('8 h catch-up from a full fire with the stoker unpaid (cash 0, no fuel in storage) burns at most the fire cap', () => {
+    const loaded = { copperOre: { ...empty, ore: 48 }, ironOre: { ...empty, ore: 48 }, goldOre: { ...empty, ore: 48 } }
+    const s = forge(1, 0, { inventory: {}, furnace: { ...forge(1, 0).run.furnace, molds: loaded } })
+    const after = catchUp(s, 8 * HOUR_TICKS * 1000)
+    console.log('PIN34stokerOffline', JSON.stringify({ fireBurnt: after.run.lifetime.fireBurnt, cap: fireCapTicks(4), stoked: after.run.furnace.stoked, wages: after.run.lifetime.wagesPaid }))
+    expect(after.run.lifetime.fireBurnt).toBeLessThanOrEqual(fireCapTicks(4))
+    expect([after.run.furnace.stoked, after.run.lifetime.wagesPaid, after.run.cash]).toEqual([0, 0, 0])
+  }, 120_000)
+})
+
+describe('batch 34: cash per system at vein Lv3 and Lv4 (report, not guard)', () => {
+  it('the farm\'s and the mine\'s 💰/h side by side (the v25 save, one miner, the bar ladder top, sell Lv5)', () => {
+    const rows = [3, 4].map((vein) => {
+      const b = barsBench({ vein })
+      return { vein, farmPerHour: b.farmPerHour, minePerHour: b.barValuePerHour + b.junkPerHour, barValuePerHour: b.barValuePerHour, junkPerHour: b.junkPerHour }
+    })
+    console.log('PIN34systems', JSON.stringify(rows))
+    expect(rows.every((r) => r.farmPerHour >= 0 && r.minePerHour >= 0)).toBe(true)
+  }, 300_000)
 })
 
 describe('batch 34: the per-run sim log (task 181)', () => {

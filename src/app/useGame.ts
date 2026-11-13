@@ -200,9 +200,10 @@ export function useGame() {
       const before = stateRef.current.run
       const prev = before.counters
       const fresh = UPGRADE_IDS.filter((id) => upgradeUnlocked(id, s.run.counters) && !upgradeUnlocked(id, prev))
-      // a kept certificate (Sell the farm's keep row) re-crosses its counter gate in the next run: not news
+      // a kept certificate (Sell the farm's keep row) re-crosses its counter gate in the next run: not news; the
+      // Stoker's certificate lives in the ⭐ Favours sheet, not the Workers card (batch 34), so it never toasts here
       const hires = WORKER_JOBS.filter(
-        (job) => certificateUnlocked(s.run, job) && !certificateUnlocked(before, job) && !s.run.workers.certificates.includes(job),
+        (job) => job !== 'stoker' && certificateUnlocked(s.run, job) && !certificateUnlocked(before, job) && !s.run.workers.certificates.includes(job),
       )
       stateRef.current = s
       setState(s)
