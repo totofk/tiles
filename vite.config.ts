@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 /** short git hash for feedback reports: the checkout, else CI's GITHUB_SHA, else "dev" */
 function buildId(): string {
@@ -19,7 +19,19 @@ export default defineConfig({
   plugins: [react()],
   test: {
     // node by default; DOM tests opt in with a `// @vitest-environment jsdom` comment
-    include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
     passWithNoTests: true,
+    // The sim suites (tests/sim/, split from one file in batch 35.1) run one file at a time, like the single
+    // sim.test.ts did: run in parallel they starve each other of CPU and the 30 s bot tests time out.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'unit',
+          include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
+          exclude: [...configDefaults.exclude, 'tests/sim/**'],
+        },
+      },
+      { extends: true, test: { name: 'sim', include: ['tests/sim/**/*.test.ts'], fileParallelism: false } },
+    ],
   },
 })
