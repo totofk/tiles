@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '35.1', date: '2026-11-14', line: "Behind the scenes: the game's balance checks were reorganised so updates ship faster. Nothing changes in play." },
   { batch: '35', date: '2026-11-13', line: "New crops: 🥔 Potato is the new starter, 🍆 Eggplant joins and 🌶️ Chilli is now the top crop. Your licences move up the new ladder rung for rung; nothing you paid for is lost." },
   { batch: '34', date: '2026-11-13', line: "⭐ Favours: tap ⭐ in the top bar for upgrades past the shop's max. Bars sell for 🥉100 🥈500 🥇1000. Orders pay ⭐ by real size; up to 50 ⭐ carry over when you sell the farm." },
   { batch: '33', date: '2026-11-13', line: "The furnace has molds: buy iron and gold molds to smelt every ore at once, each with its own tray. New upgrades: speed, bigger trays and ore slots, a bigger fire, Collect all." },

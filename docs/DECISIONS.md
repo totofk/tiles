@@ -712,7 +712,7 @@ Spec: PLAN.md "Batch 31.1" (tasks 163–166), no save bump. Calls made while ref
   pump past tier 4 (parked: Estate map risk), a fixed "pick your next land" menu. Bars: Toon wants 🥉100 🥈500 🥇1000
   (today 2 / 3 / 5); the copper price waits for the calculator (research warns a miner out-earns the farm from vein
   Lv2 at 🥉100). Toon intends many prestiges, each changing how the run plays.
-- The sold-run sim pin shipped as ≥ 1.4× faster to the fields unlock (`tests/sim.test.ts:3977–3999`); the 1.8× in
+- The sold-run sim pin shipped as ≥ 1.4× faster to the fields unlock (`tests/sim/prestige-crops.test.ts`, "pinned ≥ 1.4×"; was `tests/sim.test.ts:3977–3999` before batch 35.1); the 1.8× in
   the batch 20 prestige entry above is superseded.
 - Worker rework (unique hires with traits) recorded as docs/IDEAS.md §8.
 

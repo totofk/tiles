@@ -26,7 +26,7 @@ src/
   app/             # React: FarmGrid, Hud (cash/energy), Shop
   save/            # serialize/deserialize + schema version + offline catch-up
 tests/
-  *.test.ts        # per-action tests + sim.test.ts (bot plays 600 ticks)
+  *.test.ts        # per-action tests; sim/ holds the per-system bot sims (bot.ts + balanceMock.ts)
 docs/              # PRD.md, DECISIONS.md, PLAN.md
 ```
 
@@ -35,7 +35,7 @@ docs/              # PRD.md, DECISIONS.md, PLAN.md
 2. `core/state.ts` + `core/balance.ts` + `core/data/*` — data model and all starting values.
 3. `core/step.ts` — tick logic, with tests (grow only while moist, regen caps at max, rot after grace).
 4. `core/actions.ts` — 4 manual actions + sell + buy upgrade/license/tile; one test file per action group; errors are values, not throws.
-5. `tests/sim.test.ts` — greedy bot plays 600 ticks: cash never negative, crop-2 license affordable within ~300 ticks (target, tune `balance.ts` until it passes and report the final numbers).
+5. `tests/sim/early.test.ts` — greedy bot plays 600 ticks: cash never negative, crop-2 license affordable within ~300 ticks (target, tune `balance.ts` until it passes and report the final numbers). (Was `tests/sim.test.ts` until batch 35.1.)
 6. [x] React UI: 6-tile grid (colour/emoji per state), click tile → next sensible action, HUD, Shop. Mobile-width friendly.
 7. [x] Save/load (localStorage, versioned) + offline catch-up (step missed seconds, cap 8 h), tested with a fake clock.
 8. [x] Deploy to GitHub Pages (Vite `base`, `gh-pages` or Actions workflow).
@@ -69,7 +69,7 @@ Why: `tests/sim.test.ts` is 300 KB / ~5,500 lines. Worker transcripts from 2026-
 797K chars, the largest single cost in worker context and Max quota (Toon's retro, 2026-11-14). Split it so that a
 batch reads one ~30–60 KB file plus the shared bot.
 
-- [ ] 191. Move every `describe` in `tests/sim.test.ts` into per-system files under `tests/sim/`, and move the shared
+- [x] 191. Move every `describe` in `tests/sim.test.ts` into per-system files under `tests/sim/`, and move the shared
   bot and helpers into `tests/sim/bot.ts`. Change no test body, no pinned number and no test name.
   - `tests/sim/bot.ts` (no `describe`/`it`): imports, the `market` / `rules` / `OLD_CERTIFICATE` switches,
     `withoutMarket`, `withBatch13`, `runBot` and every ladder, plus each later top-level helper that more than one
@@ -105,3 +105,47 @@ batch reads one ~30–60 KB file plus the shared bot.
     Leave the archive (`docs/archive/PLAN-history.md`) as it is.
 
 CHANGELOG line (copy verbatim): "Behind the scenes: the game's balance checks were reorganised so updates ship faster. Nothing changes in play."
+
+## Batch 35.1 results
+
+`tests/sim.test.ts` (300,456 bytes / 5,529 lines / 172 tests) → `tests/sim/`: eight per-system test files plus shared
+`bot.ts` and `balanceMock.ts`. Every code line moved verbatim; only imports, exports and the `vi.mock` wiring are new.
+`tests/simLog.ts` stays in `tests/`; its imports still resolve from there (checked, no change needed). Doc references
+updated: `docs/PLAN.md` layout tree + task 5, `docs/DECISIONS.md` sold-run pin pointer (now
+`tests/sim/prestige-crops.test.ts`); the archive is untouched.
+
+New files (`wc -c`, all under 80 KB — was one 300 KB file):
+
+```
+2018  tests/sim/balanceMock.ts      31824 tests/sim/furnace-iron.test.ts   22280 tests/sim/prestige-crops.test.ts
+18505 tests/sim/bars-ladder.test.ts 51999 tests/sim/fields.test.ts         30883 tests/sim/tools-workshop.test.ts
+63463 tests/sim/bot.ts              27481 tests/sim/market-orders.test.ts  29589 tests/sim/mine-estate.test.ts
+32583 tests/sim/early.test.ts
+```
+
+Acceptance:
+
+1. Name sets: `npx vitest list` before (`sim-logs/names-before.txt`) = 172 `describe > it` names, after
+   (`tests/sim/`, `sim-logs/names-after.txt`) = 172. Sets identical — 0 only-before, 0 only-after, none renamed.
+2. Sorted line multiset, old file vs `cat tests/sim/*.ts` (blank lines excluded): differing lines by kind —
+   OLD-ONLY 39 (import 33, vi.mock 1, vi.hoisted 3 — the `market` / `rules` / `OLD_CERTIFICATE` switches, now plain
+   exports in `balanceMock.ts`, plus 2 import/export continuation fragments); NEW-ONLY 465 (import 162, export 7,
+   vi.mock 8 — the hoisted mock line in each test file, plus 288 specifier/continuation fragments of those multi-line
+   imports and `bot.ts`'s export list). Lines outside import/export/vi.mock/vi.hoisted: 0 on both sides. One line
+   inside the extracted factory differs only by module path (`'../src/core/balance'` → `'../../src/core/balance'`).
+3. Full-suite totals: before 1137 passed + 3 expected failures (1140 tests); after the split 63/63 files,
+   1137 passed + 3 expected failures (1140). Identical.
+4. Gates: `pnpm lint` green, `pnpm build` green, `rm -f node_modules/.tmp/*.tsbuildinfo && npx tsc -b --force` green;
+   `git ls-files | sed -E 's/\.(tsx?|jsx?)$//' | sort -f | uniq -di` prints nothing; no scratch scripts or `sim-logs/`
+   output committed.
+
+### Deviations
+
+- The suggested call `vi.mock('../../src/core/balance', balanceMock)` (factory statically imported) crashes on
+  Vitest 5.1: the hoisted `vi.mock` call reads the `balanceMock` import binding before initialisation
+  (`ReferenceError: Cannot access '__vi_import_12__' before initialization`). Each test file instead calls
+  `vi.mock('../../src/core/balance', async (importOriginal) => (await import('./balanceMock')).balanceMock(importOriginal))`
+  — same shared factory, same behaviour, resolved lazily inside the factory so hoisting cannot see the binding.
+- Before-totals note (flake, not a spec deviation): the raw first before-run printed 1134 passed + 3 expected +
+  3 failed; all three failures were 5.4–6.4 s timeouts under load and each reran green standalone, so the recorded
+  before-totals are 1137 + 3 expected, matching batch 35's record.
