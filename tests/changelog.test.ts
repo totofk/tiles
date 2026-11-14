@@ -3,7 +3,10 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { CHANGELOG } from '../src/app/changelog'
 
-const plan = readFileSync(new URL('../docs/PLAN.md', import.meta.url), 'utf8')
+// shipped batches move from docs/PLAN.md to docs/archive/PLAN-history.md, so read both
+const plan = ['../docs/PLAN.md', '../docs/archive/PLAN-history.md']
+  .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
+  .join('\n')
 
 /** "24.1" → [24, 1], "24" → [24, 0] — so 24.1 sorts after 24 */
 function parts(batch: string): [number, number] {
@@ -29,7 +32,7 @@ describe('CHANGELOG data (batch 24.2, task 133)', () => {
     }
   })
 
-  it('every shipped batch (a `## Batch N results` heading in docs/PLAN.md) has a CHANGELOG entry', () => {
+  it('every shipped batch (a `## Batch N results` heading in docs/PLAN.md or its archive) has a CHANGELOG entry', () => {
     const shipped = [...plan.matchAll(/^## Batch ([0-9.]+) results/gm)].map((m) => m[1])
     expect(shipped.length).toBeGreaterThan(0)
     const batches = CHANGELOG.map((e) => e.batch)
