@@ -884,3 +884,29 @@ Hermes's calls while refining (Toon may reject by number):
 11. calc34 items 5–7 (soil traits, listing soil, dig finds) re-run on the 10-crop ladder moves to batch 36's refine:
     those systems ship in 36.
 - **Renumbered:** none. Batch 35 = tasks 188–190, save v27, as recorded in the batch 34 entry.
+
+## Batch 35.2 refined (2026-11-21, Toon's v27 playtest feedback; save v28)
+Source: Discord threads 1573391746082017432 / 1573414528245567489; calculator on two of Toon's v27 saves (8 game-h of the
+shipped `step()` per variant). Toon's words in quotes.
+- **Bars Keep N after the Tractor** (Toon: agree). Rule 14 above ("bars never auto-sell", star-toys rule 14) now holds
+  only before the Tractor; the early storage brake stays. Measured after it: bar auto-sale = 0.5–2.9 % of Estate income
+  (💰7–17M/h).
+- **Item orders take partial deliveries; the ordered good skips Sell on dig until the order is full** (Toon: agree).
+- **Auto-buy wood (toggle) when coal runs out — furnace fuel only**; the Fields tank burns coal only (Toon: "รับ").
+- **Seam aim on coal: withdrawn** (Toon accepted 2026-11-21, after first asking for it). Coal drops 828/h at full press
+  vs ≈ 230/h needed at 20 fields; his coal vanished because storage was full (a Sell kind is sold when there is no
+  room), the gold pickaxe was blunt, and Σ Keep N (200) exceeded storage (120). Aim coal changed nothing in any run.
+  Replaced by mine status lines (storage full / pickaxe blunt / keeps exceed storage). Refs: Rosewater, GDC 2016
+  "Twenty Years, Twenty Lessons" lesson 19; Factorio EntityStatus (full-output, no-fuel).
+- **Σ Keep N is not capped to storage** (Hermes rec; open at dispatch): a cap still lets storage fill, and a stepper
+  that stops without a reason is worse than a status line saying the keeps exceed storage.
+
+Hermes's calls (Toon may reject by number; dispatched on "ปล่อย 35.2" with none rejected):
+1. Bars Keep N is free (comes with the Tractor + Keep N), no extra price.
+2. Bars auto-sell on collect only; lowering N waits for the next collect.
+3. The clerk delivers partial amounts too (frees storage sooner).
+4. An ordered Sell-on-dig good falls back to selling when storage is full (the miner never jams).
+5. Auto-bought wood goes straight into the fire, never via storage; off by default.
+6. Fixture v27 = Toon's own live save (12 fields, storage full).
+- **Renumbered:** none. Next: 35.3 (fixed ⭐ per order tier, reroll → 💰500 ×2, reset on each completed order and on
+  sale; save v29), 35.4 (Favours rows in Upgrades, pre-sale info page, full-width ＋ Field N), 36 → save v30.
