@@ -162,7 +162,8 @@ Commits (main, not pushed): af1c0cb9 task 196 · 1513c9c5 task 197 · 441bdfe8 t
    | Ladder end (harvester3, game-min) | 8,804.1 | 8,804.1 |
    | Manager's ⭐ price held (⭐20 → ⭐160), game-min | 10,194 | 9,130 (−10.4 %, inside ±25 %) |
    | Manager unlock (10 contracts), game-min | 8,977 | 9,244 (+3.0 %) |
-   | Clerk / Manager first buy, game-min | not recorded | null / null (not within 48 h: clerk short 🥉6, Manager short 🥇4; ⭐ is never the binding part) |
+   | Clerk / Manager first buy, game-min | null / null (not within 48 h, short 🥉6 / 🥇4; batch 34 and 35 records) | null / null (not within 48 h, short 🥉6 / 🥇4) |
+   | ⭐ held at the Manager buy | null (never bought) | null (never bought) |
    | Order ⭐/h / contract ⭐/h after the ladder end | 0.79 / 0.63 | 14.83 / 14 |
    | Contracts delivered in the 48 h / ⭐ held after | 44 / 38 | 46 / 712 |
 
@@ -176,11 +177,12 @@ Commits (main, not pushed): af1c0cb9 task 196 · 1513c9c5 task 197 · 441bdfe8 t
    | --- | --- | --- | --- | --- | --- |
    | Accept-all (the plan's) | 0 | 0 | 17,598,530 | 17,598,530 | 0 |
    | certRun policy (not the plan's: deliver held items, accept contracts, discard the rest) | 44 | 52 | 16,278,855 | 12,239,474 | 8: 195 ×7, 153 (uncapped 124–2,348) |
-   | certRun policy, the save's 4 offers discarded at tick 0 (report) | 228 | — | 13,043,077 | — | — |
+   | certRun policy, the save's 4 offers discarded at tick 0 (report) | 228 | 124 | 13,043,077 | 9,079,815 | — |
    | Offline, workers only, 8 h | 0 | — | 17,369,717 | — | — |
 
-   Every new contract count ≤ contractCap: pass. Estate cash/h capped ≥ uncapped: pass (+33 % with the certRun policy;
-   equal under accept-all, where no contract is rolled). Offline ⭐/h (0) below active: pass. Active ⭐/h ≥ 80: miss
+   Every new contract count ≤ contractCap: pass. Estate cash/h capped ≥ uncapped: pass (+33 % with the certRun policy,
+   +44 % on the cleared board; equal under accept-all, where no contract is rolled). On the cleared board the cap
+   lifts ⭐/h from 124 to 228 (×1.84), in line with the calculator's 12-field Q1 check (⭐52–86 → ⭐112–132/h). Offline ⭐/h (0) below active: pass. Active ⭐/h ≥ 80: miss
    (Deviations 1–2).
 
 ### Deviations
@@ -195,19 +197,25 @@ Commits (main, not pushed): af1c0cb9 task 196 · 1513c9c5 task 197 · 441bdfe8 t
    of the 4 slots, so one slot carries all the contracts. With those 4 offers discarded at tick 0 the same policy
    measures ⭐228/h (report row). Pinned as `it.fails('… measured ⭐44/h')`. The certRun-policy rows and the cleared
    row are my additions, so the cap and cash checks run on real contracts; they are not the plan's policy.
-3. **Uncapped ⭐/h was higher than capped under the certRun policy (52 vs 44)**, while cash/h was lower (12.24M vs
-   16.28M). With one free slot, the uncapped run rolled different follow-up offers (same rolls, but different
-   completion timing). Recorded as measured; not a guard.
+3. **Uncapped ⭐/h was higher than capped on the jammed board under the certRun policy (52 vs 44)**, while cash/h was
+   lower (12.24M vs 16.28M). With one free slot most ⭐ there comes from item orders storage happens to hold, and once
+   completion timing differs the two runs' RNG streams split, so 52 vs 44 is luck, not the cap. On the cleared board
+   (the clean comparison) the cap raises ⭐/h 124 → 228.
 4. **Scenario A "old" figures are batch 35's recorded PIN34a, not a fresh run at 713a23b1.** This session could not
    create a worktree, `git archive` or check out the old tree (all three need approval). The ladder end (8,804.1) and
    the longest gap (3,141.8 min at 4,432.3) are identical old → new, so 35.1 / 35.2 did not move this run up to the
-   ladder end. The clerk and Manager first-buy minutes were never recorded; both are null now, because bars
-   (🥉6 / 🥇4) bind, not ⭐. The ±25 % check therefore runs on the minute the Manager's ⭐ price is held: −10.4 %.
-5. **Intermediate commits 196 and 198 change the run shape before the save bump.** 196 drops `starsFrac`; 198 adds
+   ladder end. Scenario A's main metric, the clerk and Manager first-buy minutes, has no number on either side: neither
+   certificate is buyable within the 48 h window, before (batch 34 and 35 records) or after, because bars bind
+   (🥉6 / 🥇4 short), not ⭐. The ±25 % check therefore runs on the minute the Manager's ⭐ price is held: −10.4 %.
+5. **PIN311b's assertion changed, not just its number.** It was part of batch 35's Manager-unlock-path guard ("10
+   contracts holding ⭐ ≥ 20 and 💰 ≥ 1.5M"). With the cap the 10th contract comes 82 game-minutes sooner (412 → 330)
+   holding 💰1,363,896, so the pin is now "unlock at 330 holding ⭐ ≥ 160, Manager buyable at minute 371". Hermes to
+   accept or reject.
+6. **Intermediate commits 196 and 198 change the run shape before the save bump.** 196 drops `starsFrac`; 198 adds
    `orders.rerolls`, with `rerolls: 0` set in `migrateV27`. Task 199 moves both into `migrateV28` and removes the
    bridge. Nothing between them was pushed; only the final state (v29) ships.
-6. **UI not checked live.** The Orders card's reroll button ("🔄 Reroll 💰500" → "💰1,000", disabled without the cash),
+7. **UI not checked live.** The Orders card's reroll button ("🔄 Reroll 💰500" → "💰1,000", disabled without the cash),
    the Favours sheet ("up to 400 ⭐ carry over") and the Sell card were checked with jsdom render tests only. Hermes
    re-measures them live.
-7. **contractCap is exported but not shown on the Orders card.** The plan asks only for the export; showing it is
+8. **contractCap is exported but not shown on the Orders card.** The plan asks only for the export; showing it is
    35.4 UI.

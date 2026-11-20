@@ -594,7 +594,13 @@ describe('batch 35.3: scenario B — the v28 fixture, migrated, 2 game-hours acc
     // report only: certRun's policy after discarding the save's 4 offers at tick 0 (their slots refill after the cooldown)
     const cleared = start.run.orders.offers.reduce((g, _, i) => okOr(discardOrder(g, i), g), start)
     const unjammed = acceptAll(cleared, 2 * HOUR_TICKS, true, 'cert')
-    return { all: row('all'), cert: row('cert'), certCleared: perHour(unjammed.end, 2), offline: perHour(step(start, 8 * HOUR_TICKS), 8) }
+    const unjammedUncapped = acceptAll(cleared, 2 * HOUR_TICKS, false, 'cert')
+    return {
+      all: row('all'),
+      cert: row('cert'),
+      certCleared: { capped: perHour(unjammed.end, 2), uncapped: perHour(unjammedUncapped.end, 2) },
+      offline: perHour(step(start, 8 * HOUR_TICKS), 8),
+    }
   })
   it('reports PIN353b', () => {
     console.log('PIN353b', JSON.stringify({ ...r, all: { ...r.all, contracts: r.all.contracts.length }, cert: { ...r.cert, contracts: r.cert.contracts.map((c) => c.count) }, cap: contractCap(start.run) }))
