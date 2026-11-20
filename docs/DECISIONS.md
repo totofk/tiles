@@ -910,3 +910,44 @@ Hermes's calls (Toon may reject by number; dispatched on "ปล่อย 35.2" 
 6. Fixture v27 = Toon's own live save (12 fields, storage full).
 - **Renumbered:** none. Next: 35.3 (fixed ⭐ per order tier, reroll → 💰500 ×2, reset on each completed order and on
   sale; save v29), 35.4 (Favours rows in Upgrades, pre-sale info page, full-width ＋ Field N), 36 → save v30.
+
+## Batch 35.3 refined (2026-11-21, ⭐ pace after Toon's v27 feedback; save v29)
+Source: Discord threads 1573391746082017432 / 1573414528245567489 / 1573420437554200597; calculator Q1 (fixed ⭐ per
+tier, farm-size check, contract cap check) and Q3 (reroll cash, fresh player) on two of Toon's v27 saves. Toon's words
+in quotes.
+- **⭐ is a fast in-run "research point" currency** (Toon, final, supersedes "Favour levels kept across sales"): an
+  early Favour level every 5–10 min of active play, never slower than 10–15 min; later levels slower through the
+  geometric Favour prices. Favours still RESET on farm sale (2026-11-12 decision stands): fast ⭐ plus permanent Favours
+  would be a second prestige layer outpacing deeds (Egg, Inc.: common research fast and reset, epic research scarce and
+  permanent). No slowdown-triggered "sell now" nudge.
+- **Order ⭐ fixed per tier = 8 / 16 / 32** (Toon: "รับ q1", then "รับ ×8"). Replaces batch 34's 0.2 ⭐ per minute of
+  full output. Measured: shipped rule ⭐2.25–6/h active on the 12-field save; 1/2/4 = ⭐6.5–10.75/h (5–9× short of the
+  ⭐48–90/h levels 1–10 need); ×8 = ⭐52–86/h (12 fields), ⭐116–134/h (4 fields). Offline (clerk item orders only)
+  ⭐0.38/h at 1/2/4, far below active at any multiplier.
+- **Every other ⭐ price ×8** so it keeps its old pace (Toon: "รับ ×8"): clerk ⭐160, manager ⭐160, stoker ⭐120,
+  order slots ⭐80 / 240, ⭐ carry cap 400. Favour prices unchanged. Order slots stay priced in ⭐ (Toon OK).
+- **Migration**: ⭐ balance (with starsFrac) ×8, floored; starsFrac dropped; nothing refunded (silent accept of the ×8
+  sub-list).
+- **Reroll for cash** (Toon: "ผมรับตามคุณเสนอ reset order แพงขึ้นครั้งละ ×2 และกลับไปราคาเริ่มต้นทุกครั้งที่ทำ order เสร็จ
+  รวมถึงตอนขายฟาร์มด้วย"): 💰500, ×2 per reroll, back to 💰500 on every completed order and on farm sale; no income
+  scaling. Q3: a fresh player meets the board at game-min 15.5 with 💰9.5–12.2k/h income, so 1–2 rerolls cost < 8 min of
+  income (today he has ⭐0 there and cannot reroll at all); free discard + cooldown stays. Reroll fishing at 💰500 ×2
+  gives +54 % ⭐/h but spent 💰150M in 4 h (≈ 3× income): a cash sink, not a ⭐ exploit. "Reroll" here is the ORDER
+  reroll (Noticeboard), not batch 36's listing reroll.
+- **Contract size cap** (Toon: "รับ cap contract"): a contract asks at most what its share of the managed fields grows in
+  one cycle, `max(1, ⌊managed fields / slots⌋) × plot cells × plot tiles × (1 + double-harvest chance)`. The farm-size
+  check showed 12 fields paid LESS ⭐/h than 4 (contracts of 521–727 units competing for the managed fields, some 20–45
+  min); with the perSlot cap 12 fields ⭐112–132/h, 4 fields ⭐126–150/h, Estate cash/h +15–23 %. perSlot chosen over
+  oneField (94–148 ⭐/h, swings more). A field-gated tier 3 waits until after Toon playtests 35.3.
+
+Hermes's calls (Toon may reject by number; dispatched on the launch message with the draft as written):
+1. CHANGELOG line shortened to 179 code points (the draft's 254 fail `tests/changelog.test.ts`'s 180 cap); same four
+   points. Draft text: "Orders now pay ⭐8 / 16 / 32 by size, so Favours come every few minutes. ⭐ prices and your ⭐
+   balance scale up ×8 to match. Rerolls cost cash and double each time until you finish an order. 🚜 Contracts never
+   ask for more than your fields grow in one round."
+2. Fixture v28 = Toon's live 12-field save as re-saved by the live v28 build after the 35.2 push (the same save as
+   save-v27.json, migrated by shipped code), not a fresh capture.
+3. Anchors re-measured on 33b76521 (the draft cited a64c68b1); `tests/sim/market-orders.test.ts` added to the files to
+   touch (it reads the ⭐ order rules).
+- **Renumbered:** none. Batch 35.3 = tasks 196–200, save v29. Next: 35.4 (⭐ Favours section in Upgrades, pre-sale info
+  page, full-width ＋ Field N), then 36 → save v30 (36's ⭐ prices open until Toon playtests 35.3).
