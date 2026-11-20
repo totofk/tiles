@@ -106,9 +106,9 @@ describe('🏆 Sell the farm card', () => {
   it('is disabled with no gain (gate open, deeds already claimed); ⭐ never adds a deed', () => {
     const claimed = { ...atGate(), meta: { ...atGate().meta, deedsClaimed: 8 } }
     const sold: GameState[] = []
-    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 300 } }} sell={() => sold.push(claimed)} />)
+    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 650 } }} sell={() => sold.push(claimed)} />)
     expect(screen.getByText('Sell now: +0 deeds (💰0)')).toBeTruthy()
-    expect(screen.getByText('⭐ 50 carried to the next farm · ⭐250 lost above 50')).toBeTruthy()
+    expect(screen.getByText('⭐ 400 carried to the next farm · ⭐250 lost above 400')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)
   })

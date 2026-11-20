@@ -240,12 +240,14 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   fuel: { price: { copperBar: 8, cash: 200 }, counter: 'bars', at: 30 },
   // mine worker (batch 11): iron bars, one metal tier above the farm and furnace workers
   mine: { price: { ironBar: 5, cash: 500 }, counter: 'mines', at: 200, vein: 3 },
-  // order clerk (batch 14): ⭐ + copper bars after 20 orders completed
-  clerk: { price: { stars: 20, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
-  // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32
-  manager: { price: { goldBar: 4, stars: 20, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
-  // Stoker (batch 34): bought in the ⭐ Favours sheet; its gate adds stokerReady (fuel certificate, the bar ladder done)
-  stoker: { price: { stars: 15, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 },
+  // order clerk (batch 14): ⭐ + copper bars after 20 orders completed; ⭐20 → 160 batch 35.3 (order ⭐ ×8)
+  clerk: { price: { stars: 160, copperBar: 6, cash: 200 }, counter: 'orders', at: 20 },
+  // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32,
+  // ⭐160 batch 35.3
+  manager: { price: { goldBar: 4, stars: 160, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
+  // Stoker (batch 34): bought in the ⭐ Favours sheet; its gate adds stokerReady (fuel certificate, the bar ladder done);
+  // ⭐15 → 120 batch 35.3
+  stoker: { price: { stars: 120, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 },
 }
 // ⭐ Favours (batch 34, DECISIONS "Batch 34 refined"): the k-th ⭐ level (k = 0, 1, …) costs ⭐ round(base × growth^k);
 // max = ⭐ levels (null = uncapped). A row extends a cash or bar ladder past its max: mist = fertilizer, sell = sell price,
@@ -535,7 +537,7 @@ const ORDER_ITEM_BAG_SHARE = 0.5
 const ORDER_COOLDOWN_TICKS = 600
 // ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th), and for a reroll (every slot without an
 // accepted order gets a fresh offer now, cooldowns skipped). Only ⭐ buys these; nothing here sells for cash.
-const ORDER_SLOT_STARS = [10, 30]
+const ORDER_SLOT_STARS = [80, 240] // batch 35.3: [10, 30] ×8
 const ORDER_REROLL_STARS = 2
 
 /** the Noticeboard's price */
@@ -616,8 +618,9 @@ export function orderRerollStars(): number {
 export const DEED_DIVISOR = 10000
 /** the sale opens at this many lifetime-cash deeds AND every farm job covered by worker or machine */
 export const PRESTIGE_GATE_DEEDS = 8
-/** batch 34: the ⭐ balance carries into the next run on a sale, up to this many (everything bought with ⭐ resets) */
-export const STAR_CARRY_CAP = 50
+/** batch 34: the ⭐ balance carries into the next run on a sale, up to this many (everything bought with ⭐ resets);
+ * 50 → 400 batch 35.3 */
+export const STAR_CARRY_CAP = 400
 /** how many sold runs meta.runs keeps */
 export const RUN_HISTORY_CAP = 20
 

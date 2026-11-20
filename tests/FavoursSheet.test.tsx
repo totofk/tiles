@@ -38,7 +38,7 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     expect([star.textContent, star.title]).toEqual(['⭐ 12', '⭐ Favours'])
     fireEvent.click(star)
     const sheet = screen.getByRole('dialog', { name: '⭐ Favours' })
-    expect(within(sheet).getByText('⭐ 12 to spend · resets when you sell the farm (up to 50 ⭐ carry over)')).toBeTruthy()
+    expect(within(sheet).getByText('⭐ 12 to spend · resets when you sell the farm (up to 400 ⭐ carry over)')).toBeTruthy()
   })
 
   it('after a sale the carried ⭐ shows in the HUD with no board bought yet (and nothing shows at ⭐0 with no board)', () => {
@@ -71,7 +71,7 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     render(<Favours state={withRun({ stars: 50, furnace, workers, counters: { ...init.run.counters, bars: 30 } })} act={() => {}} />)
     expect(rowOf(/Furnace speed/).querySelector('small')!.textContent).toBe('cycles 64 % → 51 % · ⭐10')
     expect(rowOf(/Furnace batch/).querySelector('small')!.textContent).toBe('needs tray Lv2')
-    expect(rowOf(/Stoker/).querySelector('small')!.textContent).toBe(`furnace ×1.5, fuel ×2 · ⭐15 ${ITEMS.ironBar.emoji}6`)
+    expect(rowOf(/Stoker/).querySelector('small')!.textContent).toBe(`furnace ×1.5, fuel ×2 · ⭐120 ${ITEMS.ironBar.emoji}6`)
   })
 
   it('buying Fine mist moves the Upgrades row to "Lv 5/5 +⭐1", still disabled as max', () => {
@@ -93,10 +93,10 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     expect(document.querySelector('.order-row')!.textContent).toContain('⭐0.4 · ')
   })
 
-  it('the Sell card says how much ⭐ carries and how much is lost above 50', () => {
-    const gate = withRun({ stars: 64, lifetime: { ...init.run.lifetime, cashEarned: 640_000 }, workers: { ...init.run.workers, certificates: ['plant', 'harvest'] }, workshop: { built: true, beds: [true, false, false, false], valve: false } })
+  it('the Sell card says how much ⭐ carries and how much is lost above 400', () => {
+    const gate = withRun({ stars: 414, lifetime: { ...init.run.lifetime, cashEarned: 640_000 }, workers: { ...init.run.workers, certificates: ['plant', 'harvest'] }, workshop: { built: true, beds: [true, false, false, false], valve: false } })
     render(<SellCard state={gate} sell={() => {}} />)
-    expect(screen.getByText('⭐ 50 carried to the next farm · ⭐14 lost above 50')).toBeTruthy()
+    expect(screen.getByText('⭐ 400 carried to the next farm · ⭐14 lost above 400')).toBeTruthy()
   })
 
   it('reaching the Stoker\'s gate (the last bar batch level) does not toast "New worker" — its certificate is in ⭐ Favours', () => {

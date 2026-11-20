@@ -45,9 +45,9 @@ describe('batch 29: the 💼 Manager row', () => {
     expect(managerRow().textContent).toContain('contracts delivered 1/10')
   })
 
-  it('batch 32: the certificate price reads 🥇4 ⭐20 💰1.5M; the v22 save at 💰15,266,531 shows 💰 15.266M in the HUD', () => {
+  it('the certificate price reads 🥇4 ⭐160 💰1.5M (batch 35.3); the v22 save at 💰15,266,531 shows 💰 15.266M in the HUD', () => {
     setup({}, { contractsByHand: 10 })
-    expect(managerRow().textContent!.replace(/⁠/g, '')).toContain('🥇4 ⭐20 💰1.5M')
+    expect(managerRow().textContent!.replace(/⁠/g, '')).toContain('🥇4 ⭐160 💰1.5M')
     cleanup()
     const loaded = deserialize(v22)!.state
     render(<Hud state={{ ...loaded, run: { ...loaded.run, cash: 15_266_531 } }} />)
@@ -190,7 +190,7 @@ describe('👷 Workers card', () => {
     // the clerk certificate is priced in ⭐ + copper bars + cash and gated by orders completed
     const clerk = screen.getByText('📋 Clerk').closest('.worker-row') as HTMLElement
     expect(clerk.textContent).toContain('orders 0/20')
-    expect(within(clerk).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠6 ⭐⁠20 💰⁠200`)
+    expect(within(clerk).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠6 ⭐⁠160 💰⁠200`)
     const plant = screen.getByText('🌱 Plant').closest('.worker-row') as HTMLElement
     expect(plant.textContent).toContain('plants 12/60')
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠10 💰⁠300`)

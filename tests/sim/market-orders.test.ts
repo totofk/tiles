@@ -497,12 +497,13 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
       bonusPct,
     })
     expect({ carrot9: pick(farms.carrot9), lemon24: pick(farms.lemon24), lemon24x6: pick(farms.lemon24x6), shopStars, hoursToShop }).toEqual({
-      // batch 35.3 (order ⭐ fixed per tier): ⭐/h 11 / 5 / 10 → 88 / 40 / 80, hours to the shop 5.5 / 12 / 6 → 0.7 / 1.5 / 0.8
+      // batch 35.3 (order ⭐ fixed per tier, ⭐ prices ×8): ⭐/h 11 / 5 / 10 → 88 / 40 / 80, the ⭐ shop 60 → 480, hours to
+      // it unchanged
       carrot9: { starsPerHour: 88, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3542, bonusPct: 9 },
       lemon24: { starsPerHour: 40, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 12525, bonusPct: 14.8 },
       lemon24x6: { starsPerHour: 80, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25640, incomeOff: 21808, bonusPct: 17.6 },
-      shopStars: 60,
-      hoursToShop: { carrot9: 0.7, lemon24: 1.5, lemon24x6: 0.8 },
+      shopStars: 480,
+      hoursToShop: { carrot9: 5.5, lemon24: 12, lemon24x6: 6 },
     })
   })
 

@@ -118,7 +118,7 @@ describe('batch 34: ⭐ Favours — each row', () => {
 describe('batch 34: the 🔥 Stoker', () => {
   const ready = (run: Partial<RunState> = {}) =>
     withRun({
-      stars: 15,
+      stars: 120,
       inventory: { ironBar: 6 },
       counters: { ...init.run.counters, bars: 30 },
       furnace: furnaceTop(),
@@ -126,7 +126,7 @@ describe('batch 34: the 🔥 Stoker', () => {
       ...run,
     })
 
-  it('the certificate: ⭐15 + 🥈6, cash 0, LOCKED until the fuel certificate and the bar ladder (speed Lv2, batch 5 bars)', () => {
+  it('the certificate: ⭐120 + 🥈6, cash 0, LOCKED until the fuel certificate and the bar ladder (speed Lv2, batch 5 bars)', () => {
     expect(buyFavour(ready({ workers: { ...init.run.workers, certificates: [] } }), 'stoker')).toEqual({ ok: false, error: 'LOCKED' })
     expect(buyFavour(ready({ furnace: { ...furnaceTop(), levels: { ...furnaceTop().levels, batch: 3 } } }), 'stoker')).toEqual({ ok: false, error: 'LOCKED' })
     const s = okState(buyFavour(ready(), 'stoker'))

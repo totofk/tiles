@@ -83,10 +83,10 @@ describe('📋 Orders', () => {
     expect(rows()[0].textContent).toBe('⏳ next order in 10:00')
   })
 
-  it('⭐ shop row: + Slot 3 ⭐10 and 🔄 Reroll ⭐2, bought with ⭐ only; no slot button at 4 slots', () => {
-    const t = setup(board([offer({}), offer({})], { stars: 12 }))
+  it('⭐ shop row: + Slot 3 ⭐80 and 🔄 Reroll ⭐2, bought with ⭐ only; no slot button at 4 slots', () => {
+    const t = setup(board([offer({}), offer({})], { stars: 82 }))
     const shop = document.querySelector('.order-shop') as HTMLElement
-    expect(within(shop).getAllByRole('button').map((b) => b.textContent)).toEqual(['+ Slot 3 ⭐10', '🔄 Reroll ⭐2'])
+    expect(within(shop).getAllByRole('button').map((b) => b.textContent)).toEqual(['+ Slot 3 ⭐80', '🔄 Reroll ⭐2'])
     within(shop).getByRole('button', { name: /Slot 3/ }).click()
     t.rerender()
     expect([t.get().run.stars, t.get().run.orders.slots]).toEqual([2, 3])

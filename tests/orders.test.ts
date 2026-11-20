@@ -357,14 +357,14 @@ describe('crop orders fill from harvests', () => {
 })
 
 describe('⭐ shop: slots and reroll (⭐ only)', () => {
-  it('3rd slot ⭐10, 4th ⭐30, then MAX_LEVEL; each new slot holds a fresh offer; cash never pays', () => {
+  it('3rd slot ⭐80, 4th ⭐240, then MAX_LEVEL; each new slot holds a fresh offer; cash never pays', () => {
     expect(buyOrderSlot(init)).toEqual({ ok: false, error: 'LOCKED' })
-    const s = board([offer({}), offer({})], { stars: 40, cash: 1e6 })
-    expect([orderSlotStars(2), orderSlotStars(3), orderSlotStars(4), orderMaxSlots()]).toEqual([10, 30, null, 4])
+    const s = board([offer({}), offer({})], { stars: 320, cash: 1e6 })
+    expect([orderSlotStars(2), orderSlotStars(3), orderSlotStars(4), orderMaxSlots()]).toEqual([80, 240, null, 4])
     const three = okState(buyOrderSlot(s))
-    expect([three.run.stars, three.run.cash, three.run.orders.slots, three.run.orders.offers.length]).toEqual([30, 1e6, 3, 3])
+    expect([three.run.stars, three.run.cash, three.run.orders.slots, three.run.orders.offers.length]).toEqual([240, 1e6, 3, 3])
     expect(three.run.orders.offers[2]).toMatchObject({ done: 0, accepted: false })
-    expect(buyOrderSlot({ ...three, run: { ...three.run, stars: 29 } })).toEqual({ ok: false, error: 'NO_STARS' })
+    expect(buyOrderSlot({ ...three, run: { ...three.run, stars: 239 } })).toEqual({ ok: false, error: 'NO_STARS' })
     const four = okState(buyOrderSlot(three))
     expect([four.run.stars, four.run.cash, four.run.orders.slots]).toEqual([0, 1e6, 4])
     expect(buyOrderSlot(four)).toEqual({ ok: false, error: 'MAX_LEVEL' })
@@ -393,14 +393,14 @@ describe('order clerk (worker job)', () => {
       ...run,
     })
 
-  it('certificate: ⭐20 + 🥉6 + 💰200 after 20 orders completed', () => {
-    expect(certificateCost('clerk', meta)).toEqual({ stars: 20, copperBar: 6, cash: 200 })
-    const ready = board([], { stars: 20, cash: 200, inventory: { copperBar: 6 }, counters: { ...init.run.counters, orders: 20 } })
+  it('certificate: ⭐160 + 🥉6 + 💰200 after 20 orders completed', () => {
+    expect(certificateCost('clerk', meta)).toEqual({ stars: 160, copperBar: 6, cash: 200 })
+    const ready = board([], { stars: 160, cash: 200, inventory: { copperBar: 6 }, counters: { ...init.run.counters, orders: 20 } })
     expect(certificateUnlocked({ ...ready.run, counters: { ...ready.run.counters, orders: 19 } }, 'clerk')).toBe(false)
     const bought = okState(buyCertificate(ready, 'clerk'))
     expect([bought.run.stars, bought.run.cash, bought.run.inventory.copperBar]).toEqual([0, 0, 0])
     expect(bought.run.milestones.certClerk).toBe(bought.run.tick)
-    expect(buyCertificate({ ...ready, run: { ...ready.run, stars: 19 } }, 'clerk')).toEqual({ ok: false, error: 'NO_STARS' })
+    expect(buyCertificate({ ...ready, run: { ...ready.run, stars: 159 } }, 'clerk')).toEqual({ ok: false, error: 'NO_STARS' })
   })
 
   it('delivers an item order storage can fill first, paying the wage; else accepts an offer the farm grows or the vein drops', () => {

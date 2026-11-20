@@ -462,7 +462,8 @@ describe('batch 29: manager', () => {
     expect(doneAt!).toBeLessThanOrEqual(HOUR_TICKS)
   }, 120_000)
 
-  // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M; ⭐20 batch 32
+  // re-pinned batch 31.1 (was 3 contracts by hand → 3, 🥇4 💰500,000): unlock at 10 delivered, ⭐40 + 💰1.5M; ⭐20 batch 32;
+  // ⭐20 → 160 batch 35.3 (⭐ prices ×8)
   it('unlock path: 7 delivered + 3 hand reaps → contractsByHand 10 → the Manager certificate buys; 💰1.5M in stage-6 hours', () => {
     const ready = { crop: 'strawberry' as const, readyTick: 0 }
     const offer = (good: CropId) => ({ good, count: 5, done: 0, tier: 1, accepted: false, stars: 2 })
@@ -480,7 +481,7 @@ describe('batch 29: manager', () => {
     }
     expect(s.run.counters.contractsByHand).toBe(10)
     const price = certificateCost('manager', s.meta)
-    expect(price).toEqual({ goldBar: 4, stars: 20, cash: 1_500_000 })
+    expect(price).toEqual({ goldBar: 4, stars: 160, cash: 1_500_000 })
     const bought = buyCertificate({ ...s, run: { ...s.run, cash: price.cash, stars: price.stars!, inventory: { ...s.run.inventory, goldBar: price.goldBar } } }, 'manager')
     expect(bought.ok).toBe(true)
     const perHour = run(stage6(false, (() => {
