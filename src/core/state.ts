@@ -102,8 +102,9 @@ export type Offer = { good: OrderGood; count: number; done: number; tier: number
 export type Favours = { bunkhouse: number; seam: boolean; aim: OreId | null }
 /** a slot holds an offer, or counts down to its next one after a discard */
 export type OrderSlot = Offer | { cooldownTicks: number }
-/** offers has one entry per owned slot once the board is bought (empty before) */
-export type Orders = { unlocked: boolean; slots: number; offers: OrderSlot[] }
+/** offers has one entry per owned slot once the board is bought (empty before); rerolls = rerolls since the last
+ * completed order (batch 35.3, prices the next one) */
+export type Orders = { unlocked: boolean; slots: number; offers: OrderSlot[]; rerolls: number }
 
 /** pool = hired; assigned per job ≤ pool in total; a job takes workers only once its certificate is bought */
 export type Workers = { pool: number; assigned: Record<WorkerJob, number>; certificates: WorkerJob[] }
@@ -281,7 +282,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: carry?.certificates ?? [] },
     market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
     milestones: {},
-    orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
+    orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [], rerolls: 0 },
     stars: Math.min(carry?.stars ?? 0, STAR_CARRY_CAP),
     favours: { bunkhouse: 0, seam: false, aim: null },
     renown: carry?.renown ?? {},

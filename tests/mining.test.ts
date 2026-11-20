@@ -217,7 +217,7 @@ describe('batch 32: 🧺 Keep N', () => {
 
   it('batch 35.2: an ordered stone on Sell on dig is stored while there is room (ignoring Keep N), sold when storage is full', () => {
     const accepted = { good: 'stone' as const, count: 10, done: 4, tier: 0, accepted: true, stars: 1 }
-    const orders = { unlocked: true, slots: 1, offers: [accepted] }
+    const orders = { unlocked: true, slots: 1, offers: [accepted], rerolls: 0 }
     const at48 = okState(dig(keeper({ orders, inventory: { stone: 48 } })))
     expect([at48.run.inventory.stone, at48.run.counters.sales]).toEqual([49, 0])
     const at49 = okState(dig(at48))

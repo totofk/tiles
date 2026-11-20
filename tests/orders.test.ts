@@ -11,6 +11,7 @@ import {
   plotTiles,
   cropSellPrice,
   orderMaxSlots,
+  orderRerollCash,
   orderSlotStars,
   workerWage,
   handPickedBonus,
@@ -60,7 +61,7 @@ const withRun = (run: Partial<RunState>): GameState => ({ ...init, run: { ...ini
 
 /** a bought board holding these offers */
 const board = (offers: RunState['orders']['offers'], run: Partial<RunState> = {}): GameState =>
-  withRun({ orders: { unlocked: true, slots: offers.length, offers }, ...run })
+  withRun({ orders: { unlocked: true, slots: offers.length, offers, rerolls: 0 }, ...run })
 
 const offer = (o: Partial<Offer>): Offer => ({ good: 'radish', count: 10, done: 0, tier: 0, accepted: true, stars: 1, ...o })
 const RADISH = cropGrowTicks('radish', meta, 0)
@@ -336,7 +337,7 @@ describe('crop orders fill from harvests', () => {
         licenses: ['radish', 'lemon'],
         market: { ...s.run.market, radish: 40, lemon: 5 },
         workers: { pool: 3, assigned: { plant: 1, water: 1, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'water', 'harvest'] },
-        orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }] },
+        orders: { unlocked: true, slots: 3, offers: [offer({ count: 3 }), offer({ good: 'lemon', count: 2, tier: 1 }), { cooldownTicks: 30 }], rerolls: 0 },
       },
     }
     let single = start
@@ -356,7 +357,7 @@ describe('crop orders fill from harvests', () => {
   })
 })
 
-describe('⭐ shop: slots and reroll (⭐ only)', () => {
+describe('shop row: slots (⭐) and reroll (💰, batch 35.3)', () => {
   it('3rd slot ⭐80, 4th ⭐240, then MAX_LEVEL; each new slot holds a fresh offer; cash never pays', () => {
     expect(buyOrderSlot(init)).toEqual({ ok: false, error: 'LOCKED' })
     const s = board([offer({}), offer({})], { stars: 320, cash: 1e6 })
@@ -370,16 +371,27 @@ describe('⭐ shop: slots and reroll (⭐ only)', () => {
     expect(buyOrderSlot(four)).toEqual({ ok: false, error: 'MAX_LEVEL' })
   })
 
-  it('reroll: ⭐2 refills every slot without an accepted order now (cooldowns too); accepted orders keep their progress', () => {
+  it('reroll: refills every slot without an accepted order now (cooldowns too); accepted orders keep their progress', () => {
     const accepted = offer({ done: 4 })
-    const s = board([accepted, offer({ accepted: false, good: 'radish', count: 999 }), { cooldownTicks: 500 }], { stars: 2 })
+    const s = board([accepted, offer({ accepted: false, good: 'radish', count: 999 }), { cooldownTicks: 500 }], { stars: 2, cash: 500 })
     const next = okState(rerollOrders(s))
-    expect(next.run.stars).toBe(0)
+    expect([next.run.stars, next.run.cash]).toEqual([2, 0])
     expect(next.run.orders.offers[0]).toBe(accepted)
     expect(next.run.orders.offers[1]).not.toEqual(s.run.orders.offers[1])
     expect(next.run.orders.offers.every(isOffer)).toBe(true)
-    expect(rerollOrders(next)).toEqual({ ok: false, error: 'NO_STARS' })
-    expect(rerollOrders(board([accepted], { stars: 9 }))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+    expect(rerollOrders(board([accepted], { cash: 1e6 }))).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
+    expect(rerollOrders(init)).toEqual({ ok: false, error: 'LOCKED' })
+  })
+
+  it('the first reroll costs 💰500, the next 💰1,000, then 💰2,000; without the cash it is refused; finishing any order brings it back to 💰500', () => {
+    const s = board([offer({ good: 'stone', count: 1 }), offer({ accepted: false })], { cash: 3500, inventory: { stone: 1 } })
+    expect([0, 1, 2].map(orderRerollCash)).toEqual([500, 1000, 2000])
+    const three = [1, 2, 3].reduce((g) => okState(rerollOrders(g)), s)
+    expect([three.run.cash, three.run.orders.rerolls]).toEqual([0, 3])
+    expect(rerollOrders({ ...three, run: { ...three.run, cash: 3999 } })).toEqual({ ok: false, error: 'NO_CASH' })
+    const done = okState(deliverOrder(three, 0))
+    expect(done.run.orders.rerolls).toBe(0)
+    expect(okState(rerollOrders({ ...done, run: { ...done.run, cash: 500 } })).run.cash).toBe(0)
   })
 })
 

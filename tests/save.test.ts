@@ -154,8 +154,9 @@ function asV24Furnace({ molds, levels: { speed, tray, slot, ...levels }, collect
 /** a v28 run back in the v27 shape: no bars Keep N, no auto-buy wood (both are off after any migration) */
 function asV27Run(run: Save['state']['run']): Save['state']['run'] {
   const { barKeep, autoBuyWood, ...v27 } = run
-  expect([barKeep, autoBuyWood]).toEqual([{}, false])
-  return v27 as Save['state']['run']
+  const { rerolls, ...orders } = run.orders
+  expect([barKeep, autoBuyWood, rerolls]).toEqual([{}, false, 0])
+  return { ...v27, orders } as Save['state']['run']
 }
 /** batch 35: old rung k → new paid rung k (the frozen RANK_MAP_V26) and its inverse */
 const RANK_V26: Record<string, CropId> = { radish: 'radish', chilli: 'corn', pumpkin: 'eggplant', lemon: 'pumpkin', tomato: 'tomato', corn: 'lemon', grape: 'grape', strawberry: 'strawberry' }
@@ -710,8 +711,7 @@ describe('save v13: the 📋 Noticeboard', () => {
       run: {
         ...s.run,
         stars: 7,
-        starsFrac: 0.4,
-        orders: { unlocked: true, slots: 2, offers: [{ good: 'radish' as const, count: 27, done: 4, tier: 0, accepted: true, stars: 0.6 }, { cooldownTicks: 312 }] },
+        orders: { unlocked: true, slots: 2, offers: [{ good: 'radish' as const, count: 27, done: 4, tier: 0, accepted: true, stars: 8 }, { cooldownTicks: 312 }], rerolls: 2 },
         counters: { ...s.run.counters, orders: 3 },
         lifetime: { ...s.run.lifetime, ordersCompleted: 3, starsEarned: 9 },
       },
@@ -1454,7 +1454,7 @@ describe('save v27: the 10-crop ladder (batch 35)', () => {
     expect([run.stars, run.renown, run.lifetime.harvests, run.milestones]).toEqual([39, old.state.run.renown, old.state.run.lifetime.harvests, old.state.run.milestones])
     expect(run.renown.lemon).toBe(2427)
     expect(run.market).toEqual({ ...old.state.run.market, potato: 0, eggplant: 0 })
-    expect(run.orders).toEqual(old.state.run.orders)
+    expect(run.orders).toEqual({ ...old.state.run.orders, rerolls: 0 })
     expect(meta).toEqual(old.state.meta)
     expect([run.inventory, run.upgrades, run.workers, run.furnace]).toEqual([old.state.run.inventory, old.state.run.upgrades, old.state.run.workers, old.state.run.furnace])
   })

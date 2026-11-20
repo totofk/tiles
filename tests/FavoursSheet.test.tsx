@@ -32,7 +32,7 @@ const rowOf = (name: RegExp) => screen.getByRole('button', { name })
 
 describe('batch 34: the ⭐ Favours sheet', () => {
   it('the HUD ⭐ is a button that opens the ⭐ Favours sheet', () => {
-    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 12, orders: { unlocked: true, slots: 2, offers: [] } }), Date.now()))
+    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 12, orders: { unlocked: true, slots: 2, offers: [], rerolls: 0 } }), Date.now()))
     render(<App />)
     const star = document.querySelector<HTMLElement>('button.hud-stars')!
     expect([star.textContent, star.title]).toEqual(['⭐ 12', '⭐ Favours'])
@@ -89,7 +89,7 @@ describe('batch 34: the ⭐ Favours sheet', () => {
 
   it('an order card shows its own ⭐ with one decimal under 10', () => {
     const offer = { good: 'radish' as const, count: 4, done: 0, tier: 0, accepted: false, stars: 0.4 }
-    render(<Orders state={withRun({ orders: { unlocked: true, slots: 1, offers: [offer] } })} act={() => {}} />)
+    render(<Orders state={withRun({ orders: { unlocked: true, slots: 1, offers: [offer], rerolls: 0 } })} act={() => {}} />)
     expect(document.querySelector('.order-row')!.textContent).toContain('⭐0.4 · ')
   })
 

@@ -22,6 +22,7 @@ import {
   type MultiplierKey,
   type Offer,
   type OrderGood,
+  type Orders,
   type Pickaxe,
   type Plot,
   type Tile,
@@ -276,7 +277,7 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   furnace: FurnaceV25 & { stoked: number }
 }
 type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
-type RunV27 = Omit<GameState['run'], 'barKeep' | 'autoBuyWood'>
+type RunV27 = Omit<GameState['run'], 'barKeep' | 'autoBuyWood' | 'orders'> & { orders: Omit<Orders, 'rerolls'> }
 type SaveV27 = { version: 27; savedAtMs: number; state: { meta: GameState['meta']; run: RunV27 } }
 type SaveV28 = { version: 28; savedAtMs: number; state: GameState }
 export type Save = SaveV28
@@ -824,7 +825,8 @@ function migrateV26(save: SaveV26): SaveV27 {
 
 // v27 → v28 (batch 35.2): bars Keep N off, auto-buy wood off; nothing else changes.
 function migrateV27(save: SaveV27): SaveV28 {
-  return { version: 28, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...save.state.run, barKeep: {}, autoBuyWood: false } } }
+  const { run } = save.state
+  return { version: 28, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...run, barKeep: {}, autoBuyWood: false, orders: { ...run.orders, rerolls: 0 } } } }
 }
 
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }

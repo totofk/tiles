@@ -332,7 +332,7 @@ describe('reapPlot / reapNext (by hand)', () => {
   })
 
   it('a reaped plot fills an accepted order first at the order price, exactly like a home-plot harvest', () => {
-    const orders = { unlocked: true, slots: 1, offers: [{ good: 'pumpkin' as const, count: 3, done: 0, tier: 0, accepted: true, stars: 1 }] }
+    const orders = { unlocked: true, slots: 1, offers: [{ good: 'pumpkin' as const, count: 3, done: 0, tier: 0, accepted: true, stars: 1 }], rerolls: 0 }
     const s = withFields([field([lemon(900)])], { cash: 0, tick: 1000, orders })
     const r = fieldsHarvest(lastTile(s))
     if (!r?.ok) throw new Error(r?.error ?? 'nothing ready')
@@ -661,7 +661,7 @@ describe('step identity over plots', () => {
         cash: 5000,
         energy: 30,
         workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
-        orders: { unlocked: true, slots: 1, offers: [{ good: 'pumpkin', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }] },
+        orders: { unlocked: true, slots: 1, offers: [{ good: 'pumpkin', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }], rerolls: 0 },
       },
       { pump: 1, machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9 } }) },
     )

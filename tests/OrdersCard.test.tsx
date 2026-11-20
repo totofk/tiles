@@ -25,7 +25,7 @@ function setup(run: Partial<RunState>, card = false) {
   return { get: () => state, rerender: () => view.rerender(ui()) }
 }
 
-const board = (offers: RunState['orders']['offers'], extra: Partial<RunState> = {}) => ({ orders: { unlocked: true, slots: offers.length, offers }, stars: 5, ...extra })
+const board = (offers: RunState['orders']['offers'], extra: Partial<RunState> = {}) => ({ orders: { unlocked: true, slots: offers.length, offers, rerolls: 0 }, stars: 5, ...extra })
 const rows = () => Array.from(document.querySelectorAll('.order-row')) as HTMLElement[]
 
 describe('📋 Orders', () => {
@@ -83,17 +83,21 @@ describe('📋 Orders', () => {
     expect(rows()[0].textContent).toBe('⏳ next order in 10:00')
   })
 
-  it('⭐ shop row: + Slot 3 ⭐80 and 🔄 Reroll ⭐2, bought with ⭐ only; no slot button at 4 slots', () => {
-    const t = setup(board([offer({}), offer({})], { stars: 82 }))
+  it('shop row: + Slot 3 ⭐80 bought with ⭐; 🔄 Reroll 💰500 → 💰1,000 after one, disabled without the cash; no slot button at 4 slots', () => {
+    const t = setup(board([offer({}), offer({})], { stars: 82, cash: 500 }))
     const shop = document.querySelector('.order-shop') as HTMLElement
-    expect(within(shop).getAllByRole('button').map((b) => b.textContent)).toEqual(['+ Slot 3 ⭐80', '🔄 Reroll ⭐2'])
+    expect(within(shop).getAllByRole('button').map((b) => b.textContent)).toEqual(['+ Slot 3 ⭐80', '🔄 Reroll 💰500'])
     within(shop).getByRole('button', { name: /Slot 3/ }).click()
     t.rerender()
     expect([t.get().run.stars, t.get().run.orders.slots]).toEqual([2, 3])
+    within(document.querySelector('.order-shop') as HTMLElement).getByRole('button', { name: /Reroll/ }).click()
+    t.rerender()
+    const after = within(document.querySelector('.order-shop') as HTMLElement).getByRole('button', { name: /Reroll/ }) as HTMLButtonElement
+    expect([t.get().run.cash, after.textContent, after.disabled]).toEqual([0, '🔄 Reroll 💰1,000', true])
     cleanup()
-    setup(board([offer({}), offer({}), offer({}), offer({})], { stars: 0 }))
+    setup(board([offer({}), offer({}), offer({}), offer({})], { stars: 0, cash: 0 }))
     const full = document.querySelector('.order-shop') as HTMLElement
-    expect(within(full).getAllByRole('button').map((b) => [b.textContent, (b as HTMLButtonElement).disabled])).toEqual([['🔄 Reroll ⭐2', true]])
+    expect(within(full).getAllByRole('button').map((b) => [b.textContent, (b as HTMLButtonElement).disabled])).toEqual([['🔄 Reroll 💰500', true]])
   })
 
   it('in the farm column it is a closed card whose summary shows ⭐', () => {

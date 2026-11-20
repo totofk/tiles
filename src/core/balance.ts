@@ -535,10 +535,11 @@ const ORDER_ROCKS_PER_MIN = 12
 /** an item order asks for at most this share of the storage capacity (rounded down) */
 const ORDER_ITEM_BAG_SHARE = 0.5
 const ORDER_COOLDOWN_TICKS = 600
-// ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th), and for a reroll (every slot without an
-// accepted order gets a fresh offer now, cooldowns skipped). Only ⭐ buys these; nothing here sells for cash.
+// ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th); only ⭐ buys these.
 const ORDER_SLOT_STARS = [80, 240] // batch 35.3: [10, 30] ×8
-const ORDER_REROLL_STARS = 2
+// batch 35.3: a reroll (every slot without an accepted order gets a fresh offer now, cooldowns skipped) costs cash,
+// ×2 per reroll since the last completed order; not scaled by the deed cost row
+const ORDER_REROLL_BASE_CASH = 500
 
 /** the Noticeboard's price */
 export function orderBoardCost(meta: MetaState): Price {
@@ -609,8 +610,9 @@ export function orderSlotStars(slots: number): number | null {
   return ORDER_SLOT_STARS[slots - ORDER_BOARD.slots] ?? null
 }
 
-export function orderRerollStars(): number {
-  return ORDER_REROLL_STARS
+/** 💰 the next reroll costs after `rerolls` rerolls since the last completed order */
+export function orderRerollCash(rerolls: number): number {
+  return ORDER_REROLL_BASE_CASH * 2 ** rerolls
 }
 
 // Prestige deeds (batch 12, DECISIONS "Deeds"): one deed per √(lifetime cash / DEED_DIVISOR); "Sell the farm"

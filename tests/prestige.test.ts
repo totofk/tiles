@@ -37,7 +37,7 @@ describe('the sale gate', () => {
 describe('sellFarm', () => {
   // re-pinned batch 34 (was [8, 1, 9] deeds, ⭐ 0 after): ⭐ carries a sale — cash deeds only, the ⭐ balance carries
   it('resets the run, moves lifetime, ⭐-bought order slots and the ⭐ balance over, and pays the cash deeds into the ledger', () => {
-    const s = atGate({ orders: { unlocked: true, slots: 5, offers: [] }, tick: 12_345 })
+    const s = atGate({ orders: { unlocked: true, slots: 5, offers: [], rerolls: 3 }, tick: 12_345 })
     const sale = sellFarm(s)
     expect(sale.ok).toBe(true)
     if (!sale.ok) return
@@ -51,7 +51,7 @@ describe('sellFarm', () => {
       licenses: ['potato'],
       milestones: {},
       stars: 37,
-      orders: { unlocked: false, slots: 5, offers: [] },
+      orders: { unlocked: false, slots: 5, offers: [], rerolls: 0 },
       workers: { pool: 0, certificates: [] },
       lifetime: s.run.lifetime,
     })

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { cropSellPrice, orderBonus, orderRerollStars, orderSlotStars, orderTierCount } from '../core/balance'
+import { cropSellPrice, orderBonus, orderRerollCash, orderSlotStars, orderTierCount } from '../core/balance'
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
@@ -7,7 +7,7 @@ import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isContract, isCr
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
-import { gain, starsText } from './fmt'
+import { gain, price, starsText } from './fmt'
 import type { Act } from './useGame'
 
 export const goodEmoji = (good: OrderGood) => (isCropGood(good) ? CROP_EMOJI[good] : ITEMS[good].emoji)
@@ -105,7 +105,7 @@ export function Orders({ state, act, card = false, flashSlot = null }: { state: 
           <OrderRow key={i} state={state} act={act} slot={i} flash={i === flashSlot} />
         ))}
       </div>
-      {/* the ⭐ shop: only ⭐ buys these, and nothing here sells */}
+      {/* the shop row: slots for ⭐, the reroll for 💰 (batch 35.3); nothing here sells */}
       <div className="group">
         <div className="order-row order-shop">
           {slotStars !== null && (
@@ -114,7 +114,7 @@ export function Orders({ state, act, card = false, flashSlot = null }: { state: 
             </button>
           )}
           <button disabled={!rerollOrders(state).ok} onClick={() => act(rerollOrders)}>
-            {REROLL_EMOJI} Reroll <small>{STAR_EMOJI}{orderRerollStars()}</small>
+            {REROLL_EMOJI} Reroll <small>💰{price(orderRerollCash(orders.rerolls))}</small>
           </button>
         </div>
       </div>

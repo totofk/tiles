@@ -16,7 +16,7 @@ import {
   orderBonus,
   orderCooldownTicks,
   orderItemCap,
-  orderRerollStars,
+  orderRerollCash,
   orderRocksPerMin,
   orderSlotStars,
   orderTierMinutes,
@@ -111,9 +111,9 @@ function fillOrder(state: GameState, slot: number, n: number): GameState {
   const { run } = state
   const offer = run.orders.offers[slot] as Offer
   const done = offer.done + n
-  const withSlot = (next: OrderSlot, extra: Partial<RunState> = {}): GameState => ({
+  const withSlot = (next: OrderSlot, extra: Partial<RunState> = {}, rerolls = run.orders.rerolls): GameState => ({
     ...state,
-    run: { ...run, ...extra, orders: { ...run.orders, offers: run.orders.offers.map((s, i) => (i === slot ? next : s)) } },
+    run: { ...run, ...extra, orders: { ...run.orders, rerolls, offers: run.orders.offers.map((s, i) => (i === slot ? next : s)) } },
   })
   if (done < offer.count) return withSlot({ ...offer, done })
   const stars = offer.stars
@@ -127,7 +127,7 @@ function fillOrder(state: GameState, slot: number, n: number): GameState {
       contractsByHand: run.counters.contractsByHand + (isContract(run, offer.good) ? 1 : 0),
     },
     lifetime: { ...run.lifetime, ordersCompleted: run.lifetime.ordersCompleted + 1, starsEarned: run.lifetime.starsEarned + stars },
-  })
+  }, 0)
 }
 
 /** the first accepted open order for this crop; -1 = none */
@@ -253,8 +253,9 @@ export function buyOrderSlot(state: GameState): ActionResult {
   return pay(state, { cash: 0, stars }, { rngState, orders: { ...orders, slots: orders.slots + 1, offers: [...orders.offers, offer] } })
 }
 
-// ⭐ shop. Every slot without an accepted order (open offers and cooling slots) gets a fresh offer now, in slot order;
-// accepted orders keep their progress. Order: LOCKED, NOTHING_TO_DO (every slot accepted), NO_STARS.
+// Every slot without an accepted order (open offers and cooling slots) gets a fresh offer now, in slot order;
+// accepted orders keep their progress. Costs orderRerollCash(rerolls), then rerolls + 1 (batch 35.3; a completed order
+// sets it back to 0). Order: LOCKED, NOTHING_TO_DO (every slot accepted), NO_CASH.
 export function rerollOrders(state: GameState): ActionResult {
   const { orders } = state.run
   if (!orders.unlocked) return fail('LOCKED')
@@ -266,7 +267,7 @@ export function rerollOrders(state: GameState): ActionResult {
     rngState = next
     return offer
   })
-  return pay(state, { cash: 0, stars: orderRerollStars() }, { rngState, orders: { ...orders, offers } })
+  return pay(state, { cash: orderRerollCash(orders.rerolls) }, { rngState, orders: { ...orders, offers, rerolls: orders.rerolls + 1 } })
 }
 
 /** goods the clerk accepts: a crop planted on a tile or set as "Crop to plant" (never a contract: only the player

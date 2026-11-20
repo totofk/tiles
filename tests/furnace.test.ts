@@ -371,7 +371,7 @@ describe('bars Keep N after the Tractor (batch 35.2)', () => {
   it('an accepted gold bar order keeps its bars above Keep N; lowering N sells nothing until the next collect', () => {
     const order = { good: 'goldBar' as const, count: 12, done: 4, tier: 1, accepted: true, stars: 2 }
     const open = { ...order, good: 'goldBar' as const, accepted: false }
-    const orders = { unlocked: true, slots: 2, offers: [order, open] }
+    const orders = { unlocked: true, slots: 2, offers: [order, open], rerolls: 0 }
     const s = furnace({}, { copperOre: {}, goldOre: { ready: 10 } }, { ...tractor, orders, barKeep: { goldBar: 5 }, inventory: { goldBar: 3 } })
     // 5 kept + 8 still ordered; the open offer reserves nothing
     expect(okState(collectBars(s, 'goldOre')).run.inventory.goldBar).toBe(13)
