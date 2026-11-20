@@ -71,7 +71,7 @@ are not short (828 coal/h at full press vs ≈ 230/h needed at 20 fields). With 
 Keep 10 the tank fills to its cap and coal sits in storage 99.9 % of the time; bar auto-sale = 0.5–2.9 % of Estate
 income. Decisions: `docs/DECISIONS.md` "Batch 35.2 refined". Seam aim on coal was withdrawn (Toon, 2026-11-21).
 
-- [ ] 192. **Bars Keep N after the Tractor + save v28.**
+- [x] 192. **Bars Keep N after the Tractor + save v28.**
   - Run field `barKeep: Partial<Record<'copperBar' | 'ironBar' | 'goldBar', number>>` (missing = off). Shown and
     settable only when `run.fields.unlocked` (the Tractor) and `run.keepN`; `setBarKeep(state, bar, n)` mirrors
     `setOreKeep` (`src/core/mining.ts:213–221`: LOCKED / BAD_AMOUNT, 0 … storage capacity).
@@ -88,7 +88,7 @@ income. Decisions: `docs/DECISIONS.md` "Batch 35.2 refined". Seam aim on coal wa
     after `migrateV26` on every version branch (`serialize.ts:~778–837`). `tests/fixtures/save-v27.json` is committed
     (Toon's live v27 save, 12 fields, storage full): migrate it to v28 in `tests/save.test.ts` like save-v26
     (`tests/save.test.ts:28`) and assert Keep N bars off, auto-buy wood off, everything else equal.
-- [ ] 193. **Item orders: partial delivery; the ordered good skips Sell on dig.**
+- [x] 193. **Item orders: partial delivery; the ordered good skips Sell on dig.**
   - `deliverOrder` (`src/core/orders.ts:242–262`): delivers min(storage, count − done) when that is ≥ 1, pays per unit
     as today (`itemOrderValue`, rounded once per delivery), completes through `fillOrder` at the count. Error order:
     LOCKED, BAD_SLOT, NOTHING_TO_DO, NOT_ENOUGH_ITEMS (storage holds 0).
@@ -97,12 +97,12 @@ income. Decisions: `docs/DECISIONS.md` "Batch 35.2 refined". Seam aim on coal wa
     while storage has room (ignoring its Keep N); with storage full it is sold as today, so the miner never jams.
   - UI (`src/app/Orders.tsx:43, 70, 95`): Deliver is enabled with ≥ 1 in storage and reads "Deliver n"; the ready
     badge counts only orders storage can fill completely.
-- [ ] 194. **Auto-buy wood for the furnace.** `autoBuyWood` toggle (save field from task 192) on the furnace fuel row
+- [x] 194. **Auto-buy wood for the furnace.** `autoBuyWood` toggle (save field from task 192) on the furnace fuel row
   (`src/app/Mine.tsx:~220–232`). When on, the fuel loader (`src/core/workers.ts:~75–80`) with 0 coal in storage and
   fire room for one wood (`fuelRoom(f, 'wood') ≥ 1`) buys one wood at `WOOD_BUY_COST` (`balance.ts:68`) straight into
   the fire (never into storage, never into the Fields tank); with cash below the price it idles. Off by default.
   The manual fill buttons do not change.
-- [ ] 195. **Mine status lines (src/app only).** Under 📦 Storage (`src/app/Mine.tsx:~368`), one line per active blocker,
+- [x] 195. **Mine status lines (src/app only).** Under 📦 Storage (`src/app/Mine.tsx:~368`), one line per active blocker,
   Factorio-style machine status, plain text:
   - storage full: "⚠️ Storage full: miners stopped, Sell-on-dig finds are sold";
   - the selected pickaxe is blunt while a miner is assigned: "⚠️ Pickaxe blunt: miners idle until you repair it";
@@ -122,3 +122,51 @@ delivering 5 of an ore order's 20 pays 5 and leaves 15; the 20th completes it an
 storage holds; an ordered ore on Sell on dig is stored while there is room and sold when storage is full; auto-buy
 wood on: no coal → the fuel loader buys one wood for 💰4 into the fire, off: it idles, the tank never gets wood; each
 status line shows for its blocker and hides without it; v27 fixture → v28.
+
+## Batch 35.2 results
+
+Commits (main, not pushed): b9b3a09e task 192, 846874f3 task 193, 1a63ea0d task 194, 38e2f7e8 task 193 fix (an ordered
+Sell-on-dig good is stored while there is room, ignoring Keep N — the first 193 commit capped it at Keep N + the order's
+need), task 195 (this commit).
+
+1. Test totals: before 1137 passed + 3 expected failures (1140; batch 35.1 record); after 1152 passed + 4 expected
+   failures (1156), 63/63 files. The 4th expected failure is the scenario B clause below.
+2. Sim pins: none moved. Every sim file passes unchanged after tasks 192–195, including the clerk bots
+   (tests/sim/market-orders, fields, furnace-iron): their clerks never hold a part of an order in storage at a pinned
+   moment, so part deliveries change no pinned number. Scenario A holds: before the Tractor nothing changes.
+3. Save v28: `SAVE_VERSION` 27 → 28, `migrateV27` adds `barKeep: {}` and `autoBuyWood: false` and is chained after
+   `migrateV26` on every branch. tests/fixtures/save-v27.json (Toon's live save: 12 fields, storage 120 / 120) migrates
+   with both off and everything else equal (deep-equal after removing the two fields); every fixture v1 … v27 lands on
+   v28 with both off.
+4. Scenario B (tests/save.test.ts "save v28"; v27 fixture, Keep 10 on 🥉 🥈 🥇, gold pickaxe repaired to 600, 3600
+   single steps):
+   | | storage full (ticks of 3600) | storage at end | tank coal start → end | coal > 0 in storage |
+   |---|---|---|---|---|
+   | v27 as is | 3565 | 120 / 120 | 182.5 → 160.4 | 0 ticks |
+   | bars Keep 10 only (gold at durability 5) | 4 | 54 / 120 | 182.5 → 160.4 | 0 ticks |
+   | gold repaired only | 3565 | 120 / 120 | 182.5 → 160.4 | 0 ticks |
+   | both (scenario B) | 1125 | 120 / 120 | 182.5 → 399.4 (cap 400 reached) | 3446 ticks (95.7 %) |
+   The tank fills to its cap and coal sits in storage, as the calculator in "Why" says. Storage is full at the end:
+   see Deviations.
+5. Gates: `pnpm test`, `pnpm lint`, `pnpm build` green before each commit; `npx tsc -b --force` clean; purity grep over
+   src/core and src/save shows only the known `src/save/storage.ts:26` wallClock line; the case-collision check prints
+   nothing.
+
+### Deviations
+
+- **Scenario B: "storage is no longer full at the end" does not hold — measured 120 / 120 at tick 3600** (full on 1125 of
+  3600 ticks, down from 3565). Pinned as `it.fails` in tests/save.test.ts with the measured value; the tank half of the
+  scenario holds (182.5 → 399.4 coal, cap 400). Cause: the save's own Keep N adds up to 230 (Sell-on-dig coal 50, stone
+  30, copper / iron / gold ore 40 each = 200, plus bars 3 × 10) against 120 slots, so once the tank is full the kept coal
+  (41 at the end), stone 30 and ores refill storage; the new status line reads "⚠️ Keeps add up to 230, storage holds 120".
+  Not one of the listed correctness guards, so the batch went on. Hermes decides: keep the clause as a player-fixable
+  state (the status line), or change the scenario's keeps.
+- `setBarKeep(state, bar, null)` turns a bar back to off (keeps all); the UI's − from 0 does that and + from off sets 0.
+  The plan names only 0 … storage capacity; off needed a way back.
+- The Deliver button reads "Deliver 0" (disabled) when storage holds none.
+- The auto-buy wood toggle sits under the fuel fill buttons, reusing the `.pouch-auto` checkbox style from the seed
+  pouch.
+- UI verified with jsdom render tests only (no browser): bar rows, Deliver n / ready badge, the wood toggle and the three
+  status lines. Hermes re-measures live.
+- One full-suite run timed out the 8 h offline perf test in tests/sim/fields.test.ts (2134 ms vs < 2000 ms); it passes
+  rerun standalone (the batch 35.1 load flake).

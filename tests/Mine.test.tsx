@@ -205,6 +205,31 @@ describe('Mine panel', () => {
     expect([t.get().run.cash, t.get().run.furnace.fire]).toEqual([createInitialState().run.cash, 0])
   })
 
+  it('batch 35.2: one status line per active blocker under 📦 Storage, none when nothing blocks', () => {
+    const lines = () => [...document.querySelectorAll('.mine-status')].map((e) => e.textContent)
+    const miner = { workers: { ...createInitialState().run.workers, assigned: { ...createInitialState().run.workers.assigned, mine: 1 } } }
+    setup({ pickaxe: wooden(), ...miner })
+    expect(lines()).toEqual([])
+    cleanup()
+    setup({ pickaxe: wooden(), inventory: { stone: 20 } })
+    expect(lines()).toEqual(['⚠️ Storage full: miners stopped, Sell-on-dig finds are sold'])
+    cleanup()
+    setup({ pickaxe: wooden(0), ...miner })
+    expect(lines()).toEqual(['⚠️ Pickaxe blunt: miners idle until you repair it'])
+    cleanup()
+    // blunt with no miner assigned: no line
+    setup({ pickaxe: wooden(0) })
+    expect(lines()).toEqual([])
+    cleanup()
+    // Σ Keep N of Sell-on-dig kinds (coal on Keep does not count) + bars after the Tractor
+    const keeps = { keepN: true, bagCapacity: 120, oreSort: { coal: 'sell' as const, stone: 'sell' as const, copperOre: 'keep' as const }, oreKeep: { coal: 50, stone: 30, copperOre: 40 } }
+    setup({ ...keeps, barKeep: { ironBar: 50 } })
+    expect(lines()).toEqual([])
+    cleanup()
+    setup({ ...keeps, barKeep: { ironBar: 50 }, fields: { ...createFields(), unlocked: true } })
+    expect(lines()).toEqual(['⚠️ Keeps add up to 130, storage holds 120'])
+  })
+
   it('a plain furnace lit with nothing to smelt says so; a smart one does not', () => {
     setup({ furnace: { ...built, fire: 90 } })
     expect(document.querySelector('.furnace-hint')?.textContent).toBe('burning with nothing to smelt')

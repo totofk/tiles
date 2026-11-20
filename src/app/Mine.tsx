@@ -364,6 +364,16 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
   const max = masteryMaxLevel()
   const from = level > 0 ? thresholds[level - 1] : 0
   const toNext = level >= max ? 1 : (xp - from) / (thresholds[level] - from)
+  // batch 35.2: Factorio-style status, one line per active blocker
+  const keeps = run.keepN
+    ? MINE_DROP_IDS.reduce((n, k) => n + (run.oreSort[k] === 'sell' ? (run.oreKeep[k] ?? 0) : 0), 0) +
+      (run.fields.unlocked ? BAR_IDS.reduce((n, b) => n + (run.barKeep[b] ?? 0), 0) : 0)
+    : 0
+  const status = [
+    bagCount(run) >= run.bagCapacity && '⚠️ Storage full: miners stopped, Sell-on-dig finds are sold',
+    held?.durability === 0 && run.workers.assigned.mine > 0 && '⚠️ Pickaxe blunt: miners idle until you repair it',
+    keeps > run.bagCapacity && `⚠️ Keeps add up to ${keeps}, storage holds ${run.bagCapacity}`,
+  ].filter((line) => line)
 
   return (
     <section className="mine">
@@ -373,6 +383,11 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           📦 Storage {bagCount(run)} / {run.bagCapacity}
         </small>
       </h2>
+      {status.map((line) => (
+        <p key={line as string} className="mine-status">
+          {line}
+        </p>
+      ))}
       <button className={minerActed ? 'mine-dig mine-flash' : 'mine-dig'} disabled={!digCheck.ok} onClick={() => act(dig)}>
         ⛏️ Dig
         <small>

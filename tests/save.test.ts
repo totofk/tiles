@@ -27,7 +27,7 @@ import v24 from './fixtures/save-v24.json?raw'
 import v25 from './fixtures/save-v25.json?raw'
 import v26 from './fixtures/save-v26.json?raw'
 import v27 from './fixtures/save-v27.json?raw'
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, plotTiles, renownFloor, sellPrice } from '../src/core/balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, pickaxeDurability, plotTiles, renownFloor, sellPrice, tankCapCoal } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
@@ -1510,6 +1510,32 @@ describe('save v28: bars Keep N and auto-buy wood (batch 35.2)', () => {
     expect([save.state.run.fields.list.length, bagCount(save.state.run), save.state.run.bagCapacity]).toEqual([12, 120, 120])
     expect([save.state.run.barKeep, save.state.run.autoBuyWood]).toEqual([{}, false])
     expect({ ...save, version: 27, state: { ...save.state, run: asV27Run(save.state.run) } }).toEqual(old)
+  })
+
+  /** scenario B: the v27 save with Keep 10 on every bar and the gold pickaxe repaired, stepped tick by tick for 1 game-h */
+  const scenarioB = () => {
+    const { state } = deserialize(v27)!
+    let s: GameState = { ...state, run: { ...state.run, barKeep: { copperBar: 10, ironBar: 10, goldBar: 10 }, rack: { ...state.run.rack, gold: pickaxeDurability('gold') } } }
+    const start = s
+    let fullTicks = 0
+    for (let i = 0; i < 3600; i++) {
+      s = step(s, 1)
+      if (bagCount(s.run) >= s.run.bagCapacity) fullTicks++
+    }
+    return { start, end: s, fullTicks }
+  }
+
+  it('scenario B: the Fields tank fills to its cap and storage is full far less often (v27 as is: 3565 of 3600 ticks)', () => {
+    const { start, end, fullTicks } = scenarioB()
+    expect([start.run.fields.tank / TANK_UNITS_PER_COAL, end.run.fields.tank / TANK_UNITS_PER_COAL].map((c) => Math.round(c * 10) / 10)).toEqual([182.5, 399.4])
+    expect(tankCapCoal(end.run.fields.pump)).toBe(400)
+    expect(fullTicks).toBe(1125)
+  })
+
+  // Σ Keep N of the save's own Sell-on-dig kinds (200) + bars (30) = 230 > 120: kept coal refills storage (Deviations)
+  it.fails('scenario B: storage is no longer full at the end — measured 120 / 120', () => {
+    const { end } = scenarioB()
+    expect(bagCount(end.run)).toBeLessThan(end.run.bagCapacity)
   })
 
   it('every fixture v1 … v27 migrates to v28 with Keep N bars and auto-buy wood off', () => {
