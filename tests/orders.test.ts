@@ -254,11 +254,25 @@ describe('accept / discard / deliver', () => {
     expect(done.run.orders.offers[1]).toEqual(s.run.orders.offers[1])
   })
 
-  it('deliver errors: not accepted / a crop order NOTHING_TO_DO, short storage NOT_ENOUGH_ITEMS', () => {
-    const s = board([offer({ good: 'coal', count: 5, accepted: false }), offer({})], { inventory: { coal: 4 } })
+  it('deliver errors: not accepted / a crop order NOTHING_TO_DO, none in storage NOT_ENOUGH_ITEMS', () => {
+    const s = board([offer({ good: 'coal', count: 5, accepted: false }), offer({})], { inventory: { coal: 0 } })
     expect(deliverOrder(s, 0)).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(deliverOrder(s, 1)).toEqual({ ok: false, error: 'NOTHING_TO_DO' })
     expect(deliverOrder(okState(acceptOrder(s, 0)), 0)).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
+  })
+
+  it('batch 35.2: delivering 5 of an ore order’s 20 pays 5 and leaves 15; the 20th completes it and pays ⭐', () => {
+    const s = board([offer({ good: 'copperOre', count: 20, tier: 1, stars: 2 })], { inventory: { copperOre: 5 } })
+    const part = okState(deliverOrder(s, 0))
+    const unit = itemSellPrice('copperOre', meta, 0) * orderBonus()
+    expect(part.run.cash - s.run.cash).toBe(Math.round(5 * unit))
+    expect(part.run.orders.offers[0]).toMatchObject({ done: 5, count: 20, accepted: true })
+    expect([part.run.inventory.copperOre, part.run.stars, part.run.counters.orders]).toEqual([0, 0, 0])
+    const full = okState(deliverOrder({ ...part, run: { ...part.run, inventory: { copperOre: 30 } } }, 0))
+    expect(full.run.inventory.copperOre).toBe(15)
+    expect(full.run.cash - part.run.cash).toBe(Math.round(15 * unit))
+    expect([full.run.stars, full.run.counters.orders]).toEqual([2, 1])
+    expect(full.run.orders.offers[0]).toMatchObject({ done: 0, accepted: false })
   })
 
   it('batch 34: a bar is valued at its own sell price × (1 + bonus); ores keep base × bonus', () => {
@@ -402,8 +416,15 @@ describe('order clerk (worker job)', () => {
     expect(twice.run.orders.offers[0]).toMatchObject({ good: 'lemon', accepted: true })
   })
 
+  it('batch 35.2: the clerk delivers whatever storage holds of an accepted order', () => {
+    const s = clerkFarm([offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 2 } })
+    expect(clerkTarget(s)).toBe(0)
+    const once = workersAct(s)
+    expect([once.run.inventory.coal, (once.run.orders.offers[0] as Offer).done, once.run.counters.orders]).toEqual([0, 2, 0])
+  })
+
   it('idles unpaid with nothing to do, never discards, and never accepts what the farm does not grow', () => {
-    const s = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 2 } })
+    const s = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 0 } })
     expect(workersAct(s)).toBe(s)
     const later = step(s, 600)
     expect(later.run.orders.offers).toEqual(s.run.orders.offers)
@@ -414,7 +435,7 @@ describe('order clerk (worker job)', () => {
     const deliver = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 3 } })
     expect(clerkTarget(deliver)).toBe(1)
     expect(workerActivity(deliver)).toEqual([{ job: 'clerk', slot: 1 }])
-    const idle = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: { coal: 2 } })
+    const idle = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: {} })
     expect(clerkTarget(idle)).toBe(-1)
     expect(workerActivity(idle)).toEqual([])
     const accept = clerkFarm([offer({ good: 'lemon', accepted: false })], { plantCrop: 'lemon' })

@@ -137,12 +137,13 @@ function gainMastery(run: RunState, tier: PickaxeTier): Pick<RunState, 'mastery'
 const okState = (r: ActionResult) => (r as Extract<ActionResult, { ok: true }>).state
 
 /** what breaking a rock of `rock` does to its drop: stored, sold at once, or nothing (storage full). A kind set to Sell
- * on dig is stored only below its Keep N amount with room left, else sold — it never reports full */
+ * on dig is stored only below its Keep N amount plus what accepted orders still need (batch 35.2), with room left,
+ * else sold — it never reports full */
 function breakDrop(run: RunState, rock: ItemId): 'store' | 'sell' | 'full' {
   const room = bagCount(run) < run.bagCapacity
   if ((run.oreSort as Partial<Record<ItemId, string>>)[rock] === 'sell') {
     const keep = run.keepN ? ((run.oreKeep as Partial<Record<ItemId, number>>)[rock] ?? 0) : 0
-    return room && (run.inventory[rock] ?? 0) < keep ? 'store' : 'sell'
+    return room && (run.inventory[rock] ?? 0) < keep + orderNeed(run, rock) ? 'store' : 'sell'
   }
   return room ? 'store' : 'full'
 }

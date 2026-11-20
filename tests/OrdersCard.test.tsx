@@ -58,6 +58,23 @@ describe('📋 Orders', () => {
     expect(t.get().run.stars).toBe(6)
   })
 
+  it('batch 35.2: Deliver is enabled with ≥ 1 in storage and reads "Deliver n"; only an order storage fills completely is ready', () => {
+    const t = setup(
+      board(
+        [offer({ good: 'copperOre', count: 20, done: 0, tier: 1, accepted: true }), offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true }), offer({ good: 'coal', count: 4, done: 0, tier: 0, accepted: true })],
+        { inventory: { copperOre: 5, stone: 8 } },
+      ),
+    )
+    const deliver = (name: string) => screen.getByRole('button', { name: `Deliver ${name} order` }) as HTMLButtonElement
+    expect([deliver('Copper ore').textContent, deliver('Copper ore').disabled]).toEqual(['Deliver 5', false])
+    expect([deliver('Stone').textContent, deliver('Coal').textContent, deliver('Coal').disabled]).toEqual(['Deliver 8', 'Deliver 0', true])
+    expect(rows().slice(0, 3).map((r) => r.classList.contains('order-ready'))).toEqual([false, true, false])
+    expect(screen.getByRole('heading').textContent).toBe('📋 Orders · ⭐ 5 · 1 ready')
+    deliver('Copper ore').click()
+    t.rerender()
+    expect([t.get().run.inventory.copperOre, (t.get().run.orders.offers[0] as Offer).done]).toEqual([0, 5])
+  })
+
   it('Discard starts the cooldown', () => {
     const t = setup(board([offer({})]))
     screen.getByRole('button', { name: /Discard/ }).click()

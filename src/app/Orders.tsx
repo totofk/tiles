@@ -21,6 +21,9 @@ function orderCash(state: GameState, o: Offer): number {
   return Math.round(isCropGood(o.good) ? o.count * cropSellPrice(o.good, state.meta, state.run.upgrades.sellPrice) * orderBonus() : o.count * itemOrderValue(state, o.good))
 }
 
+/** an accepted item order storage can fill completely (the ✓ Ready badge; Deliver also takes part deliveries) */
+const orderFillable = (state: GameState, o: Offer) => o.accepted && !isCropGood(o.good) && (state.run.inventory[o.good] ?? 0) >= o.count - o.done
+
 /** one slot: the good and progress, tier dots, ⭐ and cash; Accept, Deliver (accepted item orders) and Discard.
  * batch 24.1: the row frame states the order's state — dashed offer / solid accepted / green ready with badges, a
  * progress bar on accepted rows, and the ✕ needs a second press within 3 s once an accepted order has progress */
@@ -40,7 +43,7 @@ function OrderRow({ state, act, slot, flash = false }: { state: GameState; act: 
     )
   const name = isCropGood(s.good) ? CROPS[s.good].name : ITEMS[s.good].name
   const dots = '●'.repeat(s.tier + 1) + '○'.repeat(orderTierCount() - s.tier - 1)
-  const ready = s.accepted && deliverOrder(state, slot).ok
+  const ready = orderFillable(state, s)
   const remaining = s.count - s.done
   const stored = isCropGood(s.good) ? 0 : Math.min(state.run.inventory[s.good] ?? 0, remaining)
   const progress = isCropGood(s.good) ? s.done : stored
@@ -68,7 +71,7 @@ function OrderRow({ state, act, slot, flash = false }: { state: GameState; act: 
       )}
       {s.accepted && !isCropGood(s.good) && (
         <button className={ready ? 'order-deliver' : undefined} disabled={!deliverOrder(state, slot).ok} onClick={() => act((g) => deliverOrder(g, slot))} aria-label={`Deliver ${name} order`}>
-          Deliver
+          Deliver {stored}
         </button>
       )}
       <button className="order-x" onClick={() => (twoPress && !armed ? setArmed(true) : act((g) => discardOrder(g, slot)))} aria-label={`Discard ${name} order`}>
@@ -92,7 +95,7 @@ export function Orders({ state, act, card = false, flashSlot = null }: { state: 
     </small>
   )
   const slotStars = orderSlotStars(orders.slots)
-  const readyN = orders.offers.filter((o, i) => isOffer(o) && o.accepted && deliverOrder(state, i).ok).length
+  const readyN = orders.offers.filter((o) => isOffer(o) && orderFillable(state, o)).length
   const readySuffix = readyN > 0 ? ` · ${readyN} ready` : ''
   const rows = (
     <>

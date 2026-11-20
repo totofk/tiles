@@ -215,6 +215,19 @@ describe('batch 32: 🧺 Keep N', () => {
     }
   })
 
+  it('batch 35.2: an ordered stone on Sell on dig is stored past Keep N while there is room, sold when storage is full', () => {
+    const orders = { unlocked: true, slots: 2, offers: [{ good: 'stone' as const, count: 10, done: 4, tier: 0, accepted: true, stars: 1 }, { good: 'stone' as const, count: 9, done: 0, tier: 0, accepted: false, stars: 1 }] }
+    // Keep 20 + 6 still ordered (the open offer reserves nothing): stored up to 26, then sold
+    const at25 = okState(dig(keeper({ orders, inventory: { stone: 25 } })))
+    expect([at25.run.inventory.stone, at25.run.counters.sales]).toEqual([26, 0])
+    const at26 = okState(dig(at25))
+    expect([at26.run.inventory.stone, at26.run.counters.sales]).toEqual([26, 1])
+    const plain = okState(dig(miner({ vein: vein3, oreSort: { stone: 'sell' }, bagCapacity: 50, orders })))
+    expect([plain.run.inventory.stone, plain.run.counters.sales]).toEqual([1, 0])
+    const full = okState(dig(keeper({ orders, inventory: { stone: 5, wood: 45 } })))
+    expect([full.run.inventory.stone, full.run.counters.sales]).toEqual([5, 1])
+  })
+
   it('buyKeepN: 🥈10 🥇5 💰7,000; NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED, NOT_ENOUGH_ITEMS, NO_CASH', () => {
     const price = keepNCost(meta)
     expect(price).toEqual({ ironBar: 10, goldBar: 5, cash: 7000 })

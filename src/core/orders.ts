@@ -236,8 +236,9 @@ export function discardOrder(state: GameState, slot: number): ActionResult {
 }
 
 /**
- * Moves the rest of an accepted item order from storage (0 energy) and pays itemOrderValue per unit, rounded once.
- * Order: LOCKED, BAD_SLOT, NOTHING_TO_DO (not accepted, or a crop order: harvests fill those), NOT_ENOUGH_ITEMS.
+ * Moves as much of the rest of an accepted item order as storage holds (0 energy; batch 35.2: part deliveries) and
+ * pays itemOrderValue per unit, rounded once per delivery; at its count the order completes. Order: LOCKED, BAD_SLOT,
+ * NOTHING_TO_DO (not accepted, or a crop order: harvests fill those), NOT_ENOUGH_ITEMS (storage holds none).
  */
 export function deliverOrder(state: GameState, slot: number): ActionResult {
   const { run } = state
@@ -245,8 +246,8 @@ export function deliverOrder(state: GameState, slot: number): ActionResult {
   if (typeof offer === 'string') return fail(offer)
   if (!offer.accepted || isCropGood(offer.good)) return fail('NOTHING_TO_DO')
   const good = offer.good
-  const need = offer.count - offer.done
-  if ((run.inventory[good] ?? 0) < need) return fail('NOT_ENOUGH_ITEMS')
+  const need = Math.min(offer.count - offer.done, run.inventory[good] ?? 0)
+  if (need < 1) return fail('NOT_ENOUGH_ITEMS')
   const cash = Math.round(need * itemOrderValue(state, good))
   const paid: GameState = {
     ...state,
@@ -298,13 +299,13 @@ export function clerkTarget(state: GameState): number {
   const { run } = state
   if (!run.orders.unlocked) return -1
   const offers = run.orders.offers
-  const deliver = offers.findIndex((s) => isOffer(s) && s.accepted && !isCropGood(s.good) && (run.inventory[s.good] ?? 0) >= s.count - s.done)
+  const deliver = offers.findIndex((s) => isOffer(s) && s.accepted && !isCropGood(s.good) && (run.inventory[s.good] ?? 0) >= 1)
   if (deliver >= 0) return deliver
   return offers.findIndex((s) => isOffer(s) && !s.accepted && clerkTakes(run, s.good))
 }
 
 /**
- * The order clerk's action (a worker job): deliver the first accepted item order storage can fill, else accept the
+ * The order clerk's action (a worker job): deliver to the first accepted item order storage holds any of, else accept the
  * first open offer whose good clerkTakes; never discards. null = nothing to do (the clerk idles unpaid).
  */
 export function clerkAction(state: GameState): ActionResult | null {
