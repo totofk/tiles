@@ -6,7 +6,7 @@ import type { Act } from '../src/app/useGame'
 import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { price } from '../src/app/fmt'
-import { createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
+import { createFields, createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
 
 afterEach(cleanup)
 const built = { ...createFurnace(), built: true }
@@ -517,6 +517,32 @@ describe('batch 32: 🧺 ore sorting table', () => {
     setup({ ...rich, inventory: {} })
     expect(buy().disabled).toBe(true)
     expect(buy().textContent).toBe('BuyNot enough items')
+  })
+
+  it('bars Keep N (batch 35.2): three bar rows after the Tractor, off → 0 → 10 and back to off; hidden before it', () => {
+    const owned = { vein: vein(4), keepN: true, bagCapacity: 120, oreSort: { stone: 'sell' as const } }
+    setup(owned)
+    expect(screen.queryByRole('group', { name: /Copper bar$/ })).toBeNull()
+    cleanup()
+    const t = setup({ ...owned, fields: { ...createFields(), unlocked: true } })
+    const rows = screen.getAllByRole('group', { name: /bar$/ }).map((g) => g.getAttribute('aria-label'))
+    expect(rows).toEqual(['Keep up to all Copper bar', 'Keep up to all Iron bar', 'Keep up to all Gold bar'])
+    expect(screen.getByRole('group', { name: 'Keep up to all Iron bar' }).textContent).toBe('−off+')
+    const more = () => screen.getByRole('button', { name: 'Keep 10 more Iron bar' })
+    const fewer = () => screen.getByRole('button', { name: 'Keep 10 fewer Iron bar' }) as HTMLButtonElement
+    expect(fewer().disabled).toBe(true)
+    fireEvent.click(more())
+    t.rerender()
+    fireEvent.click(more())
+    t.rerender()
+    expect(t.get().run.barKeep).toEqual({ ironBar: 10 })
+    fireEvent.click(fewer())
+    t.rerender()
+    fireEvent.click(fewer())
+    t.rerender()
+    expect(t.get().run.barKeep).toEqual({})
+    // bar rows carry no Sell on dig checkbox
+    expect(within(group()!).getAllByRole('checkbox')).toHaveLength(1)
   })
 
   it('the table stays once every kind is unlocked: five checkboxes, no Unlock button', () => {

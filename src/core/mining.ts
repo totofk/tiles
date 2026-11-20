@@ -27,7 +27,7 @@ import {
   type MineDropId,
   type Price,
 } from './balance'
-import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
+import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type BarId, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -217,6 +217,26 @@ export function setOreKeep(state: GameState, kind: MineDropId, n: number): Actio
   if (!run.keepN || !run.oreSort[kind]) return fail('LOCKED')
   if (!Number.isInteger(n) || n < 0 || n > run.bagCapacity) return fail('BAD_AMOUNT')
   return withRun(state, { oreKeep: { ...run.oreKeep, [kind]: n } })
+}
+
+/** bars Keep N (batch 35.2): the amount of a bar storage keeps before the furnace's collect sells the excess; null =
+ * off (keeps all). Free, no energy. LOCKED before the Tractor or without Keep N; BAD_AMOUNT unless a whole number 0 …
+ * storage capacity */
+export function setBarKeep(state: GameState, bar: BarId, n: number | null): ActionResult {
+  const { run } = state
+  if (!run.fields.unlocked || !run.keepN) return fail('LOCKED')
+  if (n === null) {
+    const barKeep = { ...run.barKeep }
+    delete barKeep[bar]
+    return withRun(state, { barKeep })
+  }
+  if (!Number.isInteger(n) || n < 0 || n > run.bagCapacity) return fail('BAD_AMOUNT')
+  return withRun(state, { barKeep: { ...run.barKeep, [bar]: n } })
+}
+
+/** units of `good` the accepted item orders still need (count − done, summed over the board) */
+export function orderNeed(run: RunState, good: ItemId): number {
+  return run.orders.offers.reduce((n, s) => ('good' in s && s.accepted && s.good === good ? n + s.count - s.done : n), 0)
 }
 
 /** Keep ↔ Sell on dig for an unlocked kind; free, no energy; LOCKED when the kind is not unlocked */

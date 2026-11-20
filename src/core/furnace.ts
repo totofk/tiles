@@ -18,8 +18,8 @@ import {
   type FurnaceUpgradeId,
   type MoldOre,
 } from './balance'
-import { ORE_IDS, type OreId } from './data/items'
-import { bagCount, pay } from './mining'
+import { ORE_IDS, type BarId, type OreId } from './data/items'
+import { bagCount, orderNeed, pay, sellItem } from './mining'
 import type { Furnace, GameState, Lifetime, Mold, RunState } from './state'
 
 // The furnace is a machine: building, fuelling, loading and collecting cost no energy, and it rolls no RNG.
@@ -140,14 +140,18 @@ export function collectBars(state: GameState, ore: OreId): ActionResult {
   if (mold.ready === 0) return fail('NOTHING_TO_DO')
   const n = Math.min(mold.ready, run.bagCapacity - bagCount(run))
   if (n <= 0) return fail('BAG_FULL')
-  const bar = oreBar(ore)
+  const bar = oreBar(ore) as BarId
   const key = COLLECTED[ore]
-  return withRun(state, {
+  const stored = withRun(state, {
     inventory: { ...run.inventory, [bar]: (run.inventory[bar] ?? 0) + n },
     furnace: withMold(f, ore, { ...mold, ready: mold.ready - n }),
     counters: ore === 'copperOre' ? { ...run.counters, bars: run.counters.bars + n } : run.counters,
     lifetime: { ...run.lifetime, [key]: run.lifetime[key] + n },
   })
+  // batch 35.2: after the Tractor, bars above Keep N (plus what accepted orders still need) sell on the way in
+  const keep = run.fields.unlocked && run.keepN ? run.barKeep[bar] : undefined
+  const extra = keep === undefined ? 0 : (run.inventory[bar] ?? 0) + n - keep - orderNeed(run, bar)
+  return extra > 0 && stored.ok ? sellItem(stored.state, bar, extra) : stored
 }
 
 // Collect all (bought once): every owned mold's tray, copper → iron → gold, as far as storage room goes.

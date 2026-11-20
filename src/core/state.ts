@@ -1,6 +1,6 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
-import type { ItemId, OreId, PickaxeTier } from './data/items'
+import type { BarId, ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
@@ -49,6 +49,10 @@ export type RunState = {
   keepN: boolean
   /** per kind set to Sell on dig: the amount kept in storage before the excess sells (missing = 0) */
   oreKeep: Partial<Record<MineDropId, number>>
+  /** after the Tractor (batch 35.2): bars above this amount sell as they leave the furnace (missing = off, keeps all) */
+  barKeep: Partial<Record<BarId, number>>
+  /** the fuel loader buys one wood into the fire when storage has no coal (batch 35.2) */
+  autoBuyWood: boolean
   furnace: Furnace
   workshop: Workshop
   fields: Fields
@@ -260,6 +264,8 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     oreSort: {},
     keepN: false,
     oreKeep: {},
+    barKeep: {},
+    autoBuyWood: false,
     furnace: createFurnace(),
     workshop: createWorkshop(),
     fields: createFields(),

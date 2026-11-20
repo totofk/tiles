@@ -5,6 +5,8 @@ export type ItemId = (typeof ITEM_IDS)[number]
 /** ores the furnace smelts, one kind in its slot at a time (balance.ts maps each to its bar) */
 export const ORE_IDS = ['copperOre', 'ironOre', 'goldOre'] as const
 export type OreId = (typeof ORE_IDS)[number]
+export const BAR_IDS = ['copperBar', 'ironBar', 'goldBar'] as const
+export type BarId = (typeof BAR_IDS)[number]
 
 /** pickaxe tiers in order; a tier's index sets its mastery thresholds (balance.ts) */
 export const PICKAXE_TIERS = ['wooden', 'copper', 'iron', 'gold'] as const

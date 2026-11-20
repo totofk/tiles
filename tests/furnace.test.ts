@@ -18,6 +18,7 @@ import {
   furnaceTrayCap,
   furnaceVeinLevel,
   isSellable,
+  itemSellPrice,
   moldPrice,
   oreBar,
   oreSlotCap,
@@ -26,8 +27,8 @@ import {
 } from '../src/core/balance'
 import type { OreId } from '../src/core/data/items'
 import { addFuel, batchLocked, buildFurnace, buyFurnaceUpgrade, buyMold, collectAll, collectBars, furnaceUpgradeLevel, loadOre, moldSmelting } from '../src/core/furnace'
-import { bagCount, sellItem } from '../src/core/mining'
-import { createFurnace, createInitialState, type Furnace, type GameState, type Mold } from '../src/core/state'
+import { bagCount, sellItem, setBarKeep } from '../src/core/mining'
+import { createFields, createFurnace, createInitialState, type Furnace, type GameState, type Mold } from '../src/core/state'
 import { step } from '../src/core/step'
 import { catchUp } from '../src/save/serialize'
 
@@ -343,6 +344,49 @@ describe('buyMold', () => {
     expect(buyMold(withRun({ cash: 1e6, inventory: { ironBar: 99, stone: 99 } }), 'goldOre')).toEqual({ ok: false, error: 'NO_FURNACE' })
     expect(buyMold(smelter({ cash: 1e6, inventory: { ironBar: 7, stone: 99 } }), 'goldOre')).toEqual({ ok: false, error: 'NOT_ENOUGH_ITEMS' })
     expect(buyMold(smelter({ cash: 7499, inventory: { ironBar: 8, stone: 30 } }), 'goldOre')).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+})
+
+describe('bars Keep N after the Tractor (batch 35.2)', () => {
+  const tractor = { keepN: true, fields: { ...createFields(), unlocked: true }, bagCapacity: 120 }
+  const ironPrice = itemSellPrice('ironBar', meta, 0)
+
+  it('collecting a tray with Keep 10 iron bars sells the bars above 10 and adds their price', () => {
+    const s = furnace({}, { copperOre: {}, ironOre: { ready: 6 } }, { ...tractor, barKeep: { ironBar: 10 }, inventory: { ironBar: 8 } })
+    const next = okState(collectBars(s, 'ironOre'))
+    expect(next.run.inventory.ironBar).toBe(10)
+    expect([next.run.cash - s.run.cash, next.run.lifetime.cashEarned - s.run.lifetime.cashEarned]).toEqual([4 * ironPrice, 4 * ironPrice])
+    expect([next.run.lifetime.ironBars, next.run.furnace.molds.ironOre!.ready]).toEqual([6, 0])
+    // Collect all goes through the same rule
+    expect(okState(collectAll({ ...s, run: { ...s.run, furnace: { ...s.run.furnace, collectAll: true } } })).run.inventory.ironBar).toBe(10)
+  })
+
+  it('before the Tractor bars never auto-sell, even with a Keep value; a bar at off keeps all', () => {
+    const before = furnace({}, { copperOre: {}, ironOre: { ready: 6 } }, { ...tractor, fields: createFields(), barKeep: { ironBar: 0 }, inventory: { ironBar: 8 } })
+    expect(okState(collectBars(before, 'ironOre')).run.inventory.ironBar).toBe(14)
+    const off = furnace({}, { copperOre: {}, ironOre: { ready: 6 } }, { ...tractor, inventory: { ironBar: 8 } })
+    expect(okState(collectBars(off, 'ironOre')).run.inventory.ironBar).toBe(14)
+  })
+
+  it('an accepted gold bar order keeps its bars above Keep N; lowering N sells nothing until the next collect', () => {
+    const order = { good: 'goldBar' as const, count: 12, done: 4, tier: 1, accepted: true, stars: 2 }
+    const open = { ...order, good: 'goldBar' as const, accepted: false }
+    const orders = { unlocked: true, slots: 2, offers: [order, open] }
+    const s = furnace({}, { copperOre: {}, goldOre: { ready: 10 } }, { ...tractor, orders, barKeep: { goldBar: 5 }, inventory: { goldBar: 3 } })
+    // 5 kept + 8 still ordered; the open offer reserves nothing
+    expect(okState(collectBars(s, 'goldOre')).run.inventory.goldBar).toBe(13)
+    const lowered = okState(setBarKeep(s, 'goldBar', 0))
+    expect([lowered.run.inventory.goldBar, lowered.run.cash]).toEqual([3, s.run.cash])
+  })
+
+  it('setBarKeep: LOCKED before the Tractor or without Keep N, BAD_AMOUNT outside 0 … storage, null turns it off', () => {
+    const s = withRun(tractor)
+    expect(setBarKeep(withRun({ ...tractor, fields: createFields() }), 'ironBar', 10)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(setBarKeep(withRun({ ...tractor, keepN: false }), 'ironBar', 10)).toEqual({ ok: false, error: 'LOCKED' })
+    for (const n of [-1, 121, 2.5]) expect(setBarKeep(s, 'ironBar', n)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    const on = okState(setBarKeep(s, 'ironBar', 120))
+    expect(on.run.barKeep).toEqual({ ironBar: 120 })
+    expect(okState(setBarKeep(on, 'ironBar', null)).run.barKeep).toEqual({})
   })
 })
 

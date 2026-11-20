@@ -30,7 +30,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 27
+export const SAVE_VERSION = 28
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -276,8 +276,10 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   furnace: FurnaceV25 & { stoked: number }
 }
 type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
-type SaveV27 = { version: 27; savedAtMs: number; state: GameState }
-export type Save = SaveV27
+type RunV27 = Omit<GameState['run'], 'barKeep' | 'autoBuyWood'>
+type SaveV27 = { version: 27; savedAtMs: number; state: { meta: GameState['meta']; run: RunV27 } }
+type SaveV28 = { version: 28; savedAtMs: number; state: GameState }
+export type Save = SaveV28
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -820,21 +822,27 @@ function migrateV26(save: SaveV26): SaveV27 {
   }
 }
 
+// v27 → v28 (batch 35.2): bars Keep N off, auto-buy wood off; nothing else changes.
+function migrateV27(save: SaveV27): SaveV28 {
+  return { version: 28, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...save.state.run, barKeep: {}, autoBuyWood: false } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 27) return data as SaveV27
-  if (data.version === 26) return migrateV26(data as SaveV26)
-  if (data.version === 25) return migrateV26(migrateV25(data as SaveV25))
-  if (data.version === 24) return migrateV26(migrateV25(migrateV24(data as SaveV24)))
-  if (data.version === 23) return migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23))))
-  if (data.version === 22) return migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22)))))
-  if (data.version === 21) return migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))))
+  if (data.version === 28) return data as SaveV28
+  if (data.version === 27) return migrateV27(data as SaveV27)
+  if (data.version === 26) return migrateV27(migrateV26(data as SaveV26))
+  if (data.version === 25) return migrateV27(migrateV26(migrateV25(data as SaveV25)))
+  if (data.version === 24) return migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24))))
+  if (data.version === 23) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23)))))
+  if (data.version === 22) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))))
+  if (data.version === 21) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))))
   const v20 = toV20(data)
-  return v20 && migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))))
+  return v20 && migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

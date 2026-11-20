@@ -26,6 +26,7 @@ import v23 from './fixtures/save-v23.json?raw'
 import v24 from './fixtures/save-v24.json?raw'
 import v25 from './fixtures/save-v25.json?raw'
 import v26 from './fixtures/save-v26.json?raw'
+import v27 from './fixtures/save-v27.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, plotTiles, renownFloor, sellPrice } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
@@ -150,13 +151,19 @@ function asV24Furnace({ molds, levels: { speed, tray, slot, ...levels }, collect
   for (const k of kinds) if (k !== kind) expect(molds[k]).toEqual({ ore: 0, progress: 0, ready: 0 })
   return { ...f, oreKind: kind, ...molds[kind]!, levels }
 }
+/** a v28 run back in the v27 shape: no bars Keep N, no auto-buy wood (both are off after any migration) */
+function asV27Run(run: Save['state']['run']): Save['state']['run'] {
+  const { barKeep, autoBuyWood, ...v27 } = run
+  expect([barKeep, autoBuyWood]).toEqual([{}, false])
+  return v27 as Save['state']['run']
+}
 /** batch 35: old rung k → new paid rung k (the frozen RANK_MAP_V26) and its inverse */
 const RANK_V26: Record<string, CropId> = { radish: 'radish', chilli: 'corn', pumpkin: 'eggplant', lemon: 'pumpkin', tomato: 'tomato', corn: 'lemon', grape: 'grape', strawberry: 'strawberry' }
 const UNRANK_V26 = Object.fromEntries(Object.entries(RANK_V26).map(([a, b]) => [b, a])) as Record<CropId, CropId>
 /** a v27 save back in the v26 shape: licences (potato dropped), crop-to-plant, field chips and crop offers back by the
  *  rank map, no potato / eggplant market keys, no fields grants. Cash and seeds stay as migrated (checked per test). */
 function asV26(save: Save): Save {
-  const { run } = save.state
+  const run = asV27Run(save.state.run)
   const { potato, eggplant, ...market } = run.market
   const { fieldsGranted, ...lifetime } = run.lifetime
   void [potato, eggplant, fieldsGranted]
@@ -223,7 +230,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 27, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 28, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -497,10 +504,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v27 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v28 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(27)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 28 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(28)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 29 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -1040,7 +1047,7 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(27)
+    expect(SAVE_VERSION).toBe(28)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const save = deserialize(raw)!
@@ -1390,7 +1397,7 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
     const old = JSON.parse(v25)
     expect(old.version).toBe(25)
     const save = deserialize(v25)!
-    expect(save.version).toBe(27)
+    expect(save.version).toBe(SAVE_VERSION)
     const { run, meta } = save.state
     expect(run.orders.offers.map((o) => ('good' in o ? [o.tier, o.stars] : null))).toEqual([
       [2, 4],
@@ -1412,7 +1419,7 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
   it('every fixture v1 … v25 migrates to v26 with the new fields at their defaults; every offer keeps its tier ⭐ 1 / 2 / 4', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25]) {
       const save = deserialize(raw)!
-      expect(save.version).toBe(27)
+      expect(save.version).toBe(SAVE_VERSION)
       const { run } = save.state
       expect([run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
       for (const o of run.orders.offers) if ('good' in o) expect(o.stars).toBe([1, 2, 4][o.tier])
@@ -1431,7 +1438,7 @@ describe('save v27: the 10-crop ladder (batch 35)', () => {
     const old = JSON.parse(v26)
     expect(old.version).toBe(26)
     const save = deserialize(v26)!
-    expect(save.version).toBe(27)
+    expect(save.version).toBe(SAVE_VERSION)
     const { run, meta } = save.state
     expect(run.licenses).toEqual(['potato', 'radish', 'corn', 'eggplant', 'pumpkin'])
     expect(run.plantCrop).toBe('pumpkin')
@@ -1482,7 +1489,7 @@ describe('save v27: the 10-crop ladder (batch 35)', () => {
   it('every fixture v1 … v26 migrates to v27: potato licensed, every licence and setting on the new ladder', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26]) {
       const { version, state } = deserialize(raw)!
-      expect(version).toBe(27)
+      expect(version).toBe(SAVE_VERSION)
       const { run } = state
       expect(run.licenses[0]).toBe('potato')
       expect(run.licenses).toEqual(CROP_IDS.filter((c) => run.licenses.includes(c)))
@@ -1490,6 +1497,26 @@ describe('save v27: the 10-crop ladder (batch 35)', () => {
       expect(Array.isArray(run.lifetime.fieldsGranted)).toBe(true)
       expect([run.market.potato, run.market.eggplant]).toEqual([0, 0])
       expect(run.cash).toBeGreaterThanOrEqual(JSON.parse(raw).state.run.cash)
+    }
+  })
+})
+
+describe('save v28: bars Keep N and auto-buy wood (batch 35.2)', () => {
+  it("migrates the real v27 fixture (Toon's live save, 12 fields, storage full): Keep N bars off, auto-buy wood off, everything else equal", () => {
+    const old = JSON.parse(v27)
+    expect(old.version).toBe(27)
+    const save = deserialize(v27)!
+    expect(save.version).toBe(SAVE_VERSION)
+    expect([save.state.run.fields.list.length, bagCount(save.state.run), save.state.run.bagCapacity]).toEqual([12, 120, 120])
+    expect([save.state.run.barKeep, save.state.run.autoBuyWood]).toEqual([{}, false])
+    expect({ ...save, version: 27, state: { ...save.state, run: asV27Run(save.state.run) } }).toEqual(old)
+  })
+
+  it('every fixture v1 … v27 migrates to v28 with Keep N bars and auto-buy wood off', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27]) {
+      const { version, state } = deserialize(raw)!
+      expect(version).toBe(SAVE_VERSION)
+      expect([state.run.barKeep, state.run.autoBuyWood]).toEqual([{}, false])
     }
   })
 })

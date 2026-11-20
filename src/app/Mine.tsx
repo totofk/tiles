@@ -41,7 +41,7 @@ import {
   type FurnaceUpgradeId,
   type Price,
 } from '../core/balance'
-import { ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
+import { BAR_IDS, ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
 import { SEAM_EMOJI } from '../core/data/favours'
 import { STAR_EMOJI } from '../core/data/orders'
 import { setSeamAim } from '../core/favours'
@@ -61,6 +61,7 @@ import {
   repairPickaxe,
   selectPickaxe,
   sellItem,
+  setBarKeep,
   setOreKeep,
   setOreSort,
   unlockOreSort,
@@ -570,6 +571,34 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
                 </div>
               )
             })}
+            {/* batch 35.2: after the Tractor, bars keep up to N and the furnace's collect sells the rest; off keeps all */}
+            {run.keepN &&
+              run.fields.unlocked &&
+              BAR_IDS.map((bar) => {
+                const kept = run.barKeep[bar]
+                const keepTo = (n: number | null) => act((s) => setBarKeep(s, bar, n === null ? null : Math.min(s.run.bagCapacity, Math.max(0, n))))
+                return (
+                  <div key={bar} className="sort-row">
+                    <span>
+                      {ITEMS[bar].emoji} {ITEMS[bar].name}
+                    </span>
+                    <span />
+                    <span className="keep-stepper" role="group" aria-label={`Keep up to ${kept ?? 'all'} ${ITEMS[bar].name}`}>
+                      <button aria-label={`Keep ${KEEP_STEP} fewer ${ITEMS[bar].name}`} disabled={kept === undefined} onClick={() => keepTo(kept === 0 ? null : kept! - KEEP_STEP)}>
+                        −
+                      </button>
+                      <span>{kept ?? 'off'}</span>
+                      <button
+                        aria-label={`Keep ${KEEP_STEP} more ${ITEMS[bar].name}`}
+                        disabled={kept !== undefined && kept >= run.bagCapacity}
+                        onClick={() => keepTo(kept === undefined ? 0 : kept + KEEP_STEP)}
+                      >
+                        +
+                      </button>
+                    </span>
+                  </div>
+                )
+              })}
           </div>
           {!run.keepN && (
             <div className="sort-buy">
