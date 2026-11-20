@@ -14,6 +14,7 @@ import {
   oreSlotCap,
   smeltOre,
   stoker,
+  woodCost,
   type FuelId,
   type FurnaceUpgradeId,
   type MoldOre,
@@ -58,6 +59,23 @@ export function addFuel(state: GameState, fuel: FuelId, max = Infinity): ActionR
     inventory: { ...run.inventory, [fuel]: run.inventory[fuel]! - n },
     furnace: { ...f, fire: f.fire + n * fuelTicks(fuel) },
   })
+}
+
+/** auto-buy wood (batch 35.2): one wood at the wood price straight into the fire, never via storage.
+ * Order: NO_FURNACE, FULL, NO_CASH */
+export function buyFireWood(state: GameState): ActionResult {
+  const { run } = state
+  const f = run.furnace
+  if (!f.built) return fail('NO_FURNACE')
+  if (fuelRoom(f, 'wood') < 1) return fail('FULL')
+  const cost = woodCost(state.meta)
+  if (run.cash < cost) return fail('NO_CASH')
+  return withRun(state, { cash: run.cash - cost, furnace: { ...f, fire: f.fire + fuelTicks('wood') } })
+}
+
+/** the fuel loader's auto-buy wood toggle; costs nothing */
+export function setAutoBuyWood(state: GameState, on: boolean): ActionResult {
+  return withRun(state, { autoBuyWood: on })
 }
 
 const withMold = (f: Furnace, ore: OreId, mold: Mold): Furnace => ({ ...f, molds: { ...f.molds, [ore]: mold } })

@@ -15,7 +15,7 @@ import {
 import { ORE_IDS, type OreId } from './data/items'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { fieldsHarvest, fieldsPlantAction, fillTank, setFieldCrop } from './fields'
-import { addFuel, collectBars, cycleOre, fuelRoom, loadOre, moldSmelting } from './furnace'
+import { addFuel, buyFireWood, collectBars, cycleOre, fuelRoom, loadOre, moldSmelting } from './furnace'
 import { managerPlan } from './manager'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction, clerkTarget } from './orders'
@@ -40,7 +40,8 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
  * Ore loader: collects the tray of the first owned mold (copper → iron → gold) that has bars when storage has room,
  * else loads one cycle (ore × batch) into the owned mold with the fewest whole cycles loaded among those whose kind
  * storage holds a cycle of and whose slot has room for one (tie: copper → iron → gold). Fuel loader: adds one coal when the fire has room for it
- * (coal only: wood stays for pickaxe repairs), else one coal into the Fields tank when it has room (batch 28). Miner: one press of the Mine button with no energy (the active pickaxe's
+ * (coal only: wood stays for pickaxe repairs); with no coal stored and auto-buy wood on it buys one wood into the fire
+ * when it has room (batch 35.2; no cash → idle); else one coal into the Fields tank when it has room (batch 28). Miner: one press of the Mine button with no energy (the active pickaxe's
  * durability, preserve roll and mastery xp); with no pickaxe or a blunt one it idles (repair stays manual), and a
  * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
  * do, so the worker idles unpaid.
@@ -65,7 +66,12 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
   },
   fuel: (s) => {
     const f = s.run.furnace
-    if (f.built && fuelRoom(f, 'coal') >= 1 && (s.run.inventory.coal ?? 0) >= 1) return addFuel(s, 'coal', 1)
+    const coal = s.run.inventory.coal ?? 0
+    if (f.built && fuelRoom(f, 'coal') >= 1 && coal >= 1) return addFuel(s, 'coal', 1)
+    if (s.run.autoBuyWood && coal < 1 && f.built && fuelRoom(f, 'wood') >= 1) {
+      const wood = buyFireWood(s)
+      return wood.ok ? wood : null
+    }
     const tank = fillTank(s, 1)
     return tank.ok ? tank : null
   },

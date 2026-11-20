@@ -195,6 +195,16 @@ describe('Mine panel', () => {
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.molds.copperOre!.ready]).toEqual([1, 0])
   })
 
+  it('batch 35.2: the fuel row has an Auto-buy wood toggle, off by default; the fill buttons do not change', () => {
+    const t = setup({ furnace: built })
+    const box = screen.getByRole('checkbox', { name: /^Auto-buy wood 💰4 into the fire/ }) as HTMLInputElement
+    expect(box.checked).toBe(false)
+    fireEvent.click(box)
+    t.rerender()
+    expect(t.get().run.autoBuyWood).toBe(true)
+    expect([t.get().run.cash, t.get().run.furnace.fire]).toEqual([createInitialState().run.cash, 0])
+  })
+
   it('a plain furnace lit with nothing to smelt says so; a smart one does not', () => {
     setup({ furnace: { ...built, fire: 90 } })
     expect(document.querySelector('.furnace-hint')?.textContent).toBe('burning with nothing to smelt')

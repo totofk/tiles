@@ -45,7 +45,7 @@ import { BAR_IDS, ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type I
 import { SEAM_EMOJI } from '../core/data/favours'
 import { STAR_EMOJI } from '../core/data/orders'
 import { setSeamAim } from '../core/favours'
-import { addFuel, buyFurnaceUpgrade, buyMold, collectAll, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, moldSmelting } from '../core/furnace'
+import { addFuel, setAutoBuyWood, buyFurnaceUpgrade, buyMold, collectAll, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, moldSmelting } from '../core/furnace'
 import {
   activePickaxe,
   bagCount,
@@ -232,6 +232,10 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
             )
           })}
         </div>
+        <label className="pouch-auto">
+          <input type="checkbox" checked={run.autoBuyWood} onChange={(e) => act((s) => setAutoBuyWood(s, e.target.checked))} />
+          Auto-buy wood 💰{price(woodCost(meta))} into the fire when coal runs out
+        </label>
       </div>
       {/* task 132: the Smelt group flashes amber when the ore/fuel loader acted, like the Mine button */}
       <div className={`group${smeltActed ? ' mine-flash' : ''}`}>

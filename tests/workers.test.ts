@@ -8,7 +8,10 @@ import {
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
+  fireCapTicks,
+  fuelTicks,
   handPickedBonus,
+  woodCost,
   moistureDrainPerTick,
   waterMoisture,
   workerActionTicks,
@@ -22,7 +25,7 @@ import type { ItemId, OreId } from '../src/core/data/items'
 import { bagCount, dig } from '../src/core/mining'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { collectBars } from '../src/core/furnace'
-import { createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Mold, type Pickaxe, type Tile } from '../src/core/state'
+import { createFields, createFurnace, createInitialState, type Counters, type Furnace, type GameState, type Mold, type Pickaxe, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { growthProgress } from '../src/core/tile'
 import { catchUp } from '../src/save/serialize'
@@ -475,6 +478,28 @@ describe('furnace loaders: workersAct', () => {
     expect(two.run.furnace.fire).toBe(120)
     for (const s of [smeltery({ fire: 241 }, { coal: 3 }, { fuel: 1 }), smeltery({}, { wood: 9 }, { fuel: 1 })]) expect(workersAct(s)).toBe(s)
     expect(workersAct(smeltery({ fire: 240 }, { coal: 3 }, { fuel: 1 })).run.furnace.fire).toBe(300)
+  })
+
+  it('batch 35.2 auto-buy wood on: no coal → the fuel loader buys one wood for 💰4 into the fire; off: it idles, the tank never gets wood', () => {
+    expect(woodCost(meta)).toBe(4)
+    const fields = { ...createFields(), unlocked: true, tank: 0 }
+    const on = (fire: number, cash: number) => {
+      const s = smeltery({ fire }, { wood: 2 }, { fuel: 1, cash })
+      return { ...s, run: { ...s.run, autoBuyWood: true, fields } }
+    }
+    const s = on(0, 100)
+    const next = workersAct(s)
+    expect([next.run.furnace.fire, next.run.cash, next.run.inventory, next.run.fields.tank]).toEqual([fuelTicks('wood'), 100 - 4 - wage, { wood: 2 }, 0])
+    // fire with no room for one wood, or cash below the price: idle
+    const full = on(fireCapTicks(0) - fuelTicks('wood') + 1, 100)
+    expect(workersAct(full)).toBe(full)
+    const broke = on(0, 3)
+    expect(workersAct(broke)).toBe(broke)
+    const off = { ...s, run: { ...s.run, autoBuyWood: false } }
+    expect(workersAct(off)).toBe(off)
+    // coal in storage goes into the fire first, as before
+    const coal = workersAct({ ...s, run: { ...s.run, inventory: { coal: 1 } } })
+    expect([coal.run.furnace.fire, coal.run.cash]).toEqual([fuelTicks('coal'), 100 - wage])
   })
 
   it('both loaders keep a plain furnace going, and it burns on (wasted) when the ore runs out', () => {
