@@ -9,6 +9,8 @@ import {
   cropGrowTicks,
   contractWetShare,
   cropSellPrice,
+  doubleHarvestChance,
+  fieldPlots,
   isSellable,
   itemSellPrice,
   orderBoardCost,
@@ -22,6 +24,7 @@ import {
   orderTierMinutes,
   orderTierStars,
   oreBar,
+  plotTiles,
   rollOrderTier,
   veinDrops,
 } from './balance'
@@ -72,10 +75,23 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   return (orderRocksPerMin() * (drops[good] ?? 0)) / total
 }
 
-/** tier minutes × per-minute capacity, at least 1; items at most half the storage capacity */
+/**
+ * The most a 🚜 contract asks (batch 35.3): one grow cycle of the managed fields (pivot, not 📌 pinned) one slot can
+ * count on — max(1, ⌊fields ÷ slots⌋) fields × their tiles × (1 + the double-harvest chance), floored.
+ */
+export function contractCap(run: RunState): number {
+  const managed = run.fields.list.filter((f) => f.pivot && !f.pinned).length
+  const fields = Math.max(1, Math.floor(managed / run.orders.slots))
+  return Math.floor(fields * fieldPlots() * plotTiles() * (1 + doubleHarvestChance(run.toolTier.harvest)))
+}
+
+/** tier minutes × per-minute capacity, at least 1; items at most half the storage capacity; contracts at most
+ * contractCap */
 export function orderCount(state: GameState, good: OrderGood, tier: number): number {
+  const { run } = state
   const n = Math.max(1, Math.round(orderTierMinutes(tier) * orderPerMinute(state, good)))
-  return isCropGood(good) ? n : Math.max(1, Math.min(n, orderItemCap(state.run.bagCapacity)))
+  if (!isCropGood(good)) return Math.max(1, Math.min(n, orderItemCap(run.bagCapacity)))
+  return isContract(run, good) && fieldsPlantable(run, good) ? Math.min(n, contractCap(run)) : n
 }
 
 /** a fresh offer from the pool (two rolls: good, then tier) and the next rng state; its ⭐ = the tier's fixed ⭐

@@ -8,6 +8,8 @@ import {
   certificateCost,
   contractWetShare,
   cropGrowTicks,
+  doubleHarvestChance,
+  fieldPlots,
   plotTiles,
   cropSellPrice,
   orderMaxSlots,
@@ -32,6 +34,7 @@ import {
   buyOrderBoard,
   buyOrderSlot,
   clerkTarget,
+  contractCap,
   rerollOrders,
   deliverOrder,
   discardOrder,
@@ -44,7 +47,7 @@ import {
   rollOffer,
   tickOrders,
 } from '../src/core/orders'
-import { createInitialState, type GameState, type Offer, type RunState, type Tile } from '../src/core/state'
+import { createInitialState, type GameState, type Offer, type OrderGood, type RunState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 
 const fresh = createInitialState()
@@ -471,6 +474,49 @@ describe('order clerk (worker job)', () => {
     }
     expect(single.run.counters.orders).toBeGreaterThanOrEqual(2)
     expect(single.run.milestones.firstOrder).toBeDefined()
+  })
+})
+
+describe('batch 35.3: 🚜 contract size cap', () => {
+  const field = (pinned = false) => ({ pivot: true, crop: null, pinned, plots: Array.from({ length: fieldPlots() }, () => ({ crop: null, readyTick: 0 })) })
+  /** the Tractor bought, `n` pivoted full fields (the first `pinned` 📌), `slots` open offers; radish and lemon sowable */
+  const farm = (n: number, slots: number, pinned = 0, run: Partial<RunState> = {}): GameState =>
+    board(Array.from({ length: slots }, () => offer({ accepted: false })), {
+      licenses: ['radish', 'lemon', 'strawberry'],
+      lifetime: { ...init.run.lifetime, harvests: { radish: 50, lemon: 50, strawberry: 49 } },
+      fields: { ...init.run.fields, unlocked: true, list: Array.from({ length: n }, (_, k) => field(k < pinned)) },
+      mineLicense: true,
+      vein: { level: 2, progress: 0, rock: 'stone' },
+      ...run,
+    })
+  const uncapped = (s: GameState, good: OrderGood, tier: number) => Math.max(1, Math.round(orderTierMinutes(tier) * orderPerMinute(s, good)))
+
+  it("a contract on 12 managed fields with 4 slots never asks for more than 3 fields' one harvest", () => {
+    const s = farm(12, 4)
+    const cap = 3 * fieldPlots() * plotTiles() * (1 + doubleHarvestChance(0))
+    expect(contractCap(s.run)).toBe(Math.floor(cap))
+    for (const crop of ['radish', 'lemon'] as const)
+      for (const tier of [0, 1, 2]) expect(orderCount(s, crop, tier)).toBe(Math.min(uncapped(s, crop, tier), contractCap(s.run)))
+    // the cap bites on the large contract
+    expect(uncapped(s, 'radish', 2)).toBeGreaterThan(contractCap(s.run))
+    expect(orderCount(s, 'radish', 2)).toBe(contractCap(s.run))
+  })
+
+  it('pinned fields do not count, at least one field, and a harvest-tool double-harvest chance raises the cap', () => {
+    const tiles = fieldPlots() * plotTiles()
+    expect(contractCap(farm(12, 4, 4).run)).toBe(2 * tiles)
+    expect(contractCap(farm(2, 4).run)).toBe(tiles)
+    const gold = farm(12, 4, 0, { toolTier: { ...init.run.toolTier, harvest: 3 } })
+    expect(contractCap(gold.run)).toBe(Math.floor(3 * tiles * (1 + doubleHarvestChance(3))))
+  })
+
+  it('a home-plot crop order and an ore order keep their old size', () => {
+    const s = farm(12, 4)
+    // under the fields gate (strawberry) the crop order is a home-plot order: uncapped; an ore order: the storage clamp
+    expect(orderCount(s, 'strawberry', 2)).toBe(uncapped(s, 'strawberry', 2))
+    expect(orderCount(s, 'copperOre', 2)).toBe(Math.min(uncapped(s, 'copperOre', 2), Math.floor(s.run.bagCapacity / 2)))
+    const before = { ...s, run: { ...s.run, fields: { ...s.run.fields, unlocked: false } } }
+    for (const tier of [0, 1, 2]) expect(orderCount(before, 'radish', tier)).toBe(uncapped(before, 'radish', tier))
   })
 })
 

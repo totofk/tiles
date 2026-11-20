@@ -18,6 +18,7 @@ import {
   orderBonus,
   orderSlotStars,
   orderTierCount,
+  orderTierMinutes,
   storageSlotsPerLevel,
   veinDrops,
 } from '../../src/core/balance'
@@ -29,13 +30,20 @@ import { WORKER_JOBS, type WorkerJob } from '../../src/core/data/workers'
 import {
   acceptOrder,
   buyOrderBoard,
+  contractCap,
+  deliverOrder,
   discardOrder,
+  isContract,
   isCropGood,
   isOffer,
   orderCount,
+  orderPerMinute,
   orderPool,
   rollOffer,
 } from '../../src/core/orders'
+import { fieldsPlantable } from '../../src/core/fields'
+import { deserialize } from '../../src/save/serialize'
+import v28 from '../fixtures/save-v28.json?raw'
 import type { OrderGood } from '../../src/core/state'
 import type { ItemId } from '../../src/core/data/items'
 import {
@@ -529,5 +537,89 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
     }
     // the ladder reaches iron, so the pool grows from the starting crop to crops, vein items and both bars
     expect(Math.max(...poolSizes)).toBeGreaterThanOrEqual(8)
+  })
+})
+
+/**
+ * batch 35.3 scenario B: the v28 fixture (Toon's live 12-field save) migrated, 2 game-hours. Policy 'all' (the plan's
+ * accept-all): every open offer is accepted at once, item / bar orders get what storage holds every minute, nothing is
+ * discarded or rerolled. Policy 'cert' (NOT the plan's policy, certRun's rule): an item order storage already holds is
+ * accepted and delivered, a contract is accepted, anything else discarded. `capped = false` re-sizes each contract to
+ * the pre-35.3 count (no cap) when accepted, same rolls otherwise.
+ */
+function acceptAll(start: GameState, ticks: number, capped: boolean, policy: 'all' | 'cert') {
+  let s = start
+  const contracts: { count: number; cap: number }[] = []
+  for (let t = 0; t < ticks; t++) {
+    for (let i = 0; i < s.run.orders.offers.length; i++) {
+      const o = s.run.orders.offers[i]
+      if (!isOffer(o)) continue
+      if (o.accepted) {
+        if (t % 60 === 0 && !isCropGood(o.good)) s = okOr(deliverOrder(s, i), s)
+        continue
+      }
+      const contract = isContract(s.run, o.good) && isCropGood(o.good) && fieldsPlantable(s.run, o.good)
+      if (contract) {
+        const count = capped ? o.count : Math.max(1, Math.round(orderTierMinutes(o.tier) * orderPerMinute(s, o.good)))
+        contracts.push({ count, cap: contractCap(s.run) })
+        if (!capped) s = { ...s, run: { ...s.run, orders: { ...s.run.orders, offers: s.run.orders.offers.map((x, k) => (k === i ? { ...o, count } : x)) } } }
+      }
+      if (policy === 'all' || contract) s = okOr(acceptOrder(s, i), s)
+      else if (!isCropGood(o.good) && (s.run.inventory[o.good] ?? 0) >= o.count) s = okOr(deliverOrder(okOr(acceptOrder(s, i), s), i), s)
+      else s = okOr(discardOrder(s, i), s)
+    }
+    s = step(s, 1)
+  }
+  return { end: s, contracts }
+}
+const okOr = (r: ActionResult, s: GameState) => (r.ok ? r.state : s)
+
+describe('batch 35.3: scenario B — the v28 fixture, migrated, 2 game-hours accept-all (report)', () => {
+  const start = deserialize(v28)!.state
+  const perHour = (end: GameState, hours: number) => ({
+    stars: (end.run.lifetime.starsEarned - start.run.lifetime.starsEarned) / hours,
+    cash: Math.round((end.run.lifetime.cashEarned - start.run.lifetime.cashEarned) / hours),
+  })
+  const r = withBatch13(() => {
+    const row = (policy: 'all' | 'cert') => {
+      const capped = acceptAll(start, 2 * HOUR_TICKS, true, policy)
+      const uncapped = acceptAll(start, 2 * HOUR_TICKS, false, policy)
+      return {
+        active: perHour(capped.end, 2),
+        uncapped: perHour(uncapped.end, 2),
+        contracts: capped.contracts,
+        uncappedCounts: uncapped.contracts.map((c) => c.count),
+      }
+    }
+    // report only: certRun's policy after discarding the save's 4 offers at tick 0 (their slots refill after the cooldown)
+    const cleared = start.run.orders.offers.reduce((g, _, i) => okOr(discardOrder(g, i), g), start)
+    const unjammed = acceptAll(cleared, 2 * HOUR_TICKS, true, 'cert')
+    return { all: row('all'), cert: row('cert'), certCleared: perHour(unjammed.end, 2), offline: perHour(step(start, 8 * HOUR_TICKS), 8) }
+  })
+  it('reports PIN353b', () => {
+    console.log('PIN353b', JSON.stringify({ ...r, all: { ...r.all, contracts: r.all.contracts.length }, cert: { ...r.cert, contracts: r.cert.contracts.map((c) => c.count) }, cap: contractCap(start.run) }))
+  })
+
+  for (const policy of ['all', 'cert'] as const) {
+    it(`${policy}: every new contract asks at most contractCap; Estate cash/h with the cap not below the uncapped run`, () => {
+      for (const c of r[policy].contracts) expect(c.count).toBeLessThanOrEqual(c.cap)
+      expect(r[policy].active.cash).toBeGreaterThanOrEqual(r[policy].uncapped.cash)
+    })
+  }
+
+  it('cert (certRun policy): new contracts rolled; offline (workers only, 8 h) ⭐/h below the active figure', () => {
+    expect(r.cert.contracts.length).toBeGreaterThan(0)
+    expect(r.offline.stars).toBeLessThan(r.cert.active.stars)
+  })
+
+  // 3 of the 4 slots stay on the save's accepted ironBar / coal orders, which storage (full) never feeds (Deviations)
+  it.fails('cert (certRun policy): ⭐/h ≥ 80 — measured ⭐44/h', () => {
+    expect(r.cert.active.stars).toBeGreaterThanOrEqual(80)
+  })
+
+  // the plan's accept-all on the live save jams: its 4 accepted v28 offers (ironBar / coal with storage full at 120 /
+  // 120 and coal going to the tank, a potato order the fields cannot sow) never finish and nothing is discarded (Deviations)
+  it.fails('all (the plan\'s accept-all): ⭐/h ≥ 80 — measured ⭐0/h, 0 new contracts', () => {
+    expect(r.all.active.stars).toBeGreaterThanOrEqual(80)
   })
 })

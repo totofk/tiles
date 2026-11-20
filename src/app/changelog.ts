@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '35.3', date: '2026-11-21', line: "Orders pay ⭐8 / 16 / 32 by size, so Favours come every few minutes; ⭐ prices and your ⭐ go ×8. Rerolls cost cash and double until you finish an order. 🚜 Contracts fit your fields." },
   { batch: '35.2', date: '2026-11-21', line: "After the Tractor bars get Keep N and extras sell as they leave the furnace. Orders take part deliveries, the furnace can buy wood, and the mine tells you why miners stop." },
   { batch: '35.1', date: '2026-11-14', line: "Behind the scenes: the game's balance checks were reorganised so updates ship faster. Nothing changes in play." },
   { batch: '35', date: '2026-11-13', line: "New crops: 🥔 Potato is the new starter, 🍆 Eggplant joins and 🌶️ Chilli is now the top crop. Your licences move up the new ladder rung for rung; nothing you paid for is lost." },

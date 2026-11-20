@@ -307,14 +307,16 @@ describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (ta
   // fewer contract plots and the 10th contract lands at minute 417
   // re-pinned batch 35 (was 417): crop re-ladder — the v27 migration moves the save's chips and offers up a rung and
   // refunds its unlicensed seeds, so the 10th contract lands at minute 412
-  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 412 holding ⭐ ≥ 20 and 💰 ≥ 1.5M', () => {
+  // re-pinned batch 35.3 (was 412, holding 💰 ≥ 1.5M there): the contract cap shrinks the contracts, so the 10th lands at
+  // minute 330 holding ⭐456 (≥ the Manager's ⭐160) but 💰1,363,896; the certificate is buyable at minute 371
+  it('scenario B: the real v22 save (harvesters [1, 2]) reaches 10 contracts at game-minute 330 holding ⭐ ≥ 160; the Manager is buyable at minute 371', () => {
     const loaded = deserialize(v22)!.state
     const r = contractRun(loaded, 600)
     console.log('PIN311b', JSON.stringify(r))
     expect(r.reached).not.toBeNull()
-    expect(r.reached!.minute).toBe(412)
-    expect(r.reached!.stars).toBeGreaterThanOrEqual(20)
-    expect(r.reached!.cash).toBeGreaterThanOrEqual(1_500_000)
+    expect(r.reached!.minute).toBe(330)
+    expect(r.reached!.stars).toBeGreaterThanOrEqual(160)
+    expect(r.buyable).toBe(371)
   }, 300_000)
 })
 
