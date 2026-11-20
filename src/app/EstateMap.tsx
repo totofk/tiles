@@ -89,11 +89,11 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
   const payback = fieldsPaybackHours(state)
   const n = list.length
   const nextPump = n >= cap ? pumpCost(pump, meta) : null
-  const ghostField = !list.every((f) => f.plots.length >= fieldPlots())
-    ? null
-    : n < cap
-      ? `＋ Field ${n + 1} · opens with the next plot`
-      : nextPump && `＋ Field ${n + 1} · needs Pump Lv${pump + 1} · ${priceText(nextPump)}`
+  const allFull = list.every((f) => f.plots.length >= fieldPlots())
+  // every field full and the pump waters another: no ghost cell is left, so this row buys the next field's first plot
+  // (the phone Estate bar has ＋ Plot; on desktop this is the only buy control)
+  const opensNext = allFull && n < cap
+  const ghostField = allFull && n >= cap && nextPump ? `＋ Field ${n + 1} · needs Pump Lv${pump + 1} · ${priceText(nextPump)}` : null
   return (
     <>
       <p className="map-legend">1 square = 1 plot of 10 tiles · a field = 5 plots under one ⛲ pivot</p>
@@ -136,6 +136,11 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
           <div className="estate-row">
             <span>{`Fields ${cap + 1}–${n} · ${BEYOND_EMOJI} beyond Pump ${pump}`}</span>
           </div>
+        )}
+        {opensNext && (
+          <button className="map-ghost-field map-ghost-buy" disabled={!buyPlot(state).ok} onClick={() => act(buyPlot)}>
+            {`＋ Field ${n + 1} · buy its first plot · 💰${cell(price)}`}
+          </button>
         )}
         {ghostField && <p className="map-ghost-field">{ghostField}</p>}
       </div>

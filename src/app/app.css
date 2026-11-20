@@ -841,6 +841,12 @@ button:disabled::after {
   border-radius: 8px;
   color: #5c4f38;
 }
+/* the buyable next field: a solid frame like every affordable button (dashed = blocked) */
+.map-ghost-buy:enabled {
+  border-style: solid;
+  background: #fff;
+  text-align: left;
+}
 /* the field sheet's crop list and pin toggle: 44 px rows */
 .map-crops {
   display: grid;
