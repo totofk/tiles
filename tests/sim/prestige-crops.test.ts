@@ -211,10 +211,10 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     const sold = sellFarm(loaded.state)
     expect(sold.ok).toBe(true)
     // re-pinned batch 34 (was 9 gained = 8 lifetime cash + 1 from ⭐37, deeds 1 left): ⭐ carries a sale — 8 gained, all
-    // 8 spent breadth-first on four L1 rows, and the ⭐37 carries into run 2
+    // 8 spent breadth-first on four L1 rows, and the ⭐37 carries into run 2 (batch 35.3: save v29 ⭐ ×8 → ⭐296 carries)
     const after = buyDeedRows(sold.ok ? sold.state : loaded.state, DEED_ROW_IDS)
     expect(after.meta).toMatchObject({ prestigeCount: 1, deeds: 0, deedsClaimed: 8, upgrades: { growTime: 1, sellPrice: 1, cost: 1, energy: 1 } })
-    expect(after.run.stars).toBe(37)
+    expect(after.run.stars).toBe(296)
     let one = after
     for (let i = 0; i < 600; i++) one = step(one, 1)
     expect(step(after, 600)).toEqual(one)

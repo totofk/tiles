@@ -94,12 +94,13 @@ function barsBench({ miners = 1, vein = 4, sellPrice = 5, levels = {}, hours = 2
 }
 
 describe('batch 34: scenario B — the real v25 save, migrated, 2 game-hours with its own workers (report)', () => {
-  it('reports ⭐/h and 💰/h; its three migrated offers pay ⭐4 / ⭐1 / ⭐1', () => {
+  // batch 35.3 (save v29, order ⭐ fixed per tier): the offers ⭐4 / 1 / 1 → ⭐32 / 8 / 8
+  it('reports ⭐/h and 💰/h; its three migrated offers pay ⭐32 / ⭐8 / ⭐8', () => {
     const start = deserialize(v25)!.state
     const s = step(start, 2 * HOUR_TICKS)
     const offers = start.run.orders.offers.map((o) => (isOffer(o) ? o.stars : null))
     console.log('PIN34b', JSON.stringify({ starsPerHour: (s.run.lifetime.starsEarned - start.run.lifetime.starsEarned) / 2, cashEarnedPerHour: Math.round((s.run.lifetime.cashEarned - start.run.lifetime.cashEarned) / 2), offers, stars: s.run.stars }))
-    expect(offers).toEqual([4, 1, 1])
+    expect(offers).toEqual([32, 8, 8])
   }, 120_000)
 })
 

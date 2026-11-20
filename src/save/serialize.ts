@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MineDropId } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
 import type { MilestoneId } from '../core/data/milestones'
@@ -31,7 +31,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 28
+export const SAVE_VERSION = 29
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -277,10 +277,13 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   furnace: FurnaceV25 & { stoked: number }
 }
 type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
-type RunV27 = Omit<GameState['run'], 'barKeep' | 'autoBuyWood' | 'orders'> & { orders: Omit<Orders, 'rerolls'> }
+/** v28: fractional ⭐ kept in starsFrac, offers paid ⭐ per production-minute, rerolls free of a counter */
+type RunV28 = Omit<GameState['run'], 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
+type RunV27 = Omit<RunV28, 'barKeep' | 'autoBuyWood'>
 type SaveV27 = { version: 27; savedAtMs: number; state: { meta: GameState['meta']; run: RunV27 } }
-type SaveV28 = { version: 28; savedAtMs: number; state: GameState }
-export type Save = SaveV28
+type SaveV28 = { version: 28; savedAtMs: number; state: { meta: GameState['meta']; run: RunV28 } }
+type SaveV29 = { version: 29; savedAtMs: number; state: GameState }
+export type Save = SaveV29
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -825,8 +828,21 @@ function migrateV26(save: SaveV26): SaveV27 {
 
 // v27 → v28 (batch 35.2): bars Keep N off, auto-buy wood off; nothing else changes.
 function migrateV27(save: SaveV27): SaveV28 {
-  const { run } = save.state
-  return { version: 28, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...run, barKeep: {}, autoBuyWood: false, orders: { ...run.orders, rerolls: 0 } } } }
+  return { version: 28, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...save.state.run, barKeep: {}, autoBuyWood: false } } }
+}
+
+// v28 → v29 (batch 35.3): ⭐ prices and order ⭐ went ×8, so the ⭐ held (with its fraction) goes ×8, floored (the
+// epsilon keeps a float like 0.875 × 8 from flooring one short); starsFrac dropped; every offer (accepted ones too,
+// progress kept) pays its tier's ⭐; no rerolls yet. lifetime.starsEarned stays as history; nothing is refunded.
+const STAR_SCALE_V28 = 8
+function migrateV28(save: SaveV28): SaveV29 {
+  const { starsFrac, ...run } = save.state.run
+  const offers = run.orders.offers.map((o) => ('good' in o ? { ...o, stars: orderTierStars(o.tier) } : o))
+  return {
+    version: 29,
+    savedAtMs: save.savedAtMs,
+    state: { meta: save.state.meta, run: { ...run, stars: Math.floor((run.stars + starsFrac) * STAR_SCALE_V28 + 1e-9), orders: { ...run.orders, offers, rerolls: 0 } } },
+  }
 }
 
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
@@ -835,16 +851,17 @@ type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknow
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 28) return data as SaveV28
-  if (data.version === 27) return migrateV27(data as SaveV27)
-  if (data.version === 26) return migrateV27(migrateV26(data as SaveV26))
-  if (data.version === 25) return migrateV27(migrateV26(migrateV25(data as SaveV25)))
-  if (data.version === 24) return migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24))))
-  if (data.version === 23) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23)))))
-  if (data.version === 22) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))))
-  if (data.version === 21) return migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))))
+  if (data.version === 29) return data as SaveV29
+  if (data.version === 28) return migrateV28(data as SaveV28)
+  if (data.version === 27) return migrateV28(migrateV27(data as SaveV27))
+  if (data.version === 26) return migrateV28(migrateV27(migrateV26(data as SaveV26)))
+  if (data.version === 25) return migrateV28(migrateV27(migrateV26(migrateV25(data as SaveV25))))
+  if (data.version === 24) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24)))))
+  if (data.version === 23) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23))))))
+  if (data.version === 22) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22)))))))
+  if (data.version === 21) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))))))
   const v20 = toV20(data)
-  return v20 && migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))))
+  return v20 && migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

@@ -110,12 +110,12 @@ describe('sellFarm', () => {
     expect([next.stars, next.upgrades.fertilizer, next.furnace.levels.speed, next.favours]).toEqual([400, 0, 0, { bunkhouse: 0, seam: false, aim: null }])
   })
 
-  it('batch 34: Toon\'s v23 save (⭐39, lifetime 💰804,344) sells for 8 deeds (was 9) and the next run starts with ⭐39', () => {
+  it('batch 34: Toon\'s v23 save (⭐39, ×8 = ⭐312 at v29; lifetime 💰804,344) sells for 8 deeds (was 9) and the next run starts with ⭐312', () => {
     const s = deserialize(v23)!.state
-    expect([s.run.stars, s.run.lifetime.cashEarned]).toEqual([39, 804_344])
+    expect([s.run.stars, s.run.lifetime.cashEarned]).toEqual([312, 804_344])
     const sale = sellFarm(s)
     if (!sale.ok) throw new Error(sale.error)
-    expect([sale.state.meta.runs.at(-1)!.deeds, sale.state.run.stars]).toEqual([8, 39])
+    expect([sale.state.meta.runs.at(-1)!.deeds, sale.state.run.stars]).toEqual([8, 312])
   })
 
   it('caps the run history at RUN_HISTORY_CAP entries, newest last', () => {
