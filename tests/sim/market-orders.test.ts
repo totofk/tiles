@@ -475,14 +475,15 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
     ),
   )
 
-  it('⭐ per hour is paced by time: every farm earns 4–12 ⭐/h; equal within 1.5 ⭐/h when the farm makes what the count assumes', () => {
+  // batch 35.3: order ⭐ fixed per tier (8 / 16 / 32, was ≈ 1 / 2 / 4): the batch-14 band 4–12 and gap 1.5 go ×8
+  it('⭐ per hour is paced by time: every farm earns 32–96 ⭐/h; equal within 12 ⭐/h when the farm makes what the count assumes', () => {
     for (const f of Object.values(farms)) {
-      expect(f.starsPerHour).toBeGreaterThanOrEqual(4)
-      expect(f.starsPerHour).toBeLessThanOrEqual(12)
+      expect(f.starsPerHour).toBeGreaterThanOrEqual(32)
+      expect(f.starsPerHour).toBeLessThanOrEqual(96)
       expect(f.lowest).toBeGreaterThanOrEqual(0)
     }
     // carrot by hand harvests ~99 % of tiles ÷ grow time, six lemon workers ~95 %; three make ~48 %, so they earn ~half
-    expect(Math.abs(farms.carrot9.starsPerHour - farms.lemon24x6.starsPerHour)).toBeLessThanOrEqual(1.5)
+    expect(Math.abs(farms.carrot9.starsPerHour - farms.lemon24x6.starsPerHour)).toBeLessThanOrEqual(12)
   })
 
   it('orders add income on every farm; ⭐/h, order cash bonus and hours to the whole ⭐ shop pinned (PLAN.md "Batch 14 results")', () => {
@@ -496,11 +497,12 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
       bonusPct,
     })
     expect({ carrot9: pick(farms.carrot9), lemon24: pick(farms.lemon24), lemon24x6: pick(farms.lemon24x6), shopStars, hoursToShop }).toEqual({
-      carrot9: { starsPerHour: 11, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3542, bonusPct: 9 },
-      lemon24: { starsPerHour: 5, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 12525, bonusPct: 14.8 },
-      lemon24x6: { starsPerHour: 10, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25640, incomeOff: 21808, bonusPct: 17.6 },
+      // batch 35.3 (order ⭐ fixed per tier): ⭐/h 11 / 5 / 10 → 88 / 40 / 80, hours to the shop 5.5 / 12 / 6 → 0.7 / 1.5 / 0.8
+      carrot9: { starsPerHour: 88, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3542, bonusPct: 9 },
+      lemon24: { starsPerHour: 40, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 12525, bonusPct: 14.8 },
+      lemon24x6: { starsPerHour: 80, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25640, incomeOff: 21808, bonusPct: 17.6 },
       shopStars: 60,
-      hoursToShop: { carrot9: 5.5, lemon24: 12, lemon24x6: 6 },
+      hoursToShop: { carrot9: 0.7, lemon24: 1.5, lemon24x6: 0.8 },
     })
   })
 

@@ -87,8 +87,6 @@ export type RunState = {
   orders: Orders
   /** ⭐ held (whole); earned only by completing orders, spent only on ⭐ rows (never bought or sold for cash) */
   stars: number
-  /** 0 ≤ x < 1: the fractional ⭐ earned by orders, not yet whole (batch 34) */
-  starsFrac: number
   /** ⭐ Favours bought that live outside the existing ladders (batch 34): Bunkhouse levels, the Seam survey and its aim */
   favours: Favours
   /** renown points per crop (batch 31; absent = 0): home harvests by hand +2, by a worker +1; raises the market floor */
@@ -97,7 +95,7 @@ export type RunState = {
 
 /** what an order may ask for: a crop (filled by harvests) or an item (delivered from storage) */
 export type OrderGood = CropId | ItemId
-/** tier indexes the balance order tiers (minutes); stars = the ⭐ it pays, set when rolled (fractional, batch 34); an
+/** tier indexes the balance order tiers (minutes); stars = the ⭐ it pays, set when rolled (the tier's, batch 35.3); an
  * accepted crop order takes every harvest of its crop */
 export type Offer = { good: OrderGood; count: number; done: number; tier: number; accepted: boolean; stars: number }
 /** batch 34: bunkhouse = ⭐ pool-cap levels; seam = the Seam survey owned; aim = the ore it aims at (null = none) */
@@ -285,7 +283,6 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [] },
     stars: Math.min(carry?.stars ?? 0, STAR_CARRY_CAP),
-    starsFrac: 0,
     favours: { bunkhouse: 0, seam: false, aim: null },
     renown: carry?.renown ?? {},
   }

@@ -207,7 +207,7 @@ function v27Of<T extends object>(expected: T, v27: Save['state']['run'], meta: G
 }
 function asV12(v27: Save) {
   const save = asV26(v27)
-  const { orders, stars, starsFrac, favours, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = { ...asV23Run(save.state.run), furnace: asV24Furnace(save.state.run.furnace) }
+  const { orders, stars, starsFrac, favours, counters, lifetime, workers, workshop, fields, oreSort, renown, ...run } = { ...asV23Run(save.state.run), furnace: asV24Furnace(save.state.run.furnace), starsFrac: 0 }
   const { orders: completed, contractsByHand, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
   const { clerk, manager, stoker, ...v12Assigned } = workers.assigned
@@ -1406,7 +1406,7 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
     ])
     // v27: 💰452,892 + the refund of the seeds the re-ladder no longer licenses
     const want = v27Of(old.state.run, run, meta)
-    expect([run.stars, run.cash, run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([39, want.cash, 0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+    expect([run.stars, run.cash, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([39, want.cash, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
     expect(old.state.run.cash).toBe(452_892)
     expect(meta).toEqual(old.state.meta)
     const strip = (r: typeof run | typeof old.state.run) => ({ ...r, orders: undefined, starsFrac: undefined, favours: undefined, workers: undefined, furnace: undefined })
@@ -1421,7 +1421,7 @@ describe('save v26: ⭐ Favours, order ⭐ by production-minutes (batch 34)', ()
       const save = deserialize(raw)!
       expect(save.version).toBe(SAVE_VERSION)
       const { run } = save.state
-      expect([run.starsFrac, run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([0, { bunkhouse: 0, seam: false, aim: null }, 0, 0])
+      expect([run.favours, run.workers.assigned.stoker, run.furnace.stoked]).toEqual([{ bunkhouse: 0, seam: false, aim: null }, 0, 0])
       for (const o of run.orders.offers) if ('good' in o) expect(o.stars).toBe([1, 2, 4][o.tier])
     }
   })

@@ -521,14 +521,12 @@ const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; bonus: number;
   bonus: 0.1,
   slots: 2,
 }
-const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number }> = [
-  { minutes: 5, weight: 0.5 },
-  { minutes: 10, weight: 0.35 },
-  { minutes: 20, weight: 0.15 },
+// batch 35.3: an order pays its tier's fixed ⭐, whatever the good and its count
+const ORDER_TIERS: ReadonlyArray<{ minutes: number; weight: number; stars: number }> = [
+  { minutes: 5, weight: 0.5, stars: 8 },
+  { minutes: 10, weight: 0.35, stars: 16 },
+  { minutes: 20, weight: 0.15, stars: 32 },
 ]
-// batch 34 (option A): an order pays this many ⭐ per minute of production it really consumes at the player's full
-// output (item orders at the board rate), fractional ⭐ kept
-const ORDER_STARS_PER_MINUTE = 0.2
 // batch 29: after the Tractor a crop order (a 🚜 contract) is sized by this share of the wet tiles' pressured output
 const CONTRACT_WET_SHARE = 0.15
 const ORDER_ROCKS_PER_MIN = 12
@@ -574,9 +572,9 @@ export function orderTierMinutes(tier: number): number {
   return ORDER_TIERS[tier].minutes
 }
 
-/** ⭐ an order pays per minute of the player's full output it asks for */
-export function orderStarsPerMinute(): number {
-  return ORDER_STARS_PER_MINUTE
+/** ⭐ an order of this tier pays */
+export function orderTierStars(tier: number): number {
+  return ORDER_TIERS[tier].stars
 }
 
 /** the tier a roll r in [0, 1) lands on, by weight */

@@ -51,7 +51,6 @@ describe('sellFarm', () => {
       licenses: ['potato'],
       milestones: {},
       stars: 37,
-      starsFrac: 0,
       orders: { unlocked: false, slots: 5, offers: [] },
       workers: { pool: 0, certificates: [] },
       lifetime: s.run.lifetime,
@@ -98,7 +97,7 @@ describe('sellFarm', () => {
   })
 
   it('batch 34: ⭐73 starts the next run with ⭐50; every ⭐ level (fertilizer 7, furnace speed 4, Bunkhouse 2) is back to 0', () => {
-    const g = atGate({ stars: 73, starsFrac: 0.6 })
+    const g = atGate({ stars: 73 })
     const run = {
       ...g.run,
       upgrades: { ...g.run.upgrades, fertilizer: 7 },
@@ -108,7 +107,7 @@ describe('sellFarm', () => {
     const sale = sellFarm({ ...g, run })
     if (!sale.ok) throw new Error(sale.error)
     const next = sale.state.run
-    expect([next.stars, next.starsFrac, next.upgrades.fertilizer, next.furnace.levels.speed, next.favours]).toEqual([50, 0, 0, 0, { bunkhouse: 0, seam: false, aim: null }])
+    expect([next.stars, next.upgrades.fertilizer, next.furnace.levels.speed, next.favours]).toEqual([50, 0, 0, { bunkhouse: 0, seam: false, aim: null }])
   })
 
   it('batch 34: Toon\'s v23 save (⭐39, lifetime 💰804,344) sells for 8 deeds (was 9) and the next run starts with ⭐39', () => {

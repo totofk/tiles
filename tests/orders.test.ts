@@ -20,8 +20,8 @@ import {
   orderCooldownTicks,
   orderRocksPerMin,
   orderStartSlots,
-  orderStarsPerMinute,
   orderTierMinutes,
+  orderTierStars,
   rollOrderTier,
 } from '../src/core/balance'
 import { MILESTONES } from '../src/core/data/milestones'
@@ -34,6 +34,7 @@ import {
   rerollOrders,
   deliverOrder,
   discardOrder,
+  isCropGood,
   isOffer,
   itemOrderValue,
   orderCount,
@@ -172,30 +173,28 @@ function rolled(s: GameState, want: (o: Offer) => boolean): Offer {
   throw new Error('no such roll')
 }
 
-describe('batch 34: order ⭐ = 0.2 × the production-minutes the order consumes', () => {
-  it('at home a 5-minute crop order pays ⭐1 and a 20-minute one ⭐4 (± the rounding of the count)', () => {
-    const s = withRun({})
-    const rate = (9 / RADISH) * 60
-    for (const [tier, stars] of [[0, 1], [2, 4]] as const) {
-      const o = rolled(s, (x) => x.tier === tier)
-      expect(o.stars).toBe((0.2 * o.count) / rate)
-      expect(Math.abs(o.stars - stars)).toBeLessThanOrEqual((0.2 * 0.5) / rate)
+describe('batch 35.3: order ⭐ fixed per tier (8 / 16 / 32)', () => {
+  it('a small, a medium and a large order pay ⭐8 / 16 / 32 whatever the good', () => {
+    const crops = withRun({})
+    const items = withRun({ mineLicense: true, vein: { level: 2, progress: 0, rock: 'stone' } })
+    for (const [tier, stars] of [[0, 8], [1, 16], [2, 32]] as const) {
+      expect(orderTierStars(tier)).toBe(stars)
+      expect(rolled(crops, (x) => x.tier === tier).stars).toBe(stars)
+      expect(rolled(items, (x) => !isCropGood(x.good) && x.tier === tier).stars).toBe(stars)
     }
   })
 
-  it('an item order clamped to half the storage pays 0.2 × count ÷ the board rate', () => {
+  it('a storage-clamped item order still pays its tier\'s full ⭐', () => {
     const s = withRun({ mineLicense: true, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 40 })
     const o = rolled(s, (x) => x.good === 'copperOre' && x.tier === 2)
     expect(o.count).toBe(20) // 36 clamped to 40 / 2
-    expect(o.stars).toBe((0.2 * 20) / orderPerMinute(s, 'copperOre'))
+    expect(o.stars).toBe(32)
   })
 
-  it('3 orders of ⭐0.4 add ⭐1 and leave starsFrac 0.2, lifetime ⭐ +1', () => {
-    let s = board([0, 1, 2].map(() => offer({ good: 'stone', count: 1, stars: 0.4 })), { inventory: { stone: 3 } })
+  it('3 completed orders of ⭐8 / 16 / 32 add ⭐56 to the balance and lifetime', () => {
+    let s = board([8, 16, 32].map((stars) => offer({ good: 'stone', count: 1, stars })), { inventory: { stone: 3 } })
     for (const slot of [0, 1, 2]) s = okState(deliverOrder(s, slot))
-    expect(s.run.stars).toBe(1)
-    expect(s.run.starsFrac).toBeCloseTo(0.2, 9)
-    expect(s.run.lifetime.starsEarned).toBe(1)
+    expect([s.run.stars, s.run.lifetime.starsEarned]).toEqual([56, 56])
   })
 })
 
@@ -535,14 +534,8 @@ describe('batch 29: 🚜 estate contracts', () => {
     expect([done.run.counters.orders, done.run.counters.contractsByHand]).toEqual([1, 0])
   })
 
-  it('batch 34: a contract pays ⭐ for the minutes of the WHOLE wet output its count is (≈ 0.15 × the old tier ⭐)', () => {
-    const s = estate()
-    const o = rolled(s, (x) => x.good === 'lemon' && x.tier === 2)
-    const grow = cropGrowTicks('lemon', meta, 0)
-    const full = (9 / grow) * 60 + (WET / Math.ceil(grow / FIELD_PRESSURE)) * 60
-    expect(o.stars).toBe((orderStarsPerMinute() * o.count) / full)
-    expect(o.stars).toBeLessThan(0.2 * 4)
-    expect(o.stars).toBeGreaterThan(0.1 * 4)
+  it('batch 35.3: a contract pays its tier\'s full ⭐ (a large one ⭐32)', () => {
+    expect(rolled(estate(), (x) => x.good === 'lemon' && x.tier === 2).stars).toBe(32)
   })
 
   it('rollOffer consumes exactly two rolls before and after the Tractor', () => {
