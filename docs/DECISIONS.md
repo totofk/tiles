@@ -1098,3 +1098,75 @@ Hermes's calls (Toon may reject by number; dispatched on the 11:38 go with these
     09:00; live relay into thread 1573420437554200597 (the 36 planning thread).
 - **Renumbered:** 36.1 = tasks 209–212 (the draft's 36.1-1 … 36.1-4), save v30. Next: 36.2 (Orchard Valley + Iron
   Hills, save v31) is planned only after 36.1 is dispatched, re-anchored on 36.1's HEAD.
+
+## Batch 36.2 refined (2026-11-21, Orchard Valley + Iron Hills play differently; distinct listing soils; save v30 → v31)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-split.md` row 36.2 "District framework:
+top-5 supply lists, Orchard berry sell ×1.4, Orchard tree bed (1 bed, 1.25 × grow), Iron Hills forge (bars + coal →
+order goods, margin ≤ 30 %). Sim pins: each district within ±20 % to Fields; bot licence lists per district. v31",
+accepted "รับหมด"; `b36-decisions.md` Direction C + the 6 calculator items; `research/b36-synthesis.md` items 4–6
+(tree bed 1.25 × growTicks, supply lists vary only the top 5, Iron Hills = forge), accepted; `b36-calculator.md` items
+1–4). Draft `tiles-b36.2-plan.md` (anchors d0c52954) re-anchored on 8113458b (after 36.1). Go: Toon (Trin) 2026-11-21
+15:05 "ปล่อย" for 36.2.
+
+Toon-approved (not a Hermes call): **distinct soils** — the two rolled listings of one offer must not share a soil
+(36.1 live check: both rows can roll the same soil, ≈ 1 in 6 per offer, which empties the soil part of the choice).
+Toon approved folding this fix into 36.2 (2026-11-21, relayed by Side Project Bot). Task 213.
+
+Hermes's calls (Toon may reject by number; dispatched on the 15:05 go with these as written):
+1. Distinct soils, how: soil B is redrawn from the same rng while it equals soil A (draws after the existing four, so
+   every already-distinct offer — the 36.1 fixture pin included — stays byte-identical; colliding offers get a uniform
+   pick among the other 5). "Distinct" = a different ordered pair; the rows may share the fast group when the slow
+   group differs. Reject → require different fast groups.
+2. Numbering 213–218 (six tasks: 213 soils, 214 district framework, 215 save v31, 216 tree bed, 217 forge, 218 pins +
+   changelog). The save bump (state shapes + migration) is its own commit BEFORE the mechanics, so no task has to
+   carry another's bump (36.1 Deviation 1).
+3. Wetlands keeps 36.1's behaviour in 36.2 (full shop, no berry ×1.4, no hint); its list, ×1.4, no-mine and barge go
+   live together in 36.3. The draft turned on Wetlands' ×1.4 here; a Wetlands list without the rest would only make it
+   −33 %.
+4. The supply list binds the shop only: licences already owned (keepLicenses deed) keep working in every district —
+   nothing is taken away. Reject → owned-but-unlisted licences go dormant in a district run (then the deed loses value).
+5. Berry ×1.4 is an optional `district` argument on `cropSellPrice` (default plain), passed at the 6 runtime call
+   sites (market sale, order price, the Manager's curve, the payback label, Estate text, Orders card); tests and the
+   v26 migration keep it off, so no existing pin moves.
+6. Unlisted licences stay visible in the Shop as disabled rows "not sold in {district}"; the new error NOT_SOLD_HERE
+   reads "Not sold in this district". Reject → hide the rows.
+7. The Next farm rows gain one hint line on the two districts that now differ: Orchard Valley "sells 8 of 10 crops ·
+   berries ×1.4 · 🌳 fruit tree", Iron Hills "sells 7 of 10 crops · 🔨 forge" (counts, not crop lists — 36.1's 375 px
+   rule). Without it the choice 36.2 creates is invisible at the sale.
+8. Tree bed rules beyond the accepted q6 numbers: the cadence uses BASE grow ticks — fertilizer, the Legacy growTime
+   rows and the listing soil do not apply (est.; keeps the 101–103 % pin exact); the bed must be empty to plant (new
+   error BED_BUSY "Harvest that bed first"); a sprinkler already on that bed stays (harmless); first fruit after 2
+   cadences; 3 fruit per tile then it pauses; one harvest takes the whole tile stock as one action (+1 harvest, renown
+   +2 hand / +1 worker, ×1.25 by hand, no sickle double, no seed roll); harvest targets put tree tiles after ripe crops.
+9. Tree tiles stay ordinary `tilled` tiles in `run.tiles`, marked by `run.tree.bed` (no new TileStatus, so every
+   status switch in the UI and sims is untouched); `run.tree = { bed, crop, ticks[6], stock[6] }`.
+10. Forge: the PLAYER picks the recipe (Off by default); the ore loader loads only that recipe, after its furnace work,
+    and never picks one itself. The draft had the loader load the cheapest runnable recipe, which would spend bars the
+    player keeps for certificates without asking. Reject → loader picks the cheapest runnable recipe.
+11. Forge prices and glyphs (est.): build stone 30 + coal 10 + 🥉5 + 💰1,500 (the draft said "anchored on the furnace
+    price"; the furnace is 💰150, so this is simply an est.); recipes 🔧 Toolbox 🥉4 + coal 1 → 💰520, ⚙️ Plough blade
+    🥈2 + coal 1 → 💰1,250, ⛓️ Anchor chain 🥇3 + coal 2 → 💰3,600 (+28.7 / +24.5 / +19.7 %; the signatures doc's
+    💰700 toolbox was +73 %); one good per 300 ticks; tray 10; 🔨 for the forge. All glyphs Unicode ≤ 11.
+12. A forge good joins the order pool only once its bar is in the pool (anchor chain needs gold bars) — the pool's
+    "goods the player can make now" rule.
+13. Pins: the only sim is PIN36c (shipped ladder bot to the Fields unlock per district licence list, through the
+    existing `licenses` / `crops` options — no new bot knob). The draft's 24 game-h Iron Hills bot run for the
+    goods-order share (≤ 35 %) and its bars-diverted report needed a forge-running bot (a new knob) — replaced by a
+    pure `orderPool` share test (PIN36g); the estate pin (PIN36d, −10 % … +25 %, est. band) and the tree pin (PIN36e,
+    ±15 %) are pure-function tests.
+14. Fixture `tests/fixtures/save-v30.json` = `post-deploy-v30.json` (Toon's save migrated v29 → v30 and re-saved by the
+    live v30 build, 2026-11-21 14:06; browser workspace `local-db523ba8…`), committed with this plan.
+15. CHANGELOG 36.2 line (177 code points): "Orchard Valley and Iron Hills now play their own way: each sells its own
+    seeds; Orchard berries pay ×1.4 and grow a 🌳 fruit tree; Iron Hills stamps bars into goods at a 🔨 forge." The
+    distinct-soils fix is not in the line (it would pass the 180 cap; players see only that rows differ).
+16. One batch, not split into 36.2a / 36.2b (the draft's fallback): the forge is the last mechanic task (217), and an
+    out-of-turns stop resumes the same session through the retry watcher. Split only if a resume also stalls.
+17. Worker: Opus via Max (`--effort medium`, `--max-turns 450`: six tasks, two new systems, a save bump, UI in four
+    places and one sim; 36.1 used 243 of 250 for four tasks); retry deadline 2026-11-22 09:00 (as 35.4–36.1); live
+    relay into thread 1573420437554200597 (the 36 planning thread; no separate 36.2 thread exists).
+18. Deferred, as in the draft: ⭐ Favour rows for the tree bed and the forge (36's ⭐ prices wait for Toon's single
+    playtest), the almanac deed. Renown comes free through tree fruit (the crop's own renown).
+19. The live checks (v30 → v31 migration, width sweep of the hints, Shop rows, 🌳 sheet + tree bed, Forge card) are
+    Hermes's verify step after the worker, not the worker's.
+- **Renumbered:** none. Batch 36.2 = tasks 213–218, save v31. Next: 36.3 (Wetlands: no mine, barge, its list + berry
+  ×1.4) → save v32, planned only after 36.2 is dispatched, re-anchored on 36.2's HEAD.
