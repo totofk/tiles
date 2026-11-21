@@ -1,11 +1,12 @@
 // Identity only; prices and drop tables live in balance.ts.
-export const ITEM_IDS = ['wood', 'stone', 'coal', 'copperOre', 'copperBar', 'ironOre', 'ironBar', 'goldOre', 'goldBar'] as const
+export const ITEM_IDS = ['wood', 'stone', 'coal', 'copperOre', 'copperBar', 'ironOre', 'ironBar', 'goldOre', 'goldBar', 'toolbox', 'ploughBlade', 'anchorChain'] as const
 export type ItemId = (typeof ITEM_IDS)[number]
 
-/** the 🔨 forge's goods (batch 36.2); a recipe is named by the good it makes */
-export const FORGE_GOOD_IDS = ['toolbox', 'ploughBlade', 'anchorChain'] as const
+/** the 🔨 forge's goods (batch 36.2): storage items, never mined; a recipe is named by the good it makes */
+export const FORGE_GOOD_IDS = ['toolbox', 'ploughBlade', 'anchorChain'] as const satisfies readonly ItemId[]
 export type ForgeGoodId = (typeof FORGE_GOOD_IDS)[number]
 export type ForgeRecipeId = ForgeGoodId
+export const isForgeGood = (id: string): id is ForgeGoodId => (FORGE_GOOD_IDS as readonly string[]).includes(id)
 
 /** ores the furnace smelts, one kind in its slot at a time (balance.ts maps each to its bar) */
 export const ORE_IDS = ['copperOre', 'ironOre', 'goldOre'] as const
@@ -35,4 +36,7 @@ export const ITEMS: Record<ItemId, { name: string; emoji: string }> = {
   ironBar: { name: 'Iron bar', emoji: '🥈' },
   goldOre: { name: 'Gold ore', emoji: '🌟' },
   goldBar: { name: 'Gold bar', emoji: '🥇' },
+  toolbox: { name: 'Toolbox', emoji: '🔧' },
+  ploughBlade: { name: 'Plough blade', emoji: '⚙️' },
+  anchorChain: { name: 'Anchor chain', emoji: '⛓️' },
 }

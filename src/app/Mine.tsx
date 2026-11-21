@@ -1,6 +1,10 @@
 import { Fragment } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import {
+  FORGE_CYCLE_TICKS,
+  FORGE_RECIPES,
+  FORGE_TRAY,
+  forgeCost,
   FUEL_IDS,
   FURNACE_UPGRADE_IDS,
   barTicks,
@@ -41,10 +45,11 @@ import {
   type FurnaceUpgradeId,
   type Price,
 } from '../core/balance'
-import { BAR_IDS, ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
+import { BAR_IDS, FORGE_GOOD_IDS, ITEMS, ITEM_IDS, ORE_IDS, PICKAXE_NAMES, PICKAXE_TIERS, type ItemId, type OreId } from '../core/data/items'
 import { SEAM_EMOJI } from '../core/data/favours'
 import { STAR_EMOJI } from '../core/data/orders'
 import { setSeamAim } from '../core/favours'
+import { buildForge, collectForge, forgeTrayCount, loadForge, setForgeRecipe } from '../core/forge'
 import { addFuel, setAutoBuyWood, buyFurnaceUpgrade, buyMold, collectAll, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, moldSmelting } from '../core/furnace'
 import {
   activePickaxe,
@@ -82,7 +87,7 @@ const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore
 const KEEP_STEP = 10
 const SELL_WHEN_FULL = ITEM_IDS.filter(
   // coal fuels the Fields tank (batch 28)
-  (id) => isSellable(id) && id !== 'wood' && id !== 'coal' && !ORE_IDS.map(oreBar).includes(id),
+  (id) => isSellable(id) && id !== 'wood' && id !== 'coal' && !ORE_IDS.map(oreBar).includes(id) && !(FORGE_GOOD_IDS as readonly ItemId[]).includes(id),
 )
 
 /** furnace-button reasons short enough for a ≈ 100 px button in the desktop Mine column */
@@ -110,6 +115,61 @@ function sellAll(s: GameState): ActionResult {
 /** a disabled furnace button's short reason */
 function shortReason(r: ActionResult) {
   return r.ok ? '' : (SMELT_SHORT[r.error] ?? ERROR_TEXT[r.error])
+}
+
+/** batch 36.2: Iron Hills' 🔨 forge — build, then a recipe (or Off), Load one, a status line, the tray and Collect */
+function Forge({ state, act }: { state: GameState; act: Act }) {
+  const { run, meta } = state
+  const f = run.forge
+  if (!f.built) {
+    const r = buildForge(state)
+    return (
+      <div className="group mine-forge">
+        <span>🔨 Forge · stamps bars into goods for orders</span>
+        <button disabled={!r.ok} onClick={() => act(buildForge)}>
+          Build forge
+          <small>
+            {priceText(forgeCost(meta))}
+            {!r.ok && ` · ${shortReason(r)}`}
+          </small>
+        </button>
+      </div>
+    )
+  }
+  const tray = forgeTrayCount(f)
+  const load = loadForge(state)
+  const collect = collectForge(state)
+  const status =
+    tray >= FORGE_TRAY && f.job !== null ? 'Tray full' : f.job !== null ? `Stamping ${ITEMS[f.job].emoji} · ${f.progress} / ${FORGE_CYCLE_TICKS} s` : 'Idle'
+  return (
+    <div className="group mine-forge">
+      <span>🔨 Forge</span>
+      <div className="mine-furnace-actions" role="group" aria-label="Forge recipe">
+        {FORGE_GOOD_IDS.map((id) => (
+          <button key={id} aria-pressed={f.recipe === id} onClick={() => act((s) => setForgeRecipe(s, id))}>
+            {ITEMS[id].emoji} {ITEMS[id].name} ·{' '}
+            {(Object.entries(FORGE_RECIPES[id].inputs) as [ItemId, number][]).map(([item, n]) => `${ITEMS[item].emoji}⁠${n}`).join(' ')} → 💰{price(itemSellPrice(id, meta, run.upgrades.sellPrice))}
+          </button>
+        ))}
+        <button aria-pressed={f.recipe === null} onClick={() => act((s) => setForgeRecipe(s, null))}>
+          Off
+        </button>
+      </div>
+      <small className="furnace-stock">{status}</small>
+      <div className="mine-furnace-actions">
+        <button disabled={!load.ok} onClick={() => act(loadForge)}>
+          Load one
+          {!load.ok && <small>{shortReason(load)}</small>}
+        </button>
+        <button disabled={!collect.ok} onClick={() => act(collectForge)}>
+          Collect
+          <small>
+            Tray {tray} / {FORGE_TRAY}
+          </small>
+        </button>
+      </div>
+    </div>
+  )
 }
 
 /** a furnace button's second line: the reason it is disabled, else how many items the press moves */
@@ -499,6 +559,7 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       ) : (
         run.vein.level >= furnaceVeinLevel() && <span className="mine-vein-next">{FIRE_EMOJI} Furnace — buy it in the 🛒 Shop</span>
       )}
+      {run.listing.district === 'ironHills' && <Forge state={state} act={act} />}
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{price(woodCost(meta))}
       </button>

@@ -12,6 +12,7 @@ import {
 import type { ListingSoil } from './data/crops'
 import { recordMilestones } from './data/milestones'
 import { fieldsAct, machinesAct } from './fields'
+import { tickForge } from './forge'
 import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
 import { tickOrders } from './orders'
@@ -77,7 +78,7 @@ function stepOnce(state: GameState): GameState {
     market: decayMarket(run.market),
   }
   // milestones record per tick (worker actions already recorded through withRun), so step(s, n) = n × step(s, 1)
-  const after = tickOrders({ meta, run: tickFurnace(nextRun) })
+  const after = tickOrders({ meta, run: tickForge(tickFurnace(nextRun)) })
   return { meta, run: recordMilestones(before, after.run) }
 }
 

@@ -8,6 +8,7 @@ import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
 import { cropGrowTicks, cropSellPrice, itemSellPrice, orderBonus, orderCooldownTicks } from '../src/core/balance'
 import { contractCap } from '../src/core/orders'
+import { price } from '../src/app/fmt'
 import { createInitialState, type GameState, type Offer, type RunState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -217,5 +218,17 @@ describe('board in the Shop, ⭐ in the HUD, 📋 on ordered ready tiles', () =>
     }
     expect(badges(true)).toBe(1)
     expect(badges(false)).toBe(0)
+  })
+})
+
+describe('batch 36.2: a forge good order', () => {
+  it('renders 🔧 Toolbox with its cash (sell × 1.1) and delivers from storage', () => {
+    const t = setup(board([offer({ good: 'toolbox', count: 2, done: 0, tier: 0, accepted: true, stars: 8 })], { inventory: { toolbox: 2 } }))
+    const row = rows()[0]
+    expect(row.textContent).toContain('🔧')
+    expect(row.textContent).toContain(`+💰${price(Math.round(2 * itemSellPrice('toolbox', init.meta, 0) * (1 + orderBonus())))}`)
+    within(row).getByRole('button', { name: /Deliver Toolbox order/ }).click()
+    t.rerender()
+    expect(t.get().run.inventory.toolbox).toBe(0)
   })
 })

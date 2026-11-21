@@ -16,6 +16,7 @@ import { ORE_IDS, type OreId } from './data/items'
 import { WORKER_JOBS, type WorkerJob } from './data/workers'
 import { fieldsHarvest, fieldsPlantAction, fillTank, setFieldCrop } from './fields'
 import { addFuel, buyFireWood, collectBars, cycleOre, fuelRoom, loadOre, moldSmelting } from './furnace'
+import { forgeLoaderAction } from './forge'
 import { managerPlan } from './manager'
 import { activePickaxe, dig, pay } from './mining'
 import { clerkAction, clerkTarget } from './orders'
@@ -46,24 +47,27 @@ const isTileJob = (job: WorkerJob): job is TileJob => job in WORK
  * failed press (storage full) idles too. Clerk: one deliver or accept on the 📋 board (clerkAction). null = nothing to
  * do, so the worker idles unpaid.
  */
+function furnaceLoaderAction(s: GameState): ActionResult | null {
+  const { run } = s
+  const f = run.furnace
+  if (!f.built) return null
+  for (const ore of ORE_IDS) {
+    const collected = (f.molds[ore]?.ready ?? 0) > 0 ? collectBars(s, ore) : null
+    if (collected?.ok) return collected
+  }
+  const need = cycleOre(f)
+  let pick: OreId | null = null
+  for (const ore of ORE_IDS) {
+    const mold = f.molds[ore]
+    if (!mold || (run.inventory[ore] ?? 0) < need || oreSlotCap(f.levels.slot) - mold.ore < need) continue
+    if (pick === null || Math.floor(mold.ore / need) < Math.floor(f.molds[pick]!.ore / need)) pick = ore
+  }
+  return pick === null ? null : loadOre(s, pick, need)
+}
+
 const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => ActionResult | null> = {
-  ore: (s) => {
-    const { run } = s
-    const f = run.furnace
-    if (!f.built) return null
-    for (const ore of ORE_IDS) {
-      const collected = (f.molds[ore]?.ready ?? 0) > 0 ? collectBars(s, ore) : null
-      if (collected?.ok) return collected
-    }
-    const need = cycleOre(f)
-    let pick: OreId | null = null
-    for (const ore of ORE_IDS) {
-      const mold = f.molds[ore]
-      if (!mold || (run.inventory[ore] ?? 0) < need || oreSlotCap(f.levels.slot) - mold.ore < need) continue
-      if (pick === null || Math.floor(mold.ore / need) < Math.floor(f.molds[pick]!.ore / need)) pick = ore
-    }
-    return pick === null ? null : loadOre(s, pick, need)
-  },
+  // batch 36.2: the forge after the furnace work
+  ore: (s) => furnaceLoaderAction(s) ?? forgeLoaderAction(s),
   fuel: (s) => {
     const f = s.run.furnace
     const coal = s.run.inventory.coal ?? 0

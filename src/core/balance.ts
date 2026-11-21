@@ -3,7 +3,7 @@
 import { CROP_GROUPS, cropGroup, type CropId, type ListingSoil } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { UpgradeId } from './data/upgrades'
-import { ORE_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
+import { ORE_IDS, PICKAXE_TIERS, type BarId, type ForgeRecipeId, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
 import type { WorkerJob } from './data/workers'
 import type { CounterId, MetaState, MultiplierKey, RunState } from './state'
@@ -80,6 +80,10 @@ const ITEM_SELL_PRICE = {
   copperBar: 100,
   ironBar: 500,
   goldBar: 1000,
+  // batch 36.2 forge goods (est.): +28.7 / +24.5 / +19.7 % over their inputs' sell value (FORGE_RECIPES)
+  toolbox: 520,
+  ploughBlade: 1250,
+  anchorChain: 3600,
 } satisfies Partial<Record<ItemId, number>>
 export type SellableItemId = keyof typeof ITEM_SELL_PRICE
 /** a price in cash plus items from storage, and ⭐ (never scaled by the cost multiplier) */
@@ -850,6 +854,21 @@ function scalePrice({ cash, ...items }: Price, meta: MetaState): Price {
 
 export function furnaceCost(meta: MetaState): Price {
   return scalePrice(FURNACE.cost, meta)
+}
+
+// Iron Hills' 🔨 forge (batch 36.2, all est.): stamps bars + coal into order goods, one per FORGE_CYCLE_TICKS, into a
+// tray of FORGE_TRAY; no fire, no fuel (coal is a recipe input)
+const FORGE_COST: Price = { stone: 30, coal: 10, copperBar: 5, cash: 1500 }
+export const FORGE_CYCLE_TICKS = 300
+export const FORGE_TRAY = 10
+export const FORGE_RECIPES: Record<ForgeRecipeId, { bar: BarId; inputs: Partial<Record<ItemId, number>> }> = {
+  toolbox: { bar: 'copperBar', inputs: { copperBar: 4, coal: 1 } },
+  ploughBlade: { bar: 'ironBar', inputs: { ironBar: 2, coal: 1 } },
+  anchorChain: { bar: 'goldBar', inputs: { goldBar: 3, coal: 2 } },
+}
+
+export function forgeCost(meta: MetaState): Price {
+  return scalePrice(FORGE_COST, meta)
 }
 
 /** the vein level the furnace needs */

@@ -3,6 +3,8 @@
 // run.rngState only when a slot opens (board bought, order completed, cooldown over), so runs replay.
 import { fail, nextRandom, withRun, type ActionResult } from './actions'
 import {
+  FORGE_CYCLE_TICKS,
+  FORGE_RECIPES,
   barTicks,
   batchBars,
   furnaceSpeedRate,
@@ -29,7 +31,7 @@ import {
   veinDrops,
 } from './balance'
 import { CROP_IDS, type CropId } from './data/crops'
-import { ITEM_IDS, ORE_IDS, type ItemId } from './data/items'
+import { FORGE_GOOD_IDS, ITEM_IDS, ORE_IDS, isForgeGood, type ItemId } from './data/items'
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
 import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
 import { cropSale } from './market'
@@ -54,7 +56,9 @@ export function orderPool(run: RunState): OrderGood[] {
   const items = run.mineLicense ? ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0 && minedRock(id, bestPickaxeTier(run)) === id) : []
   // batch 33: a bar only once its mold is owned
   const bars = run.furnace.built ? ITEM_IDS.filter((id) => { const ore = barOre(id); return ore !== undefined && items.includes(ore) && run.furnace.molds[ore] !== undefined }) : []
-  return [...run.licenses, ...items, ...bars]
+  // batch 36.2: a forge good once the forge is built and its bar is in the pool
+  const goods = run.forge.built ? FORGE_GOOD_IDS.filter((id) => bars.includes(FORGE_RECIPES[id].bar)) : []
+  return [...run.licenses, ...items, ...bars, ...goods]
 }
 
 /** how many of `good` the player makes per minute at full use (the basis of an order's count) */
@@ -68,6 +72,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
     if (!run.fields.unlocked || !fieldsPlantable(run, good)) return home
     return Math.max(home, ((contractWetShare() * wetTiles(run.fields)) / pressuredCycle(state, good)) * 60)
   }
+  if (isForgeGood(good)) return 60 / FORGE_CYCLE_TICKS
   const ore = barOre(good)
   if (ore) return (batchBars(run.furnace.levels.batch) * 60 * furnaceSpeedRate(run.furnace.levels.speed)) / barTicks(ore)
   const drops = veinDrops(run.vein.level)
@@ -110,7 +115,7 @@ export function rollOffer(state: GameState, rngState: number): [Offer, number] {
 export function itemOrderValue(state: GameState, good: ItemId): number {
   if (!isSellable(good)) return 0
   const price = itemSellPrice(good, state.meta, state.run.upgrades.sellPrice)
-  return barOre(good) ? price * (1 + orderBonus()) : price * orderBonus()
+  return barOre(good) || isForgeGood(good) ? price * (1 + orderBonus()) : price * orderBonus()
 }
 
 /** cash one ordered crop unit pays: the unglutted price × (1 + bonus) × `bonus` (hand-picked) */

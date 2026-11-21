@@ -594,3 +594,44 @@ describe('batch 32: 🧺 ore sorting table', () => {
     expect(within(group()!).queryAllByRole('button', { name: /^Unlock/ })).toHaveLength(0)
   })
 })
+
+describe('batch 36.2: the 🔨 Forge card', () => {
+  const ironHills = { district: 'ironHills' as const, soil: null }
+
+  it('only on an Iron Hills run: before the build, the line and the build price; disabled "furnace first" without one', () => {
+    setup({ furnace: built })
+    expect(screen.queryByText(/🔨 Forge/)).toBeNull()
+    cleanup()
+    setup({ listing: ironHills })
+    expect(screen.getByText('🔨 Forge · stamps bars into goods for orders')).toBeTruthy()
+    const build = screen.getByRole('button', { name: /Build forge/ }) as HTMLButtonElement
+    expect(build.disabled).toBe(true)
+    expect(build.textContent).toContain(`${STONE}⁠30 ⚫⁠10 ${BAR}⁠5 💰⁠1,500`)
+    expect(build.textContent).toMatch(/furnace/i)
+    cleanup()
+    const t = setup({ listing: ironHills, furnace: built, cash: 2000, inventory: { stone: 30, coal: 10, copperBar: 5 } })
+    fireEvent.click(screen.getByRole('button', { name: /Build forge/ }))
+    expect(t.get().run.forge.built).toBe(true)
+  })
+
+  it('after the build: recipe rows + Off, Load one, the status line, Tray n / 10 and Collect', () => {
+    const forge = { built: true, recipe: null, job: null, progress: 0, tray: {} }
+    const t = setup({ listing: ironHills, furnace: built, forge, inventory: { copperBar: 4, coal: 1 } })
+    const recipes = within(screen.getByRole('group', { name: 'Forge recipe' })).getAllByRole('button')
+    expect(recipes.map((b) => b.textContent)).toEqual([`🔧 Toolbox · ${BAR}⁠4 ⚫⁠1 → 💰520`, `⚙️ Plough blade · ${IRON_BAR}⁠2 ⚫⁠1 → 💰1,250`, `⛓️ Anchor chain · 🥇⁠3 ⚫⁠2 → 💰3,600`, 'Off'])
+    expect(recipes.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'false', 'true'])
+    expect(screen.getByText('Idle')).toBeTruthy()
+    expect((screen.getByRole('button', { name: /Load one/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: /^Collect\s*Tray/ }).textContent).toBe('CollectTray 0 / 10')
+    fireEvent.click(recipes[0])
+    t.rerender()
+    fireEvent.click(screen.getByRole('button', { name: /Load one/ }))
+    t.rerender()
+    expect(t.get().run.forge.job).toBe('toolbox')
+    expect(screen.getByText('Stamping 🔧 · 0 / 300 s')).toBeTruthy()
+    cleanup()
+    setup({ listing: ironHills, furnace: built, forge: { ...forge, job: 'toolbox', progress: 300, tray: { toolbox: 10 } } })
+    expect(screen.getByText('Tray full')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Collect\s*Tray/ }).textContent).toBe('CollectTray 10 / 10')
+  })
+})
