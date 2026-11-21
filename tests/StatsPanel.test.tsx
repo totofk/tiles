@@ -34,6 +34,15 @@ describe('Stats panel', () => {
     expect(shown).toEqual([...totals, ...multipliers].map((r) => `${r.label}${r.value}${r.source ? ` (${r.source})` : ''}`))
   })
 
+  it('batch 36.1: shows "This farm" with the active listing and its soil', () => {
+    const s = createInitialState()
+    const { container, rerender } = render(<Stats state={s} />)
+    const row = () => [...container.querySelectorAll('.stats > div')].map((d) => d.textContent).find((t) => t!.startsWith('This farm'))
+    expect(row()).toBe('This farmThe plain farm')
+    rerender(<Stats state={{ ...s, run: { ...s.run, listing: { district: 'wetlands', soil: { fast: 'fruitVeg', slow: 'berry' } } } }} />)
+    expect(row()).toBe('This farm🌊 Wetlands · fruit-veg 20 % faster · berry 20 % slower')
+  })
+
   it('timeline lists the recorded milestones; no Copy report button anymore (task 123)', () => {
     const s = createInitialState()
     const state: GameState = { ...s, run: { ...s.run, counters: { ...s.run.counters, harvests: 1 }, milestones: { firstHarvest: 100 } } }

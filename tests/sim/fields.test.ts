@@ -116,7 +116,7 @@ describe('batch 36.1: listing soil', () => {
   it.fails('PIN36a: fruit-veg fast / roots slow reaches the Fields unlock — measured: not within 20 game-h', () => {
     const h = unlockHours().fruitVegFast_rootsSlow
     expect(h).not.toBeNull()
-  })
+  }, 300_000)
 })
 
 describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)', () => {

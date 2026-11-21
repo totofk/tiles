@@ -238,8 +238,9 @@ after 36); soil on any axis but grow time; per-bed / per-field traits; worker-hi
 
 ## Batch 36.1 results
 
-Commits (main, not pushed): 4ce40440 (209), 29edf981 (210), 92520473 (211), f3b6f319 (212), then this docs commit.
-Tests: 1165 passed + 6 expected fail (1171) → 1191 passed + 7 expected fail (1198), 64 files. `pnpm lint`, `pnpm build`,
+Commits (main, not pushed): 4ce40440 (209), 29edf981 (210), 92520473 (211), f3b6f319 (212), 9307c02b (results), then
+a follow-up (jsdom Stats "This farm" test, the `it.fails` pin's timeout, these notes).
+Tests: 1165 passed + 6 expected fail (1171) → 1192 passed + 7 expected fail (1199), 64 files. `pnpm lint`, `pnpm build`,
 `tsc -b --force` (clean tsbuildinfo) green; purity grep shows only the known `src/save/storage.ts:26`; case-clash check
 prints nothing; no dist/, sim-logs/ or scratch file tracked.
 
@@ -254,7 +255,8 @@ prints nothing; no dist/, sim-logs/ or scratch file tracked.
   estateText.ts, FarmGrid.tsx and the bot (`tests/sim/bot.ts:147`, `:1274`); `sellFarm(state, choice = PLAIN_LISTING)`
   with BAD_CHOICE, `listingRerolls` 0 and `districtsPlayed` on the sale; `sell(choice)`.
 - 211: save v30 tests: the real v29 fixture and every older one (v1 … v28) land on v30.
-- 212: the "Next farm" block on the 🏆 Sell the farm card, the reroll button, Stats "This farm", the CHANGELOG line, PIN36a.
+- 212: the "Next farm" block on the 🏆 Sell the farm card, the reroll button, Stats "This farm" (core + jsdom), the
+  CHANGELOG line, PIN36a.
 
 PIN36a (shipped ladder bot to the Fields unlock, game-h): `{"plain":8.24,"rootsFast_fruitVegSlow":9.15,
 "fruitVegFast_rootsSlow":null,"berryFast_fruitVegSlow":9.26}` — roots-fast +11.0 %, berry-fast +12.4 % (within ±20 %);
@@ -282,11 +284,15 @@ New UI strings:
   commit so it stays green; 211 holds the v29 fixture tests. The soil argument on `cropGrowTicks` / `cropRotGraceTicks`
   landed in 209, whose group tests use it.
 - PIN36a fruit-veg fast / roots slow: the shipped bot hires its 2nd water worker at 0.44 game-h, cash hits 💰0, the
-  unpaid water workers stop, every tile dries and the bot never waters by hand while a water worker is assigned — it
-  sits at 💰0 for the rest of the 20 h. A bot deadlock, not a game soft-lock (a player waters by hand or unassigns).
-  Pinned as `it.fails` with the measurement; the passing PIN36a asserts the two soils that reach the unlock. The bot
-  was not changed (licence list fixed by the plan). Roots-fast being slower than plain (9.15 vs 8.24 h) was not
-  investigated.
+  unpaid water workers stop, every tile dries and the bot never waters by hand while a water worker is assigned
+  (`tests/sim/bot.ts:149` `byPlayer = assigned[job] === 0`, used by the hand-water try at `:152`) — it sits at 💰0
+  for the rest of the 20 h. A bot deadlock, not a game soft-lock (a player waters by hand or unassigns). Pinned as
+  `it.fails` with the measurement; the passing PIN36a asserts the two soils that reach the unlock. The bot was not
+  changed (licence list fixed by the plan).
+- Why both passing soils are slower than plain: the bot licenses radish, corn, eggplant, pumpkin and plants pumpkin /
+  eggplant first, never a berry. roots-fast / fruit-veg-slow slows its main crops (+11.0 %); berry-fast /
+  fruit-veg-slow is slow-only for it (+12.4 %). Fruit-veg-fast is the one soil that speeds its main crops — the fast
+  start reaches the 2nd hire before the cash for wages, hence the deadlock above.
 - The selection is keyed to the offer (`prestigeCount/listingRerolls`), so a reroll or a sale falls back to the plain
   row without an effect; a failed reroll keeps the pick.
 - The "stale after a reroll → BAD_CHOICE" check in `tests/prestige.test.ts` runs only when the rerolled offer no longer
