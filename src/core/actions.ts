@@ -26,6 +26,8 @@ import type { UpgradeId } from './data/upgrades'
 import { harvestSale } from './orders'
 import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
+// actions ↔ tree is a cycle of function bindings only (used at call time)
+import { harvestTreeTile, isTreeTile } from './tree'
 // actions ↔ workshop is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { isIrrigated } from './workshop'
 
@@ -75,6 +77,7 @@ export type ActionError =
   | 'REROLL_MAX'
   | 'BAD_CHOICE'
   | 'NOT_SOLD_HERE'
+  | 'BED_BUSY'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
@@ -109,7 +112,7 @@ export function nextRandom(rngState: number): [number, number] {
 // Farm actions validate in this order: BAD_TILE, tile status, license/seeds/cash (plant), NO_ENERGY.
 // `energy` = what the action costs the player (0 when a worker does it). `run` = the run with the action's other
 // changes (seeds, rngState, market, orders …); energy, cash, tiles, counters and lifetime are applied on top of it.
-function farmAction(
+export function farmAction(
   state: GameState,
   i: number,
   check: (tile: Tile) => ActionError | null,
@@ -149,7 +152,7 @@ export function till(state: GameState, i: number, energy = ACTION_ENERGY_COST): 
   return farmAction(
     state,
     i,
-    (t) => (t.status === 'untilled' ? null : 'NOT_UNTILLED'),
+    (t) => (isTreeTile(state.run, i) ? 'LOCKED' : t.status === 'untilled' ? null : 'NOT_UNTILLED'),
     (t) => ({ tile: { ...t, status: 'tilled' } }),
     energy,
   )
@@ -166,6 +169,7 @@ export function plant(state: GameState, i: number, cropId: CropId, energy = ACTI
     state,
     i,
     (t) => {
+      if (isTreeTile(run, i)) return 'LOCKED'
       if (t.status !== 'tilled') return 'NOT_TILLED'
       if (!run.licenses.includes(cropId)) return 'NO_LICENSE'
       if (stock === 0 && !run.autoBuySeeds) return 'NO_SEEDS'
@@ -195,7 +199,7 @@ export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST):
     state,
     i,
     // the irrigated check sits before the energy spend: a sprinkler-covered bed never costs the player anything
-    (t) => (t.status !== 'planted' ? 'NOT_PLANTED' : isIrrigated(run, i) ? 'IRRIGATED' : null),
+    (t) => (isTreeTile(run, i) ? 'IRRIGATED' : t.status !== 'planted' ? 'NOT_PLANTED' : isIrrigated(run, i) ? 'IRRIGATED' : null),
     (t) => ({ tile: { ...t, moisture: waterMoisture(run.toolTier.water) }, counters: { waters: run.counters.waters + 1 } }),
     energy,
   )
@@ -205,6 +209,7 @@ export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST):
 // both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1). An accepted order for
 // the crop takes the units first (harvestSale), so every harvest — tap, tool press or worker — fills it.
 export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
+  if (isTreeTile(state.run, i)) return harvestTreeTile(state, i, energy)
   return farmAction(
     state,
     i,

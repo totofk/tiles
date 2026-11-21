@@ -2,6 +2,7 @@ import { harvest, plant, till, water, type ActionResult } from './actions'
 import { cropGrowTicks, cropRotGraceTicks } from './balance'
 import type { CropId } from './data/crops'
 import type { GameState, Tile } from './state'
+import { isTreeTile } from './tree'
 
 export type TileAction = 'harvest' | 'water' | 'plant' | 'till'
 
@@ -30,9 +31,9 @@ export function ticksUntilRot(tile: Tile, s: GameState): number | null {
   return cropRotGraceTicks(tile.cropId!, s.meta, s.run.listing.soil) - tile.ticksSinceMature + 1
 }
 
-/** harvest if mature → water (top up) if growing → plant if tilled → till if untilled */
-export function nextTileAction(tile: Tile, s: GameState): TileAction {
-  if (isMature(tile, s)) return 'harvest'
+/** harvest if mature (or a 🌳 tree tile, index i) → water (top up) if growing → plant if tilled → till if untilled */
+export function nextTileAction(tile: Tile, s: GameState, i?: number): TileAction {
+  if (isMature(tile, s) || (i !== undefined && isTreeTile(s.run, i))) return 'harvest'
   if (tile.status === 'planted') return 'water'
   return tile.status === 'tilled' ? 'plant' : 'till'
 }
@@ -41,7 +42,7 @@ export function nextTileAction(tile: Tile, s: GameState): TileAction {
 export function tapTile(state: GameState, i: number, cropId: CropId): ActionResult {
   const tile = state.run.tiles[i]
   if (!tile) return { ok: false, error: 'BAD_TILE' }
-  switch (nextTileAction(tile, state)) {
+  switch (nextTileAction(tile, state, i)) {
     case 'harvest':
       return harvest(state, i)
     case 'water':

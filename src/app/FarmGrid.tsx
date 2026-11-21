@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from 'react'
-import { cropRotGraceTicks, sprinklerCost, waterMoisture } from '../core/balance'
-import { CROPS, type CropId } from '../core/data/crops'
+import { cropRotGraceTicks, sprinklerCost, treeCadenceTicks, treePlantCost, waterMoisture } from '../core/balance'
+import { CROP_GROUPS, CROPS, type CropId } from '../core/data/crops'
+import { plantTreeBed } from '../core/tree'
+import { price } from './fmt'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { isOffer } from '../core/orders'
 import type { GameState, Tile } from '../core/state'
@@ -11,7 +13,9 @@ import { Bar } from './Bar'
 import { Modal } from './Modal'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
-import { WORKER_JOB_EMOJI, type Act } from './useGame'
+import { ERROR_TEXT, WORKER_JOB_EMOJI, type Act } from './useGame'
+
+const TREE_EMOJI = '🌳'
 
 export const CROP_EMOJI: Record<CropId, string> = {
   potato: '🥔',
@@ -42,9 +46,20 @@ type CellProps = {
   ordered?: boolean
   /** this tile's bed has a sprinkler: no water bar, no dry label — its moisture is the sprinkler's, not the player's */
   irrigated?: boolean
+  /** a 🌳 tree tile: the fruit waiting on it (no bars, no crop states) */
+  fruit?: number
 }
 
-function Cell({ tile, state, onTap, ring, flash, ordered, irrigated }: CellProps) {
+function Cell({ tile, state, onTap, ring, flash, ordered, irrigated, fruit }: CellProps) {
+  if (fruit !== undefined) {
+    const crop = state.run.tree!.crop
+    return (
+      <button className={['cell', 'cell-tree', ring && `cell-target cell-target-${ring}`, flash && 'cell-flash'].filter(Boolean).join(' ')} onClick={onTap}>
+        <span className="cell-emoji">{TREE_EMOJI}</span>
+        {fruit > 0 && <span className="cell-label">{`${CROP_EMOJI[crop]}${fruit}`}</span>}
+      </button>
+    )
+  }
   const mature = isMature(tile, state)
   const rotIn = ticksUntilRot(tile, state)
   const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta, state.run.listing.soil) : 1
@@ -107,7 +122,12 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
   const style = { '--rows-paired': 2 * Math.ceil(beds / 2), '--rows-stacked': 2 * beds } as CSSProperties
   // the bed whose socket sheet is open (batch 26); closing the sheet is the cancel — no placement mode
   const [sheet, setSheet] = useState<number | null>(null)
-  const sheetCost = sheet !== null ? sprinklerCost(state.meta) : null
+  const { run } = state
+  const sprinklerOpen = (k: number) => run.workshop.built && run.workshop.beds[k] !== true
+  // batch 36.2: an Orchard Valley run with no tree yet can plant one from any bed's socket
+  const treeOpen = run.listing.district === 'orchardValley' && run.tree === null
+  const treeCrops = CROP_GROUPS.berry.filter((c) => run.licenses.includes(c))
+  const sheetCost = sheet !== null && sprinklerOpen(sheet) ? sprinklerCost(state.meta) : null
   return (
     <div className="farm-fit">
       <div className="beds-wrap">
@@ -116,23 +136,22 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
             const irrigated = state.run.workshop.beds[k] === true
             return (
               <div className={irrigated ? 'bed bed-irrigated' : 'bed'} role="group" aria-label={`Bed ${k + 1}`} key={k}>
-                {irrigated ? (
+                {irrigated && (
                   <span className="bed-fountain" title="A sprinkler waters this bed forever">
                     {SPRINKLER_EMOJI}
                   </span>
-                ) : (
-                  state.run.workshop.built && (
-                    <button
-                      className={buildSprinkler(state, k).ok ? 'bed-socket bed-socket-ready' : 'bed-socket'}
-                      aria-label={`Bed ${k + 1} sprinkler socket`}
-                      onClick={() => setSheet(k)}
-                    >
-                      {SPRINKLER_EMOJI}
-                    </button>
-                  )
+                )}
+                {(sprinklerOpen(k) || (treeOpen && (k + 1) * 6 <= run.tiles.length)) && (
+                  <button
+                    className={buildSprinkler(state, k).ok || treeCrops.some((c) => plantTreeBed(state, k, c).ok) ? 'bed-socket bed-socket-ready' : 'bed-socket'}
+                    aria-label={`Bed ${k + 1} ${sprinklerOpen(k) ? 'sprinkler' : 'tree'} socket`}
+                    onClick={() => setSheet(k)}
+                  >
+                    {sprinklerOpen(k) ? SPRINKLER_EMOJI : TREE_EMOJI}
+                  </button>
                 )}
                 {state.run.tiles.slice(k * 6, k * 6 + 6).map((tile, j) => (
-                  <Cell key={k * 6 + j} tile={tile} state={state} onTap={() => onTap(k * 6 + j)} ring={jobOn(rings, k * 6 + j)} flash={jobOn(acted, k * 6 + j)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} irrigated={irrigated} />
+                  <Cell key={k * 6 + j} tile={tile} state={state} onTap={() => onTap(k * 6 + j)} ring={jobOn(rings, k * 6 + j)} flash={jobOn(acted, k * 6 + j)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} irrigated={irrigated} fruit={run.tree?.bed === k ? run.tree.stock[j] : undefined} />
                 ))}
                 {Array.from({ length: (k + 1) * 6 - state.run.tiles.length }, (_, j) => (
                   <span className="cell-slot" aria-hidden="true" key={`slot${j}`} />
@@ -142,22 +161,52 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
           })}
         </div>
       </div>
-      {sheet !== null && sheetCost && (
-        <Modal title={`Bed ${sheet + 1} sprinkler`} close={() => setSheet(null)}>
-          <p className="sheet-line">Waters these 6 tiles forever</p>
-          <p className="sheet-line">Permanent — cannot be moved or sold</p>
-          <p className="sheet-price">{priceText(sheetCost)}</p>
-          {shortOf(sheetCost, state.run).length > 0 && <p className="sheet-short">needs {shortOf(sheetCost, state.run).join(', ')} more</p>}
-          <button
-            className="sheet-build"
-            disabled={shortOf(sheetCost, state.run).length > 0}
-            onClick={() => {
-              act?.((s) => buildSprinkler(s, sheet))
-              setSheet(null)
-            }}
-          >
-            Build
-          </button>
+      {sheet !== null && (sheetCost || treeOpen) && (
+        <Modal title={sheetCost ? `Bed ${sheet + 1} sprinkler` : `Bed ${sheet + 1}`} close={() => setSheet(null)}>
+          {sheetCost && (
+            <>
+              <p className="sheet-line">Waters these 6 tiles forever</p>
+              <p className="sheet-line">Permanent — cannot be moved or sold</p>
+              <p className="sheet-price">{priceText(sheetCost)}</p>
+              {shortOf(sheetCost, state.run).length > 0 && <p className="sheet-short">needs {shortOf(sheetCost, state.run).join(', ')} more</p>}
+              <button
+                className="sheet-build"
+                disabled={shortOf(sheetCost, state.run).length > 0}
+                onClick={() => {
+                  act?.((s) => buildSprinkler(s, sheet))
+                  setSheet(null)
+                }}
+              >
+                Build
+              </button>
+            </>
+          )}
+          {treeOpen && (
+            <>
+              <h3>{TREE_EMOJI} Fruit tree</h3>
+              {treeCrops.map((c) => {
+                const r = plantTreeBed(state, sheet, c)
+                return (
+                  <button
+                    key={c}
+                    className="sheet-build"
+                    disabled={!r.ok}
+                    onClick={() => {
+                      act?.((s) => plantTreeBed(s, sheet, c))
+                      setSheet(null)
+                    }}
+                  >
+                    {CROP_EMOJI[c]} {CROPS[c].name} · 💰{price(treePlantCost(c, state.meta))}
+                    {!r.ok && <small>{ERROR_TEXT[r.error]}</small>}
+                  </button>
+                )
+              })}
+              {treeCrops.length > 0 && (
+                <p className="sheet-line">Fruits every {treeCrops.map((c) => Math.round(treeCadenceTicks(c) / 60)).join(' / ')} min, no water, never rots</p>
+              )}
+              <p className="sheet-line">Permanent for this farm — cannot be moved</p>
+            </>
+          )}
         </Modal>
       )}
     </div>

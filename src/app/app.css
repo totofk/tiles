@@ -982,7 +982,8 @@ button:disabled::after {
 .cell-tilled {
   background: #c9b28a;
 }
-.cell-growing {
+.cell-growing,
+.cell-tree {
   background: #dcedc8;
 }
 .cell-dry {

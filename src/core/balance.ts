@@ -771,6 +771,19 @@ export function cropSellPrice(cropId: CropId, meta: MetaState, sellPriceLevel: n
   return sellPrice(CROP_BASE[cropId].sellPrice * districtSellFactor(cropId, district), meta, sellPriceLevel)
 }
 
+// Orchard Valley's 🌳 fruit tree bed (batch 36.2, all est.): one fruit per tile every 1.25 × the crop's BASE grow ticks
+// (no fertilizer, Legacy growTime or soil), the first after 2 cadences, at most 3 waiting per tile; planting costs 12
+// seeds' price and 1 ⚡
+export const TREE_CADENCE = 1.25
+export const TREE_MATURE_CYCLES = 2
+export const TREE_STOCK_CAP = 3
+export const TREE_PLANT_SEEDS = 12
+export const TREE_PLANT_ENERGY = 1
+
+export const treeCadenceTicks = (cropId: CropId): number => Math.round(TREE_CADENCE * CROP_BASE[cropId].growTicks)
+
+export const treePlantCost = (cropId: CropId, meta: MetaState): number => TREE_PLANT_SEEDS * cropSeedCost(cropId, meta)
+
 export function licenseCost(cropId: CropId, meta: MetaState): number {
   return Math.round(CROP_BASE[cropId].licenseCost * multiplier(meta, 'cost'))
 }

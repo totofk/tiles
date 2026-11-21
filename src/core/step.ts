@@ -16,6 +16,7 @@ import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
 import { tickOrders } from './orders'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
+import { isTreeTile, tickTree } from './tree'
 import { workersAct } from './workers'
 import { isIrrigated } from './workshop'
 
@@ -68,7 +69,9 @@ function stepOnce(state: GameState): GameState {
   const nextRun: RunState = {
     ...run,
     energy,
-    tiles: run.tiles.map((t, i) => stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil)),
+    // tree tiles grow fruit in tickTree instead: no moisture, no growth, no rot
+    tiles: run.tiles.map((t, i) => (isTreeTile(run, i) ? t : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil))),
+    tree: tickTree(run.tree),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),
     market: decayMarket(run.market),

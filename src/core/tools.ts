@@ -5,6 +5,7 @@ import type { CropId } from './data/crops'
 import type { ToolJob } from './data/tools'
 import type { GameState, RunState } from './state'
 import { isMature } from './tile'
+import { BED_TILES, isTreeTile } from './tree'
 import { isIrrigated } from './workshop'
 
 // A tool press is the job's manual action applied to tiles in priority order, so it costs exactly what the same
@@ -38,15 +39,22 @@ export function toolTargets(state: GameState, job: ToolJob): number[] {
   const full = waterMoisture(state.run.toolTier.water)
   const all = tiles.map((_, i) => i)
   switch (job) {
-    case 'harvest':
-      return all.filter((i) => isMature(tiles[i], state)).sort((a, b) => tiles[b].ticksSinceMature - tiles[a].ticksSinceMature)
+    case 'harvest': {
+      // 🌳 tree tiles with fruit come after the ripe crops (crops rot, trees do not), most fruit first
+      const { tree } = state.run
+      const fruit = (i: number) => (tree !== null && isTreeTile(state.run, i) ? tree.stock[i - tree.bed * BED_TILES] : 0)
+      return [
+        ...all.filter((i) => isMature(tiles[i], state)).sort((a, b) => tiles[b].ticksSinceMature - tiles[a].ticksSinceMature),
+        ...all.filter((i) => fruit(i) > 0).sort((a, b) => fruit(b) - fruit(a)),
+      ]
+    }
     case 'water':
       // a bed with a sprinkler holds its moisture by itself, so no watering act ever targets its tiles
       return all
         .filter((i) => tiles[i].status === 'planted' && !isMature(tiles[i], state) && tiles[i].moisture < full && !isIrrigated(state.run, i))
         .sort((a, b) => tiles[a].moisture - tiles[b].moisture)
     case 'plant':
-      return all.filter((i) => tiles[i].status === 'tilled')
+      return all.filter((i) => tiles[i].status === 'tilled' && !isTreeTile(state.run, i))
   }
 }
 
