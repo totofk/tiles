@@ -245,7 +245,7 @@ const CERTIFICATES: Record<WorkerJob, { price: Price; counter: CounterId; at: nu
   // Manager (batch 31.1): 10 contracts delivered by anyone (harvesters too); 💰 pinned by the batch 31.1 sim, ⭐20 batch 32,
   // ⭐160 batch 35.3
   manager: { price: { goldBar: 4, stars: 160, cash: 1500000 }, counter: 'contractsByHand', at: 10 },
-  // Stoker (batch 34): bought in the ⭐ Favours sheet; its gate adds stokerReady (fuel certificate, the bar ladder done);
+  // Stoker (batch 34): bought in the ⭐ Favours section of ⬆️ Upgrades; its gate adds stokerReady (fuel certificate, the bar ladder done);
   // ⭐15 → 120 batch 35.3
   stoker: { price: { stars: 120, ironBar: 6, cash: 0 }, counter: 'bars', at: 30 },
 }

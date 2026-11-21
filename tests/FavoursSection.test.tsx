@@ -30,7 +30,7 @@ function holder(s: GameState) {
 }
 const rowOf = (name: RegExp) => screen.getByRole('button', { name })
 
-describe('batch 34: the ⭐ Favours sheet', () => {
+describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
   describe('batch 35.5: the HUD ⭐ is a plain count, not a control', () => {
     const scroll = vi.fn()
     beforeEach(() => {
