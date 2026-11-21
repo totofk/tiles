@@ -3,7 +3,7 @@ import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
 // state ↔ listings is a cycle of bindings used at call time only
 import { PLAIN_LISTING, type Listing } from './listings'
-import type { BarId, ItemId, OreId, PickaxeTier } from './data/items'
+import type { BarId, ForgeGoodId, ForgeRecipeId, ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
 import type { ToolJob } from './data/tools'
 import type { UpgradeId } from './data/upgrades'
@@ -96,6 +96,23 @@ export type RunState = {
   renown: Partial<Record<CropId, number>>
   /** the listing this run was bought as (batch 36.1): its soil changes grow times; plain = no soil */
   listing: Listing
+  /** Orchard Valley's 🌳 fruit tree bed (batch 36.2); null until planted */
+  tree: TreeBed | null
+  /** Iron Hills' 🔨 forge (batch 36.2) */
+  forge: Forge
+}
+
+/** one home bed (tiles 6·bed … 6·bed+5), locked for the run; per tile: ticks toward the next fruit, fruit waiting */
+export type TreeBed = { bed: number; crop: CropId; ticks: number[]; stock: number[] }
+
+export type Forge = {
+  built: boolean
+  /** the player's chosen recipe; null = Off */
+  recipe: ForgeRecipeId | null
+  /** the loaded cycle (its inputs already spent) */
+  job: ForgeRecipeId | null
+  progress: number
+  tray: Partial<Record<ForgeGoodId, number>>
 }
 
 /** what an order may ask for: a crop (filled by harvests) or an item (delivered from storage) */
@@ -308,6 +325,8 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     favours: { bunkhouse: 0, seam: false, aim: null },
     renown: carry?.renown ?? {},
     listing: carry?.listing ?? PLAIN_LISTING,
+    tree: null,
+    forge: createForge(),
   }
 }
 
@@ -327,6 +346,11 @@ export function createFurnace(): Furnace {
     collectAll: false,
     stoked: 0,
   }
+}
+
+/** a forge not yet built (batch 36.2): recipe Off, no job, an empty tray */
+export function createForge(): Forge {
+  return { built: false, recipe: null, job: null, progress: 0, tray: {} }
 }
 
 /** a workshop not yet built: four empty bed sockets, no valve */

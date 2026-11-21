@@ -2,6 +2,11 @@
 export const ITEM_IDS = ['wood', 'stone', 'coal', 'copperOre', 'copperBar', 'ironOre', 'ironBar', 'goldOre', 'goldBar'] as const
 export type ItemId = (typeof ITEM_IDS)[number]
 
+/** the 🔨 forge's goods (batch 36.2); a recipe is named by the good it makes */
+export const FORGE_GOOD_IDS = ['toolbox', 'ploughBlade', 'anchorChain'] as const
+export type ForgeGoodId = (typeof FORGE_GOOD_IDS)[number]
+export type ForgeRecipeId = ForgeGoodId
+
 /** ores the furnace smelts, one kind in its slot at a time (balance.ts maps each to its bar) */
 export const ORE_IDS = ['copperOre', 'ironOre', 'goldOre'] as const
 export type OreId = (typeof ORE_IDS)[number]
