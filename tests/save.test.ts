@@ -28,11 +28,12 @@ import v25 from './fixtures/save-v25.json?raw'
 import v26 from './fixtures/save-v26.json?raw'
 import v27 from './fixtures/save-v27.json?raw'
 import v28 from './fixtures/save-v28.json?raw'
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, pickaxeDurability, plotTiles, renownFloor, sellPrice, tankCapCoal } from '../src/core/balance'
+import v29 from './fixtures/save-v29.json?raw'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropGrowTicks, listingGrowFactor, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, pickaxeDurability, plotTiles, renownFloor, sellPrice, tankCapCoal } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
 import { earlierMilestones } from '../src/core/data/milestones'
-import { PLAIN_LISTING } from '../src/core/listings'
+import { PLAIN_LISTING, currentListings, listingSeedFor } from '../src/core/listings'
 import { sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import type { OreId } from '../src/core/data/items'
 import type { GameState } from '../src/core/state'
@@ -1606,6 +1607,56 @@ describe('save v29: ⭐ ×8, order ⭐ fixed per tier, rerolls for cash (batch 3
       expect(['starsFrac' in state.run, state.run.orders.rerolls]).toEqual([false, 0])
       expect(state.run.stars).toBe(Math.floor(((old.stars ?? 0) + (old.starsFrac ?? 0)) * 8))
       for (const o of state.run.orders.offers) if ('good' in o) expect(o.stars).toBe([8, 16, 32][o.tier])
+    }
+  })
+})
+
+describe('save v30: sale listings (batch 36.1)', () => {
+  it("migrates the real v29 fixture (Toon's live 12-field save): the plain farm, the derived seed, no rerolls, nothing played, everything else equal", () => {
+    const old = JSON.parse(v29)
+    expect(old.version).toBe(29)
+    expect([old.state.run.stars, old.state.run.fields.list.length, old.state.meta.prestigeCount, Math.floor(old.state.run.lifetime.cashEarned)]).toEqual([79, 12, 0, 294_333_295])
+    const save = deserialize(v29)!
+    expect(save.version).toBe(SAVE_VERSION)
+    const { meta, run } = save.state
+    expect(run.listing).toEqual(PLAIN_LISTING)
+    expect([meta.listingSeed, meta.listingRerolls, meta.districtsPlayed]).toEqual([listingSeedFor(0, old.state.meta.deedsClaimed, 294_333_295), 0, []])
+    expect(meta.listingSeed).toBe(3_706_322_434)
+    expect(currentListings(meta, 'plain')).toEqual([
+      PLAIN_LISTING,
+      { district: 'orchardValley', soil: { fast: 'berry', slow: 'roots' } },
+      { district: 'ironHills', soil: { fast: 'fruitVeg', slow: 'berry' } },
+    ])
+    expect({ ...save, version: 29, state: { meta: asV29Meta(meta), run: asV29Run(run) } }).toEqual(old)
+  })
+
+  it('scenario B: sold into Orchard Valley (berry fast, roots slow), the new run grows strawberry ×0.8 and potato ×1.2', () => {
+    const { state } = deserialize(v29)!
+    const offer = currentListings(state.meta, 'plain')
+    const sale = sellFarm(state, offer[1])
+    if (!sale.ok) throw new Error(sale.error)
+    const { run, meta } = sale.state
+    expect(run.listing).toEqual({ district: 'orchardValley', soil: { fast: 'berry', slow: 'roots' } })
+    expect(meta.districtsPlayed).toEqual(['orchardValley'])
+    expect([listingGrowFactor('strawberry', run.listing.soil), listingGrowFactor('potato', run.listing.soil), listingGrowFactor('chilli', run.listing.soil)]).toEqual([0.8, 1.2, 1])
+    for (const c of ['strawberry', 'chilli', 'potato'] as const) {
+      expect(cropGrowTicks(c, meta, 0, run.listing.soil)).toBe(Math.round(cropGrowTicks(c, meta, 0) * listingGrowFactor(c, run.listing.soil)))
+    }
+  })
+
+  it('reload shows the same listings', () => {
+    const save = deserialize(v29)!
+    const again = deserialize(serialize(save.state, save.savedAtMs))!
+    expect(currentListings(again.state.meta, 'plain')).toEqual(currentListings(save.state.meta, 'plain'))
+  })
+
+  it('every fixture v1 … v29 lands on v30 on the plain farm with no rerolls and nothing played', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29]) {
+      const { version, state } = deserialize(raw)!
+      expect(version).toBe(SAVE_VERSION)
+      expect(asV29Run(state.run)).not.toHaveProperty('listing')
+      expect(asV29Meta(state.meta)).not.toHaveProperty('listingSeed')
+      expect(Number.isInteger(state.meta.listingSeed)).toBe(true)
     }
   })
 })
