@@ -229,8 +229,8 @@ function asV12(v27: Save) {
   const { orders: completed, contractsByHand, ...v12Counters } = counters
   const { ordersCompleted, starsEarned, goldBars, goldBarsSmelted, ...v12Lifetime } = lifetime
   const { clerk, manager, stoker, ...v12Assigned } = workers.assigned
-  const { deeds, deedsClaimed, runs, ...meta } = save.state.meta
-  void [orders, stars, starsFrac, favours, completed, contractsByHand, ordersCompleted, starsEarned, goldBars, goldBarsSmelted, clerk, manager, stoker, workshop, fields, oreSort, renown, deeds, deedsClaimed, runs]
+  const { deeds, deedsClaimed, runs, listingSeed, listingRerolls, districtsPlayed, ...meta } = save.state.meta
+  void [orders, stars, starsFrac, favours, completed, contractsByHand, ordersCompleted, starsEarned, goldBars, goldBarsSmelted, clerk, manager, stoker, workshop, fields, oreSort, renown, deeds, deedsClaimed, runs, listingSeed, listingRerolls, districtsPlayed]
   const v12Workers = { ...workers, assigned: v12Assigned }
   return { version: 12, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, counters: v12Counters, lifetime: v12Lifetime, workers: v12Workers } } }
 }

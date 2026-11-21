@@ -1,5 +1,6 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
 import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
+import type { DistrictId } from './data/districts'
 import type { BarId, ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
 import type { ToolJob } from './data/tools'
@@ -217,6 +218,11 @@ export type MetaState = {
   deeds: number
   deedsClaimed: number
   runs: RunHistoryEntry[]
+  /** batch 36.1: the listings roll from (listingSeed, prestigeCount, listingRerolls), never run.rngState;
+   * listingRerolls = ⭐ rerolls this sale; districtsPlayed = the district of every sale, in order */
+  listingSeed: number
+  listingRerolls: number
+  districtsPlayed: DistrictId[]
 }
 
 export type GameState = { run: RunState; meta: MetaState }
@@ -234,6 +240,9 @@ export function createInitialMeta(): MetaState {
     deeds: 0,
     deedsClaimed: 0,
     runs: [],
+    listingSeed: 0,
+    listingRerolls: 0,
+    districtsPlayed: [],
   }
 }
 

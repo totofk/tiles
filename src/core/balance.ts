@@ -1,6 +1,6 @@
 // Every tunable number lives here. Read them through the functions, never the tables,
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
-import type { CropId } from './data/crops'
+import { cropGroup, type CropId, type ListingSoil } from './data/crops'
 import type { UpgradeId } from './data/upgrades'
 import { ORE_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
@@ -626,6 +626,27 @@ export const STAR_CARRY_CAP = 400
 /** how many sold runs meta.runs keeps */
 export const RUN_HISTORY_CAP = 20
 
+// Sale listings (batch 36.1, DECISIONS "Batch 36.1 refined"): a rolled listing's soil grows one crop group faster and
+// another slower; the ⭐ reroll replaces both rolled listings; the first offer of a sale favours unplayed districts.
+export const LISTING_SOIL_GROW = { fast: 0.8, slow: 1.2 }
+export const LISTING_REROLL_STARS = [40, 80, 160, 320]
+export const LISTING_REROLL_MAX = 4
+/** draw weights of the first offer of a sale (est.) */
+export const LISTING_WEIGHT_UNPLAYED = 3
+export const LISTING_WEIGHT_PLAYED = 1
+
+/** grow-time factor of this crop on this soil (1 with no soil and for the third group) */
+export function listingGrowFactor(cropId: CropId, soil: ListingSoil | null): number {
+  if (soil === null) return 1
+  const group = cropGroup(cropId)
+  return group === soil.fast ? LISTING_SOIL_GROW.fast : group === soil.slow ? LISTING_SOIL_GROW.slow : 1
+}
+
+/** ⭐ the next reroll costs after `rerolls` rerolls this sale */
+export function listingRerollStars(rerolls: number): number {
+  return LISTING_REROLL_STARS[Math.min(rerolls, LISTING_REROLL_STARS.length - 1)]
+}
+
 /**
  * Effect of one multiplier-row level (level 0 = ×1). The batch-20 deed prices retuned these (DECISIONS "Sell the
  * farm"): growTime / cost −4 %, sellPrice +5 %. energy's deed row is flat (+2 max, see energyMax), so its step is 1
@@ -719,14 +740,14 @@ export function deedsFor(lifetimeCash: number): number {
   return Math.floor(Math.sqrt(lifetimeCash / DEED_DIVISOR))
 }
 
-/** whole ticks; fertilizer shortens growth of crops already in the ground too */
-export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number): number {
-  return Math.round(CROP_BASE[cropId].growTicks * growTimeFactor(fertilizerLevel) * multiplier(meta, 'growTime'))
+/** whole ticks; fertilizer shortens growth of crops already in the ground too; soil = the run's listing soil */
+export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number, soil: ListingSoil | null = null): number {
+  return Math.round(CROP_BASE[cropId].growTicks * growTimeFactor(fertilizerLevel) * multiplier(meta, 'growTime') * listingGrowFactor(cropId, soil))
 }
 
 /** based on the unfertilized grow time, so fertilizer never shortens the harvest window */
-export function cropRotGraceTicks(cropId: CropId, meta: MetaState): number {
-  return ROT_GRACE_FACTOR * cropGrowTicks(cropId, meta, 0)
+export function cropRotGraceTicks(cropId: CropId, meta: MetaState, soil: ListingSoil | null = null): number {
+  return ROT_GRACE_FACTOR * cropGrowTicks(cropId, meta, 0, soil)
 }
 
 export function cropSeedCost(cropId: CropId, meta: MetaState): number {

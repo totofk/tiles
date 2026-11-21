@@ -71,6 +71,8 @@ export type ActionError =
   | 'NO_PIVOT'
   | 'NO_CROP'
   | 'PUMP_FULL'
+  | 'REROLL_MAX'
+  | 'BAD_CHOICE'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
