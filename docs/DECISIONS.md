@@ -951,3 +951,50 @@ Hermes's calls (Toon may reject by number; dispatched on the launch message with
    touch (it reads the ⭐ order rules).
 - **Renumbered:** none. Batch 35.3 = tasks 196–200, save v29. Next: 35.4 (⭐ Favours section in Upgrades, pre-sale info
   page, full-width ＋ Field N), then 36 → save v30 (36's ⭐ prices open until Toon playtests 35.3).
+
+## Batch 35.3 follow-ups (2026-11-21)
+- **35.3 Deviation 5 ACCEPTED** (Toon (Trin) 2026-11-21 08:25 Asia/Bangkok: "ผมว่ารับ แล้วเริ่มปล่อย 35.4 เลย"): the
+  PIN311b looser assertion stands — "💰 ≥ 1.5M at the unlock" dropped (💰1,363,896 at minute 330); the pin is "unlock
+  at minute 330 holding ⭐ ≥ 160, Manager buyable at minute 371". Closed; not reopened or "fixed" in 35.4. The same
+  message is the go for batch 35.4.
+- **Live width sweep of 35.3's UI** (2026-11-21 08:19): the Reroll button, the Favours carry-over line and the Sell card
+  at 375 / 1024 / 1440 / 2560 / 3440 — all 5 widths OK. Minor notes, not 35.4 tasks: at 375 the Reroll button sits
+  flush (0 px) against the Workers card (pre-existing, before 35.3); its disabled style is the dashed beige "blocked"
+  frame, not grey.
+
+## Batch 35.4 refined (2026-11-21, UI after Toon's v27 playtest; no save bump, stays v29)
+Source: Discord threads 1573391746082017432 / 1573420437554200597 (reject-list 2026-11-21: "⭐ Favours" section at the
+end of the Upgrades panel, shown when ⭐ > 0 or any Favour level > 0, HUD ⭐ scrolls there, old ⭐ sheet removed;
+full-width "＋ Field N" button), the ⭐-pace decision (pre-sale page information only, always reachable, no
+slowdown-triggered "sell now" nudge — Toon: players keep grinding while anything is clickable), batch 35.3 Deviation 8
+(contractCap shown on the Orders card). Go: Toon (Trin) 2026-11-21 08:25 "ผมว่ารับ แล้วเริ่มปล่อย 35.4 เลย".
+- **⭐ Favours live in ⬆️ Upgrades**, a section after the cash ladders, not a HUD sheet: the late-run progress sits where
+  the player already looks for upgrades. The HUD ⭐ stays as the shortcut.
+- **The pre-sale page only informs**: what selling gives, resets and keeps, reachable at every stage; the pull to sell
+  comes from batch 36 (run variety + deeds), never from a nudge. 36.1 adds its listings to this page.
+- **The contract cap is visible**: a contract smaller than the fields now says why.
+
+Hermes's calls (Toon may reject by number; dispatched on the 08:25 go with these as written):
+1. With the board bought but ⭐0 and no Favour level, the HUD ⭐ is plain text (title "⭐ comes from orders"), not a
+   button: the section is hidden then, so there is nothing to jump to. With ⭐ or any level it is the jump button.
+2. The section heading is "⭐ Favours", last in the Upgrades panel (after ⛏ Mine); no Upgrades-tab badge dot for
+   affordable Favour rows.
+3. The HUD ⭐ jump opens ⬆️ Upgrades wherever it lives in that layout (phone panel view, tablet slide-over, desktop
+   1024–1439 expands a collapsed panel), then scrolls the section into view — smooth, instant under reduced motion; a
+   transient request, not saved in `tiles.ui`.
+4. The pre-sale page is the existing 🏆 Sell the farm card in the 🏦 Bank tab, now always shown (no new tab or
+   screen); before the gate its button is the locked "🔒 Sell the farm · needs …" teaser. The deed meter line stays.
+5. "Sell now: +N deeds (💰N)" becomes "Selling gives +N deeds (💰N)" (no "now"); the rest of the card's text is kept.
+6. The ＋ Field N fix moves both the buy button and the "needs Pump" line out of the 341 px map grid to a full-width
+   row after it; the "Fields N–M · beyond Pump" row is unchanged.
+7. contractCap is shown once, in the Orders card note ("at most N each"), not on every contract row.
+8. CHANGELOG line written by Hermes (178 code points): Favours in Upgrades + the Bank's sale info + the contract size;
+   the full-width ＋ Field row is not mentioned (cosmetic).
+9. New tests go into the existing test files (FavoursSheet, BankTab, Legacy, Estate, OrdersCard, App); no new test file.
+10. Worker: Opus via Max, `--max-turns 200` (UI-only, 5 tasks, no sims; 35.2 used 190 with a save bump, 35.3 325 with
+    sim re-pins), retry deadline 2026-11-22 09:00 (a short UI batch; leaves the rest of the weekly quota before Sunday
+    21:00 for 36.x); live relay into thread 1573420437554200597 (the 35.3 / 36 planning thread; no separate 35.4 thread).
+11. The live width sweep (375 / 1024 / 1440 / 2560 / 3440) of the new UI is Hermes's verify step after the worker, not
+    the worker's.
+- **Renumbered:** none. Batch 35.4 = tasks 201–205, no save bump (v29). Next: 36.1 → save v30 (dispatch after 35.4 is
+  live; re-anchor its pre-sale mount on 35.4's card).
