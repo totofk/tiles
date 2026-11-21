@@ -76,7 +76,7 @@ no sim pins.
 
 ## Tasks (201–205)
 
-- [ ] 201. **⭐ Favours section at the end of the Upgrades panel.** `Upgrades` (`src/app/Upgrades.tsx:86–120`) renders
+- [x] 201. **⭐ Favours section at the end of the Upgrades panel.** `Upgrades` (`src/app/Upgrades.tsx:86–120`) renders
   the ⭐ Favours block LAST, after `MineUpgrades` (`:117`): `<div id="favours" className="favours">` with
   `<h2>⭐ Favours</h2>` (same look as the ⚡ Energy / 🌱 Farm / ⛏ Mine groups), then the carry line and the rows that
   today live in the sheet component (`src/app/Favours.tsx:102–125`: carry line `:107–109`, rows `:110–122`; the row
@@ -84,7 +84,7 @@ no sim pins.
   `favoursVisible(run)` = `run.stars > 0 || FAVOUR_IDS.some((id) => favourLevel(run, id) > 0)` in
   `src/core/favours.ts` (next to `favourShown`, `:37–39`; `favourLevel` `:17–34`). Rows keep `favourShown` (Stoker
   hidden until ready). Keep the `.favours` class and the row markup so `tests/FavoursSheet.test.tsx` selectors hold.
-- [ ] 202. **HUD ⭐ jumps to the section; the old ⭐ sheet is removed.** `Hud` (`src/app/Hud.tsx:12–14, 28–33`): prop
+- [x] 202. **HUD ⭐ jumps to the section; the old ⭐ sheet is removed.** `Hud` (`src/app/Hud.tsx:12–14, 28–33`): prop
   `openFavours` → `showFavours`; the ⭐ stays where it is with the same render condition (`run.orders.unlocked ||
   run.stars > 0`), but it is a `<button className="hud-stars" title="⭐ Favours">` only while `favoursVisible(run)`;
   otherwise a plain `<span className="hud-stars" title="⭐ comes from orders">` with the same text (nothing to jump
@@ -98,14 +98,14 @@ no sim pins.
   transient, not saved). Comments that call it "the ⭐ Favours sheet" are updated to "section"
   (`src/app/useGame.ts:204`, `src/app/Workers.tsx:90`, `src/app/Mine.tsx:284`; `Mine.tsx:290` "more in ⭐ Favours"
   stays).
-- [ ] 203. **Full-width ＋ Field N row.** Cause: the row is an item of the `.map-rows` grid (`src/app/EstateMap.tsx:99`
+- [x] 203. **Full-width ＋ Field N row.** Cause: the row is an item of the `.map-rows` grid (`src/app/EstateMap.tsx:99`
   opens it, `:146` closes it; `src/app/app.css:729–733` `grid-template-columns: repeat(auto-fill, 341px)`), so its
   `grid-column: 1 / -1` (`app.css:834`) spans only the 341 px tracks that fit, not the map width. Fix: render the
   `opensNext` buy button and the `ghostField` "needs Pump" line (`EstateMap.tsx:140–145`) right AFTER the `.map-rows`
   `</div>`, not inside it; `.map-ghost-field` (`app.css:832–843`) drops `grid-column`, gains `width: 100%;
   box-sizing: border-box; margin-top: 8px` (the grid's row gap). Text, price, disabled rule and `.map-ghost-buy`
   (`app.css:844–849`) unchanged. The "Fields N–M · beyond Pump" row (`EstateMap.tsx:135–139`) stays where it is.
-- [ ] 204. **Pre-sale info page: always reachable, information only.** Today the 🏦 Bank tab (`src/app/Bank.tsx:87–111`)
+- [x] 204. **Pre-sale info page: always reachable, information only.** Today the 🏦 Bank tab (`src/app/Bank.tsx:87–111`)
   shows the 🏆 Sell the farm card (`SellCard`, `src/app/Legacy.tsx:100–142`) only once `sellFarmUnlocked`
   (`src/core/prestige.ts:29–31`) and a locked teaser row before (`Bank.tsx:95–107`, `gateShort` `:73–85`). Now
   `BankTab` always renders `SellCard`: the deeds line, the ⭐ carry line, Resets and Carries show at every stage of
@@ -116,7 +116,7 @@ no sim pins.
   when the gate opens (no badge dot, toast, banner or HUD mark). The deed meter line (`Bank.tsx:62–71`) stays. 36.1
   later mounts its "Next farm" listings on this card above `<h3>Resets</h3>` — do NOT build listings, a district or
   a "next farm" block now.
-- [ ] 205. **contractCap on the Orders card.** The card note (`src/app/Orders.tsx:91–96`) after the Tractor reads
+- [x] 205. **contractCap on the Orders card.** The card note (`src/app/Orders.tsx:91–96`) after the Tractor reads
   "After the Tractor, crop orders are 🚜 contracts sized by your wet fields, at most {count(contractCap(run))} each;
   only you accept them." (`contractCap`, `src/core/orders.ts:82–86`, already exported in 35.3; `count` from
   `src/app/fmt.ts:2`). Before the Tractor the note is unchanged. Order rows unchanged.
@@ -165,3 +165,59 @@ a field-gated order tier 3 (decide after playtest); batch 36's ⭐ prices; any b
 35.3 Deviation 5 (PIN311b looser assertion — ACCEPTED by Toon 08:25, closed); the 375 Reroll flush 0 px against the
 Workers card and the dashed-beige disabled style (pre-existing minor notes from the 08:19 sweep); 35.3 Deviations 1–2
 (the jammed v28 board — Toon's own discard); an Upgrades-tab badge for affordable Favour rows.
+
+## Batch 35.4 results
+
+Commits (main, not pushed): 71c9e8f9 (201), c9be794c (202), 5b01386a (203), 3fb691cf (204), 76712b38 (205, with the
+CHANGELOG 35.4 line), then this docs commit. No balance number, no save bump (stays v29), no migration, no fixture
+edit, no sim re-pin.
+
+Tests: before (8d98d97c) 1162 passed | 6 expected fail (1168), 63 files → after 1165 passed | 6 expected fail (1171),
+63 files (no new test file; three new `it`s net — the HUD-opens-a-sheet test became four jump / HUD tests, plus the
+Upgrades-section test). `pnpm lint` clean, `pnpm build` ok, `tsc -b --force` (tsbuildinfo removed first) clean, purity
+grep only the known `src/save/storage.ts:26` wallClock line, case-clash check empty.
+
+- 201: `favoursVisible(run)` (src/core/favours.ts, pure) = ⭐ > 0 or any Favour level > 0; the `Favours` component is
+  now the `<div id="favours" className="favours">` section with `<h2>⭐ Favours</h2>`, mounted last in `Upgrades`
+  (after ⛏ Mine) while `favoursVisible`. Rows and their text unchanged.
+- 202: `Hud` prop `openFavours` → `showFavours`; the ⭐ is a button only while `favoursVisible`, else a span. `App`
+  lost `favoursOpen`, the Favours modal and the `Favours` / `STAR_EMOJI` imports; `showFavours` sets the ⬆️ Upgrades
+  tab and phone → panel view, tablet → slide-over open, 1024–1439 collapsed → expanded; a one-shot ref is consumed by
+  a deps-less `useEffect` that calls `document.getElementById('favours')?.scrollIntoView?.({ block: 'start',
+  behavior })` (`'auto'` under reduced motion, else `'smooth'`). Not saved in `tiles.ui`. Comments "sheet" →
+  "section" in useGame.ts, Mine.tsx, Hud.tsx, Favours.tsx and the app.css `.hud-stars` comment.
+- 203: the ＋ Field N buy button and the "needs Pump" `<p>` render right after the `.map-rows` `</div>`;
+  `.map-ghost-field` drops `grid-column: 1 / -1`, gains `width: 100%; box-sizing: border-box`, margin `0` → `8px 0 0`.
+- 204: `BankTab` always renders `SellCard`; `SellCard` shows the two-press button when `sellFarmUnlocked`, else the
+  locked teaser (in its `.shop-row one-col` wrapper); `gateShort` moved from Bank.tsx to Legacy.tsx, strings unchanged.
+- 205: the Orders card note after the Tractor names `count(contractCap(run))`.
+
+UI strings changed (old → new):
+- HUD ⭐ while the section is hidden (board bought, ⭐0, no Favour level): `<button title="⭐ Favours">⭐ 0</button>` →
+  `<span title="⭐ comes from orders">⭐ 0</span>` (text unchanged).
+- "⭐ Favours" modal title → "⭐ Favours" section heading (h2) at the end of ⬆️ Upgrades; the modal is gone.
+- "Sell now: +N deeds (💰N)" → "Selling gives +N deeds (💰N)".
+- Bank before the gate: the bare "🏆 Sell the farm" heading + locked button → the whole card (deeds line, ⭐ carry line,
+  Resets, Carries) with the same "🔒 Sell the farm" / "needs …" button.
+- Orders note: "After the Tractor, crop orders are 🚜 contracts sized by your wet fields; only you accept them." →
+  "After the Tractor, crop orders are 🚜 contracts sized by your wet fields, at most N each; only you accept them."
+- CHANGELOG 35.4 line added verbatim (178 code points).
+
+### Deviations
+
+1. Not verified (no browser; jsdom has no layout): the real scroll position of the HUD ⭐ jump in each layout (tests
+   only prove `scrollIntoView` is called on `#favours` with the right options after the panel opens — phone, tablet
+   slide-over, collapsed 1024; ≥ 1440 is not a separate test since nothing opens there), smooth vs instant feel, the
+   Favours section's wrap / row height / scroll length, the ＋ Field N row's real width (= map area width), the
+   pre-sale card's look before the gate, and the Orders note wrap. All for Hermes's 375 / 1024 / 1440 / 2560 / 3440
+   sweep.
+2. `src/app/Workers.tsx:90` already read "bought in ⭐ Favours" (no "sheet"), so it is unchanged.
+   `src/core/balance.ts:248` still says "bought in the ⭐ Favours sheet" — left as is to keep the balance.ts diff
+   empty (a comment-only follow-up).
+3. On the tablet and the phone the HUD ⭐ also works when the saved tab is another one (it always sets ⬆️ Upgrades);
+   if the ⭐ is tapped while ⬆️ Upgrades is already open, the scroll still runs (setTab re-renders). Nothing else
+   beyond the brief.
+4. The pre-gate card shows "Selling gives +N deeds" with the meter's N (claimable deeds) even though the sale is not
+   possible yet — the brief's "information only" reading; the locked button below says what is missing.
+5. The new test file count is unchanged (63); the `tests/FavoursSheet.test.tsx` "⭐ Favours sheet" describe title is
+   kept for history, its HUD tests now cover the jump.
