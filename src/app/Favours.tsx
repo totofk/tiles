@@ -99,8 +99,7 @@ function rowLine(state: GameState, id: FavourId): string {
   return `${effectText(run, id)} · ${STAR_EMOJI}${price.stars}${items}`
 }
 
-/** the ⭐ Favours section (batch 34; last in ⬆️ Upgrades since batch 35.4): what ⭐ buys, row by row; the HUD's ⭐
- * jumps to it by its id */
+/** the ⭐ Favours section (batch 34; last in ⬆️ Upgrades since batch 35.4): what ⭐ buys, row by row */
 export function Favours({ state, act }: { state: GameState; act: Act }) {
   const { run } = state
   return (
