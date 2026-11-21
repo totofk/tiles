@@ -1688,7 +1688,7 @@ describe('save v31: the tree bed and the forge (batch 36.2)', () => {
     }
   })
 
-  it('a fresh run and a sold run start with no tree and an unbuilt forge; v31 round-trips', () => {
+  it('a fresh run starts with no tree and an unbuilt forge (a sale: tree.test.ts); v31 round-trips', () => {
     const fresh = createInitialState()
     expect([fresh.run.tree, fresh.run.forge]).toEqual([null, createForge()])
     expect(deserialize(serialize(fresh, 0))?.state).toEqual(fresh)

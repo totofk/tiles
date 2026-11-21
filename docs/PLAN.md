@@ -293,7 +293,8 @@ section, the HUD ⭐ or the reroll prices.
 ## Batch 36.2 results
 
 Tests: 64 files, 1192 passed + 7 expected fail (1199) before → 68 files, 1232 passed + 7 expected fail (1239) after
-(`pnpm test`, measured on d2c96c04's parent and on this commit). Lint clean, `pnpm build` clean (dist/ deleted), forced
+(`pnpm test`; "before" is derived, not run on 8d167ac5: the first full run on d2c96c04 = 1194 incl. its 2 new tests;
+"after" measured on the task 218 commit, unchanged by the follow-up's test edits). Lint clean, `pnpm build` clean (dist/ deleted), forced
 `tsc -b --force` clean (src + tests). Purity grep `Date.now|react` over src/core and src/save: only the known
 `src/save/storage.ts:26` wallClock line. Case-clash check prints nothing. Not pushed.
 
@@ -330,8 +331,9 @@ Migrated fixture: `tests/fixtures/save-v30.json` (version 30, plain listing, lis
 progress: 0, tray: {} }`; everything else deep-equal to the v30 state. Every fixture save-v1 … save-v30 lands on v31 with
 tree null and an unbuilt forge.
 
-Task 213 example (seed 1, prestigeCount 1, rerolls 0): before, Orchard Valley roots fast · berry slow and Wetlands roots
-fast · berry slow (same soil) → after, Orchard Valley unchanged and Wetlands roots fast · fruit-veg slow. Of seeds 0 … 199
+Task 213 example (seed 1, prestigeCount 1, rerolls 0; asserted in `tests/listings.test.ts` against a verbatim replica of
+the 36.1 body): before, Orchard Valley roots fast · berry slow and Wetlands roots fast · berry slow (same soil) → after,
+Orchard Valley unchanged and Wetlands roots fast · fruit-veg slow (districts unchanged). Of seeds 0 … 199
 at prestige 1, every non-colliding offer is unchanged (asserted in `tests/listings.test.ts`). No existing test pinned a
 colliding offer; the 36.1 migrated-fixture offer (seed 3,706,322,434) is unchanged.
 
@@ -358,7 +360,10 @@ New UI strings:
 2. Tree socket reach: on an Orchard run with no tree, every whole bed (6 owned tiles) shows a socket, even before the
    workshop is built (🌳, "Bed {n} tree socket"); a bed that can still take a sprinkler keeps its sprinkler socket and its
    sheet shows both blocks; an irrigated bed shows the fountain plus the 🌳 socket. The plan did not say how the sheet is
-   reached without a workshop; without this the tree would wait for the workshop.
+   reached without a workshop; without this the tree would wait for the workshop. Side effect: a fresh Orchard run
+   (potato only) shows the 🌳 socket on bed 1 at tick 0, and its sheet has the "🌳 Fruit tree" heading and the
+   "Permanent…" line but no crop buttons and no "Fruits every" line until a berry licence is bought — left for Hermes /
+   Toon to judge in the live sweep (no new gate invented).
 3. "Sell all when storage full" (`SELL_WHEN_FULL`, Mine) leaves forge goods out, like bars (the plan: goods "sell from
    storage like bars"). They still sell one by one / all from their own storage row.
 4. Recipe rows list inputs in recipe order ("🥉4 ⚫1", the plan's text); `priceText` would print "⚫1 🥉4" (ITEM_IDS order).

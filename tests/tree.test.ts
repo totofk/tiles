@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { harvest, plant, till, water } from '../src/core/actions'
 import { RENOWN_BY_HAND, RENOWN_BY_WORKER, TREE_STOCK_CAP, cropSeedCost, handPickedBonus, treeCadenceTicks, treePlantCost } from '../src/core/balance'
 import { harvestSale } from '../src/core/orders'
-import { createFreshRun, createInitialState, type GameState, type Tile } from '../src/core/state'
+import { PLAIN_LISTING } from '../src/core/listings'
+import { sellFarm } from '../src/core/prestige'
+import { createForge, createInitialState, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
 import { tapTile } from '../src/core/tile'
 import { pressTool, toolTargets } from '../src/core/tools'
@@ -130,9 +132,21 @@ describe('batch 36.2: the 🌳 fruit tree bed', () => {
     expect(w.run.tiles.slice(6)).toEqual(base.run.tiles.slice(6))
   })
 
-  it('a sale resets the tree; step(s, a + b) = step(step(s, a), b) with a tree', () => {
+  it('a sale resets the tree and the forge; step(s, a + b) = step(step(s, a), b) with a tree', () => {
     const s = withFruit([0, 1, 2, 3, 0, 0])
-    expect(createFreshRun(s.meta).tree).toBeNull()
+    // at the sale gate (listings.test.ts shape) with a planted tree and a built forge
+    const gate: GameState = {
+      ...s,
+      run: {
+        ...s.run,
+        lifetime: { ...s.run.lifetime, cashEarned: 640_000 },
+        workers: { ...s.run.workers, certificates: ['plant', 'harvest'] },
+        workshop: { built: true, beds: [true, false, false, false], valve: false },
+        forge: { ...s.run.forge, built: true, recipe: 'toolbox' },
+      },
+    }
+    const sold = ok(sellFarm(gate, PLAIN_LISTING))
+    expect([sold.run.tree, sold.run.forge]).toEqual([null, createForge()])
     expect(step(step(s, 400), 1300)).toEqual(step(s, 1700))
   })
 })
