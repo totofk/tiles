@@ -19,6 +19,7 @@ import {
   waterMoisture,
 } from './balance'
 import type { CropId } from './data/crops'
+import { districtSells } from './data/districts'
 import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
 // actions ↔ orders is a cycle of function bindings only (used at call time), like step ↔ workers
@@ -73,6 +74,7 @@ export type ActionError =
   | 'PUMP_FULL'
   | 'REROLL_MAX'
   | 'BAD_CHOICE'
+  | 'NOT_SOLD_HERE'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 
@@ -268,6 +270,7 @@ export function buyUpgrade(state: GameState, upgradeId: UpgradeId): ActionResult
 export function buyLicense(state: GameState, cropId: CropId): ActionResult {
   const { run } = state
   if (run.licenses.includes(cropId)) return fail('ALREADY_OWNED')
+  if (!districtSells(run.listing.district, cropId)) return fail('NOT_SOLD_HERE')
   const cost = licenseCost(cropId, state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   return withRun(state, { cash: run.cash - cost, licenses: [...run.licenses, cropId] })

@@ -1,6 +1,7 @@
 // Every tunable number lives here. Read them through the functions, never the tables,
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
-import { cropGroup, type CropId, type ListingSoil } from './data/crops'
+import { CROP_GROUPS, cropGroup, type CropId, type ListingSoil } from './data/crops'
+import type { DistrictId } from './data/districts'
 import type { UpgradeId } from './data/upgrades'
 import { ORE_IDS, PICKAXE_TIERS, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import type { ToolJob } from './data/tools'
@@ -759,8 +760,15 @@ export function sellPrice(base: number, meta: MetaState, sellPriceLevel: number)
   return Math.round(base * sellPriceFactor(sellPriceLevel) * multiplier(meta, 'sellPrice'))
 }
 
-export function cropSellPrice(cropId: CropId, meta: MetaState, sellPriceLevel: number): number {
-  return sellPrice(CROP_BASE[cropId].sellPrice, meta, sellPriceLevel)
+/** batch 36.2 (est.): Orchard Valley's local soil — berries sell ×1.4 */
+export const DISTRICT_BERRY_SELL = 1.4
+
+export const districtSellFactor = (cropId: CropId, district: DistrictId): number =>
+  district === 'orchardValley' && CROP_GROUPS.berry.includes(cropId) ? DISTRICT_BERRY_SELL : 1
+
+/** district = the run's listing district (plain when left out) */
+export function cropSellPrice(cropId: CropId, meta: MetaState, sellPriceLevel: number, district: DistrictId = 'plain'): number {
+  return sellPrice(CROP_BASE[cropId].sellPrice * districtSellFactor(cropId, district), meta, sellPriceLevel)
 }
 
 export function licenseCost(cropId: CropId, meta: MetaState): number {

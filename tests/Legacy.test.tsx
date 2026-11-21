@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { deedCost, startTiles } from '../src/core/balance'
 import { buyMetaUpgrade } from '../src/core/prestige'
 import { Legacy, SellCard } from '../src/app/Legacy'
-import { DISTRICTS } from '../src/core/data/districts'
+import { DISTRICTS, DISTRICT_HINT } from '../src/core/data/districts'
 import { PLAIN_LISTING, currentListings, soilText, type Listing } from '../src/core/listings'
 import { createInitialState, type GameState } from '../src/core/state'
 import type { Act } from '../src/app/useGame'
@@ -145,8 +145,8 @@ describe('batch 36.1: the Next farm block', () => {
       const [plain, a, b] = currentListings(s.meta, 'plain')
       expect(rows().map((r) => r.textContent)).toEqual([
         "🏡 The plain farmtoday's farm, no soil",
-        `${DISTRICTS[a.district].emoji} ${DISTRICTS[a.district].name}${soilText(a.soil!)}`,
-        `${DISTRICTS[b.district].emoji} ${DISTRICTS[b.district].name}${soilText(b.soil!)}`,
+        `${DISTRICTS[a.district].emoji} ${DISTRICTS[a.district].name}${soilText(a.soil!)}${DISTRICT_HINT[a.district] ?? ''}`,
+        `${DISTRICTS[b.district].emoji} ${DISTRICTS[b.district].name}${soilText(b.soil!)}${DISTRICT_HINT[b.district] ?? ''}`,
       ])
       expect(plain).toEqual(PLAIN_LISTING)
       expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
@@ -184,5 +184,27 @@ describe('batch 36.1: the Next farm block', () => {
     expect(reroll().disabled).toBe(true)
     rerender(<SellCard state={{ ...createInitialState(), run: { ...createInitialState().run, stars: 999 } }} act={act()} sell={() => {}} />)
     expect(reroll().disabled).toBe(true)
+  })
+})
+
+describe('batch 36.2: district hints on the Next farm rows', () => {
+  it('the Orchard Valley and Iron Hills rows carry their hint; plain and Wetlands rows have none', () => {
+    const hints: Record<string, string> = {
+      orchardValley: 'sells 8 of 10 crops · berries ×1.4 · 🌳 fruit tree',
+      ironHills: 'sells 7 of 10 crops · 🔨 forge',
+    }
+    const seen = new Set<string>()
+    for (let seed = 0; seed < 20; seed++) {
+      const s = { ...atGate(), meta: { ...atGate().meta, listingSeed: seed } }
+      const { unmount } = render(<SellCard state={s} act={act()} sell={() => {}} />)
+      const rows = screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-pressed'))
+      currentListings(s.meta, 'plain').forEach((l, i) => {
+        const smalls = [...rows[i].querySelectorAll('small')].map((e) => e.textContent)
+        expect(smalls.slice(1)).toEqual(hints[l.district] ? [hints[l.district]] : [])
+        seen.add(l.district)
+      })
+      unmount()
+    }
+    expect([...seen].sort()).toEqual(['ironHills', 'orchardValley', 'plain', 'wetlands'])
   })
 })

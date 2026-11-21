@@ -9,7 +9,7 @@ export const cropFloor = (run: RunState, crop: CropId): number => renownFloor(ru
 
 /** price of one unit of `cropId` sold while the glut is `glut` (before that unit is added) */
 export function marketCropPrice(state: GameState, cropId: CropId, glut: number): number {
-  return Math.round(cropSellPrice(cropId, state.meta, state.run.upgrades.sellPrice) * marketFactor(cropId, glut, cropFloor(state.run, cropId)))
+  return Math.round(cropSellPrice(cropId, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * marketFactor(cropId, glut, cropFloor(state.run, cropId)))
 }
 
 /**

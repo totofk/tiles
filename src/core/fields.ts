@@ -214,7 +214,7 @@ export function fieldsCropIncomeCurve(state: GameState, crop: CropId): (tiles: n
   const fc = pressuredCycle(state, crop)
   const hc = cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil)
   const home = run.tiles.filter((t) => t.cropId === crop).length
-  const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice)
+  const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district)
   const seed = cropSeedCost(crop, meta)
   const homeGlut = marketSteadyGlut(home, hc)
   const floor = cropFloor(run, crop)
@@ -531,7 +531,7 @@ export function fieldsMarginalIncomePerHour(state: GameState): number {
     if (!fieldsPlantable(run, crop)) continue
     const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil) / FIELD_PRESSURE)
     const glut = run.market[crop] + marketSteadyGlut(1, cycle)
-    const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice) * marketFactor(crop, glut, cropFloor(run, crop)))
+    const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district) * marketFactor(crop, glut, cropFloor(run, crop)))
     best = Math.max(best, ((price - cropSeedCost(crop, meta)) * 3600) / cycle)
   }
   return best

@@ -30,6 +30,7 @@ import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
 import { price } from './fmt'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
+import { DISTRICTS, districtSells } from '../core/data/districts'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
 import { buyMineLicense, buyWood } from '../core/mining'
@@ -125,10 +126,15 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
                   <small>seed 💰{price(cropSeedCost(id, meta))}</small>
                   {market}
                 </button>
-              ) : (
+              ) : districtSells(run.listing.district, id) ? (
                 <button className="locked" disabled={run.cash < cost} onClick={() => act((s) => buyLicense(s, id))}>
                   🔒 {CROPS[id].name}
                   <small>license 💰{price(cost)}</small>
+                </button>
+              ) : (
+                <button className="locked" disabled>
+                  🔒 {CROPS[id].name}
+                  <small>not sold in {DISTRICTS[run.listing.district].name}</small>
                 </button>
               )}
             </Item>

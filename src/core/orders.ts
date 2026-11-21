@@ -115,7 +115,7 @@ export function itemOrderValue(state: GameState, good: ItemId): number {
 
 /** cash one ordered crop unit pays: the unglutted price × (1 + bonus) × `bonus` (hand-picked) */
 export function cropOrderPrice(state: GameState, crop: CropId, bonus = 1): number {
-  return Math.round(cropSellPrice(crop, state.meta, state.run.upgrades.sellPrice) * (1 + orderBonus()) * bonus)
+  return Math.round(cropSellPrice(crop, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * (1 + orderBonus()) * bonus)
 }
 
 /**

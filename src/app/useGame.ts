@@ -57,6 +57,7 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_STARS: `Not enough ${STAR_EMOJI}`,
   REROLL_MAX: 'No rerolls left this sale',
   BAD_CHOICE: 'That listing changed — pick again',
+  NOT_SOLD_HERE: 'Not sold in this district',
   BAD_ORE: 'The vein does not drop that ore',
   NO_DEEDS: 'Not enough deeds',
   NO_GAIN: 'No deeds to gain yet — play on',

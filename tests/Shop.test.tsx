@@ -221,3 +221,18 @@ describe('Shop seed pouch', () => {
     expect((screen.getByRole('checkbox', { name: /Auto-buy/ }) as HTMLInputElement).checked).toBe(false)
   })
 })
+
+describe('batch 36.2: district supply list in the Shop', () => {
+  it('an Orchard run shows tomato / chilli as disabled "not sold in Orchard Valley" rows; plain shows none', () => {
+    setup({ cash: 1_000_000, listing: { district: 'orchardValley', soil: null } })
+    for (const name of [/Tomato/, /Chilli/]) {
+      expect(btn(name).textContent).toBe(`🔒 ${name.source}not sold in Orchard Valley`)
+      expect(btn(name).disabled).toBe(true)
+    }
+    expect(btn(/Lemon/).textContent).toMatch(/license 💰/)
+    expect(btn(/Lemon/).disabled).toBe(false)
+    cleanup()
+    setup({ cash: 1_000_000 })
+    expect(screen.queryByText(/not sold in/)).toBeNull()
+  })
+})

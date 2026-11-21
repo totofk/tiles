@@ -15,7 +15,7 @@ import {
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
 import { useState } from 'react'
-import { DISTRICTS } from '../core/data/districts'
+import { DISTRICTS, DISTRICT_HINT } from '../core/data/districts'
 import { currentListings, rerollListings, soilText, type Listing } from '../core/listings'
 import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
@@ -155,6 +155,7 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
           <button key={i} className={i === selected ? 'selected' : ''} aria-pressed={i === selected} onClick={() => setPick({ offerKey, index: i })}>
             {DISTRICTS[l.district].emoji} {DISTRICTS[l.district].name}
             <small>{l.soil ? soilText(l.soil) : "today's farm, no soil"}</small>
+            {DISTRICT_HINT[l.district] && <small>{DISTRICT_HINT[l.district]}</small>}
           </button>
         ))}
         <button disabled={!open || !rerollsLeft || run.stars < rerollStars} onClick={() => act(rerollListings)}>

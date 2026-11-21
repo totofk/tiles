@@ -18,7 +18,7 @@ const clock = (ticks: number) => `${Math.floor(ticks / 60)}:${String(ticks % 60)
 /** the cash an order pays above selling its goods at base price (crops) / for delivering them (items: base × bonus;
  * bars: the bar's sell price × (1 + bonus), batch 34) */
 function orderCash(state: GameState, o: Offer): number {
-  return Math.round(isCropGood(o.good) ? o.count * cropSellPrice(o.good, state.meta, state.run.upgrades.sellPrice) * orderBonus() : o.count * itemOrderValue(state, o.good))
+  return Math.round(isCropGood(o.good) ? o.count * cropSellPrice(o.good, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * orderBonus() : o.count * itemOrderValue(state, o.good))
 }
 
 /** an accepted item order storage can fill completely (the ✓ Ready badge; Deliver also takes part deliveries) */
