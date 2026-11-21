@@ -51,6 +51,24 @@ describe('batch 34: the ⭐ Favours sheet', () => {
     expect(document.querySelector('button.hud-stars')).toBeNull()
   })
 
+  it('batch 35.4: the Upgrades panel ends with a "⭐ Favours" section once the player has ⭐ or a Favour level', () => {
+    const counters = { ...init.run.counters, harvests: 1e4, sales: 1e4 }
+    const headings = () => [...document.querySelectorAll('.shop h2')].map((h) => h.textContent)
+    render(<Upgrades state={withRun({ stars: 12, mineLicense: true, counters })} act={() => {}} />)
+    expect(headings()).toEqual(['⚡ Energy', '🌱 Farm', '⛏ Mine', '⭐ Favours'])
+    expect(document.querySelector('.shop > :last-child')!.id).toBe('favours')
+    expect(screen.getByText('⭐ 12 to spend · resets when you sell the farm (up to 400 ⭐ carry over)')).toBeTruthy()
+    cleanup()
+    render(<Upgrades state={withRun({ stars: 0, counters })} act={() => {}} />)
+    expect(document.getElementById('favours')).toBeNull()
+    expect(headings()).not.toContain('⭐ Favours')
+    cleanup()
+    // ⭐0 with Fine mist Lv1 bought (fertilizer one past its cash max)
+    render(<Upgrades state={withRun({ stars: 0, counters, upgrades: { ...init.run.upgrades, fertilizer: 6 } })} act={() => {}} />)
+    expect(headings().at(-1)).toBe('⭐ Favours')
+    expect(rowOf(/Fine mist/).firstChild?.textContent).toBe('💧 Fine mist Lv 1')
+  })
+
   it('every row but the Stoker is listed, with its price or its lock reason', () => {
     const s = withRun({ stars: 20, counters: { ...init.run.counters, harvests: 30 } })
     render(<Favours state={s} act={() => {}} />)

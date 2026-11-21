@@ -15,8 +15,10 @@ import {
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
+import { favoursVisible } from '../core/favours'
 import { buyStorage, dropText, upgradeVein } from '../core/mining'
 import type { GameState, MetaState } from '../core/state'
+import { Favours } from './Favours'
 import { Item } from './Info'
 import { price } from './fmt'
 import { priceText } from './Mine'
@@ -115,6 +117,7 @@ export function Upgrades({ state, act }: { state: GameState; act: Act }) {
         )
       })}
       {run.mineLicense && <MineUpgrades state={state} act={act} />}
+      {favoursVisible(run) && <Favours state={state} act={act} />}
     </section>
   )
 }

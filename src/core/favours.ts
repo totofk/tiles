@@ -38,6 +38,11 @@ export function favourShown(run: RunState, id: FavourId): boolean {
   return id !== 'stoker' || stokerReady(run) || favourLevel(run, id) > 0
 }
 
+/** the ⭐ Favours section of ⬆️ Upgrades is shown (batch 35.4): ⭐ to spend, or any Favour level bought */
+export function favoursVisible(run: RunState): boolean {
+  return run.stars > 0 || FAVOUR_IDS.some((id) => favourLevel(run, id) > 0)
+}
+
 /** why a row cannot be bought yet (null = its gate is met): the ladder it extends is not at its max, or what it needs */
 export type FavourLock = 'hire' | 'fertilizer' | 'sellPrice' | 'furnace' | 'speed' | 'batch' | 'tray' | 'slot' | 'vein' | 'stoker'
 export function favourLock(run: RunState, id: FavourId): FavourLock | null {

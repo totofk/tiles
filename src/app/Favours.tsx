@@ -99,11 +99,13 @@ function rowLine(state: GameState, id: FavourId): string {
   return `${effectText(run, id)} · ${STAR_EMOJI}${price.stars}${items}`
 }
 
-/** the ⭐ Favours sheet (batch 34): what ⭐ buys, row by row; opened from the HUD's ⭐ */
+/** the ⭐ Favours section (batch 34; last in ⬆️ Upgrades since batch 35.4): what ⭐ buys, row by row; the HUD's ⭐
+ * jumps to it by its id */
 export function Favours({ state, act }: { state: GameState; act: Act }) {
   const { run } = state
   return (
-    <div className="favours">
+    <div id="favours" className="favours">
+      <h2>{STAR_EMOJI} Favours</h2>
       <p>
         {STAR_EMOJI} {count(run.stars)} to spend · resets when you sell the farm (up to {STAR_CARRY_CAP} {STAR_EMOJI} carry over)
       </p>
