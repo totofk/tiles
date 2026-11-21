@@ -78,7 +78,7 @@ Decisions: `docs/DECISIONS.md` "Batch 36.1 refined" (sources + Hermes's calls). 
 
 ## Tasks (209–212)
 
-- [ ] 209. **Listings core: groups, districts, the roll, the memory, the reroll.**
+- [x] 209. **Listings core: groups, districts, the roll, the memory, the reroll.**
   - `src/core/data/crops.ts` (beside `CROP_IDS`, `:3`): `GROUP_IDS = ['roots', 'fruitVeg', 'berry'] as const`,
     `type GroupId`, `CROP_GROUPS: Record<GroupId, readonly CropId[]>` = roots: potato, radish (shown as Carrot),
     corn; fruitVeg: eggplant, pumpkin, tomato, chilli; berry: lemon, grape, strawberry (every crop in exactly one
@@ -115,7 +115,7 @@ Decisions: `docs/DECISIONS.md` "Batch 36.1 refined" (sources + Hermes's calls). 
     listing changed — pick again".
   - `MetaState` (`src/core/state.ts:213–220`) gains `listingSeed: number; listingRerolls: number; districtsPlayed:
     DistrictId[]`; `createInitialMeta` (`:230–238`) sets 0, 0, [].
-- [ ] 210. **Soil in the run, and the sale takes the chosen listing.**
+- [x] 210. **Soil in the run, and the sale takes the chosen listing.**
   - `RunState` (`src/core/state.ts:22–94`) gains `listing: Listing`; `createFreshRun` (`:247–290`) takes it from a
     new optional `RunCarry.listing` (`:243`), default `PLAIN_LISTING`.
   - `cropGrowTicks` (`src/core/balance.ts:723–725`) gains a 4th optional argument `soil: ListingSoil | null = null`,
@@ -145,7 +145,7 @@ Decisions: `docs/DECISIONS.md` "Batch 36.1 refined" (sources + Hermes's calls). 
   - `sell` in `src/app/useGame.ts:243–255` becomes `sell(choice: Listing)` → `sellFarm(stateRef.current, choice)`;
     the pre-sale backup (`PRESTIGE_BACKUP_KEY`) is unchanged. `PanelProps.sell` (`src/app/panelTabs.tsx:32`) →
     `(choice: Listing) => void`.
-- [ ] 211. **Save v30.** `SAVE_VERSION` 29 → 30 (`src/save/serialize.ts:34`). `SaveV29` (`:285`) becomes the
+- [x] 211. **Save v30.** `SAVE_VERSION` 29 → 30 (`src/save/serialize.ts:34`). `SaveV29` (`:285`) becomes the
   pre-listing shape `{ version: 29; savedAtMs: number; state: { meta: Omit<MetaState, 'listingSeed' |
   'listingRerolls' | 'districtsPlayed'>; run: Omit<RunState, 'listing'> } }`, `SaveV30 = { version: 30; savedAtMs:
   number; state: GameState }`, `Save = SaveV30`. `migrateV29(save: SaveV29): SaveV30` (after `migrateV28`, `:838`):
@@ -158,7 +158,7 @@ Decisions: `docs/DECISIONS.md` "Batch 36.1 refined" (sources + Hermes's calls). 
   file in tests/fixtures. In `tests/save.test.ts` import it beside `:30` and test: v29 → v30 gives the plain
   listing, the derived seed (pin the exact number), 0 rerolls, [] played, and everything else deep-equal to the v29
   state; every older fixture (save-v1 … save-v28) migrates through to version 30.
-- [ ] 212. **The "Next farm" block on the 🏆 Sell the farm card, Stats line, CHANGELOG, PIN36a.**
+- [x] 212. **The "Next farm" block on the 🏆 Sell the farm card, Stats line, CHANGELOG, PIN36a.**
   - `SellCard` (`src/app/Legacy.tsx:116–171`) gets `act` beside `state` and `sell` (`sell: (choice: Listing) =>
     void`; `src/app/Bank.tsx:80` passes `act`). Mount a block between the ⭐ carry line (`:136–139`) and
     `<h3>Resets</h3>` (`:140`), shown at every stage (the card is information before the gate, 35.4/35.5):
@@ -235,3 +235,64 @@ Wetlands no-mine / barge (36.2 / 36.3); dig finds + relics (36.4); Soil survey a
 breadth rule, the 3-column preview (36.6); the almanac; the charter card (37); ⭐ price tuning (Toon's single playtest
 after 36); soil on any axis but grow time; per-bed / per-field traits; worker-hire rolls; a reroll priced in cash; any
 "sell now" nudge (badge, toast, banner, HUD mark); any change to the ⭐ Favours section or the HUD ⭐.
+
+## Batch 36.1 results
+
+Commits (main, not pushed): 4ce40440 (209), 29edf981 (210), 92520473 (211), f3b6f319 (212), then this docs commit.
+Tests: 1165 passed + 6 expected fail (1171) → 1191 passed + 7 expected fail (1198), 64 files. `pnpm lint`, `pnpm build`,
+`tsc -b --force` (clean tsbuildinfo) green; purity grep shows only the known `src/save/storage.ts:26`; case-clash check
+prints nothing; no dist/, sim-logs/ or scratch file tracked.
+
+- 209: `GROUP_IDS` / `CROP_GROUPS` / `cropGroup` / `GROUP_NAMES` / `ListingSoil` in crops.ts; new `data/districts.ts`;
+  balance `LISTING_SOIL_GROW`, `listingGrowFactor`, `LISTING_REROLL_STARS`, `LISTING_REROLL_MAX`, `listingRerollStars`,
+  `LISTING_WEIGHT_UNPLAYED/PLAYED`; new `src/core/listings.ts` (`currentListings` hashed from listingSeed + prestigeCount
+  + listingRerolls into mulberry32, `rerollListings`, `listingSeedFor`); `MetaState` + `listingSeed / listingRerolls /
+  districtsPlayed`; errors `REROLL_MAX`, `BAD_CHOICE`.
+- 210: `RunState.listing` (carried by `createFreshRun`); the soil argument on `cropGrowTicks` / `cropRotGraceTicks`
+  threaded through tile.ts, step.ts (`stepTile`), actions.ts harvest, orders.ts `orderPerMinute`, fields.ts (`pressuredCycle`,
+  `fieldsCropIncomeCurve`, `fieldsMarginalIncomePerHour`), market.ts `marketSteadyFactor` (optional, after `floor`),
+  estateText.ts, FarmGrid.tsx and the bot (`tests/sim/bot.ts:147`, `:1274`); `sellFarm(state, choice = PLAIN_LISTING)`
+  with BAD_CHOICE, `listingRerolls` 0 and `districtsPlayed` on the sale; `sell(choice)`.
+- 211: save v30 tests: the real v29 fixture and every older one (v1 … v28) land on v30.
+- 212: the "Next farm" block on the 🏆 Sell the farm card, the reroll button, Stats "This farm", the CHANGELOG line, PIN36a.
+
+PIN36a (shipped ladder bot to the Fields unlock, game-h): `{"plain":8.24,"rootsFast_fruitVegSlow":9.15,
+"fruitVegFast_rootsSlow":null,"berryFast_fruitVegSlow":9.26}` — roots-fast +11.0 %, berry-fast +12.4 % (within ±20 %);
+fruit-veg-fast did not reach the unlock within 20 game-h (see Deviations). PIN36b (pure function, 20-field estate, all
+crops plantable): every one of the 6 soils within −16.7 % … +25 % of plain.
+
+Migrated fixture (`save-v29.json` → v30): `listingSeed` = 3,706,322,434 (`listingSeedFor(0, deedsClaimed,
+294,333,295)`); first offer = 🏡 The plain farm · 🌳 Orchard Valley (berry 20 % faster · roots 20 % slower) · ⛏️ Iron
+Hills (fruit-veg 20 % faster · berry 20 % slower). Sold into Orchard Valley: strawberry ×0.8, potato ×1.2, chilli ×1.
+
+New UI strings:
+- `<h3>Next farm</h3>`; rows "🏡 The plain farm" + small "today's farm, no soil"; "🌳 Orchard Valley" / "⛏️ Iron Hills" /
+  "🌊 Wetlands" + small "{roots|fruit-veg|berry} 20 % faster · {…} 20 % slower".
+- Reroll button "🔄 Reroll ⭐40 · 0/4" (⭐80 · 1/4, ⭐160 · 2/4, ⭐320 · 3/4); at the max "🔄 Reroll · 4/4".
+- Errors: "No rerolls left this sale", "That listing changed — pick again".
+- Stats "This farm": "The plain farm" / "🌳 Orchard Valley · berry 20 % faster · roots 20 % slower".
+- CHANGELOG 36.1: "Selling now offers your next farm: the plain farm or two rolled listings where one crop group grows
+  20 % faster, another 20 % slower. 🔄 Reroll them for ⭐40–320, up to 4 a sale." (176 code points).
+
+### Deviations
+
+- Commit split 210 / 211: `RunState.listing` cannot load from a v29 save without the migration, so the v30 bump code
+  (`SAVE_VERSION` 30, `SaveV29` / `SaveV30` types, `migrateV29`, every `migrate()` branch) and the old save-test helper
+  updates (`asV29Meta` / `asV29Run`, `v18Meta`, version literals 29 → 30, the App "v15 → v30" note) are in the 210
+  commit so it stays green; 211 holds the v29 fixture tests. The soil argument on `cropGrowTicks` / `cropRotGraceTicks`
+  landed in 209, whose group tests use it.
+- PIN36a fruit-veg fast / roots slow: the shipped bot hires its 2nd water worker at 0.44 game-h, cash hits 💰0, the
+  unpaid water workers stop, every tile dries and the bot never waters by hand while a water worker is assigned — it
+  sits at 💰0 for the rest of the 20 h. A bot deadlock, not a game soft-lock (a player waters by hand or unassigns).
+  Pinned as `it.fails` with the measurement; the passing PIN36a asserts the two soils that reach the unlock. The bot
+  was not changed (licence list fixed by the plan). Roots-fast being slower than plain (9.15 vs 8.24 h) was not
+  investigated.
+- The selection is keyed to the offer (`prestigeCount/listingRerolls`), so a reroll or a sale falls back to the plain
+  row without an effect; a failed reroll keeps the pick.
+- The "stale after a reroll → BAD_CHOICE" check in `tests/prestige.test.ts` runs only when the rerolled offer no longer
+  holds the old pick (the not-on-offer case is asserted unconditionally).
+- Existing heading assertions (`tests/Legacy.test.tsx`, `tests/BankTab.test.tsx`) now expect `['Next farm', 'Resets',
+  'Carries']` — the block the plan adds.
+- Not verified (no browser, jsdom only): layout and wrap at 375 / 1024 / 1440 / 2560 / 3440 of the Next farm rows,
+  the reroll button and the Stats "This farm" row. The rows reuse `.shop-row.one-col` and `.selected` (the crop-picker
+  style); no new CSS.
