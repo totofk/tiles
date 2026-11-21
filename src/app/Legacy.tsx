@@ -1,8 +1,10 @@
 import {
   DEED_ROW_IDS,
+  PRESTIGE_GATE_DEEDS,
   STAR_CARRY_CAP,
   deedCost,
   deedMaxLevel,
+  deedsFor,
   energyMax,
   multiplier,
   startTiles,
@@ -10,7 +12,7 @@ import {
   type DeedRowId,
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
-import { buyMetaUpgrade, deedsClaimable } from '../core/prestige'
+import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
 import { count } from './fmt'
@@ -97,9 +99,24 @@ export function Legacy({ state, act }: { state: GameState; act: Act }) {
   )
 }
 
+/** what still blocks the sale gate, in the Fields-unlock "needs …" style: uncovered farm jobs, then deeds short */
+function gateShort(state: GameState): string {
+  const { run } = state
+  const deeds = deedsFor(run.lifetime.cashEarned)
+  return [
+    !run.workers.certificates.includes('plant') && 'planter certificate',
+    !run.workers.certificates.includes('harvest') && 'harvester certificate',
+    !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
+    deeds < PRESTIGE_GATE_DEEDS && `${PRESTIGE_GATE_DEEDS - deeds} more deeds`,
+  ]
+    .filter(Boolean)
+    .join(' + ')
+}
+
 /**
- * The sale card (shown once the gate is open — the Fields card carries the coverage gates before that): exactly what
- * resets and what carries, the deeds to be gained, then the two-press "Sell the farm". Disabled with no gain.
+ * The sale card, shown at every stage (batch 35.4: information only, no nudge): exactly what resets and what carries,
+ * the deeds selling gives, then the two-press "Sell the farm" once the gate is open (disabled with no gain) — before
+ * that a locked teaser naming what is missing.
  */
 export function SellCard({ state, sell }: { state: GameState; sell: () => void }) {
   const [armed, press] = useTwoPress(sell)
@@ -111,7 +128,7 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
     <section className="shop">
       <h2>🏆 Sell the farm</h2>
       <p className="deeds">
-        Sell now: +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
+        Selling gives +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
       </p>
       <p className="deeds">
         {STAR_EMOJI} {carried} carried to the next farm
@@ -134,9 +151,18 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
         <li>The ⭐-bought order slots ({run.orders.slots})</li>
         <li>Lifetime totals — the deed meter keeps counting</li>
       </ul>
-      <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
-        {gain < 1 ? 'No deeds to gain — play on' : armed ? 'Press again to sell the farm' : 'Sell the farm'}
-      </button>
+      {sellFarmUnlocked(state) ? (
+        <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
+          {gain < 1 ? 'No deeds to gain — play on' : armed ? 'Press again to sell the farm' : 'Sell the farm'}
+        </button>
+      ) : (
+        <div className="shop-row one-col">
+          <button className="locked" disabled>
+            🔒 Sell the farm
+            <small>needs {gateShort(state)}</small>
+          </button>
+        </div>
+      )}
     </section>
   )
 }

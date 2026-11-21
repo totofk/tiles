@@ -90,13 +90,20 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     expect(screen.getByText('Lifetime cash 💰1.040M → 10 deeds when "Sell the farm" opens')).toBeTruthy()
   })
 
-  it('pre-gate: the loan, the meter and a locked teaser row naming what is missing', () => {
-    render(panel(createInitialState()))
+  it('pre-gate: the loan, the meter and the whole sale card, its button a locked teaser naming what is missing', () => {
+    render(panel(withRun({ stars: 37 })))
     expect(screen.getByText('Borrow 💰30 · repay 💰33 now, grows to at most 💰60')).toBeTruthy()
     expect(screen.getByText(/→ 0 deeds when "Sell the farm" opens/)).toBeTruthy()
+    // batch 35.4: the 🏆 Sell the farm card shows before the gate (information only)
+    expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
+    expect(screen.getByText('Selling gives +0 deeds (💰0)')).toBeTruthy()
+    expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Resets', 'Carries'])
     expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 bed sprinkler + 8 more deeds')
     expect(button(/🔒 Sell the farm/).disabled).toBe(true)
+    expect(screen.queryByRole('button', { name: /^Sell the farm$|Press again|No deeds/ })).toBeNull()
     expect(screen.queryByRole('heading', { name: '🏆 Legacy' })).toBeNull()
+    expect(document.body.textContent).not.toContain('Sell now')
   })
 
   it('the teaser shrinks as gates close; the sale card shows once the gate is open', () => {
@@ -109,8 +116,12 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     render(panel(atGate))
     expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
     // re-pinned batch 34 (was "(💰8 + 0 from ⭐)"): ⭐ carries a sale — no ⭐ part
-    expect(screen.getByText('Sell now: +8 deeds (💰8)')).toBeTruthy()
+    // batch 35.4: "Sell now:" became "Selling gives" (no nudge)
+    expect(screen.getByText('Selling gives +8 deeds (💰8)')).toBeTruthy()
     expect(screen.queryByText(/needs /)).toBeNull()
+    expect(screen.queryByRole('button', { name: /🔒/ })).toBeNull()
+    expect(button(/^Sell the farm$/).disabled).toBe(false)
+    expect(document.body.textContent).not.toContain('Sell now')
   })
 
   it('the 🏆 Legacy shop shows once a farm has been sold', () => {

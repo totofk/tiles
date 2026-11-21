@@ -85,7 +85,8 @@ describe('🏆 Sell the farm card', () => {
     const s = atGate()
     render(<SellCard state={s} sell={() => sold.push(s)} />)
     // re-pinned batch 34 (was "+9 deeds (💰8 + 1 from ⭐)"): ⭐ carries a sale — cash deeds only, ⭐37 carried
-    expect(screen.getByText('Sell now: +8 deeds (💰8)')).toBeTruthy()
+    // batch 35.4: "Sell now:" → "Selling gives" (information only)
+    expect(screen.getByText('Selling gives +8 deeds (💰8)')).toBeTruthy()
     expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
     expect([...screen.getAllByRole('list')].map((l) => l.textContent)).toEqual([
       'Tiles, cash, market, storage, tools' +
@@ -107,7 +108,7 @@ describe('🏆 Sell the farm card', () => {
     const claimed = { ...atGate(), meta: { ...atGate().meta, deedsClaimed: 8 } }
     const sold: GameState[] = []
     render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 650 } }} sell={() => sold.push(claimed)} />)
-    expect(screen.getByText('Sell now: +0 deeds (💰0)')).toBeTruthy()
+    expect(screen.getByText('Selling gives +0 deeds (💰0)')).toBeTruthy()
     expect(screen.getByText('⭐ 400 carried to the next farm · ⭐250 lost above 400')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
     expect(button.disabled).toBe(true)

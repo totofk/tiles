@@ -1,6 +1,5 @@
-import { PRESTIGE_GATE_DEEDS, deedsFor, loanDebtCap, loanPrincipal, loanRepayStep, loanStartDebt } from '../core/balance'
+import { deedsFor, loanDebtCap, loanPrincipal, loanRepayStep, loanStartDebt } from '../core/balance'
 import { debtDue, loanTicksToCap, repay, repayAll, takeLoan } from '../core/bank'
-import { sellFarmUnlocked } from '../core/prestige'
 import type { GameState } from '../core/state'
 import { gain, held, price } from './fmt'
 import { Legacy, SellCard } from './Legacy'
@@ -70,41 +69,15 @@ export function Deeds({ state }: { state: GameState }) {
   )
 }
 
-/** what still blocks the sale gate, in the Fields-unlock "needs …" style: uncovered farm jobs, then deeds short */
-function gateShort(state: GameState): string {
-  const { run } = state
-  const deeds = deedsFor(run.lifetime.cashEarned)
-  return [
-    !run.workers.certificates.includes('plant') && 'planter certificate',
-    !run.workers.certificates.includes('harvest') && 'harvester certificate',
-    !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
-    deeds < PRESTIGE_GATE_DEEDS && `${PRESTIGE_GATE_DEEDS - deeds} more deeds`,
-  ]
-    .filter(Boolean)
-    .join(' + ')
-}
-
-/** the 🏦 Bank tab (batch 21): the loan, then the prestige group as one block — the deed meter, the sale card (a
- * locked teaser row naming what is missing until the gate opens), and the 🏆 Legacy shop once a farm has been sold */
+/** the 🏦 Bank tab (batch 21): the loan, then the prestige group as one block — the deed meter, the sale card (always
+ * shown since batch 35.4; locked until the gate opens), and the 🏆 Legacy shop once a farm has been sold */
 export function BankTab({ state, act, sell }: PanelProps) {
   const sold = state.meta.prestigeCount > 0 || state.meta.deeds > 0
   return (
     <>
       <Bank state={state} act={act} />
       <Deeds state={state} />
-      {sellFarmUnlocked(state) ? (
-        <SellCard state={state} sell={sell} />
-      ) : (
-        <section className="shop">
-          <h2>🏆 Sell the farm</h2>
-          <div className="shop-row one-col">
-            <button className="locked" disabled>
-              🔒 Sell the farm
-              <small>needs {gateShort(state)}</small>
-            </button>
-          </div>
-        </section>
-      )}
+      <SellCard state={state} sell={sell} />
       {sold && <Legacy state={state} act={act} />}
     </>
   )
