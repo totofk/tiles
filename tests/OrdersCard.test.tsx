@@ -7,6 +7,7 @@ import { Orders } from '../src/app/Orders'
 import { Shop } from '../src/app/Shop'
 import type { Act } from '../src/app/useGame'
 import { cropGrowTicks, cropSellPrice, itemSellPrice, orderBonus, orderCooldownTicks } from '../src/core/balance'
+import { contractCap } from '../src/core/orders'
 import { createInitialState, type GameState, type Offer, type RunState } from '../src/core/state'
 
 afterEach(cleanup)
@@ -132,17 +133,20 @@ describe('📋 Orders', () => {
   })
 
   it('batch 29: after the Tractor a crop order is a 🚜 Contract; the accepted row names the ×1.25, the intro says only you accept', () => {
-    setup(board([offer({}), offer({ accepted: true }), offer({ good: 'stone', count: 8, done: 0, tier: 0 })], { fields: { ...init.run.fields, unlocked: true } }))
+    const t = setup(board([offer({}), offer({ accepted: true }), offer({ good: 'stone', count: 8, done: 0, tier: 0 })], { fields: { ...init.run.fields, unlocked: true } }))
     const [open, accepted, item] = rows()
     expect(open.textContent).toContain('🚜 Contract')
     expect(accepted.textContent).toContain('filling from harvests · your own reaps pay ×1.25')
     expect(item.textContent).not.toContain('Contract')
-    expect(document.querySelector('.order-note')!.textContent).toContain('After the Tractor, crop orders are 🚜 contracts sized by your wet fields; only you accept them.')
+    // batch 35.4: the note names the contract cap (contractCap of this run: 1 field × 5 plots × 10 tiles, no double harvest)
+    expect(contractCap(t.get().run)).toBe(50)
+    expect(document.querySelector('.order-note')!.textContent).toContain('After the Tractor, crop orders are 🚜 contracts sized by your wet fields, at most 50 each; only you accept them.')
     cleanup()
     setup(board([offer({ accepted: true })]))
     expect(rows()[0].textContent).not.toContain('Contract')
     expect(rows()[0].textContent).not.toContain('×1.25')
     expect(document.querySelector('.order-note')!.textContent).not.toContain('Tractor')
+    expect(document.querySelector('.order-note')!.textContent).not.toContain('at most')
   })
 
   it('batch 24.1: ✕ on an accepted order with progress needs a second press; offers and zero-progress orders discard on one', () => {

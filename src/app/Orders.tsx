@@ -3,11 +3,11 @@ import { cropSellPrice, orderBonus, orderRerollCash, orderSlotStars, orderTierCo
 import { CROPS } from '../core/data/crops'
 import { ITEMS } from '../core/data/items'
 import { BOARD_EMOJI, REROLL_EMOJI, STAR_EMOJI, WAIT_EMOJI } from '../core/data/orders'
-import { acceptOrder, buyOrderSlot, deliverOrder, discardOrder, isContract, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
+import { acceptOrder, buyOrderSlot, contractCap, deliverOrder, discardOrder, isContract, isCropGood, isOffer, itemOrderValue, rerollOrders } from '../core/orders'
 import type { GameState, Offer, OrderGood } from '../core/state'
 import { Bar } from './Bar'
 import { CROP_EMOJI } from './FarmGrid'
-import { gain, price, starsText } from './fmt'
+import { count, gain, price, starsText } from './fmt'
 import type { Act } from './useGame'
 
 export const goodEmoji = (good: OrderGood) => (isCropGood(good) ? CROP_EMOJI[good] : ITEMS[good].emoji)
@@ -91,7 +91,8 @@ export function Orders({ state, act, card = false, flashSlot = null }: { state: 
   const note = (
     <small className="order-note">
       Accepted crop orders take every harvest of that crop at +{Math.round(orderBonus() * 100)} %, with no market glut.
-      {state.run.fields.unlocked && ' After the Tractor, crop orders are 🚜 contracts sized by your wet fields; only you accept them.'}
+      {state.run.fields.unlocked &&
+        ` After the Tractor, crop orders are 🚜 contracts sized by your wet fields, at most ${count(contractCap(state.run))} each; only you accept them.`}
     </small>
   )
   const slotStars = orderSlotStars(orders.slots)
