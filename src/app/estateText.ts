@@ -48,7 +48,7 @@ export function estateCropIncomePerHour(state: GameState, k: number): number {
   const { crop, plots } = run.fields.list[k]
   if (!crop) return 0
   const planted = plots.filter((p) => p.crop === crop).length * plotTiles()
-  const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer) / FIELD_PRESSURE)
+  const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil) / FIELD_PRESSURE)
   const net = cropSellPrice(crop, meta, run.upgrades.sellPrice) * cropFactor(state, crop) - cropSeedCost(crop, meta)
   return Math.round((planted * 3600 * net) / cycle)
 }

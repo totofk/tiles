@@ -18,6 +18,7 @@ import {
 } from './balance'
 import { STARTING_CROP } from './data/crops'
 import { fieldsUnlockable } from './fields'
+import { PLAIN_LISTING, currentListings, type Listing } from './listings'
 import { createFreshRun, type GameState } from './state'
 
 /** lifetime-cash deeds not granted yet (the meter minus what earlier sales already claimed) */
@@ -43,19 +44,23 @@ export function buyMetaUpgrade(state: GameState, id: DeedRowId): ActionResult {
 /** every Legacy row at its max level — the shop's "all done" state */
 export const legacyMaxed = (meta: GameState['meta']): boolean => DEED_ROW_IDS.every((id) => meta.upgrades[id] >= deedMaxLevel(id))
 
-// Order: LOCKED, LOAN_ACTIVE, NO_GAIN.
-export function sellFarm(state: GameState): ActionResult {
+// Order: LOCKED, LOAN_ACTIVE, NO_GAIN, BAD_CHOICE (the choice is not on the current offer, e.g. stale after a reroll).
+export function sellFarm(state: GameState, choice: Listing = PLAIN_LISTING): ActionResult {
   const { run, meta } = state
   if (!sellFarmUnlocked(state)) return fail('LOCKED')
   if (run.loan !== null) return fail('LOAN_ACTIVE')
   const gained = deedsClaimable(state)
   if (gained < 1) return fail('NO_GAIN')
+  const same = (l: Listing) => l.district === choice.district && l.soil?.fast === choice.soil?.fast && l.soil?.slow === choice.soil?.slow
+  if (!currentListings(meta, run.listing.district).some(same)) return fail('BAD_CHOICE')
   const nextMeta = {
     ...meta,
     prestigeCount: meta.prestigeCount + 1,
     deeds: meta.deeds + gained,
     deedsClaimed: meta.deedsClaimed + gained,
     runs: [...meta.runs, { endedAtTick: run.tick, deeds: gained }].slice(-RUN_HISTORY_CAP),
+    listingRerolls: 0,
+    districtsPlayed: [...meta.districtsPlayed, choice.district],
   }
   return {
     ok: true,
@@ -68,6 +73,7 @@ export function sellFarm(state: GameState): ActionResult {
         orderSlots: Math.max(run.orders.slots, orderStartSlots()),
         lifetime: run.lifetime,
         stars: run.stars,
+        listing: choice,
         // Kept renown keeps each crop's reached tier threshold, not its points; tier 0 crops are dropped
         renown:
           nextMeta.upgrades.keepRenown > 0

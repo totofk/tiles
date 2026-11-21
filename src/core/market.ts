@@ -1,7 +1,7 @@
 // The crop market (batch 12, DECISIONS "Crop market"): every crop unit sold adds 1 glut to its crop; glut decays
 // each tick and lowers that crop's sale price. Items are not in the market. Pure: no DOM, no clock, no dice.
 import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, cropGrowTicks, cropSellPrice, marketFactor, renownFloor } from './balance'
-import { CROP_IDS, type CropId } from './data/crops'
+import { CROP_IDS, type CropId, type ListingSoil } from './data/crops'
 import type { GameState, MetaState, RunState } from './state'
 
 /** the crop's market floor: its renown tier's (batch 31) */
@@ -46,6 +46,6 @@ export function marketSteadyGlut(tiles: number, growTicks: number): number {
 }
 
 /** the steady-state sale factor of `tiles` tiles of one crop at this grow time */
-export function marketSteadyFactor(cropId: CropId, tiles: number, meta: MetaState, fertilizerLevel: number, floor = MARKET_FLOOR): number {
-  return marketFactor(cropId, marketSteadyGlut(tiles, cropGrowTicks(cropId, meta, fertilizerLevel)), floor)
+export function marketSteadyFactor(cropId: CropId, tiles: number, meta: MetaState, fertilizerLevel: number, floor = MARKET_FLOOR, soil: ListingSoil | null = null): number {
+  return marketFactor(cropId, marketSteadyGlut(tiles, cropGrowTicks(cropId, meta, fertilizerLevel, soil)), floor)
 }

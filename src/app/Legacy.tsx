@@ -12,6 +12,7 @@ import {
   type DeedRowId,
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
+import { PLAIN_LISTING, type Listing } from '../core/listings'
 import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
@@ -118,8 +119,8 @@ function gateShort(state: GameState): string {
  * the deeds selling gives once the gate is open, then the two-press "Sell the farm" once the gate is open (disabled with no gain) — before
  * that a locked teaser naming what is missing.
  */
-export function SellCard({ state, sell }: { state: GameState; sell: () => void }) {
-  const [armed, press] = useTwoPress(sell)
+export function SellCard({ state, sell }: { state: GameState; sell: (choice: Listing) => void }) {
+  const [armed, press] = useTwoPress(() => sell(PLAIN_LISTING))
   const { run, meta } = state
   // batch 34: cash deeds only (⭐ no longer converts); the ⭐ balance carries, capped
   const gain = deedsClaimable(state)

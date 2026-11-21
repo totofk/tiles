@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import type { CropId } from '../core/data/crops'
+import type { Listing } from '../core/listings'
 import type { GameState } from '../core/state'
 import type { WorkTouch } from '../core/workers'
 import type { Save } from '../save/serialize'
@@ -29,7 +30,7 @@ export type PanelProps = {
   /** task 132: the jobs that acted in the last work round (worker dots, clerk flash) */
   worked: WorkTouch[]
   reset: () => void
-  sell: () => void
+  sell: (choice: Listing) => void
   /** 💾 Data modal hooks: serialise the live run, and commit a decoded import (backup + write + reload) */
   exportCode: () => string
   applyImport: (save: Save) => ImportResult

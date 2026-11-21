@@ -8,6 +8,7 @@ import { UPGRADES, UPGRADE_IDS } from '../core/data/upgrades'
 import { WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import { createInitialState, type GameState } from '../core/state'
 import { sellFarm } from '../core/prestige'
+import type { Listing } from '../core/listings'
 import { step } from '../core/step'
 import { certificateUnlocked, ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
 import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
@@ -243,8 +244,8 @@ export function useGame() {
   }, [commit])
 
   // "Sell the farm": the pre-sale run is backed up like a reset, then the sale's fresh run goes in
-  const sell = useCallback(() => {
-    const r = sellFarm(stateRef.current)
+  const sell = useCallback((choice: Listing) => {
+    const r = sellFarm(stateRef.current, choice)
     if (!r.ok) return showToast(ERROR_TEXT[r.error])
     try {
       localStorage.setItem(PRESTIGE_BACKUP_KEY, serialize(stateRef.current, wallClock()))

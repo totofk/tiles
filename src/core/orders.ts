@@ -63,7 +63,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   // batch 19: the Fields' standing tiles of the crop produce at the same per-tile pace as the home plot
   if (isCropGood(good)) {
     const standing = plantedTiles(run.fields, good)
-    const home = ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer)) * 60
+    const home = ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer, run.listing.soil)) * 60
     // batch 29: a contract (after the Tractor, a crop the fields can sow) scales with the wet tiles
     if (!run.fields.unlocked || !fieldsPlantable(run, good)) return home
     return Math.max(home, ((contractWetShare() * wetTiles(run.fields)) / pressuredCycle(state, good)) * 60)

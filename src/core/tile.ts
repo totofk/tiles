@@ -6,7 +6,7 @@ import type { GameState, Tile } from './state'
 export type TileAction = 'harvest' | 'water' | 'plant' | 'till'
 
 function growTicks(cropId: CropId, s: GameState): number {
-  return cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer)
+  return cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer, s.run.listing.soil)
 }
 
 export function isMature(tile: Tile, s: GameState): boolean {
@@ -27,7 +27,7 @@ export function growthProgress(tile: Tile, s: GameState): number {
 /** ticks left before a mature crop rots (it rots on the step that makes this 0); null if not mature */
 export function ticksUntilRot(tile: Tile, s: GameState): number | null {
   if (!isMature(tile, s)) return null
-  return cropRotGraceTicks(tile.cropId!, s.meta) - tile.ticksSinceMature + 1
+  return cropRotGraceTicks(tile.cropId!, s.meta, s.run.listing.soil) - tile.ticksSinceMature + 1
 }
 
 /** harvest if mature → water (top up) if growing → plant if tilled → till if untilled */

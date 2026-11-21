@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRESTIGE_GATE_DEEDS, deedsFor, energyMax, startTiles, workerActsAt, workerActionTicks } from '../src/core/balance'
+import { ROLLED_DISTRICTS } from '../src/core/data/districts'
+import { PLAIN_LISTING, currentListings, rerollListings } from '../src/core/listings'
 import { deedsClaimable, sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import { createInitialState, type GameState, type MetaState } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -174,5 +176,71 @@ describe('step identity with prestige applied', () => {
     for (let i = 0; i < 600; i++) folded = step(folded, 1)
     expect(step(s, 600)).toEqual(folded)
     expect(catchUp(s, 600_000)).toEqual(step(s, 600))
+  })
+})
+
+describe('batch 36.1: the sale takes a listing', () => {
+  it('sellFarm(s) sells into the plain farm; the plain farm is played, rerolls reset', () => {
+    const s = atGate()
+    const sale = sellFarm({ ...s, meta: { ...s.meta, listingRerolls: 2 } })
+    if (!sale.ok) throw new Error(sale.error)
+    expect(sale.state.run.listing).toEqual(PLAIN_LISTING)
+    expect([sale.state.meta.listingRerolls, sale.state.meta.districtsPlayed]).toEqual([0, ['plain']])
+  })
+
+  it('a rolled listing starts the new run on it; the next first offer leaves its district out', () => {
+    const s = atGate()
+    const rolled = currentListings(s.meta, 'plain')[1]
+    const sale = sellFarm(s, rolled)
+    if (!sale.ok) throw new Error(sale.error)
+    expect(sale.state.run.listing).toEqual(rolled)
+    expect(sale.state.meta.districtsPlayed).toEqual([rolled.district])
+    expect(currentListings(sale.state.meta, sale.state.run.listing.district).map((l) => l.district)).not.toContain(rolled.district)
+  })
+
+  it('after an Orchard Valley run the first offer never has Orchard Valley (fixed seeds, many prestige counts)', () => {
+    let sold = 0
+    for (let seed = 0; seed < 50; seed++) {
+      for (let p = 0; p < 8; p++) {
+        const s = atGate()
+        const state: GameState = { ...s, meta: { ...s.meta, listingSeed: seed, prestigeCount: p } }
+        const orchard = currentListings(state.meta, 'plain').find((l) => l.district === 'orchardValley')
+        if (!orchard) continue
+        const sale = sellFarm(state, orchard)
+        if (!sale.ok) throw new Error(sale.error)
+        sold++
+        expect(currentListings(sale.state.meta, sale.state.run.listing.district).map((l) => l.district)).not.toContain('orchardValley')
+      }
+    }
+    expect(sold).toBeGreaterThan(100)
+  })
+
+  it('refuses BAD_CHOICE for a listing not on offer, or one gone stale after a reroll', () => {
+    const s = atGate({ stars: 100 })
+    const offer = currentListings(s.meta, 'plain')
+    const off = ROLLED_DISTRICTS.find((d) => !offer.some((l) => l.district === d))!
+    expect(sellFarm(s, { district: off, soil: { fast: 'roots', slow: 'berry' } })).toEqual({ ok: false, error: 'BAD_CHOICE' })
+    expect(sellFarm(s, { district: offer[1].district, soil: null })).toEqual({ ok: false, error: 'BAD_CHOICE' })
+    const rerolled = rerollListings(s)
+    if (!rerolled.ok) throw new Error(rerolled.error)
+    if (!currentListings(rerolled.state.meta, 'plain').some((l) => l.district === offer[1].district && l.soil?.fast === offer[1].soil?.fast && l.soil?.slow === offer[1].soil?.slow)) {
+      expect(sellFarm(rerolled.state, offer[1])).toEqual({ ok: false, error: 'BAD_CHOICE' })
+    }
+    // the gate and the loan come first
+    expect(sellFarm(createInitialState(), offer[1])).toEqual({ ok: false, error: 'LOCKED' })
+  })
+
+  it('the ⭐ carried after the sale is the balance after rerolls (cap unchanged)', () => {
+    const s = atGate({ stars: 500 })
+    const r1 = rerollListings(s)
+    if (!r1.ok) throw new Error(r1.error)
+    const r2 = rerollListings(r1.state)
+    if (!r2.ok) throw new Error(r2.error)
+    expect(r2.state.run.stars).toBe(380)
+    const sale = sellFarm(r2.state, currentListings(r2.state.meta, 'plain')[2])
+    if (!sale.ok) throw new Error(sale.error)
+    expect([sale.state.run.stars, sale.state.meta.listingRerolls]).toEqual([380, 0])
+    const rich = sellFarm(atGate({ stars: 650 }))
+    expect(rich.ok && rich.state.run.stars).toBe(400)
   })
 })

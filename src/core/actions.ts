@@ -208,7 +208,7 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
     i,
     (t) => {
       if (t.status !== 'planted' || !t.cropId) return 'NOT_PLANTED'
-      return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer) ? 'NOT_MATURE' : null
+      return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil) ? 'NOT_MATURE' : null
     },
     (t) => {
       const { run } = state

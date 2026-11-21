@@ -47,7 +47,7 @@ type CellProps = {
 function Cell({ tile, state, onTap, ring, flash, ordered, irrigated }: CellProps) {
   const mature = isMature(tile, state)
   const rotIn = ticksUntilRot(tile, state)
-  const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta) : 1
+  const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta, state.run.listing.soil) : 1
   const growing = tile.status === 'planted' && !mature
   const dry = growing && !irrigated && isDry(tile)
 

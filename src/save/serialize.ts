@@ -1,6 +1,7 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
 import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
+import { PLAIN_LISTING, listingSeedFor } from '../core/listings'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
 import type { MilestoneId } from '../core/data/milestones'
 import type { ToolJob } from '../core/data/tools'
@@ -18,6 +19,8 @@ import {
   type Lifetime,
   type Loan,
   type Machines,
+  type MetaState,
+  type RunState,
   type Mold,
   type MultiplierKey,
   type Offer,
@@ -31,7 +34,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 29
+export const SAVE_VERSION = 30
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -277,13 +280,17 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   furnace: FurnaceV25 & { stoked: number }
 }
 type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
+/** v29: before the sale listings (batch 36.1) */
+type MetaV29 = Omit<MetaState, 'listingSeed' | 'listingRerolls' | 'districtsPlayed'>
+type RunV29 = Omit<RunState, 'listing'>
 /** v28: fractional ⭐ kept in starsFrac, offers paid ⭐ per production-minute, rerolls free of a counter */
-type RunV28 = Omit<GameState['run'], 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
+type RunV28 = Omit<RunV29, 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
 type RunV27 = Omit<RunV28, 'barKeep' | 'autoBuyWood'>
 type SaveV27 = { version: 27; savedAtMs: number; state: { meta: GameState['meta']; run: RunV27 } }
 type SaveV28 = { version: 28; savedAtMs: number; state: { meta: GameState['meta']; run: RunV28 } }
-type SaveV29 = { version: 29; savedAtMs: number; state: GameState }
-export type Save = SaveV29
+type SaveV29 = { version: 29; savedAtMs: number; state: { meta: MetaV29; run: RunV29 } }
+type SaveV30 = { version: 30; savedAtMs: number; state: GameState }
+export type Save = SaveV30
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -845,23 +852,36 @@ function migrateV28(save: SaveV28): SaveV29 {
   }
 }
 
+// v29 → v30 (batch 36.1): the run is on the plain farm (no soil); the listing seed is hashed from what the save has
+// earned so migrated players do not all see the same first offer; no rerolls, no district played. Nothing else changes.
+function migrateV29(save: SaveV29): SaveV30 {
+  const { meta, run } = save.state
+  const listingSeed = listingSeedFor(meta.prestigeCount, meta.deedsClaimed, Math.floor(run.lifetime.cashEarned))
+  return {
+    version: 30,
+    savedAtMs: save.savedAtMs,
+    state: { meta: { ...meta, listingSeed, listingRerolls: 0, districtsPlayed: [] }, run: { ...run, listing: PLAIN_LISTING } },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 29) return data as SaveV29
-  if (data.version === 28) return migrateV28(data as SaveV28)
-  if (data.version === 27) return migrateV28(migrateV27(data as SaveV27))
-  if (data.version === 26) return migrateV28(migrateV27(migrateV26(data as SaveV26)))
-  if (data.version === 25) return migrateV28(migrateV27(migrateV26(migrateV25(data as SaveV25))))
-  if (data.version === 24) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24)))))
-  if (data.version === 23) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23))))))
-  if (data.version === 22) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22)))))))
-  if (data.version === 21) return migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))))))
+  if (data.version === 30) return data as SaveV30
+  if (data.version === 29) return migrateV29(data as SaveV29)
+  if (data.version === 28) return migrateV29(migrateV28(data as SaveV28))
+  if (data.version === 27) return migrateV29(migrateV28(migrateV27(data as SaveV27)))
+  if (data.version === 26) return migrateV29(migrateV28(migrateV27(migrateV26(data as SaveV26))))
+  if (data.version === 25) return migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(data as SaveV25)))))
+  if (data.version === 24) return migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24))))))
+  if (data.version === 23) return migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23)))))))
+  if (data.version === 22) return migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))))))
+  if (data.version === 21) return migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))))))
   const v20 = toV20(data)
-  return v20 && migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))))))
+  return v20 && migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

@@ -672,3 +672,22 @@ describe('step identity over plots', () => {
     expect(sown(one)).toBeGreaterThan(0)
   })
 })
+
+describe('batch 36.1: PIN36b listing soil on estate income', () => {
+  it("the best crop's marginal estate income under each of the 6 soils is within −16.7 % … +25 % of plain", () => {
+    const list = Array.from({ length: 20 }, () => field([empty(), empty(), empty(), empty(), empty()]))
+    const harvests = Object.fromEntries(CROP_IDS.map((c) => [c, 50]))
+    const s = withFields(list, { licenses: [...CROP_IDS], lifetime: { ...init.run.lifetime, harvests } })
+    const plain = fieldsMarginalIncomePerHour(s)
+    expect(plain).toBeGreaterThan(0)
+    const groups = ['roots', 'fruitVeg', 'berry'] as const
+    for (const fast of groups) {
+      for (const slow of groups) {
+        if (fast === slow) continue
+        const ratio = fieldsMarginalIncomePerHour({ ...s, run: { ...s.run, listing: { district: 'wetlands', soil: { fast, slow } } } }) / plain
+        expect(ratio).toBeGreaterThanOrEqual(1 / 1.2 - 0.005)
+        expect(ratio).toBeLessThanOrEqual(1 / 0.8 + 0.005)
+      }
+    }
+  })
+})
