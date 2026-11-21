@@ -17,7 +17,7 @@ export const PLAIN_LISTING: Listing = { district: 'plain', soil: null }
 const SOILS: ListingSoil[] = GROUP_IDS.flatMap((fast) => GROUP_IDS.filter((slow) => slow !== fast).map((slow) => ({ fast, slow })))
 
 /** one uint32 from a list of non-negative integers */
-function hash(...xs: number[]): number {
+export function hash(...xs: number[]): number {
   let h = 0x811c9dc5
   for (const x of xs) {
     for (const part of [x >>> 0, Math.floor(x / 4294967296) >>> 0]) {
@@ -56,6 +56,8 @@ export function currentListings(meta: MetaState, lastPlayed: DistrictId): [Listi
     pool = pool.filter((d) => d !== district)
     return { district, soil: SOILS[Math.floor(draw() * SOILS.length)] }
   })
+  // batch 36.2: the two rows never share a soil; redrawn after the existing draws so a distinct offer stays byte-identical
+  while (rolled[1].soil === rolled[0].soil) rolled[1] = { ...rolled[1], soil: SOILS[Math.floor(draw() * SOILS.length)] }
   return [PLAIN_LISTING, rolled[0], rolled[1]]
 }
 

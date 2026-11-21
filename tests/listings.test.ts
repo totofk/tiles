@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { harvest, plant, till } from '../src/core/actions'
+import { harvest, nextRandom, plant, till } from '../src/core/actions'
 import { FIELD_PRESSURE, LISTING_REROLL_MAX, cropGrowTicks, cropRotGraceTicks, listingGrowFactor, listingRerollStars } from '../src/core/balance'
 import { CROP_GROUPS, CROP_IDS, GROUP_IDS, cropGroup, type CropId, type ListingSoil } from '../src/core/data/crops'
 import { ROLLED_DISTRICTS, type DistrictId } from '../src/core/data/districts'
 import { pressuredCycle } from '../src/core/fields'
-import { PLAIN_LISTING, currentListings, rerollListings } from '../src/core/listings'
+import { PLAIN_LISTING, currentListings, hash, rerollListings } from '../src/core/listings'
 import { orderPerMinute } from '../src/core/orders'
 import { createInitialState, type GameState, type MetaState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -91,6 +91,41 @@ describe('the listing roll', () => {
     }
     expect(count.orchardValley).toBeGreaterThan(count.wetlands)
     expect(count.ironHills).toBeGreaterThan(count.wetlands)
+  })
+
+  it('never gives the two rolled listings the same soil (batch 36.2)', () => {
+    for (let seed = 0; seed < 400; seed++) {
+      for (let p = 0; p < 4; p++) {
+        for (let r = 0; r < 5; r++) {
+          const [, a, b] = currentListings(withMeta({ listingSeed: seed * 104729, prestigeCount: p, listingRerolls: r }), 'plain')
+          expect(b.soil).not.toEqual(a.soil)
+        }
+      }
+    }
+  })
+
+  it('changes only an offer that collided: its districts and soil A stay', () => {
+    const soils = GROUP_IDS.flatMap((fast) => GROUP_IDS.filter((slow) => slow !== fast).map((slow) => ({ fast, slow })))
+    // the 36.1 rule: soil A and soil B were the 2nd and 4th draws
+    const oldSoils = (m: MetaState) => {
+      let rng = hash(m.listingSeed, m.prestigeCount, m.listingRerolls)
+      const r: number[] = []
+      for (let i = 0; i < 4; i++) [r[i], rng] = nextRandom(rng)
+      return [soils[Math.floor(r[1] * soils.length)], soils[Math.floor(r[3] * soils.length)]]
+    }
+    let collided: MetaState | undefined
+    for (let seed = 0; seed < 200; seed++) {
+      const m = withMeta({ listingSeed: seed, prestigeCount: 1 })
+      const [a, b] = oldSoils(m)
+      const offer = currentListings(m, 'plain')
+      expect(offer[1].soil).toEqual(a)
+      if (a.fast === b.fast && a.slow === b.slow) collided ??= m
+      else expect(offer[2].soil).toEqual(b)
+    }
+    expect(collided).toBeDefined()
+    const [, a, b] = currentListings(collided!, 'plain')
+    expect(a.soil).toEqual(oldSoils(collided!)[0])
+    expect(b.soil).not.toEqual(a.soil)
   })
 })
 
