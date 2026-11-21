@@ -615,3 +615,23 @@ describe('batch-14 milestones', () => {
     expect(bought.run.milestones.orderBoard).toBe(77)
   })
 })
+
+describe('batch 36.2: PIN36g forge goods in the order pool', () => {
+  it('an Iron Hills run with the forge built, every mold, vein 4: forge goods are ≤ 35 % of the pool', () => {
+    const empty = { ore: 0, progress: 0, ready: 0 }
+    const run: RunState = {
+      ...init.run,
+      listing: { district: 'ironHills', soil: null },
+      licenses: ['potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'chilli'],
+      mineLicense: true,
+      vein: { level: 4, progress: 0, rock: 'stone' },
+      rack: { copper: 3, iron: 3 },
+      furnace: { ...init.run.furnace, built: true, molds: { copperOre: empty, ironOre: empty, goldOre: empty } },
+      forge: { ...init.run.forge, built: true },
+    }
+    const pool = orderPool(run)
+    const goods = pool.filter((g) => ['toolbox', 'ploughBlade', 'anchorChain'].includes(g))
+    expect(goods).toEqual(['toolbox', 'ploughBlade', 'anchorChain'])
+    expect(goods.length / pool.length).toBeLessThanOrEqual(0.35)
+  })
+})

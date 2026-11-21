@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  FORGE_RECIPES,
+  treeCadenceTicks,
+  type SellableItemId,
   START_TILES,
   STARTING_CASH,
   TILE_CAP,
@@ -31,7 +34,7 @@ import {
 import { buySeeds } from '../src/core/actions'
 import { buyWood } from '../src/core/mining'
 import { CROP_IDS } from '../src/core/data/crops'
-import { ORE_IDS, PICKAXE_TIERS, type PickaxeTier } from '../src/core/data/items'
+import { FORGE_GOOD_IDS, ORE_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from '../src/core/data/items'
 import { createInitialMeta, createInitialState, type MetaState } from '../src/core/state'
 
 const meta = createInitialMeta()
@@ -185,5 +188,29 @@ describe('furnace molds (batch 33): the throughput bound', () => {
     const rate = furnaceSpeedRate(furnaceUpgradeMaxLevel('speed'))
     expect([bars, rate]).toEqual([5, 1.5625])
     expect((bars * 3600 * rate) / barTicks('copperOre')).toBe(468.75)
+  })
+})
+
+describe('batch 36.2: tree bed and forge numbers', () => {
+  const { meta } = createInitialState()
+
+  it('PIN36e: a tree bed earns within ±15 % of a replanted bed of the same crop (lemon 101 %, strawberry 103 %)', () => {
+    const ratio = (c: 'lemon' | 'strawberry') => {
+      const sell = cropSellPrice(c, meta, 0)
+      const tree = (6 * sell * 3600) / treeCadenceTicks(c)
+      const replanted = (6 * (sell - cropSeedCost(c, meta)) * 3600) / cropGrowTicks(c, meta, 0)
+      return tree / replanted
+    }
+    expect([Math.round(ratio('lemon') * 100), Math.round(ratio('strawberry') * 100)]).toEqual([101, 103])
+    for (const c of ['lemon', 'strawberry'] as const) expect(Math.abs(ratio(c) - 1)).toBeLessThanOrEqual(0.15)
+  })
+
+  it('PIN36f: every forge recipe sells above its inputs and at most 1.30 × their sell value', () => {
+    for (const id of FORGE_GOOD_IDS) {
+      const inputs = (Object.entries(FORGE_RECIPES[id].inputs) as [ItemId, number][]).reduce((sum, [item, n]) => sum + n * itemSellPrice(item as SellableItemId, meta, 0), 0)
+      const sell = itemSellPrice(id, meta, 0)
+      expect(sell / inputs).toBeGreaterThan(1)
+      expect(sell / inputs).toBeLessThanOrEqual(1.3)
+    }
   })
 })

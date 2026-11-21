@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '36.2', date: '2026-11-21', line: "Orchard Valley and Iron Hills now play their own way: each sells its own seeds; Orchard berries pay ×1.4 and grow a 🌳 fruit tree; Iron Hills stamps bars into goods at a 🔨 forge." },
   { batch: '36.1', date: '2026-11-21', line: "Selling now offers your next farm: the plain farm or two rolled listings where one crop group grows 20 % faster, another 20 % slower. 🔄 Reroll them for ⭐40–320, up to 4 a sale." },
   { batch: '35.5', date: '2026-11-21', line: "The ⭐ in the top bar is now just your ⭐ count, not a button; Favours stay at the end of ⬆️ Upgrades. The sale card shows the deeds you get once selling opens." },
   { batch: '35.4', date: '2026-11-21', line: "⭐ Favours now sit at the end of ⬆️ Upgrades. The 🏦 Bank always shows what selling the farm resets and keeps, and Orders say how big a 🚜 contract can get." },

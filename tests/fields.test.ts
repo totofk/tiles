@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   FIELD_PRESSURE,
+  RENOWN_TIERS,
   TANK_UNITS_PER_COAL,
   cropGrowTicks,
   fieldCoalPerPlotHour,
@@ -24,6 +25,7 @@ import {
   workerActionTicks,
 } from '../src/core/balance'
 import { nextRandom } from '../src/core/actions'
+import { DISTRICT_SELLS, type DistrictId } from '../src/core/data/districts'
 import {
   buildPivot,
   buyMachine,
@@ -689,5 +691,34 @@ describe('batch 36.1: PIN36b listing soil on estate income', () => {
         expect(ratio).toBeLessThanOrEqual(1 / 0.8 + 0.005)
       }
     }
+  })
+})
+
+describe('batch 36.2: PIN36d supply lists on estate income', () => {
+  it("the best crop's marginal estate income: Orchard −10 % … +25 % of plain, Iron Hills = plain ±0.5 pp; chilli-renowned ≥ −30 %", () => {
+    const list = Array.from({ length: 20 }, () => field([empty(), empty(), empty(), empty(), empty()]))
+    const harvests = Object.fromEntries(CROP_IDS.map((c) => [c, 50]))
+    const at = (district: DistrictId, renown: Partial<Record<CropId, number>> = {}) =>
+      withFields(list, {
+        licenses: [...DISTRICT_SELLS[district]],
+        lifetime: { ...init.run.lifetime, harvests },
+        listing: { district, soil: null },
+        renown,
+      })
+    const ratios = (renown: Partial<Record<CropId, number>>) => {
+      const plain = fieldsMarginalIncomePerHour(at('plain', renown))
+      return {
+        orchardValley: fieldsMarginalIncomePerHour(at('orchardValley', renown)) / plain,
+        ironHills: fieldsMarginalIncomePerHour(at('ironHills', renown)) / plain,
+      }
+    }
+    const base = ratios({})
+    const renowned = ratios({ chilli: RENOWN_TIERS[RENOWN_TIERS.length - 1] })
+    console.log('PIN36d', JSON.stringify({ base, chilliRenowned: renowned }))
+    expect(base.orchardValley).toBeGreaterThanOrEqual(0.9)
+    expect(base.orchardValley).toBeLessThanOrEqual(1.25)
+    expect(Math.abs(base.ironHills - 1)).toBeLessThanOrEqual(0.005)
+    expect(renowned.orchardValley).toBeGreaterThanOrEqual(0.7)
+    expect(renowned.ironHills).toBeGreaterThanOrEqual(0.7)
   })
 })

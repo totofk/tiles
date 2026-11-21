@@ -83,7 +83,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
 
 ## Tasks (213–218)
 
-- [ ] 213. **Distinct soils on the two rolled listings (Toon-approved fix).** `currentListings`
+- [x] 213. **Distinct soils on the two rolled listings (Toon-approved fix).** `currentListings`
   (`src/core/listings.ts:43–60`): draws stay in today's order (district A, soil A, district B, soil B, `:53–58`); when
   soil B deep-equals soil A, draw soil B again from the same rng (repeat until it differs). Every offer that already
   had two different soils stays byte-identical (the extra draw happens only after the last existing draw), so the
@@ -93,7 +93,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
   two rolled soils never deep-equal; a seed that collided before the fix (find one with the old rule inline in the
   test, assert it existed) now differs and its district names and soil A are unchanged; the 36.1 determinism tests
   still pass. If an existing test pinned a colliding offer, re-pin it old → new and record it under `### Deviations`.
-- [ ] 214. **District framework: supply lists, Orchard berry ×1.4, the shop, the Next farm rows.**
+- [x] 214. **District framework: supply lists, Orchard berry ×1.4, the shop, the Next farm rows.**
   - `src/core/data/districts.ts:1–13` gains `DISTRICT_SELLS: Record<DistrictId, readonly CropId[]>`: plain and wetlands
     = every crop (`CROP_IDS`, `src/core/data/crops.ts:3`; wetlands' list goes live in 36.3); every district keeps the
     5 cheap rungs potato, radish (Carrot), corn, eggplant, pumpkin; orchardValley = those + lemon, grape, strawberry
@@ -125,7 +125,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
     the soil line, from a new `DISTRICT_HINT: Partial<Record<DistrictId, string>>` in `src/core/data/districts.ts`:
     orchardValley "sells 8 of 10 crops · berries ×1.4 · 🌳 fruit tree", ironHills "sells 7 of 10 crops · 🔨 forge".
     The plain and wetlands rows are unchanged (no hint). Stats "This farm" (36.1) is unchanged.
-- [ ] 215. **Save v31 (state shapes for the tree bed and the forge).** `RunState` (`src/core/state.ts:25–99`) gains
+- [x] 215. **Save v31 (state shapes for the tree bed and the forge).** `RunState` (`src/core/state.ts:25–99`) gains
   `tree: TreeBed | null` and `forge: Forge`:
   `type TreeBed = { bed: number; crop: CropId; ticks: number[]; stock: number[] }` (6 entries each, one per tile of the
   bed; `ticks` = ticks toward the tile's next fruit, `stock` = fruit waiting on the tile) and
@@ -146,7 +146,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
   Put the types, `createForge`, the migration and its tests in THIS commit (36.1 had to move its bump into the first
   state commit to stay green; doing it first avoids that). ItemIds for the forge goods come in 217 (inventory is a
   partial record, so no migration needs them).
-- [ ] 216. **Orchard Valley signature: the 🌳 fruit tree bed.** New `src/core/tree.ts`; numbers in balance.ts:
+- [x] 216. **Orchard Valley signature: the 🌳 fruit tree bed.** New `src/core/tree.ts`; numbers in balance.ts:
   `TREE_CADENCE = 1.25`, `TREE_MATURE_CYCLES = 2`, `TREE_STOCK_CAP = 3`, `TREE_PLANT_SEEDS = 12`, `TREE_PLANT_ENERGY =
   1` (all est.), `treeCadenceTicks(crop) = Math.round(TREE_CADENCE × CROP_BASE[crop].growTicks)` (lemon 775, grape
   975, strawberry 1,200 — base grow ticks: no fertilizer, no Legacy growTime, no listing soil), `treePlantCost(crop,
@@ -179,7 +179,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
     💰{treePlantCost}" (disabled with the error's short text), lines "Fruits every {m} min, no water, never rots" and
     "Permanent for this farm — cannot be moved". The bed's 6 tiles render as tree tiles: 🌳 plus the fruit count on
     the tile when stock > 0 (e.g. "🍋2"); no moisture bar. Before the first fruit a tile shows 🌳 only.
-- [ ] 217. **Iron Hills signature: the 🔨 forge.** New `src/core/forge.ts`; numbers in balance.ts (all est.):
+- [x] 217. **Iron Hills signature: the 🔨 forge.** New `src/core/forge.ts`; numbers in balance.ts (all est.):
   `FORGE_COST = { stone: 30, coal: 10, copperBar: 5, cash: 1500 }` (scaled like `furnaceCost`, `:831`),
   `FORGE_CYCLE_TICKS = 300`, `FORGE_TRAY = 10`, `FORGE_RECIPES` = toolbox { copperBar 4, coal 1 } → 🔧 Toolbox,
   ploughBlade { ironBar 2, coal 1 } → ⚙️ Plough blade, anchorChain { goldBar 3, coal 2 } → ⛓️ Anchor chain; sell
@@ -212,7 +212,7 @@ always offered. Every new number lives in `src/core/balance.ts` and is `(est.)` 
     (`:97`) and the short reason when disabled (needs the furnace first); after: one row per recipe "🔧 Toolbox · 🥉4
     ⚫1 → 💰520" as a pressed/unpressed choice plus "Off", a "Load one" button, a status line ("Stamping 🔧 · 120 /
     300 s" / "Idle" / "Tray full"), "Tray n / 10" and "Collect".
-- [ ] 218. **Pins, CHANGELOG, results.**
+- [x] 218. **Pins, CHANGELOG, results.**
   - PIN36c (the ONLY sim of the batch; new `tests/sim/districts.test.ts`, describe `'batch 36.2: districts'`): the
     shipped ladder bot (`runBot`, `tests/sim/bot.ts:631–661`, same flags as PIN36a in `tests/sim/fields.test.ts:66–124`)
     from a fresh state with `run.listing = { district, soil: null }`, licence lists passed through the existing
@@ -289,3 +289,89 @@ district first finish"; dig finds + relics (36.4); Soil survey (36.5); renown ti
 where the chilli-renowned −8 % target re-pins); the vein reshuffle / rich vein (rejected with the foundry); dig seeds
 for unlisted crops; a loader that picks forge recipes by itself; any "sell now" nudge; any change to the ⭐ Favours
 section, the HUD ⭐ or the reroll prices.
+
+## Batch 36.2 results
+
+Tests: 64 files, 1192 passed + 7 expected fail (1199) before → 68 files, 1232 passed + 7 expected fail (1239) after
+(`pnpm test`, measured on d2c96c04's parent and on this commit). Lint clean, `pnpm build` clean (dist/ deleted), forced
+`tsc -b --force` clean (src + tests). Purity grep `Date.now|react` over src/core and src/save: only the known
+`src/save/storage.ts:26` wallClock line. Case-clash check prints nothing. Not pushed.
+
+Commits, one line each:
+- 213 `d2c96c04` — `currentListings` redraws soil B from the same rng while it equals soil A (after the existing four
+  draws); `hash` exported for the test's replica of the 36.1 rule.
+- 214 `69f4de85` — `DISTRICT_SELLS` / `districtSells` / `DISTRICT_HINT` (districts.ts); `buyLicense` NOT_SOLD_HERE after
+  ALREADY_OWNED; `DISTRICT_BERRY_SELL = 1.4`, `districtSellFactor`, `cropSellPrice(…, district = 'plain')` passed at the
+  6 runtime sites; Shop "not sold in …" rows; Next farm hint lines.
+- 215 `f2327398` — `RunState.tree` / `RunState.forge`, `TreeBed`, `Forge`, `createForge`, `FORGE_GOOD_IDS` (type only, not
+  yet ItemIds); `SAVE_VERSION` 31, `SaveV30` frozen as the pre-district shape, `migrateV30` chained on every branch.
+- 216 `09b268c7` — `src/core/tree.ts` (`plantTreeBed`, `isTreeTile`, `tickTree`, `harvestTreeTile`); tree numbers in
+  balance.ts; water / till / plant / harvest / tapTile / nextTileAction / toolTargets / stepTile skip; FarmGrid tree
+  socket block and tree cells (`.cell-tree` reuses the growing green).
+- 217 `5fc7ff12` — `src/core/forge.ts` (`buildForge`, `setForgeRecipe`, `loadForge`, `collectForge`, `tickForge`,
+  `forgeLoaderAction`); ITEM_IDS + ITEMS + ITEM_SELL_PRICE gain toolbox / ploughBlade / anchorChain; `FORGE_COST`,
+  `FORGE_CYCLE_TICKS`, `FORGE_TRAY`, `FORGE_RECIPES`, `forgeCost`; ore loader = furnace work ?? forge work; orderPool /
+  orderPerMinute / itemOrderValue; the Mine Forge card.
+- 218 (this commit) — PIN36c sim, PIN36d / e / f / g, CHANGELOG 36.2 (177 code points, once), these results.
+
+Pins (all measured with the commands named):
+- PIN36c (`npx vitest run tests/sim/districts.test.ts`): `{"plain10":7.65,"orchardValley":6.59,"ironHills":7.73}`
+  game-h to the Fields unlock → Orchard −13.9 %, Iron Hills +1.0 % of plain10 (band ±20 %, passes). Hermes's probe
+  before berry ×1.4 was 7.65 / 7.04 / 7.73, so the ×1.4 moved Orchard 7.04 → 6.59. No district bot deadlocked.
+- PIN36d (`tests/fields.test.ts`): Orchard 1.0136 × plain (band 0.90 … 1.25), Iron Hills 1.0000 × plain (±0.5 pp);
+  chilli-renowned (chilli renown 4000, the top tier): Orchard 1.0136, Iron Hills 1.0000 (assert ≥ 0.70) — see Deviation 5.
+- PIN36e (`tests/balance.test.ts`): tree bed vs replanted bed, lemon 101 %, strawberry 103 % (band ±15 %).
+- PIN36f: toolbox 520 / 404 = 1.287, plough blade 1250 / 1004 = 1.245, anchor chain 3600 / 3008 = 1.197 (each > 1, ≤ 1.30).
+- PIN36g (`tests/orders.test.ts`): Iron Hills, forge built, every mold, vein 4, the 7 Iron Hills licences: 3 forge goods
+  of an 18-entry pool = 16.7 % (≤ 35 %).
+
+Migrated fixture: `tests/fixtures/save-v30.json` (version 30, plain listing, listingSeed 2,737,987,114, ⭐79, 24 tiles,
+10 licences) → version 31 with exactly two new run keys, `tree: null` and `forge: { built: false, recipe: null, job: null,
+progress: 0, tray: {} }`; everything else deep-equal to the v30 state. Every fixture save-v1 … save-v30 lands on v31 with
+tree null and an unbuilt forge.
+
+Task 213 example (seed 1, prestigeCount 1, rerolls 0): before, Orchard Valley roots fast · berry slow and Wetlands roots
+fast · berry slow (same soil) → after, Orchard Valley unchanged and Wetlands roots fast · fruit-veg slow. Of seeds 0 … 199
+at prestige 1, every non-colliding offer is unchanged (asserted in `tests/listings.test.ts`). No existing test pinned a
+colliding offer; the 36.1 migrated-fixture offer (seed 3,706,322,434) is unchanged.
+
+New UI strings:
+- Error texts: "Not sold in this district" (NOT_SOLD_HERE), "Harvest that bed first" (BED_BUSY).
+- Shop: `not sold in {district name}` (e.g. "not sold in Orchard Valley") on an unowned unlisted licence row (disabled).
+- Next farm rows: "sells 8 of 10 crops · berries ×1.4 · 🌳 fruit tree" (Orchard Valley), "sells 7 of 10 crops · 🔨 forge"
+  (Iron Hills).
+- Bed socket: aria-label "Bed {n} tree socket" (🌳 button); sheet title "Bed {n}" when it has no sprinkler block; heading
+  "🌳 Fruit tree"; buttons "{emoji} {name} · 💰{cost}" (+ the error's text when disabled); "Fruits every {m} min, no water,
+  never rots"; "Permanent for this farm — cannot be moved".
+- Tree tiles: 🌳, plus "{crop emoji}{n}" when fruit waits (e.g. "🍋2").
+- Mine Forge card: "🔨 Forge · stamps bars into goods for orders", "Build forge" + price (+ " · {reason}"), "🔨 Forge",
+  recipe rows "🔧 Toolbox · 🥉4 ⚫1 → 💰520", "⚙️ Plough blade · 🥈2 ⚫1 → 💰1,250", "⛓️ Anchor chain · 🥇3 ⚫2 → 💰3,600",
+  "Off", "Load one" (+ short reason), status "Stamping {emoji} · {p} / 300 s" / "Idle" / "Tray full", "Collect" with
+  "Tray {n} / 10".
+- Items: 🔧 Toolbox, ⚙️ Plough blade, ⛓️ Anchor chain (storage rows, order rows "Deliver Toolbox order").
+- CHANGELOG 36.2 line, verbatim.
+
+### Deviations
+
+1. "Fruits every {m} min": with more than one licensed berry the line lists each button's minutes in button order
+   ("Fruits every 13 / 16 / 20 min, …"); with one berry it reads exactly as the plan.
+2. Tree socket reach: on an Orchard run with no tree, every whole bed (6 owned tiles) shows a socket, even before the
+   workshop is built (🌳, "Bed {n} tree socket"); a bed that can still take a sprinkler keeps its sprinkler socket and its
+   sheet shows both blocks; an irrigated bed shows the fountain plus the 🌳 socket. The plan did not say how the sheet is
+   reached without a workshop; without this the tree would wait for the workshop.
+3. "Sell all when storage full" (`SELL_WHEN_FULL`, Mine) leaves forge goods out, like bars (the plan: goods "sell from
+   storage like bars"). They still sell one by one / all from their own storage row.
+4. Recipe rows list inputs in recipe order ("🥉4 ⚫1", the plan's text); `priceText` would print "⚫1 🥉4" (ITEM_IDS order).
+5. PIN36d chilli-renowned case reports the same ratios as the base case: the pure-function state (20 empty fields, an
+   empty market) never pushes chilli to its floor, so the top renown floor does not change the best crop's margin. The
+   ≥ −30 % assert passes; the −8 % chilli-renowned target re-pins in 36.6 as planned.
+6. Small exports for the tests / modules: `hash` (listings.ts), `farmAction` (actions.ts, used by tree.ts);
+   `nextTileAction` gained an optional tile index (tapTile passes it). `FORGE_GOOD_IDS` / `ForgeGoodId` landed in 215
+   (the Forge type needs them) and joined `ITEM_IDS` in 217.
+7. `loadForge`'s FULL toast reads the existing "Furnace is full" text (ERROR_TEXT is shared); on the card the short reason
+   is "full".
+8. Existing tests changed: the 36.1 Next farm row text now ends with the hint (Legacy.test); save version pins 30 → 31
+   (save.test ×3, App.test "Will migrate v15 → v31"); `asV29Run` now strips `tree` / `forge` through a new `asV30Run`.
+9. Not verified (no browser; jsdom only): layout and wrapping at 375 / 1024 / 1440 / 2560 / 3440 px of the Next farm hint
+   lines, the Shop "not sold in …" rows, the bed socket sheet's 🌳 block and the tree cells (`.cell-tree`), and the Mine
+   Forge card (recipe row width — the anchor chain row is the longest).
