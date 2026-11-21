@@ -32,6 +32,10 @@ describe('CHANGELOG data (batch 24.2, task 133)', () => {
     }
   })
 
+  it('batch 35.5: the amended 35.4 line no longer tells players to tap ⭐', () => {
+    expect(CHANGELOG.find((e) => e.batch === '35.4')!.line).not.toContain('tap ⭐')
+  })
+
   it('every shipped batch (a `## Batch N results` heading in docs/PLAN.md or its archive) has a CHANGELOG entry', () => {
     const shipped = [...plan.matchAll(/^## Batch ([0-9.]+) results/gm)].map((m) => m[1])
     expect(shipped.length).toBeGreaterThan(0)

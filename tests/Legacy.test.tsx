@@ -114,6 +114,16 @@ describe('🏆 Sell the farm card', () => {
     expect(button.disabled).toBe(true)
   })
 
+  it('batch 35.5: before the gate the card keeps the ⭐ carry line, Resets, Carries and the locked button, with no "Selling gives"', () => {
+    const s = createInitialState()
+    render(<SellCard state={{ ...s, run: { ...s.run, stars: 37 } }} sell={() => {}} />)
+    expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
+    expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Resets', 'Carries'])
+    expect((screen.getByRole('button', { name: /🔒 Sell the farm/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect(document.body.textContent).not.toContain('Selling gives')
+  })
+
   it('batch 31: with Kept renown the Resets list says the tiers are kept', () => {
     const s = atGate()
     render(<SellCard state={{ ...s, meta: { ...s.meta, upgrades: { ...s.meta.upgrades, keepRenown: 1 } } }} sell={() => {}} />)

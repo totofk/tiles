@@ -4,7 +4,8 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
-  { batch: '35.4', date: '2026-11-21', line: "⭐ Favours now sit at the end of ⬆️ Upgrades: tap ⭐ in the top bar to jump there. The 🏦 Bank always shows what selling the farm gives, and Orders say how big a 🚜 contract can get." },
+  { batch: '35.5', date: '2026-11-21', line: "The ⭐ in the top bar is now just your ⭐ count, not a button; Favours stay at the end of ⬆️ Upgrades. The sale card shows the deeds you get once selling opens." },
+  { batch: '35.4', date: '2026-11-21', line: "⭐ Favours now sit at the end of ⬆️ Upgrades. The 🏦 Bank always shows what selling the farm resets and keeps, and Orders say how big a 🚜 contract can get." },
   { batch: '35.3', date: '2026-11-21', line: "Orders pay ⭐8 / 16 / 32 by size, so Favours come every few minutes; ⭐ prices and your ⭐ go ×8. Rerolls cost cash and double until you finish an order. 🚜 Contracts fit your fields." },
   { batch: '35.2', date: '2026-11-21', line: "After the Tractor bars get Keep N and extras sell as they leave the furnace. Orders take part deliveries, the furnace can buy wood, and the mine tells you why miners stop." },
   { batch: '35.1', date: '2026-11-14', line: "Behind the scenes: the game's balance checks were reorganised so updates ship faster. Nothing changes in play." },

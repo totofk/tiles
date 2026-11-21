@@ -115,7 +115,7 @@ function gateShort(state: GameState): string {
 
 /**
  * The sale card, shown at every stage (batch 35.4: information only, no nudge): exactly what resets and what carries,
- * the deeds selling gives, then the two-press "Sell the farm" once the gate is open (disabled with no gain) — before
+ * the deeds selling gives once the gate is open, then the two-press "Sell the farm" once the gate is open (disabled with no gain) — before
  * that a locked teaser naming what is missing.
  */
 export function SellCard({ state, sell }: { state: GameState; sell: () => void }) {
@@ -124,12 +124,15 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
   // batch 34: cash deeds only (⭐ no longer converts); the ⭐ balance carries, capped
   const gain = deedsClaimable(state)
   const carried = Math.min(run.stars, STAR_CARRY_CAP)
+  const open = sellFarmUnlocked(state)
   return (
     <section className="shop">
       <h2>🏆 Sell the farm</h2>
-      <p className="deeds">
-        Selling gives +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
-      </p>
+      {open && (
+        <p className="deeds">
+          Selling gives +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
+        </p>
+      )}
       <p className="deeds">
         {STAR_EMOJI} {carried} carried to the next farm
         {run.stars > STAR_CARRY_CAP && ` · ${STAR_EMOJI}${run.stars - STAR_CARRY_CAP} lost above ${STAR_CARRY_CAP}`}
@@ -151,7 +154,7 @@ export function SellCard({ state, sell }: { state: GameState; sell: () => void }
         <li>The ⭐-bought order slots ({run.orders.slots})</li>
         <li>Lifetime totals — the deed meter keeps counting</li>
       </ul>
-      {sellFarmUnlocked(state) ? (
+      {open ? (
         <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
           {gain < 1 ? 'No deeds to gain — play on' : armed ? 'Press again to sell the farm' : 'Sell the farm'}
         </button>

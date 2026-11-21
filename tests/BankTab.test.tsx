@@ -96,7 +96,8 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     expect(screen.getByText(/→ 0 deeds when "Sell the farm" opens/)).toBeTruthy()
     // batch 35.4: the 🏆 Sell the farm card shows before the gate (information only)
     expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
-    expect(screen.getByText('Selling gives +0 deeds (💰0)')).toBeTruthy()
+    // batch 35.5: no "Selling gives" line before the gate
+    expect(document.body.textContent).not.toContain('Selling gives')
     expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
     expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Resets', 'Carries'])
     expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 bed sprinkler + 8 more deeds')
