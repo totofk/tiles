@@ -998,3 +998,48 @@ Hermes's calls (Toon may reject by number; dispatched on the 08:25 go with these
     the worker's.
 - **Renumbered:** none. Batch 35.4 = tasks 201–205, no save bump (v29). Next: 36.1 → save v30 (dispatch after 35.4 is
   live; re-anchor its pre-sale mount on 35.4's card).
+
+## Batch 35.4 follow-ups (2026-11-21): Toon rejects 202; ⭐ is display-only
+- **35.4 task 202 REJECTED** (Toon (Trin) 2026-11-21 11:37 Asia/Bangkok, after watching a clip of the HUD ⭐ jump): the
+  ⭐ in the top bar is a display-only currency, like 💰 — not a control. It is not a button, has no tap handler, no
+  pointer cursor and no focus. Task 202's behaviour (tapping ⭐ switches to ⬆️ Upgrades and scrolls to ⭐ Favours) is
+  removed. 202 misread his intent: he asked for Favours as rows in ⬆️ Upgrades, not for a shortcut. The ⭐ Favours
+  section at the end of the Upgrades panel (35.4 task 201) stays unchanged. This reverses 35.4 refined calls 1 and 3
+  and the "HUD ⭐ stays as the shortcut" line of "Batch 35.4 refined".
+- **35.4 Deviations 2 and 5 → rename**: the leftover "Favours sheet" wording (the `src/core/balance.ts:248` comment and
+  the test describe names in `tests/FavoursSheet.test.tsx`) becomes "Favours section".
+- **35.4 Deviation 4 → hide**: the "Selling gives +N deeds" line on the 🏆 Sell the farm card shows only once selling is
+  unlocked (`sellFarmUnlocked`). The card itself stays always reachable in 🏦 Bank (35.4 task 204).
+- Same message: "ปล่อยรอบแก้เลย ⭐ กดไม่ได้ แก้ชื่อข้อ 1 และซ่อนบรรทัด Selling gives ก่อนปลดล็อก" = the go for this tiny
+  fix batch 35.5 (tasks 206–208, no save bump). 35.4 Deviation 3 (re-scroll when already on ⬆️ Upgrades) is moot.
+  Batch 36.1 still waits for its own "ปล่อย".
+
+## Batch 35.5 refined (2026-11-21, ⭐ display-only + 35.4 leftovers; no save bump, stays v29)
+Source: "Batch 35.4 follow-ups" above (Toon (Trin) 11:37). UI-only; no balance number, no sims, no save bump.
+
+Hermes's calls (Toon may reject by number; dispatched on the 11:37 go with these as written):
+1. The HUD ⭐ is one `span.hud-stars` in every case, titled "⭐ comes from orders" (35.4's existing pre-⭐ title, no new
+   string); it keeps its padding so the HUD does not shift; the button reset `font: inherit` is dropped.
+2. Removed with the jump: Hud's `showFavours` prop, App's `showFavours` and the one-shot scroll ref + effect. The
+   section keeps `id="favours"` (harmless anchor, tests use it). No other Favours shortcut anywhere.
+3. Test file renamed `tests/FavoursSheet.test.tsx` → `tests/FavoursSection.test.tsx` (`Favours.test.tsx` would
+   case-clash with `tests/favours.test.ts`). Reject → keep the file name, rename the describes only.
+4. Before the gate only the "Selling gives" line is hidden; the ⭐ carry line, Resets, Carries and the locked
+   "🔒 Sell the farm · needs …" button stay, and nothing replaces the line (the Bank deed meter above already says
+   "→ N deeds when "Sell the farm" opens"). After the gate "+0 deeds" still shows when nothing is left to gain.
+5. CHANGELOG: the shipped 35.4 line is AMENDED — "tap ⭐ in the top bar to jump there" dropped and "what selling the
+   farm gives" → "what selling the farm resets and keeps" — because the in-game Changelog tab would tell players to
+   tap a ⭐ that does nothing and promise a gain line that is now hidden pre-gate. New 35.4 line (153 code points):
+   "⭐ Favours now sit at the end of ⬆️ Upgrades. The 🏦 Bank always shows what selling the farm resets and keeps, and
+   Orders say how big a 🚜 contract can get." Reject → leave the 35.4 line as history.
+6. CHANGELOG 35.5 line (158 code points): "The ⭐ in the top bar is now just your ⭐ count, not a button; Favours stay
+   at the end of ⬆️ Upgrades. The sale card shows the deeds you get once selling opens."
+7. Worker: Opus via Max, `--effort medium`, `--max-turns 120` (3 small UI tasks, no save bump, no sims; 35.4 used 118
+   of 200 for 5 tasks), retry deadline 2026-11-22 09:00 (as 35.4: one 5-hour-reset retry still fits, the rest of the
+   weekly quota stays for 36.x before Sunday 21:00).
+8. Live relay into thread 1573420437554200597 (the 35.3 / 35.4 / 36 planning thread; no separate 35.5 thread exists).
+9. The live width sweep (375 / 1024 / 1440 / 2560 / 3440: ⭐ not tappable, Favours section still last in ⬆️ Upgrades,
+   "Selling gives" hidden before the gate and shown after) and the v29-save load check are Hermes's verify step after
+   the worker, not the worker's.
+- **Renumbered:** none. Batch 35.5 = tasks 206–208, no save bump (v29). Next: 36.1 → save v30 (waits for its own
+  "ปล่อย"; re-anchor on 35.5's HEAD).
