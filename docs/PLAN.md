@@ -76,7 +76,7 @@ change (one comment reworded), no save bump (stays v29), no sim runs.
 
 ## Tasks (206–208)
 
-- [ ] 206. **The HUD ⭐ is a display-only count; the 35.4 jump is removed.** `Hud` (`src/app/Hud.tsx`): drop the
+- [x] 206. **The HUD ⭐ is a display-only count; the 35.4 jump is removed.** `Hud` (`src/app/Hud.tsx`): drop the
   `showFavours` prop and its doc line (`:13–15`) and the `favoursVisible` import (`:4`); under the same render
   condition (`run.orders.unlocked || run.stars > 0`, `:31`) render ONE element in every case:
   `<span className="hud-stars" title="⭐ comes from orders">{STAR_EMOJI} {count(run.stars)}</span>` — replacing the
@@ -90,7 +90,7 @@ change (one comment reworded), no save bump (stays v29), no sim runs.
   `src/app/Favours.tsx:102–103` doc comment: drop "the HUD's ⭐ jumps to it by its id" (keep `id="favours"`).
   Unchanged: the ⭐ Favours section at the end of ⬆️ Upgrades (`src/app/Upgrades.tsx:120`, shown while
   `favoursVisible(run)`, `src/core/favours.ts:42`), its rows and texts; `favoursVisible` stays (Upgrades reads it).
-- [ ] 207. **Rename the leftover "Favours sheet" wording.** `src/core/balance.ts:248` comment "bought in the ⭐ Favours
+- [x] 207. **Rename the leftover "Favours sheet" wording.** `src/core/balance.ts:248` comment "bought in the ⭐ Favours
   sheet" → "bought in the ⭐ Favours section of ⬆️ Upgrades" (comment only, no number or code change in
   balance.ts). Test names: `git mv tests/FavoursSheet.test.tsx tests/FavoursSection.test.tsx` (not
   `Favours.test.tsx`: it would case-clash with `tests/favours.test.ts`); outer describe `:33`
@@ -98,7 +98,7 @@ change (one comment reworded), no save bump (stays v29), no sim runs.
   `:34–89` (`'batch 35.4: the HUD ⭐ jumps to the ⭐ Favours section of ⬆️ Upgrades'`, its scrollIntoView stub and
   the three layout tests) is replaced by task 206's tests. After the batch, `grep -rni "favours sheet\|FavoursSheet"
   src tests` prints nothing.
-- [ ] 208. **"Selling gives +N deeds" shows only once selling is unlocked.** `SellCard` (`src/app/Legacy.tsx:121–…`):
+- [x] 208. **"Selling gives +N deeds" shows only once selling is unlocked.** `SellCard` (`src/app/Legacy.tsx:121–…`):
   the deeds line (`:130–132`, `<p className="deeds">Selling gives +{gain} deed… (💰…)</p>`) renders only when
   `sellFarmUnlocked(state)` (`src/core/prestige.ts`, already imported `:15` and read at `:154`). Before the gate the
   card shows everything else exactly as in 35.4: heading, the ⭐ carry line, Resets, Carries and the locked
@@ -153,3 +153,46 @@ Out of scope: anything from batch 36 (36.1 listings on the pre-sale card waits f
 balance number; a save bump; a sim run; an Upgrades-tab badge for affordable Favour rows; a Favours shortcut anywhere
 else; changing the ⭐ Favours section (task 201) or the Bank deed meter line; the 375 Reroll flush 0 px / dashed-beige
 disabled style notes.
+
+## Batch 35.5 results
+
+Commits on main (not pushed): 58b5fd37 (206), abbfa6bb (207), 98e17549 (208), then this docs commit.
+Tests: 1165 passed | 6 expected fail (1171) before (35.4) → 1163 after 206 (−3 jump tests, −1 text-vs-button test,
++2 plain-count tests) → 1165 passed | 6 expected fail (1171) after 208 (+1 pre-gate `SellCard`, +1 changelog "tap ⭐").
+63 files. `pnpm lint`, `pnpm build` (dist/ deleted) and `tsc -b --force` (tsbuildinfo deleted first) pass. Purity grep:
+only the known `src/save/storage.ts:26` wallClock line. Case-clash check prints nothing. `grep -rni "favours sheet\|
+FavoursSheet" src tests` prints nothing. No save bump (v29), no fixture edit, no balance number change, no sim re-pin.
+
+- 206: `Hud` renders one `span.hud-stars` (title "⭐ comes from orders") under the same condition; `showFavours` prop,
+  `favoursVisible` import, App's `showFavours` and the `favoursScroll` ref + effect removed; `.hud > .hud-stars` drops
+  `font: inherit`, keeps nowrap + padding; Favours.tsx doc no longer mentions the jump (`id="favours"` kept). The
+  35.4 jump describe and the text-vs-button test are replaced by two jsdom tests (⭐12 / ⭐0 with board, ⭐50 without,
+  none at ⭐0 without board; span, not inside a button / `[role]` / `[tabindex]`, a click leaves `data-view` on farm,
+  ⬆️ Upgrades unselected, the `scrollIntoView` spy uncalled and no dialog).
+- 207: `src/core/balance.ts:248` comment "Favours sheet" → "Favours section of ⬆️ Upgrades" (the only balance.ts
+  byte change); `git mv tests/FavoursSheet.test.tsx tests/FavoursSection.test.tsx`; outer describe renamed.
+- 208: `SellCard` shows "Selling gives +N deeds (💰N)" only while `sellFarmUnlocked(state)` (read once as `open`, also
+  used for the button branch); doc comment says "once the gate is open". `tests/BankTab.test.tsx` pre-gate asserts no
+  "Selling gives"; new `tests/Legacy.test.tsx` pre-gate case; gate-open cases (+8 and +0) unchanged. CHANGELOG 35.5
+  entry added and the 35.4 line amended (verbatim, 158 / 153 code points).
+
+UI strings changed (old → new):
+- HUD ⭐ with Favours visible: `<button title="⭐ Favours">⭐ N</button>` → `<span title="⭐ comes from orders">⭐ N</span>`
+  (same text; the title is the existing pre-⭐ one).
+- 🏆 Sell the farm card before the gate: "Selling gives +N deeds (💰N)" → (no line). After the gate: unchanged.
+- Changelog 35.4: "⭐ Favours now sit at the end of ⬆️ Upgrades: tap ⭐ in the top bar to jump there. The 🏦 Bank always
+  shows what selling the farm gives, and Orders say how big a 🚜 contract can get." → "⭐ Favours now sit at the end of
+  ⬆️ Upgrades. The 🏦 Bank always shows what selling the farm resets and keeps, and Orders say how big a 🚜 contract
+  can get."
+- Changelog 35.5 (new): "The ⭐ in the top bar is now just your ⭐ count, not a button; Favours stay at the end of ⬆️
+  Upgrades. The sale card shows the deeds you get once selling opens."
+
+### Deviations
+
+1. Not verifiable in jsdom (left for Hermes's live sweep at 375 / 1024 / 1440 / 2560 / 3440): the computed `cursor` of
+   the HUD ⭐ (no rule sets one; the `<span>` should inherit the default), Tab focus order skipping it, a real CDP click
+   changing nothing, the HUD still fitting one line at 375 after `font: inherit` was dropped (a span already inherits
+   the font, so no shift is expected), and the pre-gate card's look with one line fewer.
+2. "No click handler" is tested by behaviour (a click changes view, tab, scroll and dialogs not at all), not by
+   inspecting listeners: React attaches handlers at the root, so there is no element-level `onclick` to read.
+3. The 206 commit edited `tests/FavoursSheet.test.tsx` in place; the file was renamed in 207 as the plan orders it.
