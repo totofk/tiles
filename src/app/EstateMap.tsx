@@ -137,13 +137,14 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
             <span>{`Fields ${cap + 1}–${n} · ${BEYOND_EMOJI} beyond Pump ${pump}`}</span>
           </div>
         )}
-        {opensNext && (
-          <button className="map-ghost-field map-ghost-buy" disabled={!buyPlot(state).ok} onClick={() => act(buyPlot)}>
-            {`＋ Field ${n + 1} · buy its first plot · 💰${cell(price)}`}
-          </button>
-        )}
-        {ghostField && <p className="map-ghost-field">{ghostField}</p>}
       </div>
+      {/* batch 35.4: after the 341 px map columns, so the row spans the whole map width */}
+      {opensNext && (
+        <button className="map-ghost-field map-ghost-buy" disabled={!buyPlot(state).ok} onClick={() => act(buyPlot)}>
+          {`＋ Field ${n + 1} · buy its first plot · 💰${cell(price)}`}
+        </button>
+      )}
+      {ghostField && <p className="map-ghost-field">{ghostField}</p>}
       {sheet !== null && sheet < n && <FieldSheet state={state} act={act} ui={ui} k={sheet} close={() => setSheet(null)} />}
     </>
   )
