@@ -1043,3 +1043,58 @@ Hermes's calls (Toon may reject by number; dispatched on the 11:37 go with these
    the worker, not the worker's.
 - **Renumbered:** none. Batch 35.5 = tasks 206–208, no save bump (v29). Next: 36.1 → save v30 (waits for its own
   "ปล่อย"; re-anchor on 35.5's HEAD).
+
+## Batch 36.1 refined (2026-11-21, sale listings + soil + ⭐ reroll + roll memory; save v29 → v30)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-decisions.md`, `b36-split.md` row 36.1 +
+reject-list 2 "×8 → reroll ⭐40/80/160/320", accepted "รับหมด"; `b36-calculator.md` items 2–3 "listing soil ±20 %",
+groups roots = potato, carrot, corn / fruit-veg = eggplant, pumpkin, tomato, chilli / berry = lemon, grape,
+strawberry, accepted; districts Direction C accepted, pool of 3 (Orchard Valley, Iron Hills, Wetlands); listing roll
+memory in 36 accepted). Go: Toon 2026-11-21 11:38 — start 36.1 right away once 35.5 is pushed (35.5 pushed 12:10,
+9b227822). Draft `tiles-b36.1-plan.md` (anchors d0c52954) re-anchored on 9b227822.
+
+Hermes's calls (Toon may reject by number; dispatched on the 11:38 go with these as written):
+1. Plain carries NO soil — the plain row is today's farm exactly, the zero-RNG exit.
+2. Districts are offered from the first sale (the 2026-11-13 "first sale soil-only" ramp predates Direction C and is
+   superseded by the accepted 36.1 row "3 listings (plain + 2)"). Reject → gate the district axis on
+   `prestigeCount >= 1` (one line in `currentListings`).
+3. A soil pair uses two distinct groups (6 ordered pairs, uniform); the two rolled rows name two distinct districts.
+4. The roll hashes `(listingSeed, prestigeCount, listingRerolls)`, never `run.rngState` — actions never move the
+   offers, reload / import shows the same ones.
+5. One reroll replaces BOTH rolled rows for one price; a rerolled offer is uniform over all 3 districts (it can fetch
+   the last-played one). Only the first offer of a sale applies the memory: last-played excluded, unplayed ×3,
+   played ×1 (est.).
+6. The reroll ⭐ is paid from the run balance before the sale; ⭐600 max per sale sits above the 400 carry cap on
+   purpose (the sale-time ⭐ sink).
+7. NEW at refine: the reroll works only once the sale gate is open (LOCKED before) — ⭐ spent on a sale hours away
+   would be lost value; the rows themselves show at every stage (the card is information before the gate, 35.4 /
+   35.5). Reject → allow rerolls before the gate.
+8. Soil threads into every grow-time reader: tiles, rot grace (2 × the soil grow ticks; slow crops get no extra rot
+   protection), harvest, field plots, order sizing (`orderPerMinute`), the Manager's income curves and
+   `marketSteadyFactor`, so the ±20 % shows wherever the game plans (the calculator's −16.7 % … +25 % band assumes it).
+9. `sellFarm(state, choice = PLAIN_LISTING)` validates the choice against the recomputed offer (BAD_CHOICE on a stale
+   pick) — one transition, nothing half-sold to migrate; every existing `sellFarm(state)` (tests, sims) sells into
+   plain, so no pin moves.
+10. NEW at refine: migrated saves get `listingSeed` from a hash of prestigeCount + deedsClaimed + floor(lifetime
+    cash) (the draft hashed only the first two, which is 0 / 0 for every player who never sold — Toon included —
+    so every migrated save would see the same first offer); a new game starts at seed 0.
+11. Card copy shows group names only ("roots", "fruit-veg", "berry"), never crop lists, and promises no district
+    mechanics (36.2 / 36.3). Plain row "🏡 The plain farm · today's farm, no soil"; glyphs 🏡 🌳 ⛏️ 🌊 🔄 all
+    Unicode ≤ 11. A reroll resets the selection to the plain row (no sale into a row the player did not look at).
+12. Stats gains one "This farm" row (the active listing), so a mid-run player can see the soil.
+13. NEW at refine: two new errors `REROLL_MAX` ("No rerolls left this sale") and `BAD_CHOICE` ("That listing changed —
+    pick again").
+14. NEW at refine: the only sim is PIN36a — the SHIPPED ladder bot (unchanged licence list: carrot, corn, eggplant,
+    pumpkin) to the Fields unlock on plain + 3 soils, each within ±20 % of plain. The draft's plain10-licence-list
+    bot needed a new bot knob; the shipped bot already covers the roots and fruit-veg groups that soil moves before
+    Fields. PIN36b (estate income per soil within −16.7 % … +25 %) is a pure-function test on
+    `fieldsMarginalIncomePerHour`, not a bot run.
+15. Fixture `tests/fixtures/save-v29.json` = `post-deploy-v29.json` (Toon's 12-field save, written by the live v29
+    build; 35.4 / 35.5 added no save fields), committed with this plan.
+16. CHANGELOG 36.1 line (176 code points): "Selling now offers your next farm: the plain farm or two rolled listings
+    where one crop group grows 20 % faster, another 20 % slower. 🔄 Reroll them for ⭐40–320, up to 4 a sale."
+17. Worker: Opus via Max (`--effort medium`, `--max-turns 250`; 4 tasks with a save bump, a new core module, a
+    threaded argument over ~15 call sites, UI and one sim; 35.3 used 325 turns for 5 tasks with sims). The
+    b36-split reject-list item 4 named GLM for 36.1; the launch message asked for Opus. Retry deadline 2026-11-22
+    09:00; live relay into thread 1573420437554200597 (the 36 planning thread).
+- **Renumbered:** 36.1 = tasks 209–212 (the draft's 36.1-1 … 36.1-4), save v30. Next: 36.2 (Orchard Valley + Iron
+  Hills, save v31) is planned only after 36.1 is dispatched, re-anchored on 36.1's HEAD.
