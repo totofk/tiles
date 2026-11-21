@@ -281,7 +281,7 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
         {FURNACE_UPGRADE_IDS.map((id) => {
           const level = furnaceUpgradeLevel(f, id)
           const cost = furnaceUpgradeCost(id, level, meta)
-          // batch 34: speed and batch stay listed at their bar max — the ⭐ Favours sheet extends them
+          // batch 34: speed and batch stay listed at their bar max — the ⭐ Favours section extends them
           if (!cost && (id === 'speed' || id === 'batch'))
             return (
               <Item key={id} tip={FURNACE_TIPS[id]}>

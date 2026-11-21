@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { selectCrop } from '../core/actions'
 import { CROPS, type CropId } from '../core/data/crops'
-import { STAR_EMOJI } from '../core/data/orders'
 import { isMature, tapTile } from '../core/tile'
 import { DigSeeds } from './Farm'
-import { Favours } from './Favours'
 import { EMPTY_FEEDBACK } from './feedback'
 import { Fields } from './Fields'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
@@ -49,8 +47,15 @@ export default function App() {
   const [feedback, setFeedback] = useState(EMPTY_FEEDBACK)
   // task 144: phones after the Tractor fold Orders / Workers / Workshop into one 📋 sheet (a transient overlay)
   const [sheetOpen, setSheetOpen] = useState(false)
-  // batch 34: the ⭐ Favours sheet, opened from the HUD's ⭐ (a transient overlay)
-  const [favoursOpen, setFavoursOpen] = useState(false)
+  // batch 35.4: a HUD ⭐ tap asks for one scroll to the ⭐ Favours section, done after the render that shows it
+  // (transient, never saved in tiles.ui)
+  const favoursScroll = useRef(false)
+  useEffect(() => {
+    if (!favoursScroll.current) return
+    favoursScroll.current = false
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    document.getElementById('favours')?.scrollIntoView?.({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
+  })
 
   // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css);
   // App re-renders every tick, so a resize is picked up within a second
@@ -66,6 +71,14 @@ export default function App() {
   const wide = media('(min-width: 1440px)')
   const panelCollapsed = desktop && !wide && collapsed
   const panelOnScreen = desktop ? !panelCollapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
+  // the HUD ⭐: open ⬆️ Upgrades where it lives in this layout (≥ 1440 it is always open), then scroll
+  const showFavours = () => {
+    setTab('upgrades')
+    if (phone) setView('panel')
+    else if (!desktop) setSlideOpen(true)
+    else if (panelCollapsed) setCollapsed(false)
+    favoursScroll.current = true
+  }
   // the farm actions sit in the side panel only while it is beside the farm; collapsed, they go back to the farm column
   const farmTab = desktop && !panelCollapsed
   const tabs = farmTab ? PANEL_TABS : PANEL_TABS.filter((t) => t.id !== 'farm')
@@ -153,7 +166,7 @@ export default function App() {
   return (
     <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed && !wide ? ' panel-collapsed' : ''}`} data-view={view}>
       <div className="top">
-        <Hud state={state} rates={rates} openFavours={() => setFavoursOpen(true)} />
+        <Hud state={state} rates={rates} showFavours={showFavours} />
         <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
           🛒 Shop
           {(badge('shop') || badge('upgrades')) && <span className="badge-dot" aria-hidden="true" />}
@@ -290,11 +303,6 @@ export default function App() {
           <Orders state={state} act={act} card flashSlot={clerkSlot} />
           <Workers state={state} act={act} worked={worked} />
           <Workshop state={state} act={act} />
-        </Modal>
-      )}
-      {favoursOpen && (
-        <Modal title={`${STAR_EMOJI} Favours`} close={() => setFavoursOpen(false)}>
-          <Favours state={state} act={act} />
         </Modal>
       )}
     </main>

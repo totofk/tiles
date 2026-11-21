@@ -1,6 +1,7 @@
 import { energyMax } from '../core/balance'
 import { debtDue } from '../core/bank'
 import { STAR_EMOJI } from '../core/data/orders'
+import { favoursVisible } from '../core/favours'
 import type { GameState } from '../core/state'
 import { Bar } from './Bar'
 import { approx, count, duration, held, price } from './fmt'
@@ -10,8 +11,8 @@ const INCOME_TITLE = 'Harvest and sale income, last 10 game-minutes'
 const WAGES_TITLE = 'Wages paid, last 10 game-minutes'
 
 /** `rates`: the trailing 10-game-minute window (null until it spans a minute); shown only while workers are hired;
- * `openFavours`: the ⭐ button opens the ⭐ Favours sheet (batch 34) */
-export function Hud({ state, rates = null, openFavours }: { state: GameState; rates?: Rates | null; openFavours?: () => void }) {
+ * `showFavours`: the ⭐ button jumps to the ⭐ Favours section of ⬆️ Upgrades (batch 35.4) */
+export function Hud({ state, rates = null, showFavours }: { state: GameState; rates?: Rates | null; showFavours?: () => void }) {
   const { run, meta } = state
   const max = energyMax(run.upgrades.energyMax, meta)
   const shown = run.workers.pool > 0 ? rates : null
@@ -25,12 +26,18 @@ export function Hud({ state, rates = null, openFavours }: { state: GameState; ra
           {income}
         </span>
       )}
-      {/* batch 34: also with no board when ⭐ carried over a sale, so the ⭐ Favours sheet stays reachable */}
-      {(run.orders.unlocked || run.stars > 0) && (
-        <button className="hud-stars" title={`${STAR_EMOJI} Favours`} onClick={openFavours}>
-          {STAR_EMOJI} {count(run.stars)}
-        </button>
-      )}
+      {/* batch 34: also with no board when ⭐ carried over a sale, so the ⭐ Favours section stays reachable; plain
+          text while the section is hidden (batch 35.4: nothing to jump to) */}
+      {(run.orders.unlocked || run.stars > 0) &&
+        (favoursVisible(run) ? (
+          <button className="hud-stars" title={`${STAR_EMOJI} Favours`} onClick={showFavours}>
+            {STAR_EMOJI} {count(run.stars)}
+          </button>
+        ) : (
+          <span className="hud-stars" title={`${STAR_EMOJI} comes from orders`}>
+            {STAR_EMOJI} {count(run.stars)}
+          </span>
+        ))}
       <span className="hud-energy">
         ⚡ {Math.floor(run.energy)} / {max}
         <Bar value={run.energy / max} kind="energy" />

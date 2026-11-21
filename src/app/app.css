@@ -355,7 +355,7 @@ button:disabled::after {
 .hud > span {
   white-space: nowrap;
 }
-/* batch 34: the ⭐ count is the ⭐ Favours button; it keeps the HUD's text look */
+/* batch 34: the ⭐ count (a button that jumps to the ⭐ Favours section, batch 35.4) keeps the HUD's text look */
 .hud > .hud-stars {
   white-space: nowrap;
   font: inherit;

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { Favours } from '../src/app/Favours'
 import { SellCard } from '../src/app/Legacy'
@@ -31,24 +31,77 @@ function holder(s: GameState) {
 const rowOf = (name: RegExp) => screen.getByRole('button', { name })
 
 describe('batch 34: the ⭐ Favours sheet', () => {
-  it('the HUD ⭐ is a button that opens the ⭐ Favours sheet', () => {
-    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 12, orders: { unlocked: true, slots: 2, offers: [], rerolls: 0 } }), Date.now()))
-    render(<App />)
-    const star = document.querySelector<HTMLElement>('button.hud-stars')!
-    expect([star.textContent, star.title]).toEqual(['⭐ 12', '⭐ Favours'])
-    fireEvent.click(star)
-    const sheet = screen.getByRole('dialog', { name: '⭐ Favours' })
-    expect(within(sheet).getByText('⭐ 12 to spend · resets when you sell the farm (up to 400 ⭐ carry over)')).toBeTruthy()
+  describe('batch 35.4: the HUD ⭐ jumps to the ⭐ Favours section of ⬆️ Upgrades', () => {
+    let scrolled: { id: string; opts: unknown }[] = []
+    beforeEach(() => {
+      scrolled = []
+      Element.prototype.scrollIntoView = vi.fn(function (this: Element, opts?: unknown) {
+        scrolled.push({ id: this.id, opts })
+      })
+      localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 12, orders: { unlocked: true, slots: 2, offers: [], rerolls: 0 } }), Date.now()))
+    })
+    afterEach(() => {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      Reflect.deleteProperty(window, 'matchMedia')
+    })
+    const stub = (re: RegExp) => {
+      window.matchMedia = ((q: string) => ({ matches: re.test(q) })) as typeof window.matchMedia
+    }
+    const app = () => document.querySelector<HTMLElement>('main.app')!
+    const upgradesTabSelected = () => screen.getByRole('tab', { name: /Upgrades/ }).getAttribute('aria-selected')
+    const tapStar = () => {
+      const star = document.querySelector<HTMLElement>('button.hud-stars')!
+      expect([star.textContent, star.title]).toEqual(['⭐ 12', '⭐ Favours'])
+      fireEvent.click(star)
+    }
+
+    it('phone: opens ⬆️ Upgrades in the panel view and scrolls the section into view; no ⭐ Favours dialog', () => {
+      render(<App />)
+      expect(app().dataset.view).toBe('farm')
+      tapStar()
+      expect(app().dataset.view).toBe('panel')
+      expect(upgradesTabSelected()).toBe('true')
+      expect(within(document.querySelector<HTMLElement>('.panel')!).getByText('⭐ 12 to spend · resets when you sell the farm (up to 400 ⭐ carry over)')).toBeTruthy()
+      expect(scrolled).toEqual([{ id: 'favours', opts: { block: 'start', behavior: 'smooth' } }])
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('tablet: opens the slide-over on ⬆️ Upgrades; reduced motion scrolls instantly', () => {
+      stub(/min-width: 768px|prefers-reduced-motion/)
+      render(<App />)
+      expect(app().classList.contains('slide-open')).toBe(false)
+      tapStar()
+      expect(app().classList.contains('slide-open')).toBe(true)
+      expect(upgradesTabSelected()).toBe('true')
+      expect(scrolled).toEqual([{ id: 'favours', opts: { block: 'start', behavior: 'auto' } }])
+    })
+
+    it('1024 with the panel collapsed: expands the panel on ⬆️ Upgrades', () => {
+      stub(/min-width: (768|1024)px/)
+      localStorage.setItem(UI_KEY, JSON.stringify({ view: 'farm', tab: 'farm', collapsed: true }))
+      render(<App />)
+      expect(app().classList.contains('panel-collapsed')).toBe(true)
+      tapStar()
+      expect(app().classList.contains('panel-collapsed')).toBe(false)
+      expect(upgradesTabSelected()).toBe('true')
+      expect(scrolled.map((s) => s.id)).toEqual(['favours'])
+    })
   })
 
-  it('after a sale the carried ⭐ shows in the HUD with no board bought yet (and nothing shows at ⭐0 with no board)', () => {
+  it('batch 35.4: board bought at ⭐0 with no Favour: the HUD ⭐ is text; after a sale with ⭐ carried it is a button (no board)', () => {
+    localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 0, orders: { unlocked: true, slots: 2, offers: [], rerolls: 0 } }), Date.now()))
+    render(<App />)
+    expect(document.querySelector('button.hud-stars')).toBeNull()
+    const text = document.querySelector<HTMLElement>('span.hud-stars')!
+    expect([text.textContent, text.title]).toEqual(['⭐ 0', '⭐ comes from orders'])
+    cleanup()
     localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 50 }), Date.now()))
     render(<App />)
     expect(document.querySelector('button.hud-stars')!.textContent).toBe('⭐ 50')
     cleanup()
     localStorage.setItem(SAVE_KEY, serialize(withRun({ stars: 0 }), Date.now()))
     render(<App />)
-    expect(document.querySelector('button.hud-stars')).toBeNull()
+    expect(document.querySelector('.hud-stars')).toBeNull()
   })
 
   it('batch 35.4: the Upgrades panel ends with a "⭐ Favours" section once the player has ⭐ or a Favour level', () => {
