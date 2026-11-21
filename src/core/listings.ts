@@ -2,9 +2,9 @@
 // listings, each a district and a soil. The offer is a pure function of (listingSeed, prestigeCount, listingRerolls),
 // so actions never move it and a reload shows the same one; it never reads run.rngState.
 import { fail, nextRandom, type ActionResult } from './actions'
-import { LISTING_REROLL_MAX, LISTING_WEIGHT_PLAYED, LISTING_WEIGHT_UNPLAYED, listingRerollStars } from './balance'
-import { GROUP_IDS, type ListingSoil } from './data/crops'
-import { ROLLED_DISTRICTS, type DistrictId } from './data/districts'
+import { LISTING_REROLL_MAX, LISTING_SOIL_GROW, LISTING_WEIGHT_PLAYED, LISTING_WEIGHT_UNPLAYED, listingRerollStars } from './balance'
+import { GROUP_IDS, GROUP_NAMES, type ListingSoil } from './data/crops'
+import { DISTRICTS, ROLLED_DISTRICTS, type DistrictId } from './data/districts'
 import { pay } from './mining'
 // listings ↔ prestige is a cycle of function bindings only (used at call time)
 import { sellFarmUnlocked } from './prestige'
@@ -27,6 +27,14 @@ function hash(...xs: number[]): number {
   }
   return h >>> 0
 }
+
+/** "roots 20 % faster · berry 20 % slower" */
+export const soilText = (soil: ListingSoil): string =>
+  `${GROUP_NAMES[soil.fast]} ${Math.round((1 - LISTING_SOIL_GROW.fast) * 100)} % faster · ${GROUP_NAMES[soil.slow]} ${Math.round((LISTING_SOIL_GROW.slow - 1) * 100)} % slower`
+
+/** the Stats "This farm" value: "The plain farm", or "🌳 Orchard Valley · berry 20 % faster · roots 20 % slower" */
+export const listingText = (l: Listing): string =>
+  l.soil === null ? DISTRICTS[l.district].name : `${DISTRICTS[l.district].emoji} ${DISTRICTS[l.district].name} · ${soilText(l.soil)}`
 
 /** the seed a migrated save starts from (a new game starts at 0) */
 export const listingSeedFor = (prestigeCount: number, deedsClaimed: number, cashEarned: number): number => hash(prestigeCount, deedsClaimed, cashEarned)

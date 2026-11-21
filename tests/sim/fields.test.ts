@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { CROP_IDS, type CropId } from '../../src/core/data/crops'
+import { CROP_IDS, type CropId, type ListingSoil } from '../../src/core/data/crops'
 import {
   certificateCost,
   cropGrowTicks,
@@ -62,6 +62,62 @@ vi.mock('../../src/core/balance', async (importOriginal) => (await import('./bal
 
 /** owned field tiles (batch 28: 10 per plot) */
 const fieldTiles = (s: GameState) => fieldsOverview(s.run).tiles
+
+describe('batch 36.1: listing soil', () => {
+  const soils: Record<string, ListingSoil | null> = {
+    plain: null,
+    rootsFast_fruitVegSlow: { fast: 'roots', slow: 'fruitVeg' },
+    fruitVegFast_rootsSlow: { fast: 'fruitVeg', slow: 'roots' },
+    berryFast_fruitVegSlow: { fast: 'berry', slow: 'fruitVeg' },
+  }
+  let memo: Record<string, number | null> | null = null
+  /** game-hours to the Fields unlock per soil (null = not within 20 h), run once for both pins */
+  const unlockHours = (): Record<string, number | null> =>
+    (memo ??= Object.fromEntries(
+      Object.entries(soils).map(([name, soil]) => {
+        const fresh = createInitialState()
+        let end = fresh
+        withBatch13(() =>
+          runBot(true, {
+            ticks: 20 * HOUR_TICKS,
+            licenses: LICENSE_ORDER,
+            crops: PLANT_ORDER,
+            ladder: true,
+            copperTools: true,
+            workers: true,
+            furnace: true,
+            planter: true,
+            iron: true,
+            ironTools: true,
+            gold: true,
+            sprinklers: true,
+            fields: true,
+            buyTools: true,
+            initial: { ...fresh, run: { ...fresh.run, listing: { district: soil ? 'wetlands' : 'plain', soil } } },
+            onEnd: (s) => (end = s),
+          }),
+        )
+        const at = end.run.milestones.fieldsUnlocked
+        return [name, at === undefined ? null : Math.round((at / HOUR_TICKS) * 100) / 100]
+      }),
+    ))
+
+  it('PIN36a: the shipped ladder bot reaches the Fields unlock on each soil within ±20 % of plain', () => {
+    const hours = unlockHours()
+    console.log('PIN36a', JSON.stringify(hours))
+    const plain = hours.plain!
+    expect(plain).toBeGreaterThan(0)
+    for (const name of ['rootsFast_fruitVegSlow', 'berryFast_fruitVegSlow']) expect(Math.abs(hours[name]! / plain - 1)).toBeLessThanOrEqual(0.2)
+  }, 300_000) // 4 ladder runs to the Tractor, ~8 s alone
+
+  // measured: the bot hires its 2nd water worker at 0.44 h, cash hits 💰0, the unpaid workers stop and the bot never
+  // waters by hand while a water worker is assigned — a bot deadlock (a player waters or unassigns), not a soil rule
+  // (PLAN.md "Batch 36.1 results" Deviations)
+  it.fails('PIN36a: fruit-veg fast / roots slow reaches the Fields unlock — measured: not within 20 game-h', () => {
+    const h = unlockHours().fruitVegFast_rootsSlow
+    expect(h).not.toBeNull()
+  })
+})
 
 describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)', () => {
   const base = withBatch13(() => {

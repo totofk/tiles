@@ -99,7 +99,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     // batch 35.5: no "Selling gives" line before the gate
     expect(document.body.textContent).not.toContain('Selling gives')
     expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Resets', 'Carries'])
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Next farm', 'Resets', 'Carries'])
     expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 bed sprinkler + 8 more deeds')
     expect(button(/🔒 Sell the farm/).disabled).toBe(true)
     expect(screen.queryByRole('button', { name: /^Sell the farm$|Press again|No deeds/ })).toBeNull()

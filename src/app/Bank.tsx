@@ -77,7 +77,7 @@ export function BankTab({ state, act, sell }: PanelProps) {
     <>
       <Bank state={state} act={act} />
       <Deeds state={state} />
-      <SellCard state={state} sell={sell} />
+      <SellCard state={state} act={act} sell={sell} />
       {sold && <Legacy state={state} act={act} />}
     </>
   )

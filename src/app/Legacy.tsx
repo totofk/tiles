@@ -1,18 +1,22 @@
 import {
   DEED_ROW_IDS,
+  LISTING_REROLL_MAX,
   PRESTIGE_GATE_DEEDS,
   STAR_CARRY_CAP,
   deedCost,
   deedMaxLevel,
   deedsFor,
   energyMax,
+  listingRerollStars,
   multiplier,
   startTiles,
   workerActionTicks,
   type DeedRowId,
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
-import { PLAIN_LISTING, type Listing } from '../core/listings'
+import { useState } from 'react'
+import { DISTRICTS } from '../core/data/districts'
+import { currentListings, rerollListings, soilText, type Listing } from '../core/listings'
 import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
@@ -119,13 +123,20 @@ function gateShort(state: GameState): string {
  * the deeds selling gives once the gate is open, then the two-press "Sell the farm" once the gate is open (disabled with no gain) — before
  * that a locked teaser naming what is missing.
  */
-export function SellCard({ state, sell }: { state: GameState; sell: (choice: Listing) => void }) {
-  const [armed, press] = useTwoPress(() => sell(PLAIN_LISTING))
+export function SellCard({ state, act, sell }: { state: GameState; act: Act; sell: (choice: Listing) => void }) {
   const { run, meta } = state
+  const listings = currentListings(meta, run.listing.district)
+  // the pick belongs to one offer: a reroll or a sale shows a new one and the selection falls back to the plain row
+  const offerKey = `${meta.prestigeCount}/${meta.listingRerolls}`
+  const [pick, setPick] = useState({ offerKey, index: 0 })
+  const selected = pick.offerKey === offerKey ? pick.index : 0
+  const [armed, press] = useTwoPress(() => sell(listings[selected]))
   // batch 34: cash deeds only (⭐ no longer converts); the ⭐ balance carries, capped
   const gain = deedsClaimable(state)
   const carried = Math.min(run.stars, STAR_CARRY_CAP)
   const open = sellFarmUnlocked(state)
+  const rerollsLeft = meta.listingRerolls < LISTING_REROLL_MAX
+  const rerollStars = listingRerollStars(meta.listingRerolls)
   return (
     <section className="shop">
       <h2>🏆 Sell the farm</h2>
@@ -138,6 +149,18 @@ export function SellCard({ state, sell }: { state: GameState; sell: (choice: Lis
         {STAR_EMOJI} {carried} carried to the next farm
         {run.stars > STAR_CARRY_CAP && ` · ${STAR_EMOJI}${run.stars - STAR_CARRY_CAP} lost above ${STAR_CARRY_CAP}`}
       </p>
+      <h3>Next farm</h3>
+      <div className="shop-row one-col">
+        {listings.map((l, i) => (
+          <button key={i} className={i === selected ? 'selected' : ''} aria-pressed={i === selected} onClick={() => setPick({ offerKey, index: i })}>
+            {DISTRICTS[l.district].emoji} {DISTRICTS[l.district].name}
+            <small>{l.soil ? soilText(l.soil) : "today's farm, no soil"}</small>
+          </button>
+        ))}
+        <button disabled={!open || !rerollsLeft || run.stars < rerollStars} onClick={() => act(rerollListings)}>
+          {rerollsLeft ? `🔄 Reroll ${STAR_EMOJI}${rerollStars} · ${meta.listingRerolls}/${LISTING_REROLL_MAX}` : `🔄 Reroll · ${LISTING_REROLL_MAX}/${LISTING_REROLL_MAX}`}
+        </button>
+      </div>
       <h3>Resets</h3>
       <ul className="sell-list">
         <li>Tiles, cash, market, storage, tools</li>

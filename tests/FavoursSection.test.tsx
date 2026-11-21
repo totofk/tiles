@@ -134,7 +134,7 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
 
   it('the Sell card says how much ⭐ carries and how much is lost above 400', () => {
     const gate = withRun({ stars: 414, lifetime: { ...init.run.lifetime, cashEarned: 640_000 }, workers: { ...init.run.workers, certificates: ['plant', 'harvest'] }, workshop: { built: true, beds: [true, false, false, false], valve: false } })
-    render(<SellCard state={gate} sell={() => {}} />)
+    render(<SellCard state={gate} act={() => {}} sell={() => {}} />)
     expect(screen.getByText('⭐ 400 carried to the next farm · ⭐14 lost above 400')).toBeTruthy()
   })
 

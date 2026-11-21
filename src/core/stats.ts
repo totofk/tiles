@@ -21,6 +21,7 @@ import { MILESTONES, earlierMilestones } from './data/milestones'
 import { STAR_EMOJI } from './data/orders'
 import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
+import { listingText } from './listings'
 import { dropText, expectedUses, heldPickaxe, pickaxePreserve } from './mining'
 import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
@@ -99,6 +100,7 @@ export function stats(state: GameState): Stats {
   const multipliers: StatRow[] = [
     { label: 'Sell price', value: times(sellPriceFactor(upgrades.sellPrice) * multiplier(meta, 'sellPrice')), source: lv('sellPrice') },
     { label: 'Grow time', value: times(growTimeFactor(upgrades.fertilizer) * multiplier(meta, 'growTime')), source: lv('fertilizer') },
+    { label: 'This farm', value: listingText(run.listing) },
     { label: 'Energy max', value: `${energyMax(upgrades.energyMax, meta)}`, source: lv('energyMax') },
     { label: 'Energy regen', value: `${energyRegenPerTick(upgrades.energyRegen, meta).toFixed(2)}/s`, source: lv('energyRegen') },
     pickaxe

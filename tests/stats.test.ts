@@ -42,6 +42,7 @@ describe('stats(state)', () => {
     expect(multipliers).toEqual([
       { label: 'Sell price', value: '×1', source: 'Better prices Lv0' },
       { label: 'Grow time', value: '×1', source: 'Fertilizer Lv0' },
+      { label: 'This farm', value: 'The plain farm' },
       { label: 'Energy max', value: `${energyMax(0, meta)}`, source: 'Bigger stamina Lv0' },
       { label: 'Energy regen', value: `${energyRegenPerTick(0, meta).toFixed(2)}/s`, source: 'Faster recovery Lv0' },
       { label: 'Pickaxe preserve', value: 'no pickaxe' },
@@ -133,6 +134,9 @@ describe('stats(state)', () => {
     expect(row(totals, 'Fire wasted')).toMatchObject({ value: `${Math.ceil(75 / fireUnitTicks())} units` })
     expect(row(multipliers, 'Sell price')).toEqual({ label: 'Sell price', value: '×1.5', source: 'Better prices Lv5' })
     expect(row(multipliers, 'Grow time')).toEqual({ label: 'Grow time', value: '×0.7', source: 'Fertilizer Lv3' })
+    // batch 36.1: the active listing and its soil
+    const orchard = { ...state, run: { ...state.run, listing: { district: 'orchardValley' as const, soil: { fast: 'berry' as const, slow: 'roots' as const } } } }
+    expect(row(stats(orchard).multipliers, 'This farm')).toEqual({ label: 'This farm', value: '🌳 Orchard Valley · berry 20 % faster · roots 20 % slower' })
     // copper Lv1 (20 xp) = 1 − 1/1.4 ≈ 28.6 % + 5 % for the mastered wooden tier
     expect(row(multipliers, 'Copper pickaxe preserve')).toEqual({
       label: 'Copper pickaxe preserve',

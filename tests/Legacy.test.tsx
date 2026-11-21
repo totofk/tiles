@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { deedCost, startTiles } from '../src/core/balance'
 import { buyMetaUpgrade } from '../src/core/prestige'
 import { Legacy, SellCard } from '../src/app/Legacy'
+import { DISTRICTS } from '../src/core/data/districts'
+import { PLAIN_LISTING, currentListings, soilText, type Listing } from '../src/core/listings'
 import { createInitialState, type GameState } from '../src/core/state'
 import type { Act } from '../src/app/useGame'
 
@@ -83,7 +85,7 @@ describe('🏆 Sell the farm card', () => {
   it('previews exactly what resets and what carries, the deeds gained, and sells on the second press', () => {
     const sold: GameState[] = []
     const s = atGate()
-    render(<SellCard state={s} sell={() => sold.push(s)} />)
+    render(<SellCard state={s} act={act()} sell={() => sold.push(s)} />)
     // re-pinned batch 34 (was "+9 deeds (💰8 + 1 from ⭐)"): ⭐ carries a sale — cash deeds only, ⭐37 carried
     // batch 35.4: "Sell now:" → "Selling gives" (information only)
     expect(screen.getByText('Selling gives +8 deeds (💰8)')).toBeTruthy()
@@ -107,7 +109,7 @@ describe('🏆 Sell the farm card', () => {
   it('is disabled with no gain (gate open, deeds already claimed); ⭐ never adds a deed', () => {
     const claimed = { ...atGate(), meta: { ...atGate().meta, deedsClaimed: 8 } }
     const sold: GameState[] = []
-    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 650 } }} sell={() => sold.push(claimed)} />)
+    render(<SellCard state={{ ...claimed, run: { ...claimed.run, stars: 650 } }} act={act()} sell={() => sold.push(claimed)} />)
     expect(screen.getByText('Selling gives +0 deeds (💰0)')).toBeTruthy()
     expect(screen.getByText('⭐ 400 carried to the next farm · ⭐250 lost above 400')).toBeTruthy()
     const button = screen.getByRole('button', { name: 'No deeds to gain — play on' }) as HTMLButtonElement
@@ -116,17 +118,71 @@ describe('🏆 Sell the farm card', () => {
 
   it('batch 35.5: before the gate the card keeps the ⭐ carry line, Resets, Carries and the locked button, with no "Selling gives"', () => {
     const s = createInitialState()
-    render(<SellCard state={{ ...s, run: { ...s.run, stars: 37 } }} sell={() => {}} />)
+    render(<SellCard state={{ ...s, run: { ...s.run, stars: 37 } }} act={act()} sell={() => {}} />)
     expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
     expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Resets', 'Carries'])
+    // batch 36.1: the Next farm block sits between the ⭐ carry line and Resets
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Next farm', 'Resets', 'Carries'])
     expect((screen.getByRole('button', { name: /🔒 Sell the farm/ }) as HTMLButtonElement).disabled).toBe(true)
     expect(document.body.textContent).not.toContain('Selling gives')
   })
 
   it('batch 31: with Kept renown the Resets list says the tiers are kept', () => {
     const s = atGate()
-    render(<SellCard state={{ ...s, meta: { ...s.meta, upgrades: { ...s.meta.upgrades, keepRenown: 1 } } }} sell={() => {}} />)
+    render(<SellCard state={{ ...s, meta: { ...s.meta, upgrades: { ...s.meta.upgrades, keepRenown: 1 } } }} act={act()} sell={() => {}} />)
     expect(screen.getByText('Renown — tiers kept')).toBeTruthy()
+  })
+})
+
+describe('batch 36.1: the Next farm block', () => {
+  const rows = () => screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-pressed'))
+  const reroll = () => screen.getByRole('button', { name: /🔄 Reroll/ }) as HTMLButtonElement
+
+  it('shows the plain farm and two rolled listings before and after the gate, the plain row selected', () => {
+    for (const s of [createInitialState(), atGate()]) {
+      const { unmount } = render(<SellCard state={s} act={act()} sell={() => {}} />)
+      expect(screen.getByRole('heading', { name: 'Next farm' })).toBeTruthy()
+      const [plain, a, b] = currentListings(s.meta, 'plain')
+      expect(rows().map((r) => r.textContent)).toEqual([
+        "🏡 The plain farmtoday's farm, no soil",
+        `${DISTRICTS[a.district].emoji} ${DISTRICTS[a.district].name}${soilText(a.soil!)}`,
+        `${DISTRICTS[b.district].emoji} ${DISTRICTS[b.district].name}${soilText(b.soil!)}`,
+      ])
+      expect(plain).toEqual(PLAIN_LISTING)
+      expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
+      expect(rows()[0].className).toBe('selected')
+      unmount()
+    }
+  })
+
+  it('sells the selected rolled listing on the second press', () => {
+    const s = atGate()
+    const sold: Listing[] = []
+    render(<SellCard state={s} act={act()} sell={(l) => sold.push(l)} />)
+    reactAct(() => fireEvent.click(rows()[2]))
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true'])
+    reactAct(() => fireEvent.click(screen.getByRole('button', { name: 'Sell the farm' })))
+    reactAct(() => fireEvent.click(screen.getByRole('button', { name: 'Press again to sell the farm' })))
+    expect(sold).toEqual([currentListings(s.meta, 'plain')[2]])
+  })
+
+  it('the reroll reads "🔄 Reroll ⭐40 · 0/4", is disabled before the gate, without ⭐ and at 4/4, and puts the pick back on plain', () => {
+    current = { ...atGate(), run: { ...atGate().run, stars: 100 } }
+    const { rerender } = render(<SellCard state={current} act={act()} sell={() => {}} />)
+    expect(reroll().textContent).toBe('🔄 Reroll ⭐40 · 0/4')
+    expect(reroll().disabled).toBe(false)
+    reactAct(() => fireEvent.click(rows()[1]))
+    reactAct(() => fireEvent.click(reroll()))
+    rerender(<SellCard state={current!} act={act()} sell={() => {}} />)
+    expect([current!.run.stars, current!.meta.listingRerolls]).toEqual([60, 1])
+    expect(reroll().textContent).toBe('🔄 Reroll ⭐80 · 1/4')
+    expect(rows().map((r) => r.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false'])
+    // ⭐60 < ⭐80
+    expect(reroll().disabled).toBe(true)
+    rerender(<SellCard state={{ ...current!, meta: { ...current!.meta, listingRerolls: 4 }, run: { ...current!.run, stars: 999 } }} act={act()} sell={() => {}} />)
+    expect(reroll().textContent).toBe('🔄 Reroll · 4/4')
+    expect(reroll().disabled).toBe(true)
+    rerender(<SellCard state={{ ...createInitialState(), run: { ...createInitialState().run, stars: 999 } }} act={act()} sell={() => {}} />)
+    expect(reroll().disabled).toBe(true)
   })
 })
