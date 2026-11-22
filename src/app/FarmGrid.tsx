@@ -49,9 +49,11 @@ type CellProps = {
   irrigated?: boolean
   /** a 🌳 tree tile: the fruit waiting on it (no bars, no crop states) */
   fruit?: number
+  /** this tile's index (batch 36.5): an 🍂 loose bed's rot grace reads through it */
+  i?: number
 }
 
-function Cell({ tile, state, onTap, ring, flash, ordered, irrigated, fruit }: CellProps) {
+function Cell({ tile, state, onTap, ring, flash, ordered, irrigated, fruit, i }: CellProps) {
   if (fruit !== undefined) {
     const crop = state.run.tree!.crop
     return (
@@ -62,7 +64,7 @@ function Cell({ tile, state, onTap, ring, flash, ordered, irrigated, fruit }: Ce
     )
   }
   const mature = isMature(tile, state)
-  const rotIn = ticksUntilRot(tile, state)
+  const rotIn = ticksUntilRot(tile, state, i)
   const grace = tile.cropId ? cropRotGraceTicks(tile.cropId, state.meta, state.run.listing.soil) : 1
   const growing = tile.status === 'planted' && !mature
   const dry = growing && !irrigated && isDry(tile)
@@ -160,7 +162,7 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
                   </button>
                 )}
                 {state.run.tiles.slice(k * 6, k * 6 + 6).map((tile, j) => (
-                  <Cell key={k * 6 + j} tile={tile} state={state} onTap={() => onTap(k * 6 + j)} ring={jobOn(rings, k * 6 + j)} flash={jobOn(acted, k * 6 + j)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} irrigated={irrigated} fruit={run.tree?.bed === k ? run.tree.stock[j] : undefined} />
+                  <Cell key={k * 6 + j} i={k * 6 + j} tile={tile} state={state} onTap={() => onTap(k * 6 + j)} ring={jobOn(rings, k * 6 + j)} flash={jobOn(acted, k * 6 + j)} ordered={!!tile.cropId && orderedCrops.includes(tile.cropId)} irrigated={irrigated} fruit={run.tree?.bed === k ? run.tree.stock[j] : undefined} />
                 ))}
                 {Array.from({ length: (k + 1) * 6 - state.run.tiles.length }, (_, j) => (
                   <span className="cell-slot" aria-hidden="true" key={`slot${j}`} />

@@ -701,6 +701,20 @@ export function soilRerollStars(rerolls: number): number {
   return Math.round(SOIL_REROLL_BASE * SOIL_REROLL_GROWTH ** rerolls)
 }
 
+/** the soil traits' factors as [lv1, lv3] pairs — Lv3 multiplies each trait's DELTA by 1.5; a pair member of the
+ * form [n, d] is the tick rule "on n of every d ticks" (everyNth in survey.ts) */
+export const SOIL_HOME_PRICE: [number, number] = [1.15, 1.225]
+export const SOIL_CLAY_DRAIN: [number, number] = [0.6, 0.4]
+export const SOIL_LOOSE_ROT: [number, number] = [2, 2.5]
+export const SOIL_RICH_DOUBLE: [number, number] = [0.1, 0.15]
+export const SOIL_FERTILE_EXTRA: [[number, number], [number, number]] = [[1, 9], [3, 17]]
+export const SOIL_FIELD_PRICE: [number, number] = [1.2, 1.3]
+export const SOIL_CREEK_SLIP: [[number, number], [number, number]] = [[7, 20], [11, 40]]
+export const SOIL_DENSE_BURN: [[number, number], [number, number]] = [[7, 10], [11, 20]]
+export const SOIL_CONTRACT_COUNT: [number, number] = [1.5, 1.75]
+export const SOIL_EASY_GLUT: [number, number] = [0.7, 0.55]
+export const SOIL_FERTILE_GROW: [number, number] = [0.9, 0.85]
+
 /**
  * Effect of one multiplier-row level (level 0 = ×1). The batch-20 deed prices retuned these (DECISIONS "Sell the
  * farm"): growTime / cost −4 %, sellPrice +5 %. energy's deed row is flat (+2 max, see energyMax), so its step is 1

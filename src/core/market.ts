@@ -8,20 +8,25 @@ import type { GameState, MetaState, RunState } from './state'
 export const cropFloor = (run: RunState, crop: CropId): number =>
   Math.min(RELIC_FLOOR_CAP, renownFloor(run.renown[crop] ?? 0) + RELIC_FLOOR_LIFT[relicTier(run.relics, 'marketFloor')])
 
+/** a sale's soil factors (batch 36.5): price multiplies each unit's cash, glut each unit's glut and the glut it
+ * adds, order counts each unit toward an accepted order; PLAIN_SALE is exactly today's sale */
+export type SaleSoil = { price: number; glut: number; order: number }
+export const PLAIN_SALE: SaleSoil = { price: 1, glut: 1, order: 1 }
+
 /** price of one unit of `cropId` sold while the glut is `glut` (before that unit is added) */
-export function marketCropPrice(state: GameState, cropId: CropId, glut: number): number {
-  return Math.round(cropSellPrice(cropId, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * marketFactor(cropId, glut, cropFloor(state.run, cropId)))
+export function marketCropPrice(state: GameState, cropId: CropId, glut: number, price = 1): number {
+  return Math.round(cropSellPrice(cropId, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * price * marketFactor(cropId, glut, cropFloor(state.run, cropId)))
 }
 
 /**
- * sells `units` of `cropId`, each priced at the glut before its own sale, in sequence; glut += units. `bonus` (the
- * hand-picked multiplier) applies per unit after the market price and adds no glut.
+ * sells `units` of `cropId`, each priced at the glut before its own sale, in sequence; glut += units × soil.glut.
+ * `bonus` (the hand-picked multiplier) applies per unit after the market price and adds no glut.
  */
-export function cropSale(state: GameState, cropId: CropId, units: number, bonus = 1): { cash: number; market: RunState['market'] } {
+export function cropSale(state: GameState, cropId: CropId, units: number, bonus = 1, soil: SaleSoil = PLAIN_SALE): { cash: number; market: RunState['market'] } {
   const glut = state.run.market[cropId]
   let cash = 0
-  for (let i = 0; i < units; i++) cash += Math.round(marketCropPrice(state, cropId, glut + i) * bonus)
-  return { cash, market: { ...state.run.market, [cropId]: glut + units } }
+  for (let i = 0; i < units; i++) cash += Math.round(marketCropPrice(state, cropId, glut + i * soil.glut, soil.price) * bonus)
+  return { cash, market: { ...state.run.market, [cropId]: glut + units * soil.glut } }
 }
 
 /** one tick of decay for every glut (the ancient crop's included, batch 36.4); returns the same object when no crop is glutted */

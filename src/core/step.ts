@@ -1,5 +1,8 @@
 import {
   FLOAT_EPSILON,
+  SOIL_CLAY_DRAIN,
+  SOIL_FERTILE_EXTRA,
+  SOIL_LOOSE_ROT,
   cropGrowTicks,
   cropRotGraceTicks,
   energyMax,
@@ -10,6 +13,7 @@ import {
   waterMoisture,
 } from './balance'
 import type { ListingSoil } from './data/crops'
+import type { HomeTraitId } from './data/soil'
 import { recordMilestones } from './data/milestones'
 import { fieldsAct, machinesAct } from './fields'
 import { tickForge } from './forge'
@@ -17,8 +21,9 @@ import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
 import { tickOrders } from './orders'
 import { relicRegenFactor, reserveCap } from './relics'
+import { bedTrait, everyNth, soilStrong } from './survey'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
-import { isTreeTile, tickTree } from './tree'
+import { BED_TILES, isTreeTile, tickTree } from './tree'
 import { workersAct } from './workers'
 import { isIrrigated } from './workshop'
 
@@ -29,23 +34,39 @@ export function clearedTile(tile: Tile): Tile {
 
 // Growth checks moisture BEFORE this tick's drain: a full bar (1) buys exactly
 // 1 / moistureDrainPerTick growth ticks. An `irrigated` tile (its bed has a sprinkler) is set to the iron-can
-// fill before growth and is never drained, so it always grows.
-function stepTile(tile: Tile, meta: MetaState, fertilizerLevel: number, irrigated: boolean, soil: ListingSoil | null): Tile {
+// fill before growth and is never drained, so it always grows. `trait` (batch 36.5) is the tile's home-bed soil
+// trait — 🌻 fertile adds one extra growth on everyNth ticks, 🍂 loose stretches the rot grace ×2, 🧱 clay thins
+// the drain ×0.6; every other trait (and level 0) is exactly today's arithmetic.
+function stepTile(
+  tile: Tile,
+  meta: MetaState,
+  fertilizerLevel: number,
+  irrigated: boolean,
+  soil: ListingSoil | null,
+  trait: HomeTraitId | null,
+  strong: boolean,
+  tick: number,
+): Tile {
   const wet = irrigated ? { ...tile, moisture: waterMoisture(2) } : tile
   let next = wet
   if (wet.status === 'planted' && wet.cropId) {
     if (wet.growth < cropGrowTicks(wet.cropId, meta, fertilizerLevel, soil)) {
-      if (wet.moisture > 0) next = { ...wet, growth: wet.growth + 1 }
+      if (wet.moisture > 0) {
+        const extra = trait === 'fertile' && everyNth(tick, strong ? SOIL_FERTILE_EXTRA[1] : SOIL_FERTILE_EXTRA[0]) ? 1 : 0
+        next = { ...wet, growth: wet.growth + 1 + extra }
+      }
     } else {
+      const grace = cropRotGraceTicks(wet.cropId, meta, soil) * (trait === 'loose' ? (strong ? SOIL_LOOSE_ROT[1] : SOIL_LOOSE_ROT[0]) : 1)
       const ticksSinceMature = wet.ticksSinceMature + 1
       next =
-        ticksSinceMature > cropRotGraceTicks(wet.cropId, meta, soil)
+        ticksSinceMature > grace
           ? clearedTile(wet)
           : { ...wet, ticksSinceMature }
     }
   }
   if (irrigated) return next
-  const drained = next.moisture - moistureDrainPerTick(meta)
+  const drain = trait === 'clay' ? (strong ? SOIL_CLAY_DRAIN[1] : SOIL_CLAY_DRAIN[0]) : 1
+  const drained = next.moisture - moistureDrainPerTick(meta) * drain
   const moisture = drained < FLOAT_EPSILON ? 0 : drained
   return moisture === next.moisture ? next : { ...next, moisture }
 }
@@ -78,7 +99,11 @@ function stepOnce(state: GameState): GameState {
     energy,
     energyReserve: cap > 0 ? Math.min(cap, run.energyReserve + overflow) : run.energyReserve,
     // tree tiles grow fruit in tickTree instead: no moisture, no growth, no rot
-    tiles: run.tiles.map((t, i) => (isTreeTile(run, i) ? t : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil))),
+    tiles: run.tiles.map((t, i) =>
+      isTreeTile(run, i)
+        ? t
+        : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil, bedTrait(run, Math.floor(i / BED_TILES)), soilStrong(run), run.tick),
+    ),
     tree: tickTree(run.tree),
     tick: run.tick + 1,
     loan: stepLoan(run.loan),

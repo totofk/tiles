@@ -6,6 +6,7 @@ import { spendEnergy } from './relics'
 import { RENOWN_BY_HAND, RENOWN_BY_WORKER, TREE_MATURE_CYCLES, TREE_PLANT_ENERGY, TREE_STOCK_CAP, addRenown, handPickedBonus, treeCadenceTicks, treePlantCost } from './balance'
 import { CROP_GROUPS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
+import { bedSaleSoil } from './survey'
 import type { GameState, RunState, TreeBed } from './state'
 
 export const BED_TILES = 6
@@ -67,7 +68,8 @@ export function harvestTreeTile(state: GameState, i: number, energy: number): Ac
     () => (units > 0 ? null : 'NOT_MATURE'),
     (t) => {
       const { run } = state
-      const sale = harvestSale(state, tree.crop, units, energy > 0 ? handPickedBonus() : 1)
+      // batch 36.5: the bed's 🥔/🍅/🍓 price trait lifts its 🌳 tree tiles' fruit too (same bed, same rule)
+      const sale = harvestSale(state, tree.crop, units, energy > 0 ? handPickedBonus() : 1, energy > 0 ? handPickedBonus() : 1, bedSaleSoil(run, tree.bed, tree.crop))
       return {
         tile: t,
         cashDelta: sale.cash,

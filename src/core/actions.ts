@@ -4,6 +4,7 @@ import {
   DIG_ANCIENT_CHANCE,
   DIG_DUST_CHANCE,
   DIG_SHARD_CHANCE,
+  SOIL_RICH_DOUBLE,
   TILE_CAP,
   cropGrowTicks,
   cropSeedCost,
@@ -31,10 +32,12 @@ import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
 // actions ↔ orders is a cycle of function bindings only (used at call time), like step ↔ workers
 import { harvestSale } from './orders'
+// actions ↔ survey is a cycle of function bindings only (used at call time)
+import { bedSaleSoil, bedTrait, soilPair } from './survey'
 import { createTile, type GameState, type Lifetime, type RunState, type Tile } from './state'
 import { clearedTile } from './step'
 // actions ↔ tree is a cycle of function bindings only (used at call time)
-import { harvestTreeTile, isTreeTile } from './tree'
+import { BED_TILES, harvestTreeTile, isTreeTile } from './tree'
 // actions ↔ workshop is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { isIrrigated } from './workshop'
 
@@ -158,6 +161,14 @@ function tierRoll(run: RunState, tier: number, chance: number): { hit: boolean; 
   return { hit: r < chance, rngState }
 }
 
+/** the double-harvest roll (batch 36.5): a 💎 rich bed adds to the chance, so a tier-0 tile on one still rolls;
+ * a tier-0 tile on a plain bed rolls nothing — tier-0 runs keep their exact PRNG sequence */
+function doubleRoll(run: RunState, tier: number, rich: number): { hit: boolean; rngState: number } {
+  if (tier === 0 && rich === 0) return { hit: false, rngState: run.rngState }
+  const [r, rngState] = nextRandom(run.rngState)
+  return { hit: r < doubleHarvestChance(tier) + rich, rngState }
+}
+
 export function till(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   return farmAction(
     state,
@@ -243,7 +254,9 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       const { run } = state
       const { harvests, sales } = run.counters
       const tier = run.toolTier.harvest
-      const { hit, rngState: afterDouble } = tierRoll(run, tier, doubleHarvestChance(tier))
+      // batch 36.5: 💎 rich adds +0.10 (+0.15) to the double-harvest chance of this tile's bed
+      const rich = bedTrait(run, Math.floor(i / BED_TILES)) === 'rich' ? soilPair(run, SOIL_RICH_DOUBLE) : 0
+      const { hit, rngState: afterDouble } = doubleRoll(run, tier, rich)
       // batch 32: then the sickle's seed roll (tier 0 rolls nothing), +1 seed of the crop into the pouch
       const { hit: seed, rngState: afterSeed } = tierRoll({ ...run, rngState: afterDouble }, tier, seedDropChance(tier))
       const crops = hit ? 2 : 1
@@ -258,9 +271,9 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
         extraSeeds = r < ANCIENT_SEED_EXTRA ? 2 : 1
       }
       // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
-      // is hand-picked, a worker's (energy 0) is not
+      // is hand-picked, a worker's (energy 0) is not. A 🥔/🍅/🍓 price trait lifts this bed's group sales (batch 36.5)
       const bonus = energy > 0 ? handPickedBonus() : 1
-      const sale = harvestSale({ ...state, run: { ...run, rngState } }, t.cropId!, crops, bonus)
+      const sale = harvestSale({ ...state, run: { ...run, rngState } }, t.cropId!, crops, bonus, bonus, bedSaleSoil(run, Math.floor(i / BED_TILES), t.cropId!))
       return {
         tile: clearedTile(t),
         cashDelta: sale.cash,

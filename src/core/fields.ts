@@ -36,7 +36,7 @@ import { CROP_IDS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { pay } from './mining'
 import { cropFloor, marketSteadyGlut } from './market'
-import { drawField } from './survey'
+import { drawField, everyNth, fieldCreekSlip, fieldDenseBurn, fieldGrowFactor, fieldSaleSoil } from './survey'
 import type { Field, Fields, GameState, Machines, Plot, RunState } from './state'
 
 export type PlotState = 'empty' | 'growing' | 'ready'
@@ -67,9 +67,10 @@ export function wetTiles(f: Fields): number {
   return f.list.reduce((n, field) => (field.pivot ? n + field.plots.length * plotTiles() : n), 0)
 }
 
-/** a field plot's grow ticks under pressure: ceil(grow / FIELD_PRESSURE) */
-export function pressuredCycle(state: GameState, crop: CropId): number {
-  return Math.ceil(cropGrowTicks(crop, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil) / FIELD_PRESSURE)
+/** a field plot's grow ticks under pressure: ceil(grow × growFactor / FIELD_PRESSURE); only a 🌻 fertile field
+ * passes a factor below 1 (batch 36.5) */
+export function pressuredCycle(state: GameState, crop: CropId, grow = 1): number {
+  return Math.ceil((cropGrowTicks(crop, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil) * grow) / FIELD_PRESSURE)
 }
 
 /** counts of plots for the UI and sim; emptyWet = empty plots in a field with a pivot and a chip (sowable now) */
@@ -265,7 +266,7 @@ export function sowPlot(state: GameState, field: number, plot: number): ActionRe
     if (left > 0) left--
     else cash -= price
   }
-  const readyTick = run.tick + pressuredCycle(state, crop)
+  const readyTick = run.tick + pressuredCycle(state, crop, fieldGrowFactor(run, field))
   return withRun(state, { cash, rngState, seeds: { ...run.seeds, [crop]: left }, fields: withPlot(f, field, plot, { crop, readyTick }) })
 }
 
@@ -328,9 +329,11 @@ function reapAt(state: GameState, field: number, plot: number, energy: number): 
     if (s < seedDropChance(tier)) seeds++
     rngState = next
   }
-  // batch 29: the player's own reap pays ×1.25 into accepted orders only; its market units sell at ×1
+  // batch 29: the player's own reap pays ×1.25 into accepted orders only; its market units sell at ×1. Batch 36.5:
+  // the field's soil rides the sale (its group's price, 🤝 glut, 📜 order count)
   const rolled = { ...state, run: { ...run, rngState } }
-  const sale = energy > 0 ? harvestSale(rolled, crop, units, handPickedBonus(), 1) : harvestSale(rolled, crop, units)
+  const soil = fieldSaleSoil(run, field, crop)
+  const sale = energy > 0 ? harvestSale(rolled, crop, units, handPickedBonus(), 1, soil) : harvestSale(rolled, crop, units, 1, 1, soil)
   return {
     ...sale.run,
     cash: sale.run.cash + sale.cash,
@@ -407,11 +410,17 @@ export function fieldsPlantAction(state: GameState): ActionResult | null {
   return { ok: true, state: { ...sown.state, run: withCarry(sown.state.run, { plant: progress - plotTiles() }) } }
 }
 
-/** plots the pivots burn this tick: every plot in a pivoted field, or with the smart valve only the growing ones */
+/** plots the pivots burn this tick: every plot in a pivoted field, or with the smart valve only the growing ones.
+ * A 🌑 dense field's plots burn on only n of every d ticks (batch 36.5, tank coal ×0.7 / ×0.55) */
 function burningPlots(run: RunState): number {
   let n = 0
-  for (const field of run.fields.list)
-    if (field.pivot) for (const p of field.plots) if (!run.workshop.valve || plotState(p, run.tick) === 'growing') n++
+  for (let k = 0; k < run.fields.list.length; k++) {
+    const field = run.fields.list[k]
+    if (!field.pivot) continue
+    const dense = fieldDenseBurn(run, k)
+    if (dense !== null && !everyNth(run.tick, dense)) continue
+    for (const p of field.plots) if (!run.workshop.valve || plotState(p, run.tick) === 'growing') n++
+  }
   return n
 }
 
@@ -423,8 +432,9 @@ export function fieldsPressure(run: RunState): boolean {
 /**
  * One tick of the Fields (inside step, after the workers). Plots ripen on their absolute readyTick, sown at the
  * pressured pace; the tank pays the pivots' burn (one unit per burning plot) whole or not at all. Unpaid — or in a
- * field with no pivot — a growing plot's readyTick moves 1 later on every odd tick, which nets ×1. Fields never stall
- * and never die. Returns the same state when nothing burns and nothing slows.
+ * field with no pivot — a growing plot's readyTick moves 1 later on every odd tick, which nets ×1; a 💦 creek field
+ * (batch 36.5) slips on its own everyNth rule instead (×1.3 / ×1.45 pace), so no-creek runs keep the even-tick fast
+ * path. Fields never stall and never die. Returns the same state when nothing burns and nothing slows.
  */
 export function fieldsAct(state: GameState): GameState {
   const { run } = state
@@ -434,9 +444,11 @@ export function fieldsAct(state: GameState): GameState {
   const pressure = f.tank >= burning
   const tank = pressure ? f.tank - burning : f.tank
   let slowed = false
+  const creeks = f.list.map((_, k) => fieldCreekSlip(run, k))
   const list =
-    run.tick % 2 === 1
-      ? f.list.map((field) => {
+    creeks.some(Boolean) || run.tick % 2 === 1
+      ? f.list.map((field, k) => {
+          if (creeks[k] ? !everyNth(run.tick, creeks[k]!) : run.tick % 2 !== 1) return field
           if (field.pivot && pressure) return field
           if (!field.plots.some((p) => plotState(p, run.tick) === 'growing')) return field
           slowed = true

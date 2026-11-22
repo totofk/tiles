@@ -34,7 +34,7 @@ import { CROP_IDS, type CropId } from './data/crops'
 import { FORGE_GOOD_IDS, ITEM_IDS, ORE_IDS, isForgeGood, type ItemId } from './data/items'
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
 import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
-import { cropSale } from './market'
+import { PLAIN_SALE, cropSale, type SaleSoil } from './market'
 import { bestPickaxeTier, minedRock, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
 
@@ -159,8 +159,9 @@ function cropOrderSlot(run: RunState, crop: CropId): number {
 /**
  * Sells `units` harvested `crop`: while an accepted order for it is open each unit goes to the order (cropOrderPrice,
  * no glut), the rest to the market (cropSale). `bonus` / `marketBonus` = the hand-picked multiplier on the order /
- * market units. Returns the cash and the run with orders, ⭐, counters, lifetime, rngState and market updated (cash
- * itself untouched).
+ * market units. `soil` (batch 36.5): order units count ×soil.order toward the order (each still pays the order's
+ * global price), market units carry soil.price / soil.glut. Returns the cash and the run with orders, ⭐, counters,
+ * lifetime, rngState and market updated (cash itself untouched).
  */
 export function harvestSale(
   state: GameState,
@@ -168,19 +169,21 @@ export function harvestSale(
   units: number,
   bonus = 1,
   marketBonus = bonus,
+  soil: SaleSoil = PLAIN_SALE,
 ): { cash: number; run: RunState } {
   let s = state
   let cash = 0
   let left = units
   for (let slot = cropOrderSlot(s.run, crop); left > 0 && slot >= 0; slot = cropOrderSlot(s.run, crop)) {
     const offer = s.run.orders.offers[slot] as Offer
-    const n = Math.min(left, offer.count - offer.done)
+    const need = offer.count - offer.done
+    const n = Math.min(left, Math.ceil(need / soil.order))
     cash += n * cropOrderPrice(s, crop, bonus)
-    s = fillOrder(s, slot, n)
+    s = fillOrder(s, slot, Math.min(need, Math.floor(n * soil.order + 1e-9)))
     left -= n
   }
   if (left === 0) return { cash, run: s.run }
-  const sale = cropSale(s, crop, left, marketBonus)
+  const sale = cropSale(s, crop, left, marketBonus, soil)
   return { cash: cash + sale.cash, run: { ...s.run, market: sale.market } }
 }
 

@@ -3,8 +3,20 @@
 // uniform roll of that unit's pool and may land on the same trait. Rolls use the run's seeded PRNG; prices in balance.
 import { fail, nextRandom, type ActionResult } from './actions'
 import { pay } from './mining'
-import { SURVEY_FIELDS_LEVEL, SURVEY_STRONG_LEVEL, soilRerollStars } from './balance'
-import { GROUP_IDS, type GroupId } from './data/crops'
+import { PLAIN_SALE, type SaleSoil } from './market'
+import {
+  SOIL_CREEK_SLIP,
+  SOIL_CONTRACT_COUNT,
+  SOIL_DENSE_BURN,
+  SOIL_EASY_GLUT,
+  SOIL_FERTILE_GROW,
+  SOIL_FIELD_PRICE,
+  SOIL_HOME_PRICE,
+  SURVEY_FIELDS_LEVEL,
+  SURVEY_STRONG_LEVEL,
+  soilRerollStars,
+} from './balance'
+import { GROUP_IDS, cropGroup, type CropId, type GroupId } from './data/crops'
 import { FIELD_TRAITS, HOME_TRAITS, type FieldTraitId, type HomeTraitId } from './data/soil'
 import type { GameState, RunState, Survey } from './state'
 
@@ -106,4 +118,48 @@ export function fieldTrait(run: RunState, k: number): FieldTraitId | null {
 /** Lv3: every trait's delta ×1.5 */
 export function soilStrong(run: RunState): boolean {
   return run.survey.level >= SURVEY_STRONG_LEVEL
+}
+
+/** "on n of every d ticks": true when the n/d share's boundary passes with this tick (integer arithmetic) */
+export function everyNth(tick: number, rule: readonly [number, number]): boolean {
+  const [n, d] = rule
+  return Math.floor(((tick + 1) * n) / d) > Math.floor((tick * n) / d)
+}
+
+/** the [lv1, lv3] pair's member for this run */
+export function soilPair<T>(run: RunState, pair: readonly [T, T]): T {
+  return soilStrong(run) ? pair[1] : pair[0]
+}
+
+/** the bed's sale factors for `crop` (a 🥔/🍅/🍓 price trait lifts that group's sales from this bed, 🌳 tree tiles
+ * included); glut and order stay plain — easy market and contract land are field traits */
+export function bedSaleSoil(run: RunState, bed: number, crop: CropId): SaleSoil {
+  const trait = bedTrait(run, bed)
+  return trait !== null && traitGroup(trait) === cropGroup(crop) ? { ...PLAIN_SALE, price: soilPair(run, SOIL_HOME_PRICE) } : PLAIN_SALE
+}
+
+/** field k's sale factors for `crop`: its group's price, 🤝 easy market's glut, 📜 contract's order count */
+export function fieldSaleSoil(run: RunState, k: number, crop: CropId): SaleSoil {
+  const trait = fieldTrait(run, k)
+  if (trait === null) return PLAIN_SALE
+  return {
+    price: traitGroup(trait) === cropGroup(crop) ? soilPair(run, SOIL_FIELD_PRICE) : 1,
+    glut: trait === 'easySell' ? soilPair(run, SOIL_EASY_GLUT) : 1,
+    order: trait === 'contract' ? soilPair(run, SOIL_CONTRACT_COUNT) : 1,
+  }
+}
+
+/** the field's pressured-cycle factor (🌻 fertile: ×0.9 / ×0.85); 1 without the trait */
+export function fieldGrowFactor(run: RunState, k: number): number {
+  return fieldTrait(run, k) === 'fertile' ? soilPair(run, SOIL_FERTILE_GROW) : 1
+}
+
+/** the field's unpaid-slip tick rule (💦 creek), or null */
+export function fieldCreekSlip(run: RunState, k: number): readonly [number, number] | null {
+  return fieldTrait(run, k) === 'creek' ? soilPair(run, SOIL_CREEK_SLIP) : null
+}
+
+/** the field's tank-burn thinning rule (🌑 dense: a plot burns on n of every d ticks), or null */
+export function fieldDenseBurn(run: RunState, k: number): readonly [number, number] | null {
+  return fieldTrait(run, k) === 'dense' ? soilPair(run, SOIL_DENSE_BURN) : null
 }

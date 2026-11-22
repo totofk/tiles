@@ -1,9 +1,11 @@
 // The 💼 Manager's plan (batch 29, PLAN.md task 150d): which crop chip each managed field (a pivot, not 📌 pinned)
 // should show. Accepted contracts take the fields they still need first; the rest go to the best steady 💰/h split.
+// Batch 36.5: before the keep-chip pass, a soil match sends a field with a group price trait to its group's crop.
 import { doubleHarvestChance, fieldPlots, plotTiles } from './balance'
-import { CROP_IDS, type CropId } from './data/crops'
+import { CROP_IDS, cropGroup, type CropId } from './data/crops'
 import { fieldsCropIncomeCurve, fieldsPlantable, plantedTiles } from './fields'
 import { isCropGood, isOffer } from './orders'
+import { fieldTrait, traitGroup } from './survey'
 import type { GameState } from './state'
 
 export type ManagerPlan = {
@@ -76,6 +78,25 @@ export function managerPlan(state: GameState): ManagerPlan {
   // a field whose chip is already in the plan keeps it; the others take what is left, crops in CROP_IDS order
   const rest = crops.filter((c) => count.has(c)).map((crop) => ({ crop, fields: [] as number[] }))
   const restOf = (c: CropId) => rest.find((r) => r.crop === c)!
+  // batch 36.5: the soil match pass, before the keep-chip loop — a field with a group price trait (🥔/🍅/🍓) takes
+  // its group's counted crop (keeping its chip when that crop already fits), else falls through unchanged; the DP
+  // counts stay as they are, and 📌 pinned / contract fields were never in `free`
+  const matched = new Set<number>()
+  for (const k of free) {
+    const group = traitGroup(fieldTrait(run, k))
+    if (group === null) continue
+    const chip = list[k].crop
+    const crop =
+      chip !== null && cropGroup(chip) === group && (count.get(chip) ?? 0) > 0
+        ? chip
+        : (CROP_IDS.filter((c) => cropGroup(c) === group && (count.get(c) ?? 0) > 0).at(-1) ?? null)
+    if (crop === null) continue
+    count.set(crop, count.get(crop)! - 1)
+    restOf(crop).fields.push(k)
+    target[k] = crop
+    matched.add(k)
+  }
+  free = free.filter((k) => !matched.has(k))
   const open: number[] = []
   for (const k of free) {
     const c = list[k].crop

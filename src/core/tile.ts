@@ -1,8 +1,9 @@
 import { harvest, plant, till, water, type ActionResult } from './actions'
-import { cropGrowTicks, cropRotGraceTicks } from './balance'
+import { SOIL_LOOSE_ROT, cropGrowTicks, cropRotGraceTicks } from './balance'
 import type { CropId } from './data/crops'
+import { bedTrait, soilPair } from './survey'
 import type { GameState, Tile } from './state'
-import { isTreeTile } from './tree'
+import { BED_TILES, isTreeTile } from './tree'
 
 export type TileAction = 'harvest' | 'water' | 'plant' | 'till'
 
@@ -25,10 +26,14 @@ export function growthProgress(tile: Tile, s: GameState): number {
   return Math.min(1, tile.growth / growTicks(tile.cropId, s))
 }
 
-/** ticks left before a mature crop rots (it rots on the step that makes this 0); null if not mature */
-export function ticksUntilRot(tile: Tile, s: GameState): number | null {
+/** ticks left before a mature crop rots (it rots on the step that makes this 0); null if not mature. With the
+ * tile index (batch 36.5) an 🍂 loose bed's grace is ×2 (×2.5 at Lv3), floored; without it today's value */
+export function ticksUntilRot(tile: Tile, s: GameState, i?: number): number | null {
   if (!isMature(tile, s)) return null
-  return cropRotGraceTicks(tile.cropId!, s.meta, s.run.listing.soil) - tile.ticksSinceMature + 1
+  const grace = cropRotGraceTicks(tile.cropId!, s.meta, s.run.listing.soil)
+  if (i === undefined) return grace - tile.ticksSinceMature + 1
+  const rot = bedTrait(s.run, Math.floor(i / BED_TILES)) === 'loose' ? soilPair(s.run, SOIL_LOOSE_ROT) : 1
+  return Math.floor(grace * rot) - tile.ticksSinceMature + 1
 }
 
 /** harvest if mature (or a 🌳 tree tile, index i) → water (top up) if growing → plant if tilled → till if untilled */
