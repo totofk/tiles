@@ -52,7 +52,7 @@ no branch ceremony yet).
 
 ## Archive
 Finished batches live in `docs/archive/PLAN-history.md`: every batch plan, `## Batch N results` and `### Deviations`
-for batches 1–36.4, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
+for batches 1–36.5, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
 `PLAN.md:N` citation from before 2026-11-14 points at the same line there. References like PLAN.md "Batch 24 results"
 in tests and `docs/DECISIONS.md` resolve there too.
 
@@ -63,283 +63,233 @@ cites, or `grep -n '^## Batch N'` and read that range.
 New batch plans are appended below, and workers write `## Batch N results` + `### Deviations` at the end of this file.
 After a batch is pushed, Hermes moves its plan and results to the end of the archive.
 
-## Batch 36.5 — 🧭 Soil survey: a soil trait per home bed and per Estate field, ⭐ rerolls (tasks 229–233, save v33 → v34)
+## Batch 36.6 — 🏅 Renown: 5 tiers that carry over a sale, the 4-fields breadth rule, 5 new Legacy rows, Lv 6–10, the sale preview (tasks 234–238, save v34 → v35)
 
-Why: listings (36.1) and districts (36.2) roll the farm you buy; the survey rolls the ground you own, and rerolls it.
-A capped ⭐ ladder in ⭐ Favours: Lv1 ⭐80 gives each of the 4 home beds a trait, Lv2 ⭐200 each Estate field, Lv3 ⭐320
-makes every trait 1.5× stronger. Two pools (home per BED = the 6 tiles of one sprinkler socket; Estate per FIELD = the
-Manager's chip unit). Every trait is kept as decided, the near-zero ones included (a weak trait is a choice: reroll
-it). Playtest question: do soil traits change where I plant?
+Why: deeds stop pulling after about sale 3 (the 276-deed shop is bought out), and renown is lost at every sale unless
+the Kept renown row is owned. Renown with 5 tiers that carry by default is the permanent chase. The 4-fields-per-crop
+breadth rule ships in the SAME batch, because carried one-crop renown alone stops every listing-soil flip (the crux,
+prestige-layers q7). Five new one-time keep rows plus Fast crops / Rich harvest Lv 6–10 give estate sellers a sink past
+sale 5. Playtest question: is selling worth it beyond deeds?
 Hard guards (DECISIONS batch 24 stance): no soft lock, no stall, no infinite cash loop, nothing negative, saves
-migrate, nothing taken away.
-Anchors below are commit 5f97e77 (origin/main after batch 36.4), SAVE_VERSION 33. Re-measure with `grep -n` before
-editing. Every new number lives in `src/core/balance.ts`; numbers marked (est.) are Hermes picks (DECISIONS "Batch 36.5
-refined"), the rest are Toon's accepted values.
+migrate, nothing taken away by a migration.
+Anchors below are commit a05af886 (origin/main after batch 36.5), SAVE_VERSION 34. Re-measure with `grep -n` before
+editing. Every new number lives in `src/core/balance.ts`; numbers marked (est.) are Hermes picks (DECISIONS "Batch 36.6
+refined"); the tier table, deed prices and the Lv 6–10 curve are Toon's accepted values (prestige-layers q3–q8).
 
-Scope fence: with survey level 0 (every save, every fresh run, every sim bot — no bot buys the survey) the game plays
-byte-identically. Every new parameter is OPTIONAL with a default that reproduces today. No sim file may move: a moved
-number in any `tests/sim/*` file is a bug in your change, not a re-pin.
+Scope fence: with renown 0 on every crop and no new Legacy row owned, the game plays byte-identically EXCEPT the sale
+(renown now carries). Every new core parameter is OPTIONAL with a default that reproduces today. Unlike 36.5, sim
+numbers MAY move in this batch, but only for the causes named in task 238 (the T2+ grow bonus, renown carried into
+run 2, start seeds, the deed buy order). Each moved sim pin is re-pinned old → new with its cause in the results.
 
-Words: the Sell card already has a listing "soil" (grow speed per crop group, 36.1) and "reroll" means the order
-reroll or the listing reroll. In the UI this batch always says "soil trait" and "Reroll this bed's / field's soil".
+Words: "renown tier" is per crop (🥉🥈🥇🏅🏆); a "Legacy row" is a deed purchase. "Kept renown" (`keepRenown`) is
+renamed "Apprentices" in the UI only; the id stays.
 
-## Tasks (229–233)
+## Tasks (234–238)
 
-- [x] 229. **Save v34 and the new shape (no mechanic yet).** Commit this task FIRST.
-  - New `src/core/data/soil.ts` (identity only): `HOME_TRAITS = ['roots', 'fruitVeg', 'berry', 'clay', 'loose',
-    'rich', 'fertile'] as const`, `FIELD_TRAITS = ['rootsPrice', 'fruitVegPrice', 'berryPrice', 'creek', 'dense',
-    'contract', 'easySell', 'fertile'] as const`, types `HomeTraitId`, `FieldTraitId`, `SoilTraitId = HomeTraitId |
-    FieldTraitId`, `SURVEY_EMOJI = '🧭'` and `SOIL_TRAITS: Record<SoilTraitId, { emoji: string; name: string }>`:
-    roots 🥔 'Root soil', fruitVeg 🍅 'Veg soil', berry 🍓 'Berry soil', clay 🧱 'Clay', loose 🍂 'Loose soil', rich 💎
-    'Rich soil', fertile 🌻 'Fertile soil', rootsPrice 🥔 'Root soil', fruitVegPrice 🍅 'Veg soil', berryPrice 🍓 'Berry
-    soil', creek 💦 'Creek', dense 🌑 'Dense soil', contract 📜 'Contract land', easySell 🤝 'Easy market' (all Unicode
-    ≤ 11; 🧭 11.0, 🤝 9.0, the rest 6.0). The group of a price trait: roots/rootsPrice → `roots`, fruitVeg/fruitVegPrice
-    → `fruitVeg`, berry/berryPrice → `berry` (`GroupId`, `src/core/data/crops.ts:27–36`).
-  - `RunState` (`src/core/state.ts:26–110`) gains, after `energyReserve` (`:109`), `survey: Survey` with
-    `export type Survey = { level: number; beds: { trait: HomeTraitId | null; rerolls: number }[]; fields: { trait:
-    FieldTraitId | null; rerolls: number }[] }`. `level` 0–3 (⭐ levels bought this run). `beds` always has 4 entries
-    (bed k = tiles 6k…6k+5; 4 = `sprinklerMax()`, `balance.ts:349–351`). `fields[k]` belongs to `fields.list[k]` and
-    EXISTS ONLY ONCE ROLLED: read it with a helper that treats a missing entry as `{ trait: null, rerolls: 0 }` (it is
-    shorter than `fields.list` before Lv2). `createFreshRun` (`:301–351`, after `energyReserve: 0` `:349`): `survey: {
-    level: 0, beds: 4 × { trait: null, rerolls: 0 }, fields: [] }`. A sale starts a fresh run, so level, traits and
-    reroll counts reset with every ⭐ purchase (`src/core/prestige.ts:69` `createFreshRun`, nothing to carry).
-  - Save (`src/save/serialize.ts`): `SAVE_VERSION` 33 → 34 (`:38`). Add `'survey'` to the `Omit<RunState, …>` lists of
-    `RunV32` (`:48`) and `RunV30` (`:293`). New frozen `RunV33 = Omit<RunState, 'survey'>`; `SaveV33` (`:304`) becomes `{
-    version: 33; savedAtMs: number; state: { meta: MetaState; run: RunV33 } }`; new `SaveV34 = { version: 34; savedAtMs:
-    number; state: GameState }`, `Save = SaveV34` (`:305`). `migrateV33(save: SaveV33): SaveV34` after `migrateV32`
-    (`:889–908`, same comment convention): adds `survey` at the fresh default above — nothing granted, refunded or
-    removed; a veteran buys Lv1 / Lv2 like anyone. `migrate()` (`:913–931`): `version === 34` returns as is, `33` →
-    `migrateV33(...)`, and every older branch (`:917–930`, incl. the `toV20` tail) wraps its chain in `migrateV33(...)`.
-  - Fixture `tests/fixtures/save-v33.json` is ALREADY committed with this plan: a real live v33 save (the committed
-    save-v32.json seeded on the old live v32 build, loaded by the live v33 build CcIYSqqF on 2026-11-22 21:22, migrated
-    and re-saved by the live code; plain listing, ⭐79, 24 tiles all 4 beds sprinklered, 10 licences, 12 pivoted fields
-    all chilli, Manager 1, pump 3, digs 23, no finds / relics). Never edit any file in tests/fixtures.
-    `tests/save.test.ts`: import save-v33 next to v32 (`:34`); new `asV33Run` strips `survey` (expects the fresh
-    default) and `asV32Run` (`:165–175`) calls it first; new describe 'save v34: the soil survey (batch 36.5)': v33 →
-    v34 adds exactly `run.survey` at its default (no other run / meta / top-level key added or removed, every old key
-    deep-equal) and stamps 34; every fixture save-v1 … save-v33 lands on 34. Update every "33" pin to 34:
-    `save.test.ts:286`, `:560` title "v21 … v34", `:562`, `:1102`, `:1691`, `:1700`, `:1719`, `:1724`, `:1736`, `:1746`,
-    `:1747`, and App.test "Will migrate v15 → v34" (`tests/App.test.tsx:489`).
-  - Grep `src/` and `tests/` for every `RunState` literal and `createFreshRun` / `SaveV33` user; CI `tsc -b` fails on a
-    stale one.
-- [x] 230. **The ladder, the rolls, the rerolls (core).** New `src/core/survey.ts`; numbers in `balance.ts` (new block
-  after the listing block `:668–687`):
-  - `SURVEY_STARS = [80, 200, 320]` (Lv1 home beds, Lv2 fields, Lv3 strength; ×8 of the accepted ⭐10 / 25 / 40),
-    `SURVEY_FIELDS_LEVEL = 2`, `SURVEY_STRONG_LEVEL = 3`, `SOIL_REROLL_BASE = 16`, `SOIL_REROLL_GROWTH = 1.5` and
-    `soilRerollStars(n) = Math.round(16 × 1.5 ** n)` → 16, 24, 36, 54, 81, 122 … (n = that bed's / field's rerolls so
-    far; est., ×8 of the earlier ⭐2 curve).
-  - ⭐ Favours row `soilSurvey` (`src/core/favours.ts`): add `'soilSurvey'` LAST to `FAVOUR_IDS` (`:13`).
-    `favourLevel` (`:17–34`) = `run.survey.level`. `favourLock` (`:47–70`): new `FavourLock` `'fields'` = level 1 and
-    `!run.fields.unlocked`, else null (Lv1 and Lv3 have no gate). `favourPrice` (`:73–77`): `{ cash: 0, stars:
-    SURVEY_STARS[level] }`, null at level 3 (do NOT add it to the `FAVOURS` table `balance.ts:266–273`: its prices are
-    not geometric). `favourGain` (`:80–98`) returns `{ survey, rngState }`: level 0 → 1 rolls a trait for each of the 4
-    beds (bed order); 1 → 2 rolls a trait for each field in `fields.list` (field order; `fields` becomes exactly
-    `list.length` long); 2 → 3 rolls nothing (rngState unchanged). `buyFavour` keeps its order (LOCKED, MAX_LEVEL,
-    then pay's NO_STARS). `favoursVisible` (`:42–44`) picks it up through `FAVOUR_IDS`.
-  - Rolls use the run's seeded PRNG (`nextRandom(run.rngState)`, never Math.random). Home: one draw, `HOME_TRAITS[
-    Math.floor(r × 7)]` (uniform over 7, est.). Field: one draw over 6 entries in this order: group price, creek,
-    dense, contract, easySell, fertile (`Math.floor(r × 6)`); group price takes a SECOND draw `GROUP_IDS[Math.floor(r2 ×
-    3)]` → `rootsPrice` / `fruitVegPrice` / `berryPrice` (uniform; a berry price field is 1 in 18, est.).
-  - A field opened later: `buyPlot` (`src/core/fields.ts:143–156`) — when the plot opens a NEW field (`at < 0`) and
-    `run.survey.level >= 2`, roll that field's trait at purchase and append it to `survey.fields` (rngState advances).
-    At level < 2 `buyPlot` is unchanged.
-  - `rerollSoil(state, where: 'bed' | 'field', k)`: order LOCKED (bed: level < 1; field: level < 2), BAD_TILE (bed k
-    outside 0–3; field k outside `fields.list` or not rolled), then `pay(state, { cash: 0, stars: soilRerollStars(n)
-    }, …)` (NO_STARS). A reroll is a fresh uniform roll of that unit's pool (it may land on the same trait, est.), its
-    `rerolls` +1. Counters are per unit and reset only with the run (the sale).
-  - Read helpers (exported from `survey.ts`, used by task 231 and the UI): `bedTrait(run, bed)`, `fieldTrait(run, k)`
-    (null when level is too low or the entry is missing), `soilStrong(run)` = level ≥ 3.
-- [x] 231. **Trait effects (core) — each one its own multiplicative factor, default = today.** Lv1 value / Lv3 value
-  (Lv3 multiplies each trait's DELTA by 1.5). All in `balance.ts` as `[lv1, lv3]` pairs; a tick-rule is `[n, d]` =
-  "on n of every d ticks" via `everyNth(tick, [n, d]) = Math.floor(((tick + 1) × n) / d) > Math.floor((tick × n) /
-  d)` (integer arithmetic; `everyNth(t, [1, 2])` is exactly `t % 2 === 1`).
-  | Trait | Where | Lv1 / Lv3 | Hook |
-  |---|---|---|---|
-  | roots / fruitVeg / berry | home bed | that group's crops sell ×1.15 / ×1.225 (`SOIL_HOME_PRICE`) | market units of a harvest from that bed, incl. its 🌳 tree tiles |
-  | clay | home bed | moisture drain ×0.6 / ×0.4 (`SOIL_CLAY_DRAIN`) | `stepTile` drain (`src/core/step.ts:48`) |
-  | loose | home bed | rot grace ×2 / ×2.5 (`SOIL_LOOSE_ROT`) | `stepTile` rot check (`step.ts:42`) |
-  | rich | home bed | double-harvest chance +0.10 / +0.15 (`SOIL_RICH_DOUBLE`) | `harvest` (`src/core/actions.ts:246`) |
-  | fertile | home bed | grow time ×0.9 / ×0.85: +1 extra growth on [1, 9] / [3, 17] of the ticks it grows (`SOIL_FERTILE_EXTRA`) | `stepTile` growth (`step.ts:37–38`) |
-  | rootsPrice / fruitVegPrice / berryPrice | field | that group's crops sell ×1.2 / ×1.3 (`SOIL_FIELD_PRICE`) | market units of a reap from that field |
-  | creek | field | unpaid (empty tank or no pivot) it still grows ×1.3 / ×1.45: its readyTick slips on [7, 20] / [11, 40] of the ticks instead of [1, 2] (`SOIL_CREEK_SLIP`) | `fieldsAct` (`src/core/fields.ts:427–435`) |
-  | dense | field | tank coal ×0.7 / ×0.55: its plots burn on [7, 10] / [11, 20] of the ticks (`SOIL_DENSE_BURN`) | `burningPlots` (`fields.ts:401–406`) |
-  | contract | field | each unit counts ×1.5 / ×1.75 toward an accepted crop order (`SOIL_CONTRACT_COUNT`); the order's ⭐ unchanged | `harvestSale` order loop |
-  | easySell | field | each unit sold adds ×0.7 / ×0.55 glut (`SOIL_EASY_GLUT`) | `cropSale` |
-  | fertile | field | pressured cycle ×0.9 / ×0.85 (`SOIL_FERTILE_GROW`) | `sowPlot` readyTick (`fields.ts:258`) |
-  - Home (`src/core/step.ts`): `stepTile` (`:33–51`) gains the tile's bed trait and the tick (call `:81`, bed =
-    `Math.floor(i / 6)`; a bed index ≥ 4 has no trait). fertile: when the tile grows this tick (`:38`), growth +1 and +1
-    more when `everyNth(tick, extra)` — `isMature` / `growthProgress` (`src/core/tile.ts:13–26`) stay index-free and
-    exact. loose: rot when `ticksSinceMature > cropRotGraceTicks(…) × rot`. clay: `drained = moisture −
-    moistureDrainPerTick(meta) × drain`. `ticksUntilRot(tile, s, i?)` (`tile.ts:29–32`) gains an optional index: with
-    it, `Math.floor(grace × rot(bed)) − ticksSinceMature + 1`; without it today's value (tests `tile.test.ts:42–44`,
-    `listings.test.ts:166` unchanged). `FarmGrid` `Cell` (`src/app/FarmGrid.tsx:54–66`) passes its index (new `i`
-    prop from `:163`).
-  - rich (`actions.ts:246`): chance = `doubleHarvestChance(tier)` + rich; roll when `tier > 0 || rich > 0` (a tier-0
-    tile on a plain bed still rolls nothing — `tierRoll` `:155–159` keeps today's sequence). The seed roll (`:248`)
-    is unchanged.
-  - Sales: `export type SaleSoil = { price: number; glut: number; order: number }`, `PLAIN_SALE = { price: 1, glut: 1,
-    order: 1 }` in `src/core/market.ts`. `marketCropPrice(state, cropId, glut, price = 1)` (`:12–14`) = `Math.round(
-    cropSellPrice(…) × price × marketFactor(…))`. `cropSale(state, cropId, units, bonus = 1, soil = PLAIN_SALE)`
-    (`:20–25`): unit i priced at `glut + i × soil.glut` with `soil.price`; market glut `+ units × soil.glut`.
-    `harvestSale(state, crop, units, bonus = 1, marketBonus = bonus, soil = PLAIN_SALE)` (`src/core/orders.ts:165–185`):
-    per open accepted order `need = count − done`, `n = Math.min(left, Math.ceil(need / soil.order))`, cash `n ×
-    cropOrderPrice(…)` (the GLOBAL price: survey price traits lift market units only), `fillOrder(s, slot,
-    Math.min(need, Math.floor(n × soil.order + 1e-9)))`, `left −= n`; the rest → `cropSale(s, crop, left, marketBonus,
-    soil)`. With `PLAIN_SALE` every line equals today. Callers: home `harvest` (`actions.ts:263`) passes `{ price: bed
-    price factor if the crop is in the trait's group else 1, glut: 1, order: 1 }`; `harvestTreeTile`
-    (`src/core/tree.ts:70`) the same for `tree.bed`; `reapAt` (`fields.ts:323`) the field's `{ price, glut, order }` —
-    write both branches with explicit bonuses (`harvestSale(rolled, crop, units, handPickedBonus(), 1, soil)` /
-    `harvestSale(rolled, crop, units, 1, 1, soil)`). Glut factor and floor (`marketFactor`, `cropFloor`
-    `market.ts:8–9`) are untouched.
-  - Fields: `pressuredCycle(state, crop, grow = 1)` (`fields.ts:69–71`) = `Math.ceil(cropGrowTicks(…) × grow /
-    FIELD_PRESSURE)`; only `sowPlot` (`:258`) passes the field's fertile factor. `burningPlots` (`:401–406`): a dense
-    field's plot counts only on `everyNth(run.tick, dense)` ticks. `fieldsAct` (`:419–438`): a creek field slips on
-    `everyNth(run.tick, creek)` ticks, every other field keeps `run.tick % 2 === 1`; keep the "same state when nothing
-    burns and nothing slows" return, and keep the even-tick fast path when no field has a creek trait.
-  - Manager (`src/core/manager.ts:76–93`): the DP counts stay as they are (traits are not in the DP). Then, BEFORE the
-    "keeps its chip" loop `:80–87`, a soil match pass over `free` in field order: a field with a group price trait
-    keeps its current chip when that crop is in its group and still has count > 0, else takes the highest crop of its
-    group in `CROP_IDS` order with count > 0 (count −1, `restOf(c).fields`, `target[k]`); matched fields leave the pool
-    the next two loops walk. No group crop counted → the field falls through unchanged. 📌 pinned fields and the
-    contract fields (taken earlier, `:35–43`) are never touched.
-  - Not traits: listing soil (36.1 grow axis) and district berry ×1.4 (36.2) stay their own factors; survey price
-    traits are the sell axis. Orders, the order count (`orderPerMinute`), the Manager's DP income curves, the payback
-    label and `estateText` estimates ignore traits (est.).
-- [x] 232. **UI.**
-  - ⭐ Favours row (`src/app/Favours.tsx`): `ROWS.soilSurvey = { emoji: SURVEY_EMOJI, name: 'Soil survey' }` (`:24–32`,
-    shows "🧭 Soil survey Lv N"); `lockText('fields')` = `'needs the 🚜 Fields'` (`:43–67`); `effectText` (`:70–89`):
-    level 0 `'a trait for each home bed'`, 1 `'a trait for each field'`, 2 `'every trait ×1.5'`. `FAVOUR_TIPS.soilSurvey`
-    (`src/app/tips.ts:101–109`): `'Level 1 gives each home bed a soil trait, level 2 each field, level 3 makes every
-    trait 1.5× stronger. Reroll any one for ⭐. Traits last until you sell the farm.'`
-  - Soil list: under the Favours rows (`Favours.tsx:111–123`), while `survey.level ≥ 1`, a `<details
-    className="soil-traits">` (closed by default) with `<summary>🧭 Soil traits · 4 beds · {rolled} fields</summary>`
-    and one `.soil-row` per bed (`Bed {k+1}`) and per rolled field (`Field {k+1}`): `{emoji} {name}` + `<small>` the
-    text, and a button `Reroll ⭐{soilRerollStars(n)}` (`aria-label` "Reroll bed 2's soil" / "Reroll field 3's soil"),
-    disabled while `rerollSoil` fails. Row ≥ 44 px, button ≥ 44 px tall.
-  - Texts (new `src/app/soilText.ts`, `soilTraitText(id, strong)`, numbers from the balance pairs, one decimal only
-    when needed): price `'{group name} crops sell +15 %'` (+22.5 / +20 / +30), clay `'drains 40 % slower'` (60), loose
-    `'ripe crops wait ×2 before rotting'` (×2.5), rich `'+10 % double harvest'` (+15), fertile `'grows 10 % faster'`
-    (15), creek `'grows ×1.3 with an empty tank'` (×1.45), dense `'burns 30 % less tank coal'` (45), contract `'each crop
-    counts ×1.5 toward a contract'` (×1.75), easySell `'gluts the market 30 % less'` (45). Group names from
-    `GROUP_NAMES` (`data/crops.ts:38`).
-  - Home bed chip (`FarmGrid.tsx:141–152`): a rolled bed shows `<span className="bed-soil" role="img"
-    aria-label="Bed {k+1} soil: {name}" title="{name} — {text}">{emoji}</span>`. CSS (`app.css`, next to
-    `.bed-fountain` `:484–498`): the same 30 × 30 box as `.bed-fountain` but `left: 8px; right: auto; top: -12px`,
-    border `#8d6e63`. It sits in the 12 px `.beds` top padding (`:404–406`), so it adds no width or height.
-  - Estate: the field chip (`src/app/EstateMap.tsx:103–113`) gains `<span className="map-badge map-badge-soil"
-    aria-hidden="true">{emoji}</span>` for a rolled field and ` · soil {name}` in its aria-label; CSS
-    `.map-badge-soil { left: 1px; right: auto; }` (next to `.map-badge-order` `:800–803`). The field sheet
-    (`FieldSheet` `:154–220`), above "Crop — applies at the next sowing" (`:202`): `<p className="sheet-line">🧭 Soil:
-    {emoji} {name} — {text}</p>` and a `sheet-build` button `Reroll this field's soil · ⭐{cost}`, disabled while
-    `rerollSoil` fails.
-  - jsdom tests: `tests/FavoursSection.test.tsx` (row Lv 0 → 3 lines, the 'fields' lock text, the soil list hidden at
-    level 0, rows + costs at 1 / 2, a reroll click spends ⭐16), `tests/Beds.test.tsx` (chip only for a rolled bed),
-    `tests/Estate.test.tsx` (badge, sheet line, reroll button). No HUD change; the 375 top bar is not touched.
-- [x] 233. **Pins, CHANGELOG, results.** New `tests/survey.test.ts` (pure, no bot; use `createInitialState()` and
-  edited states; the v33 fixture through `deserialize`):
-  - PIN36p ladder and rolls: ⭐80 / 200 / 320 then MAX_LEVEL; LOCKED Lv2 before the Fields; Lv1 rolls 4 beds, Lv2 every
-    field, Lv3 nothing (rngState equal); a field opened at level ≥ 2 rolls at purchase, at level 1 it does not; 7,000
-    home rolls and 6,000 field rolls from a fixed seed: every home trait share 1/7 ± 15 % (relative), every field
-    entry 1/6 ± 15 %, the three group prices a third each ± 20 %; reroll costs 16 / 24 / 36 / 54 / 81, per-unit
-    counters, NO_STARS, BAD_TILE, LOCKED; `sellFarm` resets the survey; same seed → same state.
-  - PIN36q every trait at Lv1 and Lv3, measured on the real hook: fertile bed matures in `round(grow × 0.9)` ± 1 wet
-    ticks (0.85 at Lv3); clay keeps a watered tile wet 1 / 0.6 × (0.4) as long; loose rots after grace × 2 (× 2.5) and
-    `ticksUntilRot(tile, s, i)` agrees; rich: 20,000 tier-0 harvests double 10 % ± 1 (15 % ± 1); home and field price:
-    market unit = `round(cropSellPrice × 1.15 × factor)` (1.225 / 1.2 / 1.3), an order unit pays `cropOrderPrice`
-    unchanged; field fertile readyTick = tick + `ceil(grow × 0.9 / 2)`; creek: an unpaid plot ripens ×1.3 (×1.45) of
-    the plain unpaid pace ± 1 %; dense: 1,000 ticks burn 700 (550) units per plot; contract: 10 units fill 15 (17) of a
-    contract and pay 10 × `cropOrderPrice`; easySell: 10 units leave glut 7 (5.5) (`toBeCloseTo`); and a level-0 run with a trait
-    written into `survey` but level 0 equals the plain run on every one of these.
-  - PIN36r Manager match (in `tests/manager.test.ts`): managed fields with a berryPrice trait get the counted berry
-    crop, a field already showing a counted crop of its group keeps it, a pinned berry field is left alone, a run with
-    no traits gives today's plan.
-  - PIN36s report (`console.log('PIN36s', …)`): the migrated save-v33 fixture (12 chilli fields, all 4 beds
-    sprinklered) stepped 2 game-h at level 0 vs at level 3 with its own rolled traits, for 3 rngStates (the fixture's
-    and two fixed ones): cash gained each and the ratio. Band: surveyed ≥ 0.98 × plain for each seed (a trait never
-    costs income; the 2 % covers changed RNG sequences). Give this `it` a 60_000 ms timeout (6 runs × 7,200 steps;
-    PIN36o's 2 runs fit the default). Plus the closed form: a berryPrice field's market unit at Lv1 /
-    Lv3 = ×1.2 / ×1.3 of the plain unit (± rounding).
-  - Sims: no sim file changes and no sim number moves; `pnpm test` runs them all. Do not run any sim file on its own.
-  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`, batch '36.5'): "🧭 Soil survey (⭐ Favours): level 1 gives
-    each home bed a soil trait, level 2 each field, level 3 makes every trait 1.5× stronger. Reroll one for ⭐; traits
-    last until you sell."
-  - `## Batch 36.5 results` + `### Deviations` at the true end of this file; tick 229–233.
+- [ ] 234. **Save v35 and the new shape (no mechanic yet).** Commit this task FIRST.
+  - `src/core/state.ts:257` `MetaUpgradeId` and `:287` `META_UPGRADE_KEYS` gain, in this order after `keepRenown`:
+    `'keepClerk', 'keepCertificates2', 'mineStart', 'keepBoard', 'keepManager'`.
+  - `src/core/balance.ts:740` `DEED_ROW_IDS` gains the same 5 ids after `keepRenown`; `DEED_MAX_LEVEL` (:742–752) 1
+    each; `DEED_ONE_TIME_COST` (:753) gains `keepClerk: 6, keepCertificates2: 8, mineStart: 4, keepBoard: 4,
+    keepManager: 24`. The rows exist (buyable, the Legacy shop lists them) but have NO effect until task 237.
+  - `src/save/serialize.ts:39` `SAVE_VERSION` 34 → 35. New frozen `MetaV34` (`MetaState` with `upgrades` minus the 5
+    keys); today's `SaveV34` (:308) becomes `{ version: 34; savedAtMs; state: { meta: MetaV34; run: RunState } }`;
+    new `SaveV35 = { version: 35; savedAtMs; state: GameState }`, `Save = SaveV35` (:309).
+    `migrateV34(save: SaveV34): SaveV35` after `migrateV33` (:916–918):
+    - `meta.upgrades` gains the 5 keys at 0;
+    - renown re-seed: for every crop id in `CROP_IDS` (never `ancientFruit`), `run.renown[c] = max(run.renown[c] ?? 0,
+      run.lifetime.harvests[c] ?? 0)`, writing the key only when the result is > 0 (a crop at 0 stays absent).
+      `lifetime.harvests` counts home harvests only (`actions.ts:110`; field reaps leave it alone, `fields.ts:310`), the
+      same source the v22 → v23 migration seeded renown from (:739). A player who sold before 36.6 gets back what the
+      old reset took; a player who never sold already has renown ≥ harvests, so nothing changes for them;
+    - nothing else (growTime / sellPrice levels untouched, no deed refunded, the `keepRenown` level kept).
+    Chain it on EVERY branch of `migrate()` (:926–941): `if (data.version === 35) return data as SaveV35`, v34 →
+    `migrateV34(data as SaveV34)`, and wrap every older branch's chain in `migrateV34(…)`.
+  - The fixture `tests/fixtures/save-v34.json` is ALREADY committed (live re-save: the v33 export migrated by the live
+    v34 build CgJXbpZh on 2026-11-23 01:18; never edit any file in tests/fixtures). tests/save.test.ts: import it like
+    `v33` (:35); pin that it migrates to v35 with exactly the 5 zero keys added to `meta.upgrades` and `run.renown`
+    unchanged (its renown equals its lifetime harvests: radish 1,310, chilli 18,811, pumpkin 657, lemon 2,100, tomato
+    866, corn 326, strawberry 11,184, grape 1,695), everything else deep-equal; a hand-built v34 save that sold before
+    (renown `{ lemon: 1000 }`, harvests `{ lemon: 2416, pumpkin: 300 }`) migrates to `{ lemon: 2416, pumpkin: 300 }`;
+    every older fixture v1 … v34 reaches v35. Update the version pins (`tests/save.test.ts:567–569`, `:1109`) and
+    `tests/App.test.tsx:489` → "Will migrate v15 → v35".
 
-Scenarios (Hermes, from the plan's numbers; no bot): (A) fresh — Lv1 at ⭐80 against the fresh ⭐ pace ⭐52–134/h
-(tiles-b35.3-plan.md:12) = 36–92 min (the old ⭐10 was 1.1–1.6 h at the pre-×8 pace, calc34 :163); rerolls 16 / 24 /
-36 / 54 = 7–62 min each at that pace. (B) veteran — the v33 fixture: Lv2 + Lv3 = ⭐520, 12 rolled fields; PIN36s reports
-its 2-h cash with and without traits; calc34 :177 prices a berry field at +32.8 % at Lv3 at a strawberry estate.
+- [ ] 235. **Renown: 5 tiers, grow bonus, carry by default, Apprentices, start seeds (core).**
+  - `src/core/balance.ts:776–797`: `RENOWN_TIERS = [250, 1000, 4000, 12000, 30000]`; `RENOWN_FLOORS = [0.55, 0.6, 0.7,
+    0.7, 0.75]` (tiers 1–3 unchanged); new `RENOWN_GROW = [1, 0.95, 0.9, 0.85, 0.8]` (grow-time factor for tiers 1–5;
+    tier 0 = 1); `RENOWN_BADGES = ['🥉', '🥈', '🥇', '🏅', '🏆']`; `RENOWN_START_SEEDS = [6, 6, 6, 24, 24]` (tiers 1–5;
+    6 = one sprinkler bed, 24 = the 4 beds); `RENOWN_COVER_FIELDS = 4`. Exports `renownGrow(points)` (the factor),
+    `renownBadge(points)` ('' at tier 0), `renownStartSeeds(points)` (0 at tier 0), `renownShare(fields) = fields <=
+    RENOWN_COVER_FIELDS ? 1 : RENOWN_COVER_FIELDS / fields`. Comment "tiers reached (0–3)" → "(0–5)".
+  - `cropGrowTicks` (:812) gains a 5th optional parameter `renown = 1` (a factor, multiplied inside the existing
+    `Math.round(…)`). `cropRotGraceTicks` (:817) does NOT pass it: the harvest window stays on the unboosted grow time,
+    like fertilizer. The 🌳 tree cadence (`treeCadenceTicks`, BASE ticks) and the ancient crop get no grow bonus.
+  - `src/core/market.ts`: new `cropRenownGrow(run, crop, fields = 0)` = `renownGrow(points)` when `renownShare(fields)`
+    is 1, else `1 − (1 − renownGrow(points)) × renownShare(fields)`. HOME callers pass `cropRenownGrow(run, crop)` (full
+    bonus): `src/core/step.ts:53` (stepTile — add a `renown: number` parameter after `tick`; the call at :105 passes it),
+    `src/core/actions.ts:251` (harvest maturity), `src/core/tile.ts:11` (`growTicks`), `src/core/orders.ts:70`
+    (orderPerMinute's home part), `src/core/fields.ts:228` (`hc` in the income curve). ESTATE callers are task 236.
+    `marketSteadyFactor` (market.ts:55) keeps its signature; leave its callers.
+  - Carry: `src/core/prestige.ts:77–86`: the keepRenown branch becomes `renown: run.renown` (points, every crop, tier 0
+    included, no deed needed). Drop the `RENOWN_TIERS` / `renownTier` imports (:10, :16) if nothing else uses them; fix
+    the comment.
+  - Apprentices (`keepRenown`, same id, same 3 deeds, owners keep their level): a worker harvest earns `RENOWN_BY_HAND`
+    instead of `RENOWN_BY_WORKER` when `state.meta.upgrades.keepRenown > 0`, at `actions.ts:284` and at the 🌳 tree pick
+    `tree.ts:81` (both read `energy > 0 ? HAND : WORKER` today). Taps and tool presses stay +2.
+  - Start seeds: `createFreshRun` (`state.ts:317`; `seeds: {}` at :346) gives `renownStartSeeds(carry.renown[c])` seeds
+    of every crop `c` in the NEW run's `licenses` (`carry.licenses`) with tier ≥ 1. A new game (no carry) keeps `{}`.
+    Without the Seed vault only the starting crop is licensed, so only it gets a kit (intended: the vault and renown
+    stack).
+  - Tests (PIN36t, `tests/renown.test.ts`; rewrite `:66–92` "renown and Sell the farm"): tier / floor / next / badge /
+    grow at 249, 250, 999, 1,000, 3,999, 4,000, 11,999, 12,000, 29,999, 30,000 (floors 0.5 0.55 0.55 0.6 0.6 0.7 0.7 0.7
+    0.7 0.75; grow 1 1 1 0.95 0.95 0.9 0.9 0.85 0.85 0.8; next null only at ≥ 30,000); `cropGrowTicks('strawberry',
+    meta, 0, null, 0.8) === Math.round(cropGrowTicks('strawberry', meta, 0) × 0.8)`; a home strawberry tile with renown
+    1,000 matures at `Math.round(base × 0.95)` ticks (stepTile, `harvest` and `isMature` agree); rot grace unchanged by
+    renown; the sale keeps `{ lemon: 1000, pumpkin: 100 }` with NO deed owned (tier-0 pumpkin kept too); a worker
+    harvest +2 with Apprentices and +1 without, a tap +2 either way (also on the tree bed, `tests/tree.test.ts:104–129`);
+    the next run starts with 6 radish seeds at radish 250, 24 at 12,000, 0 at 249; with the Seed vault and lemon 4,000
+    also 6 lemon, without the vault no lemon seeds. Update `tests/sim/mine-estate.test.ts:523–545` (the "sold without
+    Kept renown → {}" pin): renown now carries either way; keep its 0.7-floor sale check.
 
-Out of scope: per-TILE traits (per bed, decided); traits inside listings or district rules; deed keeps for the survey
-(⭐ purchases reset on sale); an Info page section; traits in the Manager's DP, orders' sizing or the Estate's ≈💰/h
-labels; the 🌰 Ancient fruit button missing from the phone / tablet Shop seeds list (36.4 finding, open for Toon); the
-open 36.2 nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason); the 375 top-bar wrap;
-PIN36h (stays `it.fails`).
+- [ ] 236. **The breadth rule: renown covers 4 fields per crop (the economy-rule guard).**
+  - market.ts: `cropFieldCount(run, crop)` = `run.fields.unlocked ? run.fields.list.filter((f) => f.crop ===
+    crop).length : 0` (CHIP-based, `Field.crop` state.ts:206: stable mid-cycle; a chip without a pivot counts too).
+    `cropFloor(run, crop, fields = cropFieldCount(run, crop))` (:8–9): the renown part becomes `MARKET_FLOOR +
+    (renownFloor(points) − MARKET_FLOOR) × renownShare(fields)`; when the share is exactly 1 use `renownFloor(points)`
+    unchanged (byte-identical floats); the 📉 relic lift and `RELIC_FLOOR_CAP` apply after it, unchanged. The floor
+    belongs to the crop's ONE market, so the shared floor applies to every sale of that crop, home included, once more
+    than 4 fields show its chip.
+  - Grow: home tiles always keep the full bonus (task 235). ESTATE callers pass `cropRenownGrow(run, crop,
+    cropFieldCount(run, crop))`: `src/core/fields.ts:73` (`pressuredCycle`; sowPlot's readyTick and every estate read go
+    through it), `src/core/fields.ts:558` (`fieldsMarginalIncomePerHour`), `src/app/estateText.ts:51`.
+  - The Manager's DP: `fieldsCropIncomeCurve(state, crop, breadth = true)` (fields.ts:225–237): inside `income(T)` take
+    `n = breadth ? Math.ceil(T / (fieldPlots() × plotTiles())) : 1` and use `cropFloor(run, crop, n)` and a pressured
+    cycle on `cropRenownGrow(run, crop, n)` for that T (the home part `hc` stays full). `breadth = false` is today's
+    rule (share 1 at every T); only PIN36u passes it. `managerPlan` (manager.ts:47–76) is unchanged: each crop's value
+    row still depends only on its own field count, so the DP stays exact on the non-concave share curve.
+    `fieldsCropIncomePerHour` (:220) follows through the curve.
+  - Tests:
+    - `tests/manager.test.ts:58` ("≥ 0.999 × an exhaustive enumeration at 1–6 fields"): add the same check with renown
+      30,000 on chilli only and with 12,000 on every crop.
+    - PIN36u: pure DP on the shipped functions, no bot. Put it next to PIN31model in `tests/sim/mine-estate.test.ts`
+      (:547), reusing that describe's `at` / `emptyField` / `enumerate` helpers (:326–360), at the estate stage
+      `at(true, …)` with 20 managed empty fields. On the 10-crop ladder the estate best is CHILLI (b36-calculator item 2:
+      plain plan = 20 chilli; Toon's own save holds chilli 18,811), so the guard is written on chilli:
+      (a) crux regression: chilli 30,000 only, `breadth = false` → the best split is 20 chilli on the plain listing AND on
+      listing soil `{ fast: 'berry', slow: 'fruitVeg' }`;
+      (b) with the share, the same chilli-30,000 state on `{ fast: 'berry', slow: 'fruitVeg' }` (the only ±20 % flip)
+      plans FEWER than 20 chilli fields; print the split;
+      (c) every crop at 30,000, share on, plain listing: the plan uses ≥ 2 crops; print the split;
+      (d) `managerPlan` ≥ 0.99 × the exhaustive best for (b) and (c) at n = 2, 6, 10, and print its 20-field split.
+      (est.) Hermes's closed-form estimate: (b) ≈ 4 chilli + 16 strawberry, (c) ≈ 16 chilli + 4 strawberry, margins of
+      3–5 %. If (b) or (c) fails on the real code, do NOT tune any number: mark that one `it.fails` with the measured
+      split in its title, record it under `### Deviations` as a design finding for Toon, and go on.
+    - `tests/renown.test.ts`: `cropFloor` for chilli 30,000 with 0 / 4 / 5 / 8 / 20 chilli chips = 0.75 / 0.75 / 0.7 /
+      0.625 / 0.55 (± 1e-9), and 0.75 with the Fields locked; `pressuredCycle` for 4 vs 8 chilli chips at 30,000 =
+      `ceil(round(g × 0.8) / FIELD_PRESSURE)` vs `ceil(round(g × 0.9) / FIELD_PRESSURE)` with `g =
+      cropGrowTicks('chilli', meta, 0)`; a home chilli tile keeps the full 0.8 with 20 chips.
 
-## Batch 36.5 results
+- [ ] 237. **The five new rows take effect + Fast crops / Rich harvest Lv 6–10.**
+  - `DEED_MAX_LEVEL` growTime 5 → 10 and sellPrice 5 → 10 (balance.ts:743–744); `deedCost` unchanged (2^(level+1):
+    Lv 6–10 cost 64 / 128 / 256 / 512 / 1,024 = 1,984 per row); `multiplier` unchanged (growTime Lv 10 ≈ ×0.66,
+    sellPrice Lv 10 ≈ ×1.63 — read META_UPGRADE_STEP, do not change it). Fix the doc comments at :736–739 and :757.
+  - `sellFarm` (prestige.ts:48–90) certificates, in WORKER_JOBS order (`src/core/data/workers.ts:5`): plant / water /
+    harvest (keepFirstCertificates, unchanged) + `ore`, `fuel`, `mine` (keepCertificates2) + `clerk` (keepClerk) +
+    `manager` (keepManager). No stoker row. Without `keepManager` the Manager certificate is still dropped
+    (`tests/prestige.test.ts:86` keeps holding).
+  - 📋 Kept Noticeboard (`keepBoard`): the sold run starts with `orders.unlocked: true` and every slot filled exactly as
+    `buyOrderBoard` fills it (orders.ts:209–214, `rollOffers` :197), but free. Do it in `sellFarm` on the fresh run
+    through a small exported `openBoard(state)` in orders.ts that `buyOrderBoard` uses too (its result must stay
+    byte-identical).
+  - ⛏️ Miner's start (`mineStart`): the sold run starts with `mineLicense: true`, `rack: { copper:
+    pickaxeDurability('copper') }`, `selectedPickaxe: 'copper'` (the `craftPickaxe` shape, mining.ts:87–91), EXCEPT on
+    a Wetlands listing (wetlands.ts:9 `noMine`: no mine there, the row does nothing on that run).
+  - Kept Manager / Kept Clerk / Kept certificates II: certificates only (no worker, no assignment).
+  - Tests (PIN36v): `tests/prestige.test.ts` — each row's carry on its own (clerk cert; ore/fuel/mine certs; board open
+    at tick 0 with `slots` offers equal to `buyOrderBoard`'s roll on the same rngState; licence + copper pickaxe
+    selected; no mine kit on a Wetlands listing; manager cert) and all five together; `deedCost('growTime', 5…9)` =
+    64 / 128 / 256 / 512 / 1,024 (same for sellPrice), `deedMaxLevel` 10, one-time prices 6 / 8 / 4 / 4 / 24,
+    `legacyMaxed` needs Lv 10 on both rows.
 
-Tests: 1285 passed | 8 expected fail (before the batch) → **1313 passed | 8 expected fail (1321 total)** after task 233.
-`pnpm lint` clean, `pnpm build` OK (dist deleted after), one-time `npx tsc -b --force` clean, purity grep over
-`src/core` + `src/save` clean (the known `storage.ts` wallClock line only), case-clash check prints nothing. No sim
-file changed and no sim number moved — the full suite's 8 expected failures are the same PIN36h `it.fails` set as
-before the batch.
+- [ ] 238. **Visibility: 🏆 Legacy chip, renown badges, the 3-column sale preview; pins, CHANGELOG, report.**
+  - Legacy chip: new `LegacyChip` in `src/app/Legacy.tsx`, a `<button className="legacy-chip">` (≥ 44 px tall) at the
+    TOP of the 🌾 Farm tab (`src/app/Farm.tsx`, before `<Orders>` ~:160) and, where the Farm tab is not shown, at the
+    top of the 🛒 Shop panel (`src/app/Shop.tsx`, before `<h2>Seeds</h2>` ~:103, `{!farmTab && …}` like `SeedPouch`
+    at :146). Text: gate open (`sellFarmUnlocked`) → `🏆 {meta.deeds} · sale +{deedsClaimable(state)}`; before it →
+    `🏆 next deed at 💰{count(nextDeedCash)} lifetime`, with a new balance export `nextDeedCash(lifetimeCash) =
+    (deedsFor(lifetimeCash) + 1)² × DEED_DIVISOR` (:659). Shown from tick 0. Tap → the 🏦 Bank tab: `PanelProps`
+    (panelTabs.tsx:20–37) gains `openBank: () => void`; `App.tsx:133` passes `openBank: () => setTab('bank')` (:37).
+  - Badges: `renownBadge(points)` after the crop name in the 🌾 "Crop to plant" buttons (Farm.tsx ~:166), the 🛒 Seeds
+    list's licensed buttons (Shop.tsx:117–128, both branches) and the Seed pouch label (Farm.tsx ~:36); on the Estate a
+    `map-badge map-badge-renown` on the field chip (EstateMap.tsx:110–125) when the chip's crop has tier ≥ 1, in a corner
+    the pivot / soil badges do not use (app.css :809–825). The "Crop to plant" and Seeds buttons get a `title`:
+    "Strawberry 🥈 1,240 / 4,000" (top tier "Chilli 🏆 31,020 · top tier"; tier 0 "Radish 120 / 250"). FieldSheet
+    (EstateMap.tsx:166+, next to the 🧭 line :215), for a chip crop with tier ≥ 1: `{badge} {Name} covers {min(n, 4)} of
+    {n} fields · floor {pct} %` plus ` · grow −{x} %` when the factor is below 1 (n = `cropFieldCount`; pct / x from
+    `cropFloor` / `cropRenownGrow` with n, whole %), e.g. chilli 4,000 on 6 chips: "🥇 Chilli covers 4 of 6 fields ·
+    floor 63 % · grow −7 %". Stats (`src/core/stats.ts:79–83`) already reads 5 tiers; put the badge in front of the
+    value.
+  - Legacy rows (Legacy.tsx:28–77). NAMES: `keepRenown: 'Apprentices'`, `keepClerk: 'Kept Clerk'`, `keepCertificates2:
+    'Kept certificates II'`, `mineStart: "Miner's start"`, `keepBoard: 'Kept Noticeboard'`, `keepManager: 'Kept
+    Manager'`. TIPS: Apprentices "One-time: worker harvests earn renown like a hand harvest (+2 instead of +1)."; Kept
+    Clerk "One-time: selling the farm keeps the Clerk certificate."; Kept certificates II "One-time: selling the farm
+    keeps the ore, fuel and mine certificates."; Miner's start "One-time: every new farm starts with the mine license
+    and a copper pickaxe (not in Wetlands)."; Kept Noticeboard "One-time: every new farm starts with the order board
+    open."; Kept Manager "One-time: selling the farm keeps the Manager certificate.". effect(): "Workers earn +2
+    renown", "The Clerk certificate survives the sale", "Ore, fuel and mine certificates survive the sale", "Mine
+    license + copper pickaxe at the start", "Order board open from the start", "The Manager certificate survives the
+    sale".
+  - Sale preview (SellCard, Legacy.tsx:149–182): replace the ⭐ carry line (:149–152) and the Resets / Carries lists
+    (:166–182) with three columns in a `<div className="sell-cols">` (CSS next to `.sell-list` app.css:2083: `display:
+    grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.5rem 1rem` — one column at 375, three
+    from ~600 px), each an `<h3>` + `ul.sell-list`, all below the Next farm block and above the Sell button:
+    - **Gain** — `+{gain} deed(s)` (only when the gate is open); `⭐{carried} carried`; one row per crop with tier ≥ 1:
+      `{badge} {Name} {points}` ("Renown: none yet" when none); `Start seeds: {n} {emoji} …` for the next run's kit as
+      createFreshRun gives it (only when non-empty).
+    - **Lost** — `⭐{over} above {cap} — spend or reroll listings first` with `className="lost"` (red) when `run.stars >
+      STAR_CARRY_CAP`; "Every ⭐ Favour level"; "Tiles, cash, market, storage, tools"; "Mine, furnace, workshop, fields,
+      machines"; "Licenses, workers and certificates not kept"; "This run's timeline".
+    - **Kept** — "🏆 deeds and every Legacy row bought"; one row per owned keep: "Seed vault — every crop license",
+      "Kept certificates — plant, water, harvest", "Kept Clerk — the Clerk certificate", "Kept certificates II — ore,
+      fuel, mine", "Kept Noticeboard — the order board", "Miner's start — mine license + copper pickaxe", "Kept Manager —
+      the Manager certificate", "Apprentices — workers earn +2 renown"; "The ⭐-bought order slots ({slots})";
+      "Lifetime totals — the deed meter keeps counting"; "Renown — every crop's points".
+    The Next farm listings and the reroll (36.1) stay as they are.
+  - Sims and pins: sims run only inside `pnpm test`. Moved sim pins are expected ONLY in `tests/sim/prestige-crops.test.ts`
+    (run-2 / vault-run speed-ups :134–165, :170–183, :326–345, harvester3 hours :197–199, :341–343, the v17 save
+    :209–217; causes: renown carried, start seeds, T2+ grow), `tests/sim/mine-estate.test.ts` (PIN31worker hours
+    :500–521, the T2/T3 grow bonus; :523–545 carry), `tests/sim/fields.test.ts:716` (the top tier is now 30,000 / floor
+    0.75), and any long-run ladder pin where a crop passes 1,000 renown at home. Re-pin each old → new with its cause.
+    Correctness guards are BLOCKERS and are never re-pinned: `stallTicks` 0, every ladder rung defined (`plots30`,
+    `fields`), `lowest ≥ 0`, `borrowed` false, mining < 0.9 × farming cash per ⚡, PIN31model ≥ 0.99, the DP pins ≥
+    0.999, PIN22d < 2,000 ms, no negative cash or stock. PIN36h in `tests/sim/districts.test.ts` stays `it.fails` as it
+    is. While developing run only the describe you touch (`npx vitest run tests/sim/<file>.test.ts -t "<describe>"`).
+  - PIN36w (report, in `tests/save.test.ts` next to the v34 fixture pin): the migrated v34 fixture (Toon's own
+    12-chilli estate, chilli 18,811 = 🏅): its chilli `cropFloor` with share 1 (0.70) and with its 12 chips (`0.5 + 0.2 ×
+    4/12` ≈ 0.567), and 2 game-hours of `step` cash gained on that save vs the same save with every field chip but 4
+    cleared (shows the rule's cost on a mono estate, prestige-layers :175); `console.log('PIN36w', …)`; assert only no
+    negative cash and both runs > 0. A report for Toon, not a gate; give it a 60 s timeout.
+  - jsdom tests: `tests/Legacy.test.tsx` (chip in both states and its tap calls openBank; the 5 new rows' names, tips
+    and prices; "Apprentices" for a `keepRenown` owner; the three columns' exact rows for a fixture run with ⭐450,
+    chilli 18,811, lemon 300, Seed vault + Kept Clerk owned — rewrite :84–135, including the batch-31 Kept renown pin
+    :130), `tests/Estate.test.tsx` (renown badge on a chilli chip at 250, none at 249; the sheet line string for chilli
+    4,000 on 6 chips), a Farm / Shop test for the badge + title.
+  - CHANGELOG (`src/app/changelog.ts`): ONE entry at the TOP of `CHANGELOG`, verbatim, one line (174 code points):
+    `{ batch: '36.6', date: '<today, YYYY-MM-DD>', line: "🏅 Renown now carries over a sale and climbs 5 tiers 🥉🥈🥇🏅🏆 (higher tiers grow faster, covering 4 fields per crop). 5 new Legacy keeps; Fast crops and Rich harvest go to Lv 10." },`
+  - Write `## Batch 36.6 results` + `### Deviations` at the TRUE END of docs/PLAN.md: test totals before → after, one
+    line per task, the PIN36t–w numbers, every moved sim pin old → new with its cause, the v34 fixture's v35 check,
+    every new UI string, and what jsdom could not show (the wrap at 375, the chip placement, the red "lost" row); tick
+    234–238.
 
-- **229** `aca57e47` — save v34: `SAVE_VERSION` 34, `migrateV33` adds exactly the fresh `run.survey`, `RunV33` frozen;
-  the committed save-v33 fixture migrates adding exactly `run.survey` (deep-equal, nothing else touched) and every
-  fixture save-v1 … save-v33 lands on 34.
-- **230** `4dd47230` — the ladder and rolls: `SURVEY_STARS [80, 200, 320]`, `soilRerollStars` 16 / 24 / 36 / 54 / 81,
-  `src/core/survey.ts` (home 1/7, field 1/6 + group 1/3, all `nextRandom`), `rerollSoil` LOCKED / BAD_TILE / NO_STARS,
-  `buyPlot` rolls a newly opened field at Lv2+.
-- **231** `6d5efa32` — every trait on its real hook: stepTile fertile/clay/loose/rich, sales price, contract/easySell
-  in `harvestSale`, pressuredCycle ×0.9, burningPlots 7-of-10, fieldsAct creek slip 7-of-20, Manager soil match.
-- **232** `8c968d3a` — the UI: `soilText.ts` + the Favours 🧭 list with Reroll buttons, the FarmGrid bed chip, the
-  EstateMap badge and the FieldSheet soil line + reroll; jsdom render tests only (no browser).
-- **233** (this commit) — the pins (`tests/survey.test.ts` PIN36p/q/s, PIN36r in `tests/manager.test.ts`), the
-  changelog line, these results.
+Scenarios: (A) fresh — nothing changes before the first sale except the badges, the T2+ grow bonus at home and the
+chip; run 2 starts with its renown, a 6-seed radish kit (radish 🥉 comes in the first session) and whatever keeps were
+bought (8 gate deeds → e.g. Kept Clerk 6 + Bigger start Lv1 2). (B) veteran — Toon's save (never sold; the v34
+fixture): the migration leaves renown alone (renown = harvests already); chilli 18,811 → 🏅 (floor 0.70, grow −15 % at
+home), strawberry 11,184 → 🥇; his 12 chilli fields share the bonus 4/12 (floor 0.70 → ≈0.567, estate grow −5 %) —
+PIN36w measures it. A pre-36.6 seller gets the max(renown, harvests) re-seed. A `keepRenown` owner sees "Apprentices",
+level kept.
 
-PIN36p — ladder ⭐80 / ⭐200 / ⭐320 then MAX_LEVEL, LOCKED at Lv1 before the Fields; Lv1 rolls the 4 beds, Lv2 every
-field, Lv3 rolls nothing (rngState equal); a field opened at Lv2 rolls at purchase, at Lv1 it does not; 7,000 home +
-6,000 field rolls from seed 20261123: every home trait 850–1,150 (1/7 ± 15 % relative), every field entry 850–1,150
-(1/6 ± 15 %), the three group prices a third each ± 20 %; reroll costs 16 / 24 / 36 / 54 / 81 with per-unit counters
-(⭐1,000 → 984 → 960, only that unit redraws), NO_STARS / BAD_TILE / LOCKED; `sellFarm` resets the survey; same seed →
-same state.
-
-PIN36q — fertile matures in round(grow × 0.9) ± 1 (0.85 at Lv3); clay keeps a wet tile 1 / 0.6 (1 / 0.4) as long;
-loose rots after floor(grace × 2) + 1 (× 2.5) and `ticksUntilRot` agrees; rich 2,000 / 3,000 doubles of 20,000
-tier-0 harvests ± 200 (plain 0); home price ×1.15 / ×1.225 and field ×1.2 / ×1.3 of the plain market unit ± 1, an
-order unit pays `cropOrderPrice` unchanged; field fertile sows at ceil(grow × 0.9 / 2); an unpaid creek plot ripens
-×1.3 / ×1.45 of the plain unpaid pace ± 1 %; dense burns 700 / 550 / 1,000 units per plot per 1,000 ticks; contract
-10 units fill 15 / 17 and pay 10 × `cropOrderPrice`; easySell 10 units leave glut 7 / 5.5; a level-0 run with traits
-written into `survey` equals the plain run (hooks read PLAIN_SALE, 300 steps deep-equal).
-
-PIN36r — with strawberry + chilli licensed the plain 4-field plan is [strawberry, chilli, chilli, chilli]; a berryPrice
-trait on field 4 moves the counted strawberry to it: [chilli, chilli, chilli, strawberry]; a field already showing a
-counted crop of its group keeps it (grape chip, both berries counted); a 📌 pinned berry field is left alone
-(target null); a run with no traits gives today's plan (deep-equal).
-
-PIN36s — the migrated v33 fixture (12 chilli fields, 2 game-h, Lv3 with its own rolled traits): plain 23,701,028 /
-23,828,324 / 23,877,746 vs surveyed 27,078,551 / 27,080,681 / 27,172,279 for seeds 3249475414 / 987654321 / 42 —
-ratios 1.143 / 1.136 / 1.138, all ≥ the 0.98 band; the berryPrice closed form ×1.2 / ×1.3 ± 1 holds.
-
-Fixture v34 check — save-v33.json → v34 adds exactly `run.survey` at the fresh default (`{ level: 0, 4 × { trait:
-null, rerolls: 0 }, fields: [] }`), every other key deep-equal, version stamped 34; the v1 … v33 chain all lands on 34.
-
-New UI strings — the Favours row "🧭 Soil survey" (tip: "Level 1 gives each home bed a soil trait, level 2 each
-field, level 3 makes every trait 1.5× stronger. Reroll any one for ⭐. Traits last until you sell the farm.") with the
-level effect line "a trait for each home bed" / "a trait for each field" / "every trait ×1.5"; the `<details>` summary
-"🧭 Soil traits · N beds · M fields" and its rows "Bed 1: 🥔 Root soil" + effect + "Reroll ⭐16" (aria-labels "Reroll
-bed 1's soil" / "Reroll field 1's soil"); the FarmGrid bed chip (aria "Bed 1 soil: Root soil", title "Root soil —
-<effect>"); the EstateMap chip suffix " · soil Berry soil" and the FieldSheet line "🧭 Soil: 🍓 Berry soil — <effect>"
-with "Reroll this field's soil · ⭐16"; the 14 effect lines from `soilTraitText` — "roots/fruit-veg/berry crops sell
-+15 %" / "+22.5 %" (home) and "+20 %" / "+30 %" (field), "drains 40 % slower" / "60 %", "ripe crops wait ×2 / ×2.5
-before rotting", "+10 % / +15 % double harvest", "grows 10 % / 15 % faster", "grows ×1.3 / ×1.45 with an empty tank",
-"burns 30 % / 45 % less tank coal", "each crop counts ×1.5 / ×1.75 toward a contract", "gluts the market 30 % / 45 %
-less".
-
-### Deviations
-
-- No browser this batch (per brief): all UI verified with jsdom render tests. Not machine-verified: the visual layout
-  and spacing of the soil list / bed chip / map badge at 375 px, the bed-soil chip's corner position relative to the
-  sprinkler glyph, and the `<details>` open/close feel.
-- No correctness-guard blocker fired (no negative value, cash loop, migration key loss, stall, or PIN36s below band);
-  nothing was tuned away from the plan's numbers.
+Out of scope: the charter card (batch 37), almanac tiers, a stoker or sprinkler-bed keep row, renown from Estate reaps
+(stays home-only), any ⭐ price, re-timing the tier table on the 10-crop ladder, the labour-cap re-measure, the 🌰
+Ancient fruit button missing from the phone / tablet Shop seeds list (open for Toon), the 36.2 nits, the 375 top-bar
+wrap, PIN36h.

@@ -1376,3 +1376,62 @@ Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these
   Fix candidate: the same 🌰 button in the Shop seeds list when the Farm tab is not shown. Waits for Toon's word.
 - **Renumbered:** none. Batch 36.5 = tasks 229–233, save v34. Next: 36.6 (renown tiers, deed rows, v35), planned only
   after 36.5 is pushed, re-anchored on 36.5's HEAD.
+
+## Batch 36.6 refined (2026-11-23, 🏅 renown 5 tiers + carry + the 4-fields breadth rule, 5 Legacy rows, Lv 6–10, the sale preview; save v34 → v35)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-split.md` row 36.6 "Renown 5 tiers
+(250/1k/4k/12k/30k) + carry + 4-fields-per-crop breadth rule (same batch, decided), 5 deed rows (6/8/4/4/24),
+growTime/sellPrice Lv6–10, Kept renown → 🎓 Apprentices, Legacy chip + badges + 3-column pre-sale preview. v35";
+`prestige-layers.md` q3–q8 ACCEPTED 2026-11-13; `b36-calculator.md` item 2). Draft `tiles-b36.6-plan.md` of
+2026-11-21 08:16 (anchors d0c52954, SAVE_VERSION 29; kept as `tiles-b36.6-plan.draft-0816.md`) re-anchored on
+a05af886 (origin/main after 36.5).
+Go: Toon (Trin) 2026-11-22 16:29 "งั้นปล่อยให้หมดเลยทีเดียว" — batches 36.3–36.6 one after another; this entry covers
+36.6. Worker: Opus (b36-split item 4), launched by the Side Project Bot launch job.
+
+Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these as written):
+1. Numbering 234–238 (five tasks: 234 save v35 + shape, 235 renown core, 236 breadth rule + Manager curve, 237 the five
+   rows' effects + Lv 6–10, 238 UI + sim re-pins + report). The save bump is its own first commit; the five rows are
+   buyable from 234 but do nothing until 237 (one worker run, never shipped in between).
+2. CHANGED from the draft: the breadth pins are written on CHILLI, not strawberry. The draft was built on the old
+   8-crop ladder where strawberry was the estate best; on the shipped 10-crop ladder the plain estate plan is 20 chilli
+   (b36-calculator item 2) and Toon's own save holds chilli 18,811. The draft's "(b) ≥ 12 non-strawberry fields" and
+   "(c) every crop T3 mixes ≥ 3 crops" become "(b) fewer than 20 chilli under berry-fast / fruit-veg-slow" and "(c) every
+   crop T5 uses ≥ 2 crops on plain" (Hermes closed-form estimate: ≈ 4 chilli + 16 strawberry and ≈ 16 chilli + 4
+   strawberry, 3–5 % margins). The old (c) already failed on plain in prestige-layers :171 (16 straw + 4 grape). If
+   either fails on the real code the worker marks it `it.fails` and reports it; no number is tuned.
+3. The breadth count is CHIP-based (fields showing the crop's chip, pivot or not; 0 while the Fields are locked). The
+   shared floor applies to every sale of that crop, home included, because the crop has one market; home tiles always
+   keep the full grow bonus.
+4. The Manager curve takes n = ceil(T / one field's tiles) for each candidate T, so the DP sees the share curve and stays
+   exact. A `breadth = false` parameter on `fieldsCropIncomeCurve` exists only for the crux regression pin (today's rule).
+5. Rot grace stays on the unboosted grow time (like fertilizer); the tree bed and the ancient crop get no grow bonus.
+6. Start seeds go only to crops licensed in the new run (without the Seed vault: only the starting crop). Seeds of an
+   unlicensed crop would sit unusable in the pouch.
+7. Apprentices also applies to 🌳 tree picks by a worker (both are "worker harvests").
+8. Kept Noticeboard rolls the board's offers at the sale exactly as buying the board does, for free; Miner's start does
+   nothing on a Wetlands listing (no mine there).
+9. Renown re-seed at v35 = max(renown, lifetime home harvests) per crop, ancient fruit excluded; a crop at 0 stays absent.
+10. Legacy row names carry no emoji, like the 9 shipped rows ("Apprentices", "Kept Clerk", "Kept certificates II",
+    "Miner's start", "Kept Noticeboard", "Kept Manager"); the decision table's 🎓 📜 ⛏️ 📋 💼 are not in the labels.
+11. The 🏆 chip sits at the top of the 🌾 Farm tab (desktop) and at the top of the 🛒 Shop panel where there is no Farm
+    tab, from tick 0 ("next deed at 💰X lifetime" before the gate); tapping it opens the 🏦 Bank tab. It does not go into
+    the HUD / top bar (the open 375 top-bar wrap).
+12. The sale preview replaces Resets / Carries and the ⭐ carry line with Gain / Lost / Kept columns (one column at 375,
+    three from ~600 px), below the Next farm block.
+13. Toon's own save pays for the breadth rule: his 12 chilli fields share 🏅 chilli 4/12, so the chilli floor drops
+    0.70 → ≈0.567 once 36.6 is live (estate grow −5 %; home grow −15 %). Decided in q7 ("carry alone locks mono");
+    PIN36w measures the 2-hour cash cost on his save so Toon sees the number.
+14. New pins: PIN36t (tiers, grow, carry, Apprentices, start seeds), PIN36u (breadth DP, next to PIN31model in
+    tests/sim/mine-estate.test.ts — a pure DP, no bot), PIN36v (the five rows + Lv 6–10), PIN36w (report on the v34
+    fixture). No new sim file.
+15. Sim re-pins are allowed in this batch for the named causes only (T2+ grow, carried renown, start seeds, the deed
+    buy order); correctness guards (stall, ladder rungs, no loan, mining under the farm cap, PIN31model, DP ≥ 0.999,
+    PIN22d) are blockers.
+16. Worker: Opus `--model opus --effort medium`, `--max-turns 450` (36.2 used 294 of 450 for six tasks with sim pins;
+    36.6 re-pins more sims), deadline 2026-11-29T09:00 (as 36.3's Opus run), relay thread unchanged
+    (1573420437554200597).
+17. Fixture `tests/fixtures/save-v34.json`: Toon's v33 export as migrated and re-saved by the live v34 build CgJXbpZh
+    (36.5's post-deploy check, 2026-11-23 01:18), rewritten as compact one-line JSON like the older fixtures (same keys,
+    order and values).
+- **Open, not in this batch (Toon's call):** the 🌰 Ancient fruit button is missing from the phone / tablet /
+  collapsed-panel Shop seeds list (`src/app/Shop.tsx:105` loops `CROP_IDS` only), found in 36.4's live check.
+- **Renumbered:** none. Batch 36.6 = tasks 234–238, save v35. This is the last batch of the 36 series.
