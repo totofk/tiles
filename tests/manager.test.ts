@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { TANK_UNITS_PER_COAL, doubleHarvestChance, fieldPlots, plotTiles, tankCapCoal, workerActionTicks } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
+import type { FieldTraitId } from '../src/core/data/soil'
 import { fieldsCropIncomePerHour } from '../src/core/fields'
 import { managerPlan } from '../src/core/manager'
 import { createInitialState, type Field, type GameState, type Offer, type Plot } from '../src/core/state'
@@ -123,4 +124,42 @@ describe('batch 29: 💼 the Manager at work', () => {
     const back = catchUp(managed(fields(20), { autoBuySeeds: true }), 8 * 3600 * 1000)
     expect(back.run.fields.list.every((f) => f.crop !== null)).toBe(true)
   }, 20_000) // 0.5–1.2 s alone; timed out once at 5,148 ms under a loaded full run (batch 30)
+})
+
+describe('batch 36.5: the Manager soil match (PIN36r)', () => {
+  /** a level-2 survey whose `fields` traits align with the field list (beds rolled as at Lv1) */
+  const survey = (traits: (FieldTraitId | null)[]): GameState['run']['survey'] => ({
+    level: 2,
+    beds: [null, null, null, null].map((trait) => ({ trait, rerolls: 0 })),
+    fields: traits.map((trait) => ({ trait, rerolls: 0 })),
+  })
+
+  it('managed fields with a berryPrice trait get the counted berry crop', () => {
+    // today's 4-field split with strawberry + chilli licensed: one strawberry, taken by the lowest open field
+    const base = managed(fields(4), { licenses: ['strawberry', 'chilli'] })
+    expect(managerPlan(base).target).toEqual(['strawberry', 'chilli', 'chilli', 'chilli'])
+    // the trait moves the counted strawberry to field 3 (the plain plan would give it chilli)
+    const s = managed(fields(4), { licenses: ['strawberry', 'chilli'], survey: survey([null, null, null, 'berryPrice']) })
+    expect(managerPlan(s).target).toEqual(['chilli', 'chilli', 'chilli', 'strawberry'])
+  })
+
+  it('a field already showing a counted crop of its group keeps it', () => {
+    const s = managed([field('grape'), ...fields(5)], { licenses: ['grape', 'strawberry'], survey: survey(['berryPrice', null, null, null, null, null]) })
+    const plan = managerPlan(s)
+    expect(plan.target[0]).toBe('grape')
+    expect(plan.target).toContain('strawberry') // both berries counted: the chip branch is what keeps the grape
+  })
+
+  it('a 📌 pinned berry field is left alone; the managed field still gets its group', () => {
+    const s = managed([field('lemon', true), field()], { licenses: ['strawberry'], survey: survey(['berryPrice', null]) })
+    const plan = managerPlan(s)
+    expect(plan.target[0]).toBe(null)
+    expect(plan.target[1]).toBe('strawberry')
+  })
+
+  it('a run with no traits gives today\'s plan', () => {
+    const plain = managed(fields(4), { licenses: ['strawberry', 'chilli'] })
+    const traitless = managed(fields(4), { licenses: ['strawberry', 'chilli'], survey: survey([null, null, null, null]) })
+    expect(managerPlan(traitless)).toEqual(managerPlan(plain))
+  })
 })

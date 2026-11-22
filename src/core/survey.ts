@@ -32,7 +32,7 @@ export function traitGroup(trait: HomeTraitId | FieldTraitId | null): GroupId | 
 }
 
 /** one uniform home draw: 1 draw over the 7 home traits */
-function drawHome(rngState: number): [HomeTraitId, number] {
+export function drawHome(rngState: number): [HomeTraitId, number] {
   const [r, next] = nextRandom(rngState)
   return [HOME_TRAITS[Math.floor(r * HOME_TRAITS.length)], next]
 }

@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '36.5', date: '2026-11-23', line: "🧭 Soil survey (⭐ Favours): level 1 gives each home bed a soil trait, level 2 each field, level 3 makes every trait 1.5× stronger. Reroll one for ⭐; traits last until you sell." },
   { batch: '36.4', date: '2026-11-22', line: "🏺 Digging the farm now finds relic shards (5 buy one of 6 run-long rules, ×1.5 as a set), ✨ star dust worth ⭐1 and a rare 🦴 ancient seed the shop never sells." },
   { batch: '36.3', date: '2026-11-22', line: "🌊 Wetlands is the farm with no mine: the river waters two beds for free, a barge sells bars, stone and coal for cash, and berries pay ×1.4." },
   { batch: '36.2', date: '2026-11-21', line: "Orchard Valley and Iron Hills now play their own way: each sells its own seeds; Orchard berries pay ×1.4 and grow a 🌳 fruit tree; Iron Hills stamps bars into goods at a 🔨 forge." },

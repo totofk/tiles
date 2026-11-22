@@ -85,7 +85,7 @@ reroll or the listing reroll. In the UI this batch always says "soil trait" and 
 
 ## Tasks (229–233)
 
-- [ ] 229. **Save v34 and the new shape (no mechanic yet).** Commit this task FIRST.
+- [x] 229. **Save v34 and the new shape (no mechanic yet).** Commit this task FIRST.
   - New `src/core/data/soil.ts` (identity only): `HOME_TRAITS = ['roots', 'fruitVeg', 'berry', 'clay', 'loose',
     'rich', 'fertile'] as const`, `FIELD_TRAITS = ['rootsPrice', 'fruitVegPrice', 'berryPrice', 'creek', 'dense',
     'contract', 'easySell', 'fertile'] as const`, types `HomeTraitId`, `FieldTraitId`, `SoilTraitId = HomeTraitId |
@@ -122,7 +122,7 @@ reroll or the listing reroll. In the UI this batch always says "soil trait" and 
     `:1747`, and App.test "Will migrate v15 → v34" (`tests/App.test.tsx:489`).
   - Grep `src/` and `tests/` for every `RunState` literal and `createFreshRun` / `SaveV33` user; CI `tsc -b` fails on a
     stale one.
-- [ ] 230. **The ladder, the rolls, the rerolls (core).** New `src/core/survey.ts`; numbers in `balance.ts` (new block
+- [x] 230. **The ladder, the rolls, the rerolls (core).** New `src/core/survey.ts`; numbers in `balance.ts` (new block
   after the listing block `:668–687`):
   - `SURVEY_STARS = [80, 200, 320]` (Lv1 home beds, Lv2 fields, Lv3 strength; ×8 of the accepted ⭐10 / 25 / 40),
     `SURVEY_FIELDS_LEVEL = 2`, `SURVEY_STRONG_LEVEL = 3`, `SOIL_REROLL_BASE = 16`, `SOIL_REROLL_GROWTH = 1.5` and
@@ -149,7 +149,7 @@ reroll or the listing reroll. In the UI this batch always says "soil trait" and 
     `rerolls` +1. Counters are per unit and reset only with the run (the sale).
   - Read helpers (exported from `survey.ts`, used by task 231 and the UI): `bedTrait(run, bed)`, `fieldTrait(run, k)`
     (null when level is too low or the entry is missing), `soilStrong(run)` = level ≥ 3.
-- [ ] 231. **Trait effects (core) — each one its own multiplicative factor, default = today.** Lv1 value / Lv3 value
+- [x] 231. **Trait effects (core) — each one its own multiplicative factor, default = today.** Lv1 value / Lv3 value
   (Lv3 multiplies each trait's DELTA by 1.5). All in `balance.ts` as `[lv1, lv3]` pairs; a tick-rule is `[n, d]` =
   "on n of every d ticks" via `everyNth(tick, [n, d]) = Math.floor(((tick + 1) × n) / d) > Math.floor((tick × n) /
   d)` (integer arithmetic; `everyNth(t, [1, 2])` is exactly `t % 2 === 1`).
@@ -205,7 +205,7 @@ reroll or the listing reroll. In the UI this batch always says "soil trait" and 
   - Not traits: listing soil (36.1 grow axis) and district berry ×1.4 (36.2) stay their own factors; survey price
     traits are the sell axis. Orders, the order count (`orderPerMinute`), the Manager's DP income curves, the payback
     label and `estateText` estimates ignore traits (est.).
-- [ ] 232. **UI.**
+- [x] 232. **UI.**
   - ⭐ Favours row (`src/app/Favours.tsx`): `ROWS.soilSurvey = { emoji: SURVEY_EMOJI, name: 'Soil survey' }` (`:24–32`,
     shows "🧭 Soil survey Lv N"); `lockText('fields')` = `'needs the 🚜 Fields'` (`:43–67`); `effectText` (`:70–89`):
     level 0 `'a trait for each home bed'`, 1 `'a trait for each field'`, 2 `'every trait ×1.5'`. `FAVOUR_TIPS.soilSurvey`
@@ -235,7 +235,7 @@ reroll or the listing reroll. In the UI this batch always says "soil trait" and 
   - jsdom tests: `tests/FavoursSection.test.tsx` (row Lv 0 → 3 lines, the 'fields' lock text, the soil list hidden at
     level 0, rows + costs at 1 / 2, a reroll click spends ⭐16), `tests/Beds.test.tsx` (chip only for a rolled bed),
     `tests/Estate.test.tsx` (badge, sheet line, reroll button). No HUD change; the 375 top bar is not touched.
-- [ ] 233. **Pins, CHANGELOG, results.** New `tests/survey.test.ts` (pure, no bot; use `createInitialState()` and
+- [x] 233. **Pins, CHANGELOG, results.** New `tests/survey.test.ts` (pure, no bot; use `createInitialState()` and
   edited states; the v33 fixture through `deserialize`):
   - PIN36p ladder and rolls: ⭐80 / 200 / 320 then MAX_LEVEL; LOCKED Lv2 before the Fields; Lv1 rolls 4 beds, Lv2 every
     field, Lv3 nothing (rngState equal); a field opened at level ≥ 2 rolls at purchase, at level 1 it does not; 7,000
@@ -275,3 +275,71 @@ Out of scope: per-TILE traits (per bed, decided); traits inside listings or dist
 labels; the 🌰 Ancient fruit button missing from the phone / tablet Shop seeds list (36.4 finding, open for Toon); the
 open 36.2 nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason); the 375 top-bar wrap;
 PIN36h (stays `it.fails`).
+
+## Batch 36.5 results
+
+Tests: 1285 passed | 8 expected fail (before the batch) → **1313 passed | 8 expected fail (1321 total)** after task 233.
+`pnpm lint` clean, `pnpm build` OK (dist deleted after), one-time `npx tsc -b --force` clean, purity grep over
+`src/core` + `src/save` clean (the known `storage.ts` wallClock line only), case-clash check prints nothing. No sim
+file changed and no sim number moved — the full suite's 8 expected failures are the same PIN36h `it.fails` set as
+before the batch.
+
+- **229** `aca57e47` — save v34: `SAVE_VERSION` 34, `migrateV33` adds exactly the fresh `run.survey`, `RunV33` frozen;
+  the committed save-v33 fixture migrates adding exactly `run.survey` (deep-equal, nothing else touched) and every
+  fixture save-v1 … save-v33 lands on 34.
+- **230** `4dd47230` — the ladder and rolls: `SURVEY_STARS [80, 200, 320]`, `soilRerollStars` 16 / 24 / 36 / 54 / 81,
+  `src/core/survey.ts` (home 1/7, field 1/6 + group 1/3, all `nextRandom`), `rerollSoil` LOCKED / BAD_TILE / NO_STARS,
+  `buyPlot` rolls a newly opened field at Lv2+.
+- **231** `6d5efa32` — every trait on its real hook: stepTile fertile/clay/loose/rich, sales price, contract/easySell
+  in `harvestSale`, pressuredCycle ×0.9, burningPlots 7-of-10, fieldsAct creek slip 7-of-20, Manager soil match.
+- **232** `8c968d3a` — the UI: `soilText.ts` + the Favours 🧭 list with Reroll buttons, the FarmGrid bed chip, the
+  EstateMap badge and the FieldSheet soil line + reroll; jsdom render tests only (no browser).
+- **233** (this commit) — the pins (`tests/survey.test.ts` PIN36p/q/s, PIN36r in `tests/manager.test.ts`), the
+  changelog line, these results.
+
+PIN36p — ladder ⭐80 / ⭐200 / ⭐320 then MAX_LEVEL, LOCKED at Lv1 before the Fields; Lv1 rolls the 4 beds, Lv2 every
+field, Lv3 rolls nothing (rngState equal); a field opened at Lv2 rolls at purchase, at Lv1 it does not; 7,000 home +
+6,000 field rolls from seed 20261123: every home trait 850–1,150 (1/7 ± 15 % relative), every field entry 850–1,150
+(1/6 ± 15 %), the three group prices a third each ± 20 %; reroll costs 16 / 24 / 36 / 54 / 81 with per-unit counters
+(⭐1,000 → 984 → 960, only that unit redraws), NO_STARS / BAD_TILE / LOCKED; `sellFarm` resets the survey; same seed →
+same state.
+
+PIN36q — fertile matures in round(grow × 0.9) ± 1 (0.85 at Lv3); clay keeps a wet tile 1 / 0.6 (1 / 0.4) as long;
+loose rots after floor(grace × 2) + 1 (× 2.5) and `ticksUntilRot` agrees; rich 2,000 / 3,000 doubles of 20,000
+tier-0 harvests ± 200 (plain 0); home price ×1.15 / ×1.225 and field ×1.2 / ×1.3 of the plain market unit ± 1, an
+order unit pays `cropOrderPrice` unchanged; field fertile sows at ceil(grow × 0.9 / 2); an unpaid creek plot ripens
+×1.3 / ×1.45 of the plain unpaid pace ± 1 %; dense burns 700 / 550 / 1,000 units per plot per 1,000 ticks; contract
+10 units fill 15 / 17 and pay 10 × `cropOrderPrice`; easySell 10 units leave glut 7 / 5.5; a level-0 run with traits
+written into `survey` equals the plain run (hooks read PLAIN_SALE, 300 steps deep-equal).
+
+PIN36r — with strawberry + chilli licensed the plain 4-field plan is [strawberry, chilli, chilli, chilli]; a berryPrice
+trait on field 4 moves the counted strawberry to it: [chilli, chilli, chilli, strawberry]; a field already showing a
+counted crop of its group keeps it (grape chip, both berries counted); a 📌 pinned berry field is left alone
+(target null); a run with no traits gives today's plan (deep-equal).
+
+PIN36s — the migrated v33 fixture (12 chilli fields, 2 game-h, Lv3 with its own rolled traits): plain 23,701,028 /
+23,828,324 / 23,877,746 vs surveyed 27,078,551 / 27,080,681 / 27,172,279 for seeds 3249475414 / 987654321 / 42 —
+ratios 1.143 / 1.136 / 1.138, all ≥ the 0.98 band; the berryPrice closed form ×1.2 / ×1.3 ± 1 holds.
+
+Fixture v34 check — save-v33.json → v34 adds exactly `run.survey` at the fresh default (`{ level: 0, 4 × { trait:
+null, rerolls: 0 }, fields: [] }`), every other key deep-equal, version stamped 34; the v1 … v33 chain all lands on 34.
+
+New UI strings — the Favours row "🧭 Soil survey" (tip: "Level 1 gives each home bed a soil trait, level 2 each
+field, level 3 makes every trait 1.5× stronger. Reroll any one for ⭐. Traits last until you sell the farm.") with the
+level effect line "a trait for each home bed" / "a trait for each field" / "every trait ×1.5"; the `<details>` summary
+"🧭 Soil traits · N beds · M fields" and its rows "Bed 1: 🥔 Root soil" + effect + "Reroll ⭐16" (aria-labels "Reroll
+bed 1's soil" / "Reroll field 1's soil"); the FarmGrid bed chip (aria "Bed 1 soil: Root soil", title "Root soil —
+<effect>"); the EstateMap chip suffix " · soil Berry soil" and the FieldSheet line "🧭 Soil: 🍓 Berry soil — <effect>"
+with "Reroll this field's soil · ⭐16"; the 14 effect lines from `soilTraitText` — "roots/fruit-veg/berry crops sell
++15 %" / "+22.5 %" (home) and "+20 %" / "+30 %" (field), "drains 40 % slower" / "60 %", "ripe crops wait ×2 / ×2.5
+before rotting", "+10 % / +15 % double harvest", "grows 10 % / 15 % faster", "grows ×1.3 / ×1.45 with an empty tank",
+"burns 30 % / 45 % less tank coal", "each crop counts ×1.5 / ×1.75 toward a contract", "gluts the market 30 % / 45 %
+less".
+
+### Deviations
+
+- No browser this batch (per brief): all UI verified with jsdom render tests. Not machine-verified: the visual layout
+  and spacing of the soil list / bed chip / map badge at 375 px, the bed-soil chip's corner position relative to the
+  sprinkler glyph, and the `<details>` open/close feel.
+- No correctness-guard blocker fired (no negative value, cash loop, migration key loss, stall, or PIN36s below band);
+  nothing was tuned away from the plan's numbers.
