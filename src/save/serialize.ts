@@ -13,6 +13,7 @@ import {
   createMachines,
   createTile,
   createForge,
+  createSurvey,
   type Counters,
   type Field,
   type Fields,
@@ -35,7 +36,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 33
+export const SAVE_VERSION = 34
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -44,8 +45,8 @@ type CropIdV26 = 'radish' | 'chilli' | 'pumpkin' | 'lemon' | 'tomato' | 'corn' |
 type CropIdV32 = 'potato' | 'radish' | 'corn' | 'eggplant' | 'pumpkin' | 'tomato' | 'lemon' | 'grape' | 'strawberry' | 'chilli'
 /** up to v32: no dig-find / relic lifetime counters */
 type LifetimeV32 = Omit<Lifetime, 'shardsFound' | 'starDustFound' | 'ancientSeedsFound' | 'relicsEver'>
-/** a v32 run: the live run without the finds, relics and reserve, with the old lifetime and the 10-crop market */
-type RunV32 = Omit<RunState, 'finds' | 'relics' | 'energyReserve' | 'lifetime' | 'market'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
+/** a v32 run: the live run without the finds, relics, reserve and survey, with the old lifetime and the 10-crop market */
+type RunV32 = Omit<RunState, 'finds' | 'relics' | 'energyReserve' | 'survey' | 'lifetime' | 'market'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
 const CROP_IDS_V26: readonly CropIdV26[] = ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry']
 /** up to v26: no fields grants, no dig-find / relic counters (batch 36.4) */
 type LifetimeV26 = Omit<Lifetime, 'fieldsGranted' | 'shardsFound' | 'starDustFound' | 'ancientSeedsFound' | 'relicsEver'>
@@ -289,8 +290,8 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
 type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
 /** v29: before the sale listings (batch 36.1) */
 type MetaV29 = Omit<MetaState, 'listingSeed' | 'listingRerolls' | 'districtsPlayed'>
-/** v30: before the tree bed and the forge (batch 36.2); the old lifetime, the 10-crop market and no finds/relics/reserve are frozen here (batch 36.4) */
-type RunV30 = Omit<RunState, 'tree' | 'forge' | 'lifetime' | 'market' | 'finds' | 'relics' | 'energyReserve'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
+/** v30: before the tree bed and the forge (batch 36.2); the old lifetime, the 10-crop market and no finds/relics/reserve/survey are frozen here (batches 36.4/36.5) */
+type RunV30 = Omit<RunState, 'tree' | 'forge' | 'lifetime' | 'market' | 'finds' | 'relics' | 'energyReserve' | 'survey'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
 type RunV29 = Omit<RunV30, 'listing'>
 /** v28: fractional ⭐ kept in starsFrac, offers paid ⭐ per production-minute, rerolls free of a counter */
 type RunV28 = Omit<RunV29, 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
@@ -301,8 +302,11 @@ type SaveV29 = { version: 29; savedAtMs: number; state: { meta: MetaV29; run: Ru
 type SaveV30 = { version: 30; savedAtMs: number; state: { meta: MetaState; run: RunV30 } }
 type SaveV31 = { version: 31; savedAtMs: number; state: { meta: MetaState; run: RunV32 } }
 type SaveV32 = { version: 32; savedAtMs: number; state: { meta: MetaState; run: RunV32 } }
-type SaveV33 = { version: 33; savedAtMs: number; state: GameState }
-export type Save = SaveV33
+/** v33: the live run without the survey (batch 36.5) */
+type RunV33 = Omit<RunState, 'survey'>
+type SaveV33 = { version: 33; savedAtMs: number; state: { meta: MetaState; run: RunV33 } }
+type SaveV34 = { version: 34; savedAtMs: number; state: GameState }
+export type Save = SaveV34
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -907,27 +911,34 @@ function migrateV32(save: SaveV32): SaveV33 {
   }
 }
 
+// v33 → v34 (batch 36.5): the 🧭 soil survey at its fresh default — level 0, no traits, no rerolls. Nothing granted,
+// refunded or removed: a veteran buys Lv1 / Lv2 like anyone.
+function migrateV33(save: SaveV33): SaveV34 {
+  return { version: 34, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...save.state.run, survey: createSurvey() } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 33) return data as SaveV33
-  if (data.version === 32) return migrateV32(data as SaveV32)
-  if (data.version === 31) return migrateV32(migrateV31(data as SaveV31))
-  if (data.version === 30) return migrateV32(migrateV31(migrateV30(data as SaveV30)))
-  if (data.version === 29) return migrateV32(migrateV31(migrateV30(migrateV29(data as SaveV29))))
-  if (data.version === 28) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(data as SaveV28)))))
-  if (data.version === 27) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(data as SaveV27))))))
-  if (data.version === 26) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(data as SaveV26)))))))
-  if (data.version === 25) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(data as SaveV25))))))))
-  if (data.version === 24) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24)))))))))
-  if (data.version === 23) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23))))))))))
-  if (data.version === 22) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22)))))))))))
-  if (data.version === 21) return migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21))))))))))))
+  if (data.version === 34) return data as SaveV34
+  if (data.version === 33) return migrateV33(data as SaveV33)
+  if (data.version === 32) return migrateV33(migrateV32(data as SaveV32))
+  if (data.version === 31) return migrateV33(migrateV32(migrateV31(data as SaveV31)))
+  if (data.version === 30) return migrateV33(migrateV32(migrateV31(migrateV30(data as SaveV30))))
+  if (data.version === 29) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(data as SaveV29)))))
+  if (data.version === 28) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(data as SaveV28))))))
+  if (data.version === 27) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(data as SaveV27)))))))
+  if (data.version === 26) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(data as SaveV26))))))))
+  if (data.version === 25) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(data as SaveV25)))))))))
+  if (data.version === 24) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(data as SaveV24))))))))))
+  if (data.version === 23) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(data as SaveV23)))))))))))
+  if (data.version === 22) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(data as SaveV22))))))))))))
+  if (data.version === 21) return migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(data as SaveV21)))))))))))))
   const v20 = toV20(data)
-  return v20 && migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20)))))))))))))
+  return v20 && migrateV33(migrateV32(migrateV31(migrateV30(migrateV29(migrateV28(migrateV27(migrateV26(migrateV25(migrateV24(migrateV23(migrateV22(migrateV21(migrateV20(v20))))))))))))))
 }
 
 /** v1 … v20 up to v20; null for anything else */

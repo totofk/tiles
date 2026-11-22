@@ -32,6 +32,7 @@ import v29 from './fixtures/save-v29.json?raw'
 import v30 from './fixtures/save-v30.json?raw'
 import v31 from './fixtures/save-v31.json?raw'
 import v32 from './fixtures/save-v32.json?raw'
+import v33 from './fixtures/save-v33.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropGrowTicks, listingGrowFactor, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, pickaxeDurability, plotTiles, renownFloor, sellPrice, tankCapCoal } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
@@ -42,7 +43,7 @@ import type { OreId } from '../src/core/data/items'
 import type { GameState } from '../src/core/state'
 import { certificateUnlocked, freeWorkers } from '../src/core/workers'
 import { bagCount, dig } from '../src/core/mining'
-import { createForge, createFurnace, createInitialMeta, createInitialState, createMachines, createTile, createWorkshop } from '../src/core/state'
+import { createForge, createFurnace, createInitialMeta, createInitialState, createMachines, createSurvey, createTile, createWorkshop } from '../src/core/state'
 import { step } from '../src/core/step'
 import { buildWorkshop } from '../src/core/workshop'
 import { buyMachine, unlockFields } from '../src/core/fields'
@@ -162,8 +163,14 @@ function asV29Meta({ listingSeed, listingRerolls, districtsPlayed, ...meta }: Sa
   expect([typeof listingSeed, listingRerolls, districtsPlayed]).toEqual(['number', 0, []])
   return meta as Save['state']['meta']
 }
+/** a v34 run back in the v33 shape: no soil survey yet (the migration adds its fresh default) */
+function asV33Run({ survey, ...run }: Save['state']['run']): Save['state']['run'] {
+  expect(survey).toEqual(createSurvey())
+  return run as unknown as Save['state']['run']
+}
 /** a v33 run back in the v32 shape: no dig finds, relics or ⚡ reserve, no ancientFruit market key, no find lifetime counters */
-function asV32Run({ finds, relics, energyReserve, market, lifetime, ...run }: Save['state']['run']): Save['state']['run'] {
+function asV32Run(run34: Save['state']['run']): Save['state']['run'] {
+  const { finds, relics, energyReserve, market, lifetime, ...run } = asV33Run(run34)
   expect(finds).toEqual({ shards: 0, starDust: 0, ancientSeeds: 0, book: false })
   expect(relics).toEqual([])
   expect(energyReserve).toBe(0)
@@ -283,7 +290,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 33, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 34, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -557,10 +564,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v33 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v34 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(33)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 34 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(34)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 35 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -1099,7 +1106,7 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(33)
+    expect(SAVE_VERSION).toBe(34)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const save = deserialize(raw)!
@@ -1688,7 +1695,7 @@ describe('save v31: the tree bed and the forge (batch 36.2)', () => {
     expect(old.version).toBe(30)
     expect([old.state.run.listing, old.state.meta.listingSeed, old.state.run.stars, old.state.run.tiles.length, old.state.run.licenses.length]).toEqual([PLAIN_LISTING, 2_737_987_114, 79, 24, 10])
     const save = deserialize(v30)!
-    expect(save.version).toBe(33)
+    expect(save.version).toBe(34)
     expect(save.state.run.tree).toBeNull()
     expect(save.state.run.forge).toEqual({ built: false, recipe: null, job: null, progress: 0, tray: {} })
     expect({ ...save, version: 30, state: { meta: save.state.meta, run: asV30Run(save.state.run) } }).toEqual(old)
@@ -1697,7 +1704,7 @@ describe('save v31: the tree bed and the forge (batch 36.2)', () => {
   it('every fixture v1 … v30 lands on the latest version with no tree and an unbuilt forge', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30]) {
       const { version, state } = deserialize(raw)!
-      expect(version).toBe(33)
+      expect(version).toBe(34)
       expect([state.run.tree, state.run.forge]).toEqual([null, createForge()])
     }
   })
@@ -1716,12 +1723,12 @@ describe('save v32: a version stamp for Wetlands (batch 36.3)', () => {
     const run = old.state.run
     expect([run.listing, run.stars, run.tiles.length, run.licenses.length, run.mineLicense, run.tree, run.forge.built]).toEqual([PLAIN_LISTING, 79, 24, 10, true, null, false])
     const save = deserialize(v31)!
-    expect(save.version).toBe(33)
+    expect(save.version).toBe(34)
     expect({ ...save, version: 31, state: { meta: save.state.meta, run: asV32Run(save.state.run) } }).toEqual(old)
   })
 
   it('every fixture v1 … v31 lands on the latest version', () => {
-    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31]) expect(deserialize(raw)!.version).toBe(33)
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31]) expect(deserialize(raw)!.version).toBe(34)
   })
 })
 
@@ -1733,7 +1740,7 @@ describe('save v33: dig finds, relics and the ⚡ reserve (batch 36.4)', () => {
     expect([run.listing, run.stars, run.tiles.length, run.licenses.length, run.mineLicense, run.forge.built, run.counters.digs]).toEqual([PLAIN_LISTING, 79, 24, 10, true, false, 23])
     expect(run.market).not.toHaveProperty('ancientFruit')
     const save = deserialize(v32)!
-    expect(save.version).toBe(33)
+    expect(save.version).toBe(34)
     expect(save.state.run.finds).toEqual({ shards: 0, starDust: 0, ancientSeeds: 0, book: false })
     expect(save.state.run.relics).toEqual([])
     expect(save.state.run.energyReserve).toBe(0)
@@ -1742,8 +1749,25 @@ describe('save v33: dig finds, relics and the ⚡ reserve (batch 36.4)', () => {
     expect({ ...save, version: 32, state: { meta: save.state.meta, run: asV32Run(save.state.run) } }).toEqual(old)
   })
 
-  it('every fixture v1 … v32 lands on v33', () => {
-    expect(SAVE_VERSION).toBe(33)
-    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32]) expect(deserialize(raw)!.version).toBe(33)
+  it('every fixture v1 … v32 lands on the latest version', () => {
+    expect(SAVE_VERSION).toBe(34)
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32]) expect(deserialize(raw)!.version).toBe(34)
+  })
+})
+
+describe('save v34: the soil survey (batch 36.5)', () => {
+  it("migrates the real v33 fixture (Toon's live re-save): exactly run.survey at its fresh default, nothing else moved", () => {
+    const old = JSON.parse(v33)
+    expect(old.version).toBe(33)
+    const run = old.state.run
+    expect([run.listing, run.stars, run.tiles.length, run.licenses.length, run.counters.digs, run.fields.list.length]).toEqual([PLAIN_LISTING, 79, 24, 10, 23, 12])
+    const save = deserialize(v33)!
+    expect(save.version).toBe(34)
+    expect(save.state.run.survey).toEqual(createSurvey())
+    expect({ ...save, version: 33, state: { meta: save.state.meta, run: asV33Run(save.state.run) } }).toEqual(old)
+  })
+
+  it('every fixture v1 … v33 lands on v34', () => {
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33]) expect(deserialize(raw)!.version).toBe(34)
   })
 })

@@ -2,6 +2,7 @@ import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, en
 import { ALL_CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { RelicId } from './data/relics'
+import type { FieldTraitId, HomeTraitId } from './data/soil'
 // state ↔ listings is a cycle of bindings used at call time only
 import { PLAIN_LISTING, type Listing } from './listings'
 import type { BarId, ForgeGoodId, ForgeRecipeId, ItemId, OreId, PickaxeTier } from './data/items'
@@ -107,6 +108,21 @@ export type RunState = {
   relics: RelicId[]
   /** batch 36.4: ⚡ banked past max by the 🔋 Reserve relic */
   energyReserve: number
+  /** batch 36.5: the 🧭 soil survey — ⭐ levels bought this run, a trait per home bed and per rolled Estate field */
+  survey: Survey
+}
+
+/** batch 36.5: level 0–3; beds always 4 entries (bed k = tiles 6k…6k+5, one sprinkler socket); a field entry exists
+ * only once that field's trait is rolled (shorter than fields.list before Lv2), so read it through survey.ts helpers */
+export type Survey = {
+  level: number
+  beds: { trait: HomeTraitId | null; rerolls: number }[]
+  fields: { trait: FieldTraitId | null; rerolls: number }[]
+}
+
+/** the survey's fresh default: no level, no traits, no rerolls (a fresh run, a migrated save, a sale) */
+export function createSurvey(): Survey {
+  return { level: 0, beds: Array.from({ length: 4 }, () => ({ trait: null, rerolls: 0 })), fields: [] }
 }
 
 /** the dig finds of one run (batch 36.4); shards are the relic currency, the rest are run totals */
@@ -347,6 +363,8 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     finds: { shards: 0, starDust: 0, ancientSeeds: 0, book: false },
     relics: [],
     energyReserve: 0,
+    // batch 36.5: the sale resets the survey — no level, no traits, no rerolls carry over
+    survey: createSurvey(),
   }
 }
 
