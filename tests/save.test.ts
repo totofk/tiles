@@ -30,6 +30,7 @@ import v27 from './fixtures/save-v27.json?raw'
 import v28 from './fixtures/save-v28.json?raw'
 import v29 from './fixtures/save-v29.json?raw'
 import v30 from './fixtures/save-v30.json?raw'
+import v31 from './fixtures/save-v31.json?raw'
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropGrowTicks, listingGrowFactor, cropSellPrice, deedsFor, energyMax, itemSellPrice, loanDebtPerTick, multiplier, pickaxeDurability, plotTiles, renownFloor, sellPrice, tankCapCoal } from '../src/core/balance'
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { takeLoan } from '../src/core/bank'
@@ -269,7 +270,7 @@ describe('serialize / deserialize', () => {
   it('round-trips state and savedAtMs', () => {
     const state = step(createInitialState(), 42)
     const save = deserialize(serialize(state, 1234))
-    expect(save).toEqual({ version: 31, savedAtMs: 1234, state })
+    expect(save).toEqual({ version: 32, savedAtMs: 1234, state })
   })
 
   it('migrates a real v10 save (built by the batch-10 code) to v12: everything kept, the furnace smelts copper, no miner', () => {
@@ -543,10 +544,10 @@ describe('serialize / deserialize', () => {
     expect(deserialize(serialize(state, 0))?.state.run.loan).toEqual({ principal: 30, debt: 41.12 })
   })
 
-  it('migration switch accepts v21 … v31 and rejects unknown, missing or future versions', () => {
+  it('migration switch accepts v21 … v32 and rejects unknown, missing or future versions', () => {
     const fresh = JSON.parse(serialize(createInitialState(), 0))
-    expect(deserialize(JSON.stringify(fresh))?.version).toBe(31)
-    expect(deserialize(JSON.stringify({ ...fresh, version: 32 }))).toBeNull()
+    expect(deserialize(JSON.stringify(fresh))?.version).toBe(32)
+    expect(deserialize(JSON.stringify({ ...fresh, version: 33 }))).toBeNull()
     expect(deserialize(JSON.stringify({ ...fresh, version: undefined }))).toBeNull()
   })
 
@@ -1085,7 +1086,7 @@ describe('v20 → v21: plots', () => {
 
 describe('batch 6 crops: chilli and lemon widen CropId only', () => {
   it('needs no SAVE_VERSION bump of its own: every past fixture lands on the latest with its crops untouched', () => {
-    expect(SAVE_VERSION).toBe(31)
+    expect(SAVE_VERSION).toBe(32)
     for (const raw of [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17]) {
       const old = JSON.parse(raw).state.run
       const save = deserialize(raw)!
@@ -1674,16 +1675,16 @@ describe('save v31: the tree bed and the forge (batch 36.2)', () => {
     expect(old.version).toBe(30)
     expect([old.state.run.listing, old.state.meta.listingSeed, old.state.run.stars, old.state.run.tiles.length, old.state.run.licenses.length]).toEqual([PLAIN_LISTING, 2_737_987_114, 79, 24, 10])
     const save = deserialize(v30)!
-    expect(save.version).toBe(31)
+    expect(save.version).toBe(32)
     expect(save.state.run.tree).toBeNull()
     expect(save.state.run.forge).toEqual({ built: false, recipe: null, job: null, progress: 0, tray: {} })
     expect({ ...save, version: 30, state: { meta: save.state.meta, run: asV30Run(save.state.run) } }).toEqual(old)
   })
 
-  it('every fixture v1 … v30 lands on v31 with no tree and an unbuilt forge', () => {
+  it('every fixture v1 … v30 lands on the latest version with no tree and an unbuilt forge', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30]) {
       const { version, state } = deserialize(raw)!
-      expect(version).toBe(31)
+      expect(version).toBe(32)
       expect([state.run.tree, state.run.forge]).toEqual([null, createForge()])
     }
   })
@@ -1692,5 +1693,20 @@ describe('save v31: the tree bed and the forge (batch 36.2)', () => {
     const fresh = createInitialState()
     expect([fresh.run.tree, fresh.run.forge]).toEqual([null, createForge()])
     expect(deserialize(serialize(fresh, 0))?.state).toEqual(fresh)
+  })
+})
+
+describe('save v32: a version stamp for Wetlands (batch 36.3)', () => {
+  it("migrates the real v31 fixture (Toon's live re-save): version 32, the state deep-equal", () => {
+    const old = JSON.parse(v31)
+    expect(old.version).toBe(31)
+    const run = old.state.run
+    expect([run.listing, run.stars, run.tiles.length, run.licenses.length, run.mineLicense, run.tree, run.forge.built]).toEqual([PLAIN_LISTING, 79, 24, 10, true, null, false])
+    expect(deserialize(v31)).toEqual({ ...old, version: 32 })
+  })
+
+  it('every fixture v1 … v31 lands on v32', () => {
+    expect(SAVE_VERSION).toBe(32)
+    for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31]) expect(deserialize(raw)!.version).toBe(32)
   })
 })
