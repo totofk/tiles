@@ -28,6 +28,7 @@ import {
   type Price,
 } from './balance'
 import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type BarId, type ItemId, type OreId, type PickaxeTier } from './data/items'
+import { noMine } from './wetlands'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -80,9 +81,11 @@ export function buyWood(state: GameState, n: number): ActionResult {
 }
 
 // Every crafted tier stays on the rack (blunt ones too); crafting adds the tier and selects it. Every tier's mastery xp
-// stays in run.mastery. Order: ALREADY_OWNED (on the rack, any durability), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
+// stays in run.mastery. Order: NO_MINE_LICENSE (a no-mine run only, 36.3), ALREADY_OWNED (on the rack, any
+// durability), NOT_ENOUGH_ITEMS, NO_CASH. No energy.
 export function craftPickaxe(state: GameState, tier: PickaxeTier = 'wooden'): ActionResult {
   const { run } = state
+  if (noMine(run)) return fail('NO_MINE_LICENSE')
   if (run.rack[tier] !== undefined) return fail('ALREADY_OWNED')
   return pay(state, pickaxeCraftCost(tier, state.meta), { rack: { ...run.rack, [tier]: pickaxeDurability(tier) }, selectedPickaxe: tier })
 }
@@ -271,10 +274,16 @@ export function pay(state: GameState, price: Price, gain: Partial<RunState> = {}
   return withRun(state, { cash: run.cash - cash, stars: run.stars - stars, inventory, ...gain })
 }
 
-// Mine upgrades pay items from storage plus cash, no energy. Order: NO_MINE_LICENSE, MAX_LEVEL (cost null),
-// `blocked` (a missing building), NOT_ENOUGH_ITEMS, NO_CASH.
-function buyMineUpgrade(state: GameState, cost: Price | null, gain: Partial<RunState>, blocked: ActionError | null = null): ActionResult {
-  if (!state.run.mineLicense) return fail('NO_MINE_LICENSE')
+// Mine upgrades pay items from storage plus cash, no energy. Order: NO_MINE_LICENSE (unless `licensed`), MAX_LEVEL
+// (cost null), `blocked` (a missing building), NOT_ENOUGH_ITEMS, NO_CASH.
+function buyMineUpgrade(
+  state: GameState,
+  cost: Price | null,
+  gain: Partial<RunState>,
+  blocked: ActionError | null = null,
+  licensed = state.run.mineLicense,
+): ActionResult {
+  if (!licensed) return fail('NO_MINE_LICENSE')
   if (!cost) return fail('MAX_LEVEL')
   if (blocked) return fail(blocked)
   return pay(state, cost, gain)
@@ -291,11 +300,12 @@ export function upgradeVein(state: GameState): ActionResult {
   return buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: next } }, blocked)
 }
 
-/** next storage level: +storageSlotsPerLevel() capacity */
+/** next storage level: +storageSlotsPerLevel() capacity; a no-mine run needs no licence (stone comes from the barge) */
 export function buyStorage(state: GameState): ActionResult {
   const { run } = state
   const cost = run.storageLevel < storageMaxLevel() ? storageCost(run.storageLevel, state.meta) : null
-  return buyMineUpgrade(state, cost, { storageLevel: run.storageLevel + 1, bagCapacity: run.bagCapacity + storageSlotsPerLevel() })
+  const gain = { storageLevel: run.storageLevel + 1, bagCapacity: run.bagCapacity + storageSlotsPerLevel() }
+  return buyMineUpgrade(state, cost, gain, null, run.mineLicense || noMine(run))
 }
 
 /** each unit sold counts as one sale. Order: BAD_AMOUNT, NOT_SELLABLE (seeds), NOT_ENOUGH_ITEMS */

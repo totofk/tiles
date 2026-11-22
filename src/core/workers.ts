@@ -24,6 +24,7 @@ import type { GameState, RunState } from './state'
 // step ↔ workers is a cycle of function bindings only (hoisted, used at call time), so module order does not matter
 import { step } from './step'
 import { toolTargets } from './tools'
+import { bargeCoalToTank, noMine } from './wetlands'
 
 /**
  * The job's own action (so its copper tier applies), with no player energy. Plant = the player's tap on an empty tile:
@@ -77,7 +78,8 @@ const NO_TILE_WORK: Record<Exclude<WorkerJob, TileJob>, (s: GameState) => Action
       return wood.ok ? wood : null
     }
     const tank = fillTank(s, 1)
-    return tank.ok ? tank : null
+    if (tank.ok) return tank
+    return tank.error === 'NOT_ENOUGH_ITEMS' ? bargeCoalToTank(s) : null
   },
   mine: (s) => (activePickaxe(s.run) ? dig(s, 0) : null),
   clerk: clerkAction,
@@ -200,8 +202,9 @@ export function stokerReady(run: RunState): boolean {
 }
 
 /** the job's certificate shows (and can be bought) once its unlock counter is reached, its vein level and its tool level
- * owned (the Stoker: stokerReady too) */
+ * owned (the Stoker: stokerReady too). A no-mine run's fuel certificate comes with the Fields (no bars to collect). */
 export function certificateUnlocked(run: RunState, job: WorkerJob): boolean {
+  if (job === 'fuel' && noMine(run)) return run.fields.unlocked
   const { counter, at, vein = 0, tool = 0 } = certificateUnlock(job)
   const toolLevel = isTileJob(job) ? run.tools[job] : 0
   return run.counters[counter] >= at && run.vein.level >= vein && toolLevel >= tool && (job !== 'stoker' || stokerReady(run))

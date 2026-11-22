@@ -835,6 +835,14 @@ export function mineLicenseCost(meta: MetaState): number {
   return Math.round(MINE_LICENSE_COST * multiplier(meta, 'cost'))
 }
 
+/** batch 36.3 (est.): on a Wetlands run the river waters beds 0 … BANK_BEDS − 1 (tiles 0–11) */
+export const BANK_BEDS = 2
+
+/** batch 36.3 (est.): the Wetlands barge — bars ×1.25 of their sell price (bargePrice keeps every item above its sell) */
+export const BARGE_ITEMS = ['copperBar', 'ironBar', 'goldBar', 'stone', 'coal'] as const
+export type BargeItemId = (typeof BARGE_ITEMS)[number]
+export const BARGE_PRICE: Record<BargeItemId, number> = { copperBar: 125, ironBar: 625, goldBar: 1250, stone: 3, coal: 5 }
+
 export function woodCost(meta: MetaState): number {
   return Math.round(WOOD_BUY_COST * multiplier(meta, 'cost'))
 }

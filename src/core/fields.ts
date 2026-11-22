@@ -107,12 +107,13 @@ function withPlot(f: Fields, field: number, plot: number, next: Plot): Fields {
 
 const isIndex = (i: number, length: number) => Number.isInteger(i) && i >= 0 && i < length
 
-/** the unlock's gates: planter and harvester certificates owned, watering covered by ≥ 1 bed sprinkler */
+/** the unlock's gates: planter and harvester certificates owned, watering covered by ≥ 1 bed sprinkler (on Wetlands
+ * the river's bank beds) */
 export function fieldsGates(run: RunState): { plant: boolean; harvest: boolean; water: boolean } {
   return {
     plant: run.workers.certificates.includes('plant'),
     harvest: run.workers.certificates.includes('harvest'),
-    water: run.workshop.built && run.workshop.beds.some(Boolean),
+    water: run.listing.district === 'wetlands' || (run.workshop.built && run.workshop.beds.some(Boolean)),
   }
 }
 
@@ -168,11 +169,11 @@ export function buildPivot(state: GameState, field: number): ActionResult {
   })
 }
 
-// Order: LOCKED, NO_WORKSHOP, MAX_LEVEL, NOT_ENOUGH_ITEMS, NO_CASH.
+// Order: LOCKED, NO_WORKSHOP (not on Wetlands: the river powers the pump), MAX_LEVEL, NOT_ENOUGH_ITEMS, NO_CASH.
 export function buyPump(state: GameState): ActionResult {
   const { run } = state
   if (!run.fields.unlocked) return fail('LOCKED')
-  if (!run.workshop.built) return fail('NO_WORKSHOP')
+  if (!run.workshop.built && run.listing.district !== 'wetlands') return fail('NO_WORKSHOP')
   const cost = pumpCost(run.fields.pump, state.meta)
   if (!cost) return fail('MAX_LEVEL')
   return pay(state, cost, { fields: { ...run.fields, pump: run.fields.pump + 1 } })
