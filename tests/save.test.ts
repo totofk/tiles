@@ -48,6 +48,7 @@ import { createForge, createFurnace, createInitialMeta, createInitialState, crea
 import { step } from '../src/core/step'
 import { buildWorkshop } from '../src/core/workshop'
 import { buyMachine, unlockFields } from '../src/core/fields'
+import { cropFieldCount, cropFloor } from '../src/core/market'
 import { SAVE_VERSION, awayText, catchUp, deserialize, offlineTicks, serialize, type Save } from '../src/save/serialize'
 import {
   BAD_SAVE_KEY,
@@ -1802,6 +1803,22 @@ describe('save v35: five new keep rows and the renown re-seed (batch 36.6)', () 
     const save = deserialize(JSON.stringify({ ...fresh, state: { ...fresh.state, run } }))!
     expect(save.state.run.renown).toEqual({ lemon: 2416, pumpkin: 300 })
   })
+
+  // PIN36w: a report for Toon, not a gate — what the 4-field breadth rule costs his 12-chilli estate over 2 game-hours
+  it('PIN36w: the migrated v34 fixture — chilli floor with share 1 vs its 12 chips, and 2 game-h cash vs the same save with 4 chips', () => {
+    const save = deserialize(v34)!.state
+    const chips = cropFieldCount(save.run, 'chilli')
+    const four = { ...save, run: { ...save.run, fields: { ...save.run.fields, list: save.run.fields.list.map((f, k) => (k < 4 ? f : { ...f, crop: null })) } } }
+    const gained = (s: GameState) => {
+      const end = step(s, 2 * 3600)
+      expect(end.run.cash).toBeGreaterThanOrEqual(0)
+      return end.run.cash - s.run.cash
+    }
+    const [shared, capped] = [gained(save), gained(four)]
+    console.log('PIN36w', JSON.stringify({ chilli: save.run.renown.chilli, chips, floorShare1: cropFloor(save.run, 'chilli', 1), floorChips: cropFloor(save.run, 'chilli'), cash2h: { chips12: shared, chips4: capped } }))
+    expect(shared).toBeGreaterThan(0)
+    expect(capped).toBeGreaterThan(0)
+  }, 60_000)
 
   it('every fixture v1 … v34 lands on v35', () => {
     for (const raw of [...ALL_FIXTURES, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34]) expect(deserialize(raw)!.version).toBe(35)

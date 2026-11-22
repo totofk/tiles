@@ -2,6 +2,7 @@
 // today's core exports, so the sim's pins stay the single source.
 import {
   FIELD_PRESSURE,
+  RENOWN_COVER_FIELDS,
   cropGrowTicks,
   cropSeedCost,
   cropSellPrice,
@@ -15,6 +16,7 @@ import {
   plotTiles,
   pumpCost,
   pumpFieldCap,
+  renownBadge,
   workerWage,
   type Price,
 } from '../core/balance'
@@ -32,7 +34,7 @@ import {
   pressuredCycle,
 } from '../core/fields'
 import { isOffer } from '../core/orders'
-import { cropFieldCount, cropRenownGrow } from '../core/market'
+import { cropFieldCount, cropFloor, cropRenownGrow } from '../core/market'
 import { cropFactor } from './marketText'
 import { managerPlan } from '../core/manager'
 import { workerUnpaid } from '../core/workers'
@@ -41,6 +43,16 @@ import { CROP_EMOJI } from './FarmGrid'
 import { approx, price } from './fmt'
 import { priceText } from './Mine'
 import { shortOf } from './Workshop'
+
+/** the field sheet's renown line (batch 36.6): "🥇 Chilli covers 4 of 6 fields · floor 63 % · grow −7 %" — the floor
+ * and grow the crop's renown gives each of its n chips */
+export function renownSheetLine(state: GameState, crop: CropId): string {
+  const { run } = state
+  const n = cropFieldCount(run, crop)
+  const grow = cropRenownGrow(run, crop, n)
+  const line = `${renownBadge(run.renown[crop] ?? 0)} ${CROPS[crop].name} covers ${Math.min(n, RENOWN_COVER_FIELDS)} of ${n} fields · floor ${Math.round(cropFloor(run, crop, n) * 100)} %`
+  return grow < 1 ? `${line} · grow −${Math.round((1 - grow) * 100)} %` : line
+}
 
 /** field k's row ≈💰/h: its chip crop's planted tiles × pressured cycles per hour × (market-priced sale − seed). An
  *  estimate — it ignores an empty tank, orders and the sickle's doubles, which is why the UI marks it with ≈ */

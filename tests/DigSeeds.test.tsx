@@ -82,6 +82,7 @@ describe('the ancient seed in the panels (batch 36.4)', () => {
         ui: { toolsOpen: false, priceShown: {} },
         toggleTools: () => {},
         openEstate: () => {},
+        openBank: () => {},
         worked: [],
       }) as unknown as PanelProps
     const none = setup({})

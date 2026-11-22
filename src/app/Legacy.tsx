@@ -9,18 +9,23 @@ import {
   energyMax,
   listingRerollStars,
   multiplier,
+  nextDeedCash,
+  renownBadge,
+  renownTier,
   startTiles,
   workerActionTicks,
   type DeedRowId,
 } from '../core/balance'
+import { CROPS, CROP_IDS, STARTING_CROP } from '../core/data/crops'
 import { STAR_EMOJI } from '../core/data/orders'
 import { useState } from 'react'
 import { DISTRICTS, DISTRICT_HINT } from '../core/data/districts'
 import { fieldsGates } from '../core/fields'
 import { currentListings, rerollListings, soilText, type Listing } from '../core/listings'
 import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
-import type { GameState, MetaState } from '../core/state'
+import { createFreshRun, type GameState, type MetaState } from '../core/state'
 import { useTwoPress } from './DangerZone'
+import { CROP_EMOJI } from './FarmGrid'
 import { count } from './fmt'
 import { Item } from './Info'
 import type { Act } from './useGame'
@@ -34,7 +39,7 @@ const NAMES: Record<DeedRowId, string> = {
   workerSpeed: 'Quick crews',
   keepLicenses: 'Seed vault',
   keepFirstCertificates: 'Kept certificates',
-  keepRenown: 'Kept renown',
+  keepRenown: 'Apprentices',
   keepClerk: 'Kept Clerk',
   keepCertificates2: 'Kept certificates II',
   mineStart: "Miner's start",
@@ -51,12 +56,36 @@ const TIPS: Record<DeedRowId, string> = {
   workerSpeed: 'Workers and sprinklers act 0.5 s sooner per level.',
   keepLicenses: 'One-time: selling the farm keeps every crop license.',
   keepFirstCertificates: 'One-time: selling the farm keeps the plant, water and harvest certificates.',
-  keepRenown: "One-time: selling the farm keeps each crop's renown tier.",
+  keepRenown: 'One-time: worker harvests earn renown like a hand harvest (+2 instead of +1).',
   keepClerk: 'One-time: selling the farm keeps the Clerk certificate.',
   keepCertificates2: 'One-time: selling the farm keeps the ore, fuel and mine certificates.',
   mineStart: 'One-time: every new farm starts with the mine license and a copper pickaxe (not in Wetlands).',
   keepBoard: 'One-time: every new farm starts with the order board open.',
   keepManager: 'One-time: selling the farm keeps the Manager certificate.',
+}
+
+/** the sale preview's Kept column: one row per owned keep, in this order */
+const KEPT_ROWS: [DeedRowId, string][] = [
+  ['keepLicenses', 'every crop license'],
+  ['keepFirstCertificates', 'plant, water, harvest'],
+  ['keepClerk', 'the Clerk certificate'],
+  ['keepCertificates2', 'ore, fuel, mine'],
+  ['keepBoard', 'the order board'],
+  ['mineStart', 'mine license + copper pickaxe'],
+  ['keepManager', 'the Manager certificate'],
+  ['keepRenown', 'workers earn +2 renown'],
+]
+
+/** 🏆 the Legacy chip (batch 36.6): deeds held and what a sale adds once the gate is open, the next deed's lifetime
+ * cash before it; a tap opens the 🏦 Bank tab */
+export function LegacyChip({ state, openBank }: { state: GameState; openBank: () => void }) {
+  return (
+    <button className="legacy-chip" onClick={openBank}>
+      {sellFarmUnlocked(state)
+        ? `🏆 ${state.meta.deeds} · sale +${deedsClaimable(state)}`
+        : `🏆 next deed at 💰${count(nextDeedCash(state.run.lifetime.cashEarned))} lifetime`}
+    </button>
+  )
 }
 
 /** "Grow ×1 → ×0.96"; at the max level only the current value */
@@ -82,7 +111,7 @@ function effect(id: DeedRowId, level: number, meta: MetaState, runLevel: number,
     case 'keepFirstCertificates':
       return 'The 3 farm certificates survive the sale'
     case 'keepRenown':
-      return 'Renown tiers survive the sale'
+      return 'Workers earn +2 renown'
     case 'keepClerk':
       return 'The Clerk certificate survives the sale'
     case 'keepCertificates2':
@@ -156,6 +185,17 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
   const gain = deedsClaimable(state)
   const carried = Math.min(run.stars, STAR_CARRY_CAP)
   const open = sellFarmUnlocked(state)
+  const renowned = CROP_IDS.filter((c) => renownTier(run.renown[c] ?? 0) >= 1)
+  // the next run's start-seed kit, exactly as createFreshRun gives it
+  const nextSeeds = createFreshRun(meta, {
+    licenses: meta.upgrades.keepLicenses > 0 ? run.licenses : [STARTING_CROP],
+    certificates: [],
+    orderSlots: run.orders.slots,
+    lifetime: run.lifetime,
+    stars: 0,
+    renown: run.renown,
+  }).seeds
+  const kit = CROP_IDS.filter((c) => (nextSeeds[c] ?? 0) > 0)
   const rerollsLeft = meta.listingRerolls < LISTING_REROLL_MAX
   const rerollStars = listingRerollStars(meta.listingRerolls)
   return (
@@ -166,10 +206,6 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
           Selling gives +{gain} deed{gain === 1 ? '' : 's'} (💰{count(gain)})
         </p>
       )}
-      <p className="deeds">
-        {STAR_EMOJI} {carried} carried to the next farm
-        {run.stars > STAR_CARRY_CAP && ` · ${STAR_EMOJI}${run.stars - STAR_CARRY_CAP} lost above ${STAR_CARRY_CAP}`}
-      </p>
       <h3>Next farm</h3>
       <div className="shop-row one-col">
         {listings.map((l, i) => (
@@ -183,23 +219,40 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
           {rerollsLeft ? `🔄 Reroll ${STAR_EMOJI}${rerollStars} · ${meta.listingRerolls}/${LISTING_REROLL_MAX}` : `🔄 Reroll · ${LISTING_REROLL_MAX}/${LISTING_REROLL_MAX}`}
         </button>
       </div>
-      <h3>Resets</h3>
-      <ul className="sell-list">
-        <li>Tiles, cash, market, storage, tools</li>
-        <li>Mine, furnace, workshop, fields, machines</li>
-        <li>
-          Licenses{meta.upgrades.keepLicenses > 0 ? ' — kept (Seed vault)' : ''}, workers and certificates
-          {meta.upgrades.keepFirstCertificates > 0 ? ' — the 3 farm ones kept' : ''}
-        </li>
-        <li>⭐ Favours (the ⭐ balance carries, see above) and this run's timeline</li>
-        <li>Renown{meta.upgrades.keepRenown > 0 ? ' — tiers kept' : ''}</li>
-      </ul>
-      <h3>Carries</h3>
-      <ul className="sell-list">
-        <li>🏆 deeds and every Legacy row bought</li>
-        <li>The ⭐-bought order slots ({run.orders.slots})</li>
-        <li>Lifetime totals — the deed meter keeps counting</li>
-      </ul>
+      <div className="sell-cols">
+        <div>
+          <h3>Gain</h3>
+          <ul className="sell-list">
+            {open && <li>{`+${gain} deed${gain === 1 ? '' : 's'}`}</li>}
+            <li>{`${STAR_EMOJI}${carried} carried`}</li>
+            {renowned.length === 0 ? <li>Renown: none yet</li> : renowned.map((c) => <li key={c}>{`${renownBadge(run.renown[c]!)} ${CROPS[c].name} ${count(run.renown[c]!)}`}</li>)}
+            {kit.length > 0 && <li>Start seeds: {kit.map((c) => `${nextSeeds[c]} ${CROP_EMOJI[c]}`).join(' ')}</li>}
+          </ul>
+        </div>
+        <div>
+          <h3>Lost</h3>
+          <ul className="sell-list">
+            {run.stars > STAR_CARRY_CAP && <li className="lost">{`${STAR_EMOJI}${run.stars - STAR_CARRY_CAP} above ${STAR_CARRY_CAP} — spend or reroll listings first`}</li>}
+            <li>Every ⭐ Favour level</li>
+            <li>Tiles, cash, market, storage, tools</li>
+            <li>Mine, furnace, workshop, fields, machines</li>
+            <li>Licenses, workers and certificates not kept</li>
+            <li>This run's timeline</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Kept</h3>
+          <ul className="sell-list">
+            <li>🏆 deeds and every Legacy row bought</li>
+            {KEPT_ROWS.filter(([id]) => meta.upgrades[id] > 0).map(([id, text]) => (
+              <li key={id}>{`${NAMES[id]} — ${text}`}</li>
+            ))}
+            <li>The ⭐-bought order slots ({run.orders.slots})</li>
+            <li>Lifetime totals — the deed meter keeps counting</li>
+            <li>Renown — every crop's points</li>
+          </ul>
+        </div>
+      </div>
       {open ? (
         <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
           {gain < 1 ? 'No deeds to gain — play on' : armed ? 'Press again to sell the farm' : 'Sell the farm'}

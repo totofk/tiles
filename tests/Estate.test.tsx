@@ -314,7 +314,8 @@ describe('task 153: the field chip and its sheet', () => {
   it('batch 35: the migrated v26 save — chips Corn / Pumpkin, Corn and Eggplant open on the fields without 🏡 (granted)', () => {
     const s = deserialize(v26)!.state
     setup(s)
-    expect([chip(/^Field 1 ·/).textContent, chip(/^Field 2 ·/).textContent]).toEqual([`${CROP_EMOJI.corn}F1⛲`, `${CROP_EMOJI.pumpkin}F2⛲`])
+    // batch 36.6: the save's pumpkin renown (🥉) badges its chip
+    expect([chip(/^Field 1 ·/).textContent, chip(/^Field 2 ·/).textContent]).toEqual([`${CROP_EMOJI.corn}F1⛲`, `${CROP_EMOJI.pumpkin}F2⛲🥉`])
     fireEvent.click(chip(/^Field 1 ·/))
     const buttons = [...sheet().querySelectorAll<HTMLButtonElement>('.map-crops > button')]
     for (const c of ['corn', 'eggplant'] as const) {
@@ -496,5 +497,35 @@ describe('task 152e: PlotCell is memo\'d — a tick re-renders only the cells wh
     renders.length = 0
     rerender(<EstateMap state={at(s1, 0, plot(null))} act={act} ui={ui} />)
     expect(renders).toEqual(['0,0'])
+  })
+})
+
+describe('batch 36.6: the renown badge on the chip and the field sheet line', () => {
+  const chip = (name: string | RegExp) => screen.getByRole('button', { name })
+  const chilli = (points: number, n = 1) => withFields(Array.from({ length: n }, () => field([plot(null)], true, 'chilli')), { renown: { chilli: points } })
+
+  it('a chilli chip at 250 carries 🥉 in its own corner badge; none at 249', () => {
+    setup(chilli(250))
+    const c = chip(/^Field 1 ·/)
+    expect(c.textContent).toBe(`${CROP_EMOJI.chilli}F1⛲🥉`)
+    expect(c.querySelector('.map-badge-renown')!.className).toBe('map-badge map-badge-renown')
+    cleanup()
+    setup(chilli(249))
+    expect(chip(/^Field 1 ·/).querySelector('.map-badge-renown')).toBeNull()
+  })
+
+  it('the sheet line for chilli 4,000 on 6 chips: "🥇 Chilli covers 4 of 6 fields · floor 63 % · grow −7 %"; none at tier 0', () => {
+    setup(chilli(4000, 6))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(screen.getByRole('dialog')).getByText('🥇 Chilli covers 4 of 6 fields · floor 63 % · grow −7 %').className).toBe('sheet-line')
+    cleanup()
+    setup(chilli(250, 2))
+    fireEvent.click(chip(/^Field 1 ·/))
+    // 🥉 grows at ×1: no grow part
+    expect(within(screen.getByRole('dialog')).getByText('🥉 Chilli covers 2 of 2 fields · floor 55 %')).toBeTruthy()
+    cleanup()
+    setup(chilli(0, 2))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(screen.getByRole('dialog').textContent).not.toContain('covers')
   })
 })

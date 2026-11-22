@@ -27,6 +27,8 @@ export type PanelProps = {
   toggleTools: () => void
   /** task 143e: the Fields card's Open Estate — land on the 🚜 stop (and the farm view on phones) */
   openEstate: () => void
+  /** batch 36.6: the 🏆 Legacy chip lands on the 🏦 Bank tab */
+  openBank: () => void
   /** task 132: the jobs that acted in the last work round (worker dots, clerk flash) */
   worked: WorkTouch[]
   reset: () => void

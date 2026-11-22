@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { priceTag } from '../src/app/marketText'
 import { Shop } from '../src/app/Shop'
+import { Farm } from '../src/app/Farm'
+import type { PanelProps } from '../src/app/panelTabs'
 import type { Act } from '../src/app/useGame'
 import { cropSeedCost, marketDepthGlut, toolCost } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
@@ -257,5 +259,45 @@ describe('batch 36.3: the Wetlands Shop', () => {
     cleanup()
     setup({})
     expect(screen.queryByRole('button', { name: /Fields/ })).toBeNull()
+  })
+})
+
+describe('batch 36.6: renown badges, titles and the 🏆 Legacy chip (🛒 Shop and 🌾 Farm)', () => {
+  const renown = { radish: 1240, chilli: 31020, potato: 120 }
+  const licenses: CropId[] = ['potato', 'radish', 'chilli']
+
+  it('Shop seeds: the badge after the name and the renown title on both licensed branches', () => {
+    setup({ licenses, renown })
+    expect(btn(/Carrot/).textContent).toMatch(/^🥕 Carrot 🥈seed/)
+    expect([btn(/Potato/).title, btn(/Carrot/).title, btn(/Chilli/).title]).toEqual(['Potato 120 / 250', 'Carrot 🥈 1,240 / 4,000', 'Chilli 🏆 31,020 · top tier'])
+    cleanup()
+    const s = createInitialState()
+    render(<Shop state={{ ...s, run: { ...s.run, licenses, renown } }} act={() => {}} cropId="radish" onSelectCrop={() => {}} farmTab />)
+    expect(btn(/Carrot/).className).toBe('owned')
+    expect([btn(/Carrot/).textContent!.startsWith('🥕 Carrot 🥈'), btn(/Carrot/).title]).toEqual([true, 'Carrot 🥈 1,240 / 4,000'])
+  })
+
+  it('the chip tops the Shop only with no Farm tab (and only when openBank is passed)', () => {
+    const s = createInitialState()
+    let opened = 0
+    const { rerender, container } = render(<Shop state={s} act={() => {}} cropId="radish" onSelectCrop={() => {}} openBank={() => opened++} />)
+    const first = container.querySelector('.shop')!.firstElementChild as HTMLElement
+    expect([first.className, first.textContent]).toEqual(['legacy-chip', '🏆 next deed at 💰10,000 lifetime'])
+    fireEvent.click(first)
+    expect(opened).toBe(1)
+    rerender(<Shop state={s} act={() => {}} cropId="radish" onSelectCrop={() => {}} openBank={() => opened++} farmTab />)
+    expect(container.querySelector('.legacy-chip')).toBeNull()
+  })
+
+  it('Farm: the chip first, then "Crop to plant" and the Seed pouch with badges and titles', () => {
+    const s = createInitialState()
+    const state: GameState = { ...s, run: { ...s.run, licenses, renown } }
+    const props = { state, act: () => {}, cropId: 'potato', onSelectCrop: () => {}, farmTab: true, ui: { toolsOpen: false, priceShown: {} }, toggleTools: () => {}, openEstate: () => {}, openBank: () => {}, worked: [] }
+    const { container } = render(<Farm {...(props as unknown as PanelProps)} />)
+    expect(container.querySelector('.farm-tab')!.firstElementChild!.className).toBe('legacy-chip')
+    const crop = screen.getAllByRole('button', { pressed: false }).find((b) => b.title.startsWith('Carrot'))!
+    expect([crop.textContent!.startsWith('🥕 Carrot 🥈'), crop.title]).toEqual([true, 'Carrot 🥈 1,240 / 4,000'])
+    expect(pouchRow(/Carrot 🥈/)!.querySelector('.item-label')!.textContent).toBe('🥕 Carrot 🥈')
+    expect(pouchRow(/Potato/)!.querySelector('.item-label')!.textContent).toBe('🥔 Potato')
   })
 })

@@ -1,9 +1,9 @@
-import { handPickedBonus, marketFactor, marketRecoveryTicks } from '../core/balance'
+import { handPickedBonus, marketFactor, marketRecoveryTicks, nextRenownTier, renownBadge } from '../core/balance'
 import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { cropFloor, marketCropPrice } from '../core/market'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
-import { gain } from './fmt'
+import { count, gain } from './fmt'
 
 // Display-only thresholds of the Shop depth bar and the away banner; they colour and filter text, never game state.
 const DEPTH_GREEN = 0.85
@@ -14,6 +14,19 @@ const BANNER_MOVE = 0.05
 const percent = (f: number) => Math.round(f * 100)
 
 export const cropFactor = (state: GameState, crop: CropId) => marketFactor(crop, state.run.market[crop], cropFloor(state.run, crop))
+
+/** " 🥈" after a crop name (batch 36.6); '' at tier 0 */
+export const badgeText = (state: GameState, crop: CropId) => {
+  const badge = renownBadge(state.run.renown[crop] ?? 0)
+  return badge && ` ${badge}`
+}
+
+/** a crop button's title: "Strawberry 🥈 1,240 / 4,000", "Chilli 🏆 31,020 · top tier", "Radish 120 / 250" */
+export function renownTitle(state: GameState, crop: CropId): string {
+  const points = state.run.renown[crop] ?? 0
+  const next = nextRenownTier(points)
+  return `${CROPS[crop].name}${badgeText(state, crop)} ${count(points)}${next === null ? ' · top tier' : ` / ${count(next)}`}`
+}
 
 /** "🍋 💰99 (90 % ▼)": the price the next unit sells for and its market factor; ▲▼ against the factor the tag last
  * showed on screen (`last`, remembered in `tiles.ui`), and "floor" once the factor sits on the crop's floor */

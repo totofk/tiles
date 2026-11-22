@@ -9,6 +9,7 @@ import {
   masteryLevel,
   multiplier,
   nextRenownTier,
+  renownBadge,
   renownFloor,
   seedKeepChance,
   sellPriceFactor,
@@ -80,7 +81,7 @@ export function stats(state: GameState): Stats {
       const next = nextRenownTier(points)
       return [
         { label: `${CROPS[id].name} harvests${since}`, value: `${lifetime.harvests[id] ?? 0}` },
-        { label: `${CROPS[id].name} renown`, value: `${points} · floor ${Math.round(renownFloor(points) * 100)} % · ${next === null ? 'top tier' : `next ${next}`}` },
+        { label: `${CROPS[id].name} renown`, value: `${renownBadge(points) && `${renownBadge(points)} `}${points} · floor ${Math.round(renownFloor(points) * 100)} % · ${next === null ? 'top tier' : `next ${next}`}` },
       ]
     }),
     { label: 'Copper bars smelted', value: `${lifetime.barsSmelted}` },

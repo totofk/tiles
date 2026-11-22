@@ -852,6 +852,9 @@ export function deedsFor(lifetimeCash: number): number {
   return Math.floor(Math.sqrt(lifetimeCash / DEED_DIVISOR))
 }
 
+/** the lifetime cash at which the next deed lands (the 🏆 Legacy chip before the sale gate, batch 36.6) */
+export const nextDeedCash = (lifetimeCash: number): number => (deedsFor(lifetimeCash) + 1) ** 2 * DEED_DIVISOR
+
 /** whole ticks; fertilizer shortens growth of crops already in the ground too; soil = the run's listing soil; renown
  * = the crop's renown grow factor (cropRenownGrow) */
 export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number, soil: ListingSoil | null = null, renown = 1): number {

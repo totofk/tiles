@@ -10,7 +10,8 @@ import { Fields } from './Fields'
 import { price } from './fmt'
 import { Bar } from './Bar'
 import { Info } from './Info'
-import { HAND_EMOJI, priceTag } from './marketText'
+import { LegacyChip } from './Legacy'
+import { HAND_EMOJI, badgeText, priceTag, renownTitle } from './marketText'
 import { Orders } from './Orders'
 import type { PanelProps } from './panelTabs'
 import { TIPS } from './tips'
@@ -34,6 +35,7 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
             <span className="item-name">
               <span className="item-label">
                 {CROP_EMOJI[id]} {CROPS[id].name}
+                {badgeText(state, id)}
               </span>
             </span>
             <span className="item-count">×{run.seeds[id] ?? 0}</span>
@@ -153,18 +155,20 @@ export function DigSeeds({ state, act }: { state: GameState; act: Act }) {
 }
 
 /** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked, openEstate }: PanelProps) {
+export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked, openEstate, openBank }: PanelProps) {
   const { run } = state
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
   return (
     <section className="farm-tab">
+      <LegacyChip state={state} openBank={openBank} />
       <Orders state={state} act={act} flashSlot={clerkSlot} />
       <Tools state={state} act={act} cropId={cropId} stacked open={ui.toolsOpen} onToggle={toggleTools} />
       <h2>Crop to plant</h2>
       <div className="shop-row">
         {CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => (
-          <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
+          <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} title={renownTitle(state, id)} onClick={() => onSelectCrop(id)}>
             {CROP_EMOJI[id]} {CROPS[id].name}
+            {badgeText(state, id)}
             <small>seeds {run.seeds[id] ?? 0}</small>
             <small>{priceTag(state, id, ui.priceShown[id])}</small>
           </button>

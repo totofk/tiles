@@ -138,7 +138,9 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
   it('the Sell card says how much ⭐ carries and how much is lost above 400', () => {
     const gate = withRun({ stars: 414, lifetime: { ...init.run.lifetime, cashEarned: 640_000 }, workers: { ...init.run.workers, certificates: ['plant', 'harvest'] }, workshop: { built: true, beds: [true, false, false, false], valve: false } })
     render(<SellCard state={gate} act={() => {}} sell={() => {}} />)
-    expect(screen.getByText('⭐ 400 carried to the next farm · ⭐14 lost above 400')).toBeTruthy()
+    // batch 36.6: the Gain / Lost columns of the sale preview
+    expect(screen.getByText('⭐400 carried')).toBeTruthy()
+    expect(screen.getByText('⭐14 above 400 — spend or reroll listings first')).toBeTruthy()
   })
 
   it('reaching the Stoker\'s gate (the last bar batch level) does not toast "New worker" — its certificate is in ⭐ Favours', () => {

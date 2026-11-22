@@ -86,7 +86,7 @@ renamed "Apprentices" in the UI only; the id stays.
 
 ## Tasks (234–238)
 
-- [ ] 234. **Save v35 and the new shape (no mechanic yet).** Commit this task FIRST.
+- [x] 234. **Save v35 and the new shape (no mechanic yet).** Commit this task FIRST.
   - `src/core/state.ts:257` `MetaUpgradeId` and `:287` `META_UPGRADE_KEYS` gain, in this order after `keepRenown`:
     `'keepClerk', 'keepCertificates2', 'mineStart', 'keepBoard', 'keepManager'`.
   - `src/core/balance.ts:740` `DEED_ROW_IDS` gains the same 5 ids after `keepRenown`; `DEED_MAX_LEVEL` (:742–752) 1
@@ -114,7 +114,7 @@ renamed "Apprentices" in the UI only; the id stays.
     every older fixture v1 … v34 reaches v35. Update the version pins (`tests/save.test.ts:567–569`, `:1109`) and
     `tests/App.test.tsx:489` → "Will migrate v15 → v35".
 
-- [ ] 235. **Renown: 5 tiers, grow bonus, carry by default, Apprentices, start seeds (core).**
+- [x] 235. **Renown: 5 tiers, grow bonus, carry by default, Apprentices, start seeds (core).**
   - `src/core/balance.ts:776–797`: `RENOWN_TIERS = [250, 1000, 4000, 12000, 30000]`; `RENOWN_FLOORS = [0.55, 0.6, 0.7,
     0.7, 0.75]` (tiers 1–3 unchanged); new `RENOWN_GROW = [1, 0.95, 0.9, 0.85, 0.8]` (grow-time factor for tiers 1–5;
     tier 0 = 1); `RENOWN_BADGES = ['🥉', '🥈', '🥇', '🏅', '🏆']`; `RENOWN_START_SEEDS = [6, 6, 6, 24, 24]` (tiers 1–5;
@@ -151,7 +151,7 @@ renamed "Apprentices" in the UI only; the id stays.
     also 6 lemon, without the vault no lemon seeds. Update `tests/sim/mine-estate.test.ts:523–545` (the "sold without
     Kept renown → {}" pin): renown now carries either way; keep its 0.7-floor sale check.
 
-- [ ] 236. **The breadth rule: renown covers 4 fields per crop (the economy-rule guard).**
+- [x] 236. **The breadth rule: renown covers 4 fields per crop (the economy-rule guard).**
   - market.ts: `cropFieldCount(run, crop)` = `run.fields.unlocked ? run.fields.list.filter((f) => f.crop ===
     crop).length : 0` (CHIP-based, `Field.crop` state.ts:206: stable mid-cycle; a chip without a pivot counts too).
     `cropFloor(run, crop, fields = cropFieldCount(run, crop))` (:8–9): the renown part becomes `MARKET_FLOOR +
@@ -189,7 +189,7 @@ renamed "Apprentices" in the UI only; the id stays.
       `ceil(round(g × 0.8) / FIELD_PRESSURE)` vs `ceil(round(g × 0.9) / FIELD_PRESSURE)` with `g =
       cropGrowTicks('chilli', meta, 0)`; a home chilli tile keeps the full 0.8 with 20 chips.
 
-- [ ] 237. **The five new rows take effect + Fast crops / Rich harvest Lv 6–10.**
+- [x] 237. **The five new rows take effect + Fast crops / Rich harvest Lv 6–10.**
   - `DEED_MAX_LEVEL` growTime 5 → 10 and sellPrice 5 → 10 (balance.ts:743–744); `deedCost` unchanged (2^(level+1):
     Lv 6–10 cost 64 / 128 / 256 / 512 / 1,024 = 1,984 per row); `multiplier` unchanged (growTime Lv 10 ≈ ×0.66,
     sellPrice Lv 10 ≈ ×1.63 — read META_UPGRADE_STEP, do not change it). Fix the doc comments at :736–739 and :757.
@@ -211,7 +211,7 @@ renamed "Apprentices" in the UI only; the id stays.
     64 / 128 / 256 / 512 / 1,024 (same for sellPrice), `deedMaxLevel` 10, one-time prices 6 / 8 / 4 / 4 / 24,
     `legacyMaxed` needs Lv 10 on both rows.
 
-- [ ] 238. **Visibility: 🏆 Legacy chip, renown badges, the 3-column sale preview; pins, CHANGELOG, report.**
+- [x] 238. **Visibility: 🏆 Legacy chip, renown badges, the 3-column sale preview; pins, CHANGELOG, report.**
   - Legacy chip: new `LegacyChip` in `src/app/Legacy.tsx`, a `<button className="legacy-chip">` (≥ 44 px tall) at the
     TOP of the 🌾 Farm tab (`src/app/Farm.tsx`, before `<Orders>` ~:160) and, where the Farm tab is not shown, at the
     top of the 🛒 Shop panel (`src/app/Shop.tsx`, before `<h2>Seeds</h2>` ~:103, `{!farmTab && …}` like `SeedPouch`
@@ -293,3 +293,156 @@ Out of scope: the charter card (batch 37), almanac tiers, a stoker or sprinkler-
 (stays home-only), any ⭐ price, re-timing the tier table on the 10-crop ladder, the labour-cap re-measure, the 🌰
 Ancient fruit button missing from the phone / tablet Shop seeds list (open for Toon), the 36.2 nits, the 375 top-bar
 wrap, PIN36h.
+
+## Batch 36.6 results
+
+Tests: 1,313 passed + 8 expected fail (1,321) → 1,340 passed + 8 expected fail (1,348). The 8 expected fails are
+unchanged (PIN36h and the older `it.fails`). Lint clean, `pnpm build` clean, `tsc -b --force` clean, purity grep clean
+(only the known `src/save/storage.ts:26` wallClock line), no case-duplicate file names.
+
+Commits (one per task, main, not pushed): 234 `297b6efd`, 235 `d1d0043b`, 236 `2360c781`, 237 `afc6b9f4`, 238 (this
+commit).
+
+- 234: `MetaUpgradeId` / `META_UPGRADE_KEYS` / `DEED_ROW_IDS` gain keepClerk, keepCertificates2, mineStart, keepBoard,
+  keepManager (max 1; one-time 6 / 8 / 4 / 4 / 24). `SAVE_VERSION` 35, frozen `MetaV34`, and `migrateV34`: the 5 keys at
+  0 plus the renown re-seed max(renown, lifetime home harvests) over `CROP_IDS`. It is chained after every older version:
+  `migrate()` → `toV34()` (the old switch) → `migrateV34`.
+- 235: 5 renown tiers with floors .55 / .6 / .7 / .7 / .75. Grow factor RENOWN_GROW goes inside `cropGrowTicks`'
+  rounding; rot grace stays unboosted. Home callers pass the full factor via `cropRenownGrow`, and bot.ts:150 mirrors
+  it. The sale keeps every crop's points with no deed needed. Apprentices: a worker harvest or tree pick earns +2.
+  `createFreshRun` gives a start-seed kit to each licensed crop at tier ≥ 1.
+- 236: `cropFieldCount` (chip-based) and `cropFloor(run, crop, fields)` share the renown floor over more than 4 chips.
+  Estate grow is shared through `pressuredCycle` / `fieldsMarginalIncomePerHour` / `estateText`, and bot.ts forgePlots
+  mirrors it. `fieldsCropIncomeCurve(state, crop, breadth = true)` values each T on its own field count.
+- 237: growTime / sellPrice max 10 (Lv 6–10 cost 64 … 1,024). The sale keeps certificates in WORKER_JOBS order per
+  keep row. Kept Noticeboard opens the board through the new `openBoard` (`buyOrderBoard` uses it). Miner's start gives
+  the licence and a selected copper pickaxe, except on a Wetlands listing.
+- 238: the 🏆 `LegacyChip` (top of 🌾 Farm; top of 🛒 Shop with no Farm tab; tap → 🏦 Bank via `PanelProps.openBank`,
+  plus `nextDeedCash`). Renown badges and titles on "Crop to plant", the Shop seeds (both branches), the Seed pouch, the
+  Estate chip (`.map-badge-renown`, bottom-right corner) and the Stats renown row. The FieldSheet renown line
+  (`renownSheetLine`). The Legacy names / tips / effects. The Gain / Lost / Kept sale preview (`.sell-cols`). PIN36w.
+  The CHANGELOG 36.6 line (174 code points).
+
+Pins:
+- PIN36t (tests/renown.test.ts, tree.test.ts): tier / floor / next / badge / grow at 0, 249, 250, 999, 1,000, 3,999,
+  4,000, 11,999, 12,000, 29,999, 30,000 and 99,999, as specified.
+  - `cropGrowTicks('strawberry', meta, 0, null, 0.8) = round(base × 0.8)`.
+  - At renown 1,000 a home strawberry matures at round(base × 0.95): stepTile, `harvest` and `isMature` agree. Rot
+    grace is 2 × base, unboosted.
+  - The sale keeps `{ lemon: 1000, pumpkin: 100 }` with no deed.
+  - Apprentices: worker +2 with the row, +1 without; a tap is +2 either way, the tree included.
+  - Start seeds: potato 6 at 250, 24 at 12,000, 0 at 249. Lemon 4,000 gets 6 only with the Seed vault.
+- PIN36u (tests/sim/mine-estate.test.ts, next to PIN31model, 20 managed fields at the estate stage):
+  - (a) breadth off, chilli 30,000 → chilli×20 on plain AND on berry-fast / fruit-veg-slow.
+  - (b) share on, same state, berry-fast → **strawberry×16 chilli×4** (Hermes's estimate exactly).
+  - (c) every crop 30,000, plain → **chilli×13 strawberry×4 grape×3** (Hermes estimated 16 + 4).
+  - (d) `managerPlan` / exhaustive = 1.0 at n = 2 / 6 / 10 for both. Its 20-field plans match: b20 "strawberry×16
+    chilli×4", c20 "grape×3 strawberry×4 chilli×13".
+  - (b) and (c) both PASS; no `it.fails`.
+- PIN36u renown.test: `cropFloor` for chilli 30,000 on 0 / 4 / 5 / 8 / 20 chips = 0.75 / 0.75 / 0.7 / 0.625 / 0.55, and
+  0.75 with the Fields locked. `pressuredCycle` on 4 vs 8 chips = ceil(round(g × 0.8) / 2) vs ceil(round(g × 0.9) / 2).
+  A home chilli keeps 0.8 with 20 chips. manager.test's 0.999 DP pin also holds with chilli 30,000 and with every crop
+  at 12,000.
+- PIN36v (tests/prestige.test.ts): each keep carries on its own (clerk; ore / fuel / mine; manager — certificates only,
+  no worker). The board is open at tick 0 with `slots` offers equal to `openBoard` / `buyOrderBoard`'s roll on the same
+  rngState. Miner's start gives the licence and a selected copper pickaxe, and nothing on a Wetlands listing. All five
+  rows together work. Lv 6–10 cost 64 / 128 / 256 / 512 / 1,024 on both rows, max 10; one-time prices are 6 / 8 / 4 / 4
+  / 24; `legacyMaxed` needs Lv 10.
+- PIN36w (report): Toon's migrated v34 save, chilli 18,811 🏅 on 12 chips. The chilli floor is 0.70 with share 1 and
+  0.5667 on its 12 chips. 2 game-hours of `step` cash: 💰20,519,038 with its 12 chilli chips vs 💰20,051,853 with every
+  chip but 4 cleared. No negative cash.
+- Correctness guards all held: stallTicks 0, ladder rungs defined, lowest ≥ 0, borrowed false, mining < 0.9 × farming.
+  PIN31model ratios are all 1.0 and the DP pins ≥ 0.999. PIN22d took 655 ms. PIN31worker: strawberry 🥇 4,000 at
+  21.9 h (≤ 48 h). Its title now names 🥇 4,000 instead of "the top tier"; the target is unchanged.
+- tests/fields.test.ts:716 (PIN36d) needed no re-pin. It reads the top tier as `RENOWN_TIERS[length − 1]`, so it now
+  runs at chilli 30,000 / floor 0.75, and its ≥ 0.7 district ratios hold.
+
+Migrated fixture: `tests/fixtures/save-v34.json` → v35. `meta.upgrades` gains exactly the 5 zero keys. `run.renown` is
+unchanged (radish 1,310, chilli 18,811, pumpkin 657, lemon 2,100, tomato 866, corn 326, strawberry 11,184, grape 1,695
+= its lifetime harvests), and everything else is deep-equal. A hand-built pre-36.6 seller (renown `{ lemon: 1000 }`,
+harvests `{ lemon: 2416, pumpkin: 300, radish: 0 }`) migrates to `{ lemon: 2416, pumpkin: 300 }`. Every fixture v1 … v34
+reaches v35.
+
+Moved pins, old → new with cause. Re-pinned in the task that moved them; each arrow names its task:
+- prestige-crops PIN20 run1 / run3 Fields speed-up: 1.66 → 1.56 (234, deed buy order: the new keeps soak up deeds) →
+  1.48 (235, renown carried + start seeds + T2+ grow) → 1.65 (236, Estate grow / 4-field share) → **1.69** (237, the
+  keeps act).
+- PIN20 run1 / run2: 1.37 → 1.24 (234) → **1.42** (236).
+- PIN34carry: ≥ 1.35 was lowered to ≥ 1.24 with the tick budget widened to run 1's Fields time in 234 (the capped run
+  missed the Fields and read NaN). Both were restored in 237: measured **1.42**, original budget and floor.
+- PIN28_1b harvester3: [105.1, 100.1] → [116.9, 115.5] (234) → [122.4, 121.3] (235) → [124.1, 123.4] (236) →
+  **[124.1, 123.1]** (237).
+- PIN28_1c harvester3: [108.1, 72.6] → [108.1, 81.6] (234) → [105.5, 73.4] (235) → [105.5, 74.8] (236) →
+  **[105.5, 74.3]** (237).
+- fields batch 18:
+  - lemon income: [42249, 82167 ×4] → [45123, 82704 ×4] (235) → **[48091, 83180 ×4]** (236).
+  - mix: [77476, 65169] → [76881, 66160] (235) → **[77304, 66926]** (236).
+  - PIN18c payback crossing: 10 → **12** (236).
+  - coal: [974, 11] → [984, 11] (235) → **[986, 11]** (236).
+- fields batch 19:
+  - curve: [80,210] [80,598] [80,756] → [82,232] [82,652] [82,816] (235) → **[81,285] [81,649] [81,599]** (236, the
+    1,000-tile arm is 20 fields of one crop, so it shares its renown 4/20).
+  - paybacks: 0.4 / null / null / 0.8 → 0.3 / 1004 / null / 0.7 (235) → **0.4 / null / null / 0.7** (236).
+- market-orders carrot9: harvests/h 320 → 323, income 3861 → 3890, off 3542 → 3567, bonus 9 → 9.1 (235: carrot passes
+  🥈 in the window).
+- mine-estate PIN311b (the v22 save): 10th contract at minute 330 → 367 (235) → **439** (236). Manager buyable at
+  371 → 370 (235) → **439** (236). ⭐ ≥ 160 holds.
+- tools-workshop (235):
+  - pumpkin gold 29.153 → 29.08; batch-16 finalCash 84717 → 84467.
+  - incomeAfter 28612 → 29573; batch-17 finalCash 545928 → 564749.
+  - PIN26d coal [482, 7] → [473, 7].
+- save.test scenario B (the v27 save): tank [182.5, 399.4] → 399.5 (235) → **399.2** (236). Storage-full ticks 1125 →
+  1195 (235) → **1105** (236).
+- Unit text pins:
+  - stats Lemon 4,000: "top tier" → "next 12000" (235), then the badge in front (238).
+  - Estate v26 chip "🎃F2⛲" → "🎃F2⛲🥉" (238).
+  - mine-estate "sold without Kept renown → {}" → carries (235).
+  - renown.test's 2,000-tile income pin now reads the pre-36.6 rule (breadth false) and checks the 🥉 step (235–236).
+
+New UI strings:
+- Chip: "🏆 {deeds} · sale +{n}" / "🏆 next deed at 💰{X} lifetime".
+- Badges 🥉 🥈 🥇 🏅 🏆. Titles "{Name} {badge} {pts} / {next}", "{Name} {badge} {pts} · top tier", "{Name} {pts} /
+  250".
+- Sheet: "{badge} {Name} covers {k} of {n} fields · floor {p} %[ · grow −{x} %]".
+- Legacy names "Apprentices", "Kept Clerk", "Kept certificates II", "Miner's start", "Kept Noticeboard", "Kept
+  Manager", with their tips and effects as in task 238.
+- Preview Gain: "+{n} deeds", "⭐{n} carried", "{badge} {Name} {pts}", "Renown: none yet", "Start seeds: {n} {emoji} …".
+- Preview Lost: "⭐{n} above 400 — spend or reroll listings first", "Every ⭐ Favour level", "Tiles, cash, market,
+  storage, tools", "Mine, furnace, workshop, fields, machines", "Licenses, workers and certificates not kept", "This
+  run's timeline".
+- Preview Kept: "🏆 deeds and every Legacy row bought", "{keep} — {what}" ×8, "The ⭐-bought order slots ({n})",
+  "Lifetime totals — the deed meter keeps counting", "Renown — every crop's points".
+- Stats: "{badge} {pts} · floor …".
+
+### Deviations
+
+- **Starting crop is 🥔 potato, not radish** (batch 35). PIN36t's no-vault start-seed pins are therefore written on
+  potato (6 at 250, 24 at 12,000, 0 at 249), and radish gets its kit only with the Seed vault. Scenario A's "6-seed
+  radish kit" is a potato kit in the shipped game.
+- **A sixth sim cause: the 4-field share itself.** Task 236's shared floor and Estate grow move sim pins too. That
+  cause is not in the named list (T2+ grow, carry, start seeds, buy order), but it is this batch's own rule. The largest
+  moves:
+  - the batch-19 1,000-tile machines arm, 816k → 599k/h;
+  - PIN311b's 10th contract, minute 367 → 439.
+  No correctness guard moved.
+- **Re-pins per task, not all in 238.** Each task's commit had to pass `pnpm test`, so every pin was re-pinned in the
+  task that moved it. The chains above give the per-task cause.
+- **Task 234 shipped the five rows' final names, tips and effect lines.** `Record<DeedRowId, …>` must be complete for
+  tsc. The rows did nothing until 237 and were never shipped in between. "Kept renown" → "Apprentices" landed in 238.
+- **`migrate()` structure.** It became `migrate` (shape check, v35 pass-through) → `toV34` (the old switch, unchanged)
+  → `migrateV34`. This is equivalent to wrapping every branch in `migrateV34(…)`.
+- **PIN36w reads as total estate cash, not the rule's pure cost.** Clearing 8 chips also stops 8 fields producing, so
+  the 4-chip save earns less (−2.3 %). The pure cost of the share (the same 12 chips with breadth off vs on) would need
+  a rule toggle in `step`. No such toggle exists, and none was added.
+- **PIN36u (c)** is 13 chilli + 4 strawberry + 3 grape, not Hermes's 16 + 4. It still passes the ≥ 2-crop guard.
+- **The renown sheet line sits directly above the 🧭 soil line** in the FieldSheet, after the ≈💰/h line.
+- **The 🛒 Shop chip renders only when `openBank` is passed** (the Panel always passes it; direct test renders of
+  `<Shop>` do not).
+- **The "Selling gives +N deeds (💰N)" line above Next farm is kept**, so the Gain column repeats "+N deeds".
+- **Not verified (no browser; jsdom only).** Hermes's live sweep at 375 / 1024 / 1440 / 2560 / 3440 should check:
+  - the `.sell-cols` wrap (one column at 375, three from ~600 px) and the three columns' layout;
+  - the red `.lost` row's colour;
+  - the 🏆 chip's placement and its 44 px height on the Farm tab and the Shop panel;
+  - whether a phone tap on the chip shows the 🏦 Bank panel (`setTab('bank')` only, like the tab bar);
+  - the `.map-badge-renown` bottom-right corner against the plot bar and the "F1" label;
+  - the badge spacing in the Seed pouch's item grid.

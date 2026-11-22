@@ -63,6 +63,7 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     ui: { view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: false, seen: { shop: [], upgrades: [], farm: [], mine: [] }, priceShown: {} },
     toggleTools: () => {},
     openEstate: () => {},
+    openBank: () => {},
     reset: () => {},
     sell: () => {},
     exportCode: () => '',

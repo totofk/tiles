@@ -501,7 +501,7 @@ describe('batch 29: manager', () => {
 
   // nested here to reuse the batch-29 stage (`at`) and the exhaustive enumeration
   describe('batch 31: renown', () => {
-    it('worker-only route: 24 home strawberry tiles, sprinklers, a planter and a harvester reach the top tier ≤ 48 h', () => {
+    it('worker-only route: 24 home strawberry tiles, sprinklers, a planter and a harvester reach 🥇 4,000 ≤ 48 h (the batch-31 top tier; 36.6 adds 🏅 / 🏆 above it)', () => {
       const s0 = at(true, [])
       let s: GameState = {
         ...s0,

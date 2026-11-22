@@ -40,7 +40,8 @@ import { buyToolTier, buyTool } from '../core/tools'
 import { CROP_EMOJI } from './FarmGrid'
 import { SeedPouch } from './Farm'
 import { Item } from './Info'
-import { cropFactor, depthBand, marketTip, priceTag } from './marketText'
+import { LegacyChip } from './Legacy'
+import { badgeText, cropFactor, depthBand, marketTip, priceTag, renownTitle } from './marketText'
 import { CROP_TIPS, TIER_TIPS, TIPS, TOOL_TIPS } from './tips'
 import type { UiState } from './uiState'
 import { FIRE_EMOJI, type Act } from './useGame'
@@ -50,7 +51,16 @@ const TOOL_EFFECT = [() => '1 tile', (tiles: number) => `up to ${toolNMax(tiles)
 
 /** farmTab: the desktop 🌾 Farm tab holds the crop picker and the pouch, so the Shop only sells;
  * ui: the remembered price-tag factors (trend arrows), optional so stand-alone renders show no arrow */
-type Props = { state: GameState; cropId: CropId; onSelectCrop: (id: CropId) => void; act: Act; farmTab?: boolean; ui?: Pick<UiState, 'priceShown'> }
+type Props = {
+  state: GameState
+  cropId: CropId
+  onSelectCrop: (id: CropId) => void
+  act: Act
+  farmTab?: boolean
+  ui?: Pick<UiState, 'priceShown'>
+  /** batch 36.6: the 🏆 Legacy chip's tap (the chip shows only when it is passed and there is no Farm tab) */
+  openBank?: () => void
+}
 
 /** what one material tier does to each action of the job */
 const TIER_EFFECT: Record<ToolJob, (tier: number) => string> = {
@@ -93,13 +103,14 @@ function TierTool({ state, act, job }: { state: GameState; act: Act; job: ToolJo
   )
 }
 
-export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: Props) {
+export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui, openBank }: Props) {
   const { run, meta } = state
   const tiles = run.tiles.length
   const nextTile = tileCost(tiles, meta)
 
   return (
     <section className="shop">
+      {!farmTab && openBank && <LegacyChip state={state} openBank={openBank} />}
       <h2>Seeds</h2>
       <div className="shop-row">
         {CROP_IDS.map((id) => {
@@ -116,14 +127,16 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
           return (
             <Item key={id} tip={`${CROP_TIPS[id]} ${marketTip(state, id)}`}>
               {run.licenses.includes(id) && farmTab ? (
-                <button className="owned" disabled>
+                <button className="owned" disabled title={renownTitle(state, id)}>
                   {CROP_EMOJI[id]} {CROPS[id].name}
+                  {badgeText(state, id)}
                   <small>seed 💰{price(cropSeedCost(id, meta))}</small>
                   {market}
                 </button>
               ) : run.licenses.includes(id) ? (
-                <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} onClick={() => onSelectCrop(id)}>
+                <button className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} title={renownTitle(state, id)} onClick={() => onSelectCrop(id)}>
                   {CROP_EMOJI[id]} {CROPS[id].name}
+                  {badgeText(state, id)}
                   <small>seed 💰{price(cropSeedCost(id, meta))}</small>
                   {market}
                 </button>

@@ -75,6 +75,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
       ui={{ view: 'farm', tab: 'farm', collapsed: false, toolsOpen: true, stop: 'estate', pulledBack: false, seen: { shop: [], upgrades: [], farm: [], mine: [] }, priceShown: {} }}
       toggleTools={noop}
       openEstate={noop}
+      openBank={noop}
       worked={[]}
       reset={noop}
       sell={noop}
@@ -98,8 +99,9 @@ describe('prestige group in the Bank tab (batch 21)', () => {
     expect(screen.getByRole('heading', { name: '🏆 Sell the farm' })).toBeTruthy()
     // batch 35.5: no "Selling gives" line before the gate
     expect(document.body.textContent).not.toContain('Selling gives')
-    expect(screen.getByText('⭐ 37 carried to the next farm')).toBeTruthy()
-    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Next farm', 'Resets', 'Carries'])
+    // batch 36.6: the ⭐ carry line moved into the Gain column; Resets / Carries → Gain / Lost / Kept
+    expect(screen.getByText('⭐37 carried')).toBeTruthy()
+    expect(screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual(['Next farm', 'Gain', 'Lost', 'Kept'])
     expect(button(/🔒 Sell the farm/).textContent).toBe('🔒 Sell the farmneeds planter certificate + harvester certificate + 1 bed sprinkler + 8 more deeds')
     expect(button(/🔒 Sell the farm/).disabled).toBe(true)
     expect(screen.queryByRole('button', { name: /^Sell the farm$|Press again|No deeds/ })).toBeNull()

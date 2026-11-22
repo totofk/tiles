@@ -822,6 +822,11 @@ button:disabled::after {
   left: 1px;
   right: auto;
 }
+/* the chip crop's renown tier badge (batch 36.6): the corner the pivot and soil badges leave free */
+.map-badge-renown {
+  top: auto;
+  bottom: 1px;
+}
 .map-badge-pivot {
   border: 1px solid #1565c0;
   border-radius: 4px;
@@ -2075,16 +2080,32 @@ details > summary:focus-visible {
   font-size: 13px;
   line-height: 1.4;
 }
-/* 🏆 Sell the farm: the two preview lists (Resets / Carries) between the gain line and the button */
-.shop > h3 {
+/* 🏆 Sell the farm: the Gain / Lost / Kept preview columns (batch 36.6) between Next farm and the button — one
+   column at 375, three from ~600 px */
+.shop > h3,
+.sell-cols h3 {
   margin: 10px 0 2px;
   font-size: 13px;
+}
+.sell-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem 1rem;
 }
 .sell-list {
   margin: 0;
   padding-left: 20px;
   font-size: 13px;
   line-height: 1.4;
+}
+.sell-list .lost {
+  color: #c62828;
+}
+/* 🏆 the Legacy chip at the top of 🌾 Farm (🛒 Shop without a Farm tab): tap → 🏦 Bank */
+.legacy-chip {
+  min-height: 44px;
+  width: 100%;
+  margin-bottom: var(--s2);
 }
 /* 📊 Stats "Save": the feedback card's column; Import armed turns red like Reset */
 

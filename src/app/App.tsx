@@ -130,7 +130,7 @@ export default function App() {
   // task 132: off-farm worker flashes — the furnace Smelt group (ore/fuel loaders) and the order row the clerk touched
   const smeltActed = worked.some((w) => w.job === 'ore' || w.job === 'fuel')
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport, openEstate }
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport, openEstate, openBank: () => setTab('bank') }
   const grid = <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
   const Panel = shown.Panel
   const mobileTabs = [

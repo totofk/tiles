@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, type CSSProperties } from 'react'
-import { fieldPlots, pivotCost, plotTiles, pumpCost, pumpFieldCap, soilRerollStars } from '../core/balance'
+import { fieldPlots, pivotCost, plotTiles, pumpCost, pumpFieldCap, renownBadge, renownTier, soilRerollStars } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
 import { STAR_EMOJI } from '../core/data/orders'
 import { SOIL_TRAITS, SURVEY_EMOJI } from '../core/data/soil'
@@ -25,7 +25,7 @@ import { soilTraitText } from './soilText'
 import type { UiState } from './uiState'
 import type { Act } from './useGame'
 import { shortOf } from './Workshop'
-import { cropOptionText, estateCropIncomePerHour, ghostRowPrice, plotCellView, type PlotCellKind } from './estateText'
+import { cropOptionText, estateCropIncomePerHour, ghostRowPrice, plotCellView, renownSheetLine, type PlotCellKind } from './estateText'
 import { approx, cell } from './fmt'
 
 export const ORDER_EMOJI = '📋' // Unicode 6
@@ -121,6 +121,11 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
                   {SOIL_TRAITS[soil].emoji}
                 </span>
               )}
+              {field.crop && renownTier(run.renown[field.crop] ?? 0) >= 1 && (
+                <span className="map-badge map-badge-renown" aria-hidden="true">
+                  {renownBadge(run.renown[field.crop] ?? 0)}
+                </span>
+              )}
             </button>
             {Array.from({ length: fieldPlots() }, (_, j) => {
               const v = plotCellView(state, k, j)
@@ -211,6 +216,7 @@ function FieldSheet({ state, act, ui, k, close }: { state: GameState; act: Act; 
       ) : (
         field.crop && <p className="sheet-line">{`≈💰${approx(estateCropIncomePerHour(state, k))}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</p>
       )}
+      {field.crop && renownTier(run.renown[field.crop] ?? 0) >= 1 && <p className="sheet-line">{renownSheetLine(state, field.crop)}</p>}
       {(() => {
         // batch 36.5: the field's rolled 🧭 soil trait and its ⭐ reroll (Lv2+)
         const soil = fieldTrait(run, k)
