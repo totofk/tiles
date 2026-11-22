@@ -50,7 +50,7 @@ describe('🏆 Legacy deed shop', () => {
     rerender(<Legacy state={current!} act={act()} />)
     expect(current!.meta.deeds).toBe(7)
     expect(current!.meta.upgrades.growTime).toBe(1)
-    expect(screen.getByRole('button', { name: /Fast crops/ }).textContent).toMatch(/Lv 1\/5 Grow ×0\.96 → ×0\.92 · 4 deeds/)
+    expect(screen.getByRole('button', { name: /Fast crops/ }).textContent).toMatch(/Lv 1\/10 Grow ×0\.96 → ×0\.92 · 4 deeds/)
     // 3 deeds left: the 8-deed L3 and the keeps stay enabled until tried; workerSpeed L1 (2) buys, L2 (4) is disabled
     reactAct(() => fireEvent.click(screen.getByRole('button', { name: /Quick crews/ })))
     rerender(<Legacy state={current!} act={act()} />)
@@ -65,6 +65,8 @@ describe('🏆 Legacy deed shop', () => {
     expect(buyMetaUpgrade(current!, 'growTime')).toEqual({ ok: false, error: 'NO_DEEDS' })
     // the price curve and max levels are the DECISIONS table
     expect([1, 2, 3, 4, 5].map((l) => deedCost('growTime', l - 1))).toEqual([2, 4, 8, 16, 32])
+    // batch 36.6: Lv 6–10
+    expect([6, 7, 8, 9, 10].map((l) => deedCost('growTime', l - 1))).toEqual([64, 128, 256, 512, 1024])
     expect(deedCost('keepFirstCertificates', 0)).toBe(3)
   })
 

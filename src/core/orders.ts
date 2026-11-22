@@ -210,8 +210,13 @@ export function buyOrderBoard(state: GameState): ActionResult {
   const { run } = state
   if (run.orders.unlocked) return fail('ALREADY_OWNED')
   if (!orderBoardUnlocked(run)) return fail('LOCKED')
-  const { offers, rngState } = rollOffers(state, run.orders.slots)
-  return pay(state, orderBoardCost(state.meta), { orders: { ...run.orders, unlocked: true, offers }, rngState })
+  return pay(state, orderBoardCost(state.meta), openBoard(state))
+}
+
+/** the board open with every slot rolled — what buying it gives (and the 📋 Kept Noticeboard at a sale, batch 36.6) */
+export function openBoard(state: GameState): Pick<RunState, 'orders' | 'rngState'> {
+  const { offers, rngState } = rollOffers(state, state.run.orders.slots)
+  return { orders: { ...state.run.orders, unlocked: true, offers }, rngState }
 }
 
 /** the offer at `slot`, or the error: LOCKED (no board), BAD_SLOT (no such slot, or it is cooling down) */

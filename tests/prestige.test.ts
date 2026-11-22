@@ -1,8 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { PRESTIGE_GATE_DEEDS, deedsFor, energyMax, startTiles, workerActsAt, workerActionTicks } from '../src/core/balance'
+import {
+  DEED_ROW_IDS,
+  PRESTIGE_GATE_DEEDS,
+  deedCost,
+  deedMaxLevel,
+  deedsFor,
+  energyMax,
+  pickaxeDurability,
+  startTiles,
+  workerActsAt,
+  workerActionTicks,
+} from '../src/core/balance'
 import { ROLLED_DISTRICTS } from '../src/core/data/districts'
 import { PLAIN_LISTING, currentListings, rerollListings } from '../src/core/listings'
-import { deedsClaimable, sellFarm, sellFarmUnlocked } from '../src/core/prestige'
+import { buyOrderBoard, openBoard } from '../src/core/orders'
+import { deedsClaimable, legacyMaxed, sellFarm, sellFarmUnlocked } from '../src/core/prestige'
 import { createInitialState, type GameState, type MetaState } from '../src/core/state'
 import { step } from '../src/core/step'
 import { catchUp, deserialize } from '../src/save/serialize'
@@ -242,5 +254,78 @@ describe('batch 36.1: the sale takes a listing', () => {
     expect([sale.state.run.stars, sale.state.meta.listingRerolls]).toEqual([380, 0])
     const rich = sellFarm(atGate({ stars: 650 }))
     expect(rich.ok && rich.state.run.stars).toBe(400)
+  })
+})
+
+describe('PIN36v (batch 36.6): the five new keep rows and Fast crops / Rich harvest Lv 6–10', () => {
+  const owning = (levels: Partial<MetaState['upgrades']>, over: Partial<GameState['run']> = {}): GameState => {
+    const g = atGate(over)
+    return { ...g, meta: { ...g.meta, upgrades: { ...g.meta.upgrades, ...levels } } }
+  }
+  const sold = (s: GameState, choice = PLAIN_LISTING): GameState => {
+    const r = sellFarm(s, choice)
+    if (!r.ok) throw new Error(r.error)
+    return r.state
+  }
+  const certs = (levels: Partial<MetaState['upgrades']>) => sold(owning(levels)).run.workers.certificates
+
+  it('each row carries on its own: Clerk, ore/fuel/mine, Manager — certificates only, no worker', () => {
+    expect(certs({})).toEqual([])
+    expect(certs({ keepClerk: 1 })).toEqual(['clerk'])
+    expect(certs({ keepCertificates2: 1 })).toEqual(['ore', 'fuel', 'mine'])
+    expect(certs({ keepManager: 1 })).toEqual(['manager'])
+    const run = sold(owning({ keepManager: 1, keepClerk: 1 })).run
+    expect([run.workers.pool, run.workers.assigned.manager, run.workers.assigned.clerk]).toEqual([0, 0, 0])
+  })
+
+  it('📋 Kept Noticeboard: the board open at tick 0, its slots rolled exactly as buyOrderBoard rolls them', () => {
+    const plain = sold(owning({}))
+    const board = sold(owning({ keepBoard: 1 }))
+    expect(plain.run.orders.unlocked).toBe(false)
+    expect(board.run.tick).toBe(0)
+    expect(board.run.orders.unlocked).toBe(true)
+    expect(board.run.orders.offers).toHaveLength(plain.run.orders.slots)
+    expect(board.run.orders).toEqual({ ...plain.run.orders, ...openBoard(plain).orders })
+    expect(board.run.rngState).toBe(openBoard(plain).rngState)
+    // buyOrderBoard's roll on the same state: the same offers (it only adds the price)
+    const bought = buyOrderBoard({ ...plain, run: { ...plain.run, cash: 1e9, inventory: { stone: 99 }, counters: { ...plain.run.counters, sales: 1e6 } } })
+    expect(bought.ok && bought.state.run.orders.offers).toEqual(board.run.orders.offers)
+  })
+
+  it("⛏️ Miner's start: the licence and a copper pickaxe, selected; nothing on a Wetlands listing", () => {
+    const run = sold(owning({ mineStart: 1 })).run
+    expect([run.mineLicense, run.rack, run.selectedPickaxe]).toEqual([true, { copper: pickaxeDurability('copper') }, 'copper'])
+    expect(sold(owning({})).run.mineLicense).toBe(false)
+    const seed = Array.from({ length: 200 }, (_, i) => i).find((i) => currentListings({ ...atGate().meta, listingSeed: i }, 'plain').some((l) => l.district === 'wetlands'))!
+    const wet = owning({ mineStart: 1 })
+    const meta = { ...wet.meta, listingSeed: seed }
+    const choice = currentListings(meta, 'plain').find((l) => l.district === 'wetlands')!
+    const w = sold({ ...wet, meta }, choice).run
+    expect([w.listing.district, w.mineLicense, w.rack, w.selectedPickaxe]).toEqual(['wetlands', false, {}, null])
+  })
+
+  it('all five together', () => {
+    const run = sold(owning({ keepFirstCertificates: 1, keepClerk: 1, keepCertificates2: 1, mineStart: 1, keepBoard: 1, keepManager: 1 })).run
+    expect(run.workers.certificates).toEqual(['plant', 'water', 'harvest', 'ore', 'fuel', 'mine', 'clerk', 'manager'])
+    expect([run.mineLicense, run.selectedPickaxe, run.orders.unlocked]).toEqual([true, 'copper', true])
+  })
+
+  it('Lv 6–10 prices 64 / 128 / 256 / 512 / 1,024 on both rows, max 10; one-time prices 6 / 8 / 4 / 4 / 24; legacyMaxed needs Lv 10', () => {
+    for (const id of ['growTime', 'sellPrice'] as const) {
+      expect([5, 6, 7, 8, 9].map((l) => deedCost(id, l))).toEqual([64, 128, 256, 512, 1024])
+      expect(deedMaxLevel(id)).toBe(10)
+    }
+    expect((['keepClerk', 'keepCertificates2', 'mineStart', 'keepBoard', 'keepManager'] as const).map((id) => [deedCost(id, 0), deedMaxLevel(id)])).toEqual([
+      [6, 1],
+      [8, 1],
+      [4, 1],
+      [4, 1],
+      [24, 1],
+    ])
+    const max = Object.fromEntries(DEED_ROW_IDS.map((id) => [id, deedMaxLevel(id)])) as MetaState['upgrades']
+    const meta = (u: Partial<MetaState['upgrades']>): MetaState => ({ ...createInitialState().meta, upgrades: { ...createInitialState().meta.upgrades, ...max, ...u } })
+    expect(legacyMaxed(meta({}))).toBe(true)
+    expect(legacyMaxed(meta({ growTime: 9 }))).toBe(false)
+    expect(legacyMaxed(meta({ sellPrice: 5 }))).toBe(false)
   })
 })

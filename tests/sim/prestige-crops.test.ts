@@ -162,8 +162,9 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 35 (was 1.68): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was 1.66): the deed buy order — sale 1's 65 deeds also buy the 5 new keeps
     // re-pinned batch 36.6 task 235 (was 1.56 → 1.48): renown carried, start seeds, the T2+ grow bonus; task 236:
-    // the Estate grow bonus / 4-field share
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.65)
+    // the Estate grow bonus / 4-field share (1.65); task 237: the deed buy order — the new keeps now act (certificates,
+    // mine kit, board) and Fast crops / Rich harvest go past Lv 5
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.69)
     // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
     // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2); task
     // 236 (was 1.24): the Estate grow bonus / 4-field share
@@ -175,9 +176,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
   it('batch 34: scenario A-carry — a sold run starting with ⭐50 reaches the Fields unlock with no stall, ≥ 1.35× faster than run 1', () => {
     const run1Fields = r1.ladder.ladderTicks.fields!
     const carry = { ...sale1.after, run: { ...sale1.after.run, stars: 50 } }
-    // batch 36.6: the budget is run 1's own Fields time (was run1Fields / 1.3): with the speed-up under 1.3 the capped
-    // run never reached the Fields and the speed-up read NaN
-    const rc = firstHourOf(carry, run1Fields)
+    const rc = firstHourOf(carry, Math.ceil(run1Fields / 1.3))
     const t = rc.ladder.ladderTicks as Partial<Record<string, number>>
     const fieldsTick = t.fields!
     const marks = Object.values(t).filter((x): x is number => x !== undefined && x <= fieldsTick).sort((a, b) => a - b)
@@ -187,8 +186,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     expect(rc.stallTicks).toBe(0)
     // re-pinned batch 35 (was ≥ 1.4, measured 1.4): crop re-ladder: potato start, carrot licence 💰25 — measured 1.37
     // (PLAN.md "Batch 35 results" → Deviations: below the batch-34 1.4× floor; no stall)
-    // re-pinned batch 36.6 task 234 (was ≥ 1.35): the deed buy order — measured 1.24
-    expect(speedup).toBeGreaterThanOrEqual(1.24)
+    // batch 36.6: measured 1.42 (1.24 mid-batch after task 234's buy order, back above the floor once the keeps act)
+    expect(speedup).toBeGreaterThanOrEqual(1.35)
   }, 600_000)
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
@@ -213,8 +212,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 35 (was [105, 100.1]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was [105.1, 100.1]): the deed buy order
     // re-pinned batch 36.6 task 235 (was [116.9, 115.5] → [122.4, 121.3]): renown carried, start seeds, the T2+ grow
-    // bonus; task 236: the Estate grow bonus / 4-field share
-    expect(h).toEqual([124.1, 123.4])
+    // bonus; task 236: the Estate grow bonus / 4-field share ([124.1, 123.4]); task 237: the deed buy order (the keeps act)
+    expect(h).toEqual([124.1, 123.1])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -359,8 +358,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 35 (was [107.5, 72.5]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was [108.1, 72.6]): the deed buy order (run 1 unchanged)
     // re-pinned batch 36.6 task 235 (was [108.1, 81.6] → [105.5, 73.4]): renown carried, start seeds, the T2+ grow bonus
-    // (run 1 too); task 236: the Estate grow bonus / 4-field share
-    expect(h).toEqual([105.5, 74.8])
+    // (run 1 too); task 236: the Estate grow bonus / 4-field share ([105.5, 74.8]); task 237: the deed buy order (the
+    // keeps act)
+    expect(h).toEqual([105.5, 74.3])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

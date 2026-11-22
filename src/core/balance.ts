@@ -734,8 +734,9 @@ export function startTiles(meta: MetaState): number {
 }
 
 /**
- * The 🏆 Legacy deed rows: levels on the meta upgrade table bought with deeds. Level prices 2 / 4 / 8 / 16 / 32
- * (2^level, the research curve); the two one-time keeps are fixed. No row multiplies ⭐, deeds or mining.
+ * The 🏆 Legacy deed rows: levels on the meta upgrade table bought with deeds. Level prices 2 / 4 / 8 / 16 / 32, and
+ * 64 … 1,024 for Fast crops / Rich harvest Lv 6–10 (2^level, the research curve); the one-time keeps are fixed. No row
+ * multiplies ⭐, deeds or mining.
  */
 export const DEED_ROW_IDS = [
   'growTime',
@@ -755,8 +756,8 @@ export const DEED_ROW_IDS = [
 ] as const
 export type DeedRowId = (typeof DEED_ROW_IDS)[number]
 const DEED_MAX_LEVEL: Record<DeedRowId, number> = {
-  growTime: 5,
-  sellPrice: 5,
+  growTime: 10,
+  sellPrice: 10,
   cost: 5,
   energy: 5,
   startTiles: 3,
@@ -783,7 +784,7 @@ const DEED_ONE_TIME_COST: Partial<Record<DeedRowId, number>> = {
 
 export const deedMaxLevel = (id: DeedRowId): number => DEED_MAX_LEVEL[id]
 
-/** deeds for the row's next level (2 / 4 / 8 / 16 / 32); the fixed price for the one-time keeps */
+/** deeds for the row's next level (2 / 4 / 8 / 16 / 32 … 1,024); the fixed price for the one-time keeps */
 export function deedCost(id: DeedRowId, level: number): number {
   return DEED_ONE_TIME_COST[id] ?? 2 ** (level + 1)
 }

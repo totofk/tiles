@@ -12,11 +12,14 @@ import {
   deedMaxLevel,
   deedsFor,
   orderStartSlots,
+  pickaxeDurability,
   type DeedRowId,
 } from './balance'
 import { STARTING_CROP } from './data/crops'
+import type { WorkerJob } from './data/workers'
 import { fieldsUnlockable } from './fields'
 import { PLAIN_LISTING, currentListings, type Listing } from './listings'
+import { openBoard } from './orders'
 import { createFreshRun, type GameState } from './state'
 
 /** lifetime-cash deeds not granted yet (the meter minus what earlier sales already claimed) */
@@ -60,21 +63,30 @@ export function sellFarm(state: GameState, choice: Listing = PLAIN_LISTING): Act
     listingRerolls: 0,
     districtsPlayed: [...meta.districtsPlayed, choice.district],
   }
-  return {
-    ok: true,
-    state: {
-      meta: nextMeta,
-      run: createFreshRun(nextMeta, {
-        // the keep rows (bought as deeds, read here); without them the starting license and no certificates
-        licenses: nextMeta.upgrades.keepLicenses > 0 ? run.licenses : [STARTING_CROP],
-        certificates: nextMeta.upgrades.keepFirstCertificates > 0 ? ['plant', 'water', 'harvest'] : [],
-        orderSlots: Math.max(run.orders.slots, orderStartSlots()),
-        lifetime: run.lifetime,
-        stars: run.stars,
-        listing: choice,
-        // batch 36.6: every crop's renown points carry, no deed needed
-        renown: run.renown,
-      }),
-    },
+  const keeps = nextMeta.upgrades
+  // the keep rows' certificates (bought as deeds, read here), in WORKER_JOBS order; none without them
+  const kept: [number, WorkerJob[]][] = [
+    [keeps.keepFirstCertificates, ['plant', 'water', 'harvest']],
+    [keeps.keepCertificates2, ['ore', 'fuel', 'mine']],
+    [keeps.keepClerk, ['clerk']],
+    [keeps.keepManager, ['manager']],
+  ]
+  const fresh: GameState = {
+    meta: nextMeta,
+    run: createFreshRun(nextMeta, {
+      licenses: keeps.keepLicenses > 0 ? run.licenses : [STARTING_CROP],
+      certificates: kept.flatMap(([level, jobs]) => (level > 0 ? jobs : [])),
+      orderSlots: Math.max(run.orders.slots, orderStartSlots()),
+      lifetime: run.lifetime,
+      stars: run.stars,
+      listing: choice,
+      // batch 36.6: every crop's renown points carry, no deed needed
+      renown: run.renown,
+    }),
   }
+  // ⛏️ Miner's start: the licence and a copper pickaxe, selected (as craftPickaxe gives it) — not in Wetlands
+  const mine = keeps.mineStart > 0 && choice.district !== 'wetlands'
+  const mined = mine ? { ...fresh, run: { ...fresh.run, mineLicense: true, rack: { copper: pickaxeDurability('copper') }, selectedPickaxe: 'copper' as const } } : fresh
+  // 📋 Kept Noticeboard: the board open, every slot rolled as buying it does, for free
+  return { ok: true, state: keeps.keepBoard > 0 ? { ...mined, run: { ...mined.run, ...openBoard(mined) } } : mined }
 }
