@@ -1170,3 +1170,81 @@ Hermes's calls (Toon may reject by number; dispatched on the 15:05 go with these
     Hermes's verify step after the worker, not the worker's.
 - **Renumbered:** none. Batch 36.2 = tasks 213–218, save v31. Next: 36.3 (Wetlands: no mine, barge, its list + berry
   ×1.4) → save v32, planned only after 36.2 is dispatched, re-anchored on 36.2's HEAD.
+
+## Batch 36.3 refined (2026-11-22, Wetlands: no mine, river bank beds, the 🌊 barge, its list + berry ×1.4; save v31 → v32)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-split.md` row 36.3 "Wetlands: no mine, bank
+beds count for the Fields gate, barge shop (bars ×1.25, stone 3, coal 5), bar certificates paid through the barge. Pins:
+no-mine bot within ±20 % to Fields, Fields-tank coal, no soft-lock. v32", accepted "รับหมด"; `b36-decisions.md` crux
+(Wetlands has no mine, full reroute, contract ⭐ bonus only on a gap) and calculator items 1, 3, 5, 6 accepted;
+`b36-calculator.md` item 4 (barge model); `research/b36-signatures.md` §4 (bank beds 0–1, the two bricked-run traps);
+`research/b36-districts-pool.md` §2 / §4.3). Draft `tiles-b36.3-plan.md` of 2026-11-21 08:19 (anchors d0c52954,
+SAVE_VERSION 29) re-anchored on ad3075d0 (= origin/main 974e4dc6 after batch 36.2 + the local 36.2 archive commit).
+Go: Toon (Trin) 2026-11-22 16:29 "งั้นปล่อยให้หมดเลยทีเดียว" — batches 36.3, 36.4, 36.5, 36.6 one after another; this
+entry covers 36.3 only.
+
+Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these as written):
+1. Numbering 219–223 (five tasks: 219 save v32, 220 Wetlands framework, 221 bank beds + reroutes, 222 barge + River
+   view, 223 bot knob + pins + changelog). The save bump is its own first commit (36.2 call 2).
+2. Save v32 is a version stamp only: 36.3 adds no run or meta field (barge prices are static; bank beds and every
+   reroute derive from the district and the mine licence). Kept so the accepted chain holds (36.4 = v33 … 36.6 = v35)
+   and the real v31 fixture proves the migration chain. Reject → no bump, and 36.4–36.6 renumber to v32–v34.
+3. "No mine" = a Wetlands run that does not own the mine licence. A Wetlands run that already bought the licence under
+   36.1 / 36.2 (Wetlands then had a full shop) keeps its whole mine — nothing is taken away; it still gets the bank
+   beds, the barge, the list and ×1.4. A fresh Wetlands run can never buy the licence (buyMineLicense → LOCKED).
+4. Wetlands supply list = the 5 cheap rungs + tomato, lemon, grape, strawberry (9 of 10, no chilli; calculator
+   assumption 3) and berries ×1.4 (calculator item 1, same constant as Orchard). Next farm hint: "sells 9 of 10 crops ·
+   berries ×1.4 · 🌊 river beds, no mine" (58 code points; 36.2's Orchard hint is 49).
+5. Bank beds = beds 0–1 (tiles 0–11) on EVERY Wetlands run from tick 0 (signatures §4 rule 2; `BANK_BEDS = 2`, est.):
+   the fresh run's 9 starting tiles never need water. No 18-tile home cap (the pool doc's variant; rejected for v1 in the
+   synthesis). Reject → bank bed 0 only.
+6. The Fields water gate is true on every Wetlands run (the bank beds always exist), so the Shop's 🚜 Fields row shows
+   without a workshop and never asks for "1 bed sprinkler" there.
+7. Workshop, sprinklers and the smart valve stay unreachable on a no-mine run (vein Lv4 gate; no vein): pumps skip the
+   workshop check on Wetlands, storage levels skip the mine-licence check on a no-mine run (stone from the barge), and
+   a sprinkler socket on a bank bed is LOCKED (only a grandfathered run can have a workshop). Without the valve,
+   pivoted fields burn tank coal on every plot — priced into barge coal.
+8. The tank hand: on a no-mine run the fuel certificate unlocks with the Fields (its old gate, 30 bars collected, can
+   never be reached), same price (🥉8 + 💰200 via the barge). With no coal in storage it buys ONE barge coal straight
+   into the tank when the tank has room (no toggle, no new state), so an 8 h away keeps the Fields pressured like a plain
+   run whose miner digs coal. Reject → the player buys tank coal by hand only.
+9. Barge prices: bars ×1.25 of their sell price (🥉125 / 🥈625 / 🥇1,250), 🪨3, ⚫5 (accepted, est.), scaled by the cost
+   deed like wood — plus a floor the calculator did not need: the barge price is always at least the item's current
+   sell price + 1. Why: the Better prices levels continue through the uncapped ⭐ sell Favour and the sell deed, so a
+   fixed ×1.25 would turn into a buy → sell cash loop for a veteran. PIN36i pins it.
+10. Where the barge lives: a no-mine run shows a "🌊 River" view in place of the Mine view (storage count, the barge
+    rows with ×1 / ×10, the item grid with sell buttons), and the phone tab reads "🌊 River" instead of "⛏️ Mine". The
+    draft put the barge in the Shop; barge buys land in storage, and storage + its sell rows live in this view. The Shop
+    shows no Mine license or wood row on Wetlands. Reject → barge rows in the Shop's Supplies row instead.
+11. Hidden on a no-mine run: the ore and mine worker rows (the stoker is already hidden until owned) and the vein row in
+    Upgrades (the storage row shows alone under "📦 Storage"). The ⭐ Favours section is NOT touched (36's ⭐ prices wait
+    for Toon's playtest), so its furnace rows show on Wetlands as they do before the furnace on plain.
+12. No contract ⭐ bonus in 36.3. The accepted rule ships it only if the numbers show a gap; Hermes measured the rule
+    instead of simming it: an order's ⭐ is its tier's fixed 8 / 16 / 32 and the offer rate does not depend on the pool,
+    and every Wetlands offer is a crop the farm grows (PIN36j pins both). The gap, if any, is in filling effort, which
+    Toon judges in his playtest. Reject → Wetlands contracts pay ×1.25 ⭐ now.
+13. Sims: ONE sim, PIN36h (plain10 to the Fields + a 24 game-h Wetlands run), with a priced new bot knob `barge`
+    (WETLANDS_LADDER = FIELDS_LADDER minus every mine / furnace / workshop goal; the goal's shortfall bought at the barge;
+    no mining). The draft's pin (b) "tank never empty while cash ≥ one barge coal" tested the bot, not the game: it is
+    now PIN36h's after-unlock report plus PIN36k's pure check that an empty tank still ripens plots (Fields never stall,
+    `fields.ts:409–414`, so coal cannot soft-lock a run). The draft's pin (c) ⚡-overflow report is dropped (accepted
+    overflow; Toon sees it in play). The gate-by-gate table is a pure test (PIN36k).
+14. Pre-approved PIN36h fallback (the accepted free variable, calculator item 5): if Wetlands reaches the Fields more
+    than 20 % SLOWER than plain10, the bars drop to ×1.0 (🥉100 / 🥈500 / 🥇1,000; the +1 floor still applies) and the
+    pin is re-run once. Still out of band, FASTER than −20 %, or a bot deadlock → `it.fails` with the measurement and a
+    Deviation; the worker tunes nothing else.
+15. Fixture `tests/fixtures/save-v31.json` = a live re-save: the committed save-v30.json seeded on the live v31 build
+    (bundle CAC14g-7) on 2026-11-22, migrated and re-saved by the live code after its 8 h offline catch-up (version 31,
+    plain listing, ⭐79, 24 tiles, 10 licences, mine licence, tree null, forge unbuilt), committed with this plan.
+16. CHANGELOG 36.3 line (139 code points): "🌊 Wetlands is the farm with no mine: the river waters two beds for free, a
+    barge sells bars, stone and coal for cash, and berries pay ×1.4."
+17. Worker: Opus via Max (`--effort medium`, `--max-turns 400`: five tasks, a bot knob + one sim, UI in seven files; 36.2
+    used 294 of 450 for six); retry deadline 2026-11-29 09:00 (the next weekly reset at the panel time 35.4–36.2 used,
+    2026-11-22 09:00, which has passed); live relay into thread 1573420437554200597 (the 36 planning thread; no separate
+    36.3 thread exists).
+18. Deferred, as in the draft: ⭐ Favour rows Mill race / Leat, fishing, the almanac deed. Not in this batch either: the
+    open 36.2 nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason when storage is full) and
+    the 375 top-bar wrap.
+19. The live checks (v31 → v32 migration, width sweep of the River view, tab label, bank beds, Shop Fields row,
+    storage row, Wetlands hint) are Hermes's verify step after the worker, not the worker's.
+- **Renumbered:** none. Batch 36.3 = tasks 219–223, save v32. Next: 36.4 (dig finds + relics, v33), planned only after
+  36.3 is pushed, re-anchored on 36.3's HEAD.
