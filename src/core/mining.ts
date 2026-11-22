@@ -64,6 +64,7 @@ function pickDrop(weights: Partial<Record<ItemId, number>>, r: number): ItemId {
 export function buyMineLicense(state: GameState): ActionResult {
   const { run } = state
   if (run.mineLicense) return fail('ALREADY_OWNED')
+  if (run.listing.district === 'wetlands') return fail('LOCKED')
   const cost = mineLicenseCost(state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   return withRun(state, { cash: run.cash - cost, mineLicense: true })

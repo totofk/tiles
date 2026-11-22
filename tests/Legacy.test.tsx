@@ -188,10 +188,11 @@ describe('batch 36.1: the Next farm block', () => {
 })
 
 describe('batch 36.2: district hints on the Next farm rows', () => {
-  it('the Orchard Valley and Iron Hills rows carry their hint; plain and Wetlands rows have none', () => {
+  it('the Orchard Valley, Iron Hills and Wetlands (36.3) rows carry their hint; plain rows have none', () => {
     const hints: Record<string, string> = {
       orchardValley: 'sells 8 of 10 crops · berries ×1.4 · 🌳 fruit tree',
       ironHills: 'sells 7 of 10 crops · 🔨 forge',
+      wetlands: 'sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine',
     }
     const seen = new Set<string>()
     for (let seed = 0; seed < 20; seed++) {

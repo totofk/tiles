@@ -16,12 +16,12 @@ export const ROLLED_DISTRICTS: readonly DistrictId[] = ['orchardValley', 'ironHi
 
 const CHEAP_RUNGS: readonly CropId[] = ['potato', 'radish', 'corn', 'eggplant', 'pumpkin']
 
-/** the licences a district's shop sells (batch 36.2); wetlands' own list goes live in 36.3 */
+/** the licences a district's shop sells (batch 36.2; wetlands' list since 36.3) */
 export const DISTRICT_SELLS: Record<DistrictId, readonly CropId[]> = {
   plain: CROP_IDS,
   orchardValley: [...CHEAP_RUNGS, 'lemon', 'grape', 'strawberry'],
   ironHills: [...CHEAP_RUNGS, 'tomato', 'chilli'],
-  wetlands: CROP_IDS,
+  wetlands: [...CHEAP_RUNGS, 'tomato', 'lemon', 'grape', 'strawberry'],
 }
 
 export const districtSells = (district: DistrictId, crop: CropId): boolean => DISTRICT_SELLS[district].includes(crop)
@@ -30,4 +30,5 @@ export const districtSells = (district: DistrictId, crop: CropId): boolean => DI
 export const DISTRICT_HINT: Partial<Record<DistrictId, string>> = {
   orchardValley: 'sells 8 of 10 crops · berries ×1.4 · 🌳 fruit tree',
   ironHills: 'sells 7 of 10 crops · 🔨 forge',
+  wetlands: 'sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine',
 }

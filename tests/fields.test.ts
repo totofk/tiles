@@ -686,7 +686,7 @@ describe('batch 36.1: PIN36b listing soil on estate income', () => {
     for (const fast of groups) {
       for (const slow of groups) {
         if (fast === slow) continue
-        const ratio = fieldsMarginalIncomePerHour({ ...s, run: { ...s.run, listing: { district: 'wetlands', soil: { fast, slow } } } }) / plain
+        const ratio = fieldsMarginalIncomePerHour({ ...s, run: { ...s.run, listing: { district: 'plain', soil: { fast, slow } } } }) / plain
         expect(ratio).toBeGreaterThanOrEqual(1 / 1.2 - 0.005)
         expect(ratio).toBeLessThanOrEqual(1 / 0.8 + 0.005)
       }

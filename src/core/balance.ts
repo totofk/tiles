@@ -764,11 +764,11 @@ export function sellPrice(base: number, meta: MetaState, sellPriceLevel: number)
   return Math.round(base * sellPriceFactor(sellPriceLevel) * multiplier(meta, 'sellPrice'))
 }
 
-/** batch 36.2 (est.): Orchard Valley's local soil — berries sell ×1.4 */
+/** batch 36.2 (est.): Orchard Valley's local soil — berries sell ×1.4 (Wetlands too since 36.3) */
 export const DISTRICT_BERRY_SELL = 1.4
 
 export const districtSellFactor = (cropId: CropId, district: DistrictId): number =>
-  district === 'orchardValley' && CROP_GROUPS.berry.includes(cropId) ? DISTRICT_BERRY_SELL : 1
+  (district === 'orchardValley' || district === 'wetlands') && CROP_GROUPS.berry.includes(cropId) ? DISTRICT_BERRY_SELL : 1
 
 /** district = the run's listing district (plain when left out) */
 export function cropSellPrice(cropId: CropId, meta: MetaState, sellPriceLevel: number, district: DistrictId = 'plain'): number {

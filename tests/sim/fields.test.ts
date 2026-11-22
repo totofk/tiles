@@ -93,7 +93,7 @@ describe('batch 36.1: listing soil', () => {
             sprinklers: true,
             fields: true,
             buyTools: true,
-            initial: { ...fresh, run: { ...fresh.run, listing: { district: soil ? 'wetlands' : 'plain', soil } } },
+            initial: { ...fresh, run: { ...fresh.run, listing: { district: 'plain', soil } } },
             onEnd: (s) => (end = s),
           }),
         )
