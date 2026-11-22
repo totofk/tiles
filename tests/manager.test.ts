@@ -55,9 +55,15 @@ describe('batch 29: 💼 managerPlan', () => {
     expect(managerPlan(s).contracts[0]!.fields).toEqual([2])
   })
 
-  it('rest income ≥ 0.999 × an exhaustive enumeration at 1–6 fields', () => {
+  // batch 36.6: also with renown 30,000 on chilli only and 12,000 on every crop (the breadth share bites at 5–6 fields)
+  it.each([
+    ['no renown', {}],
+    ['chilli 30,000', { chilli: 30000 }],
+    ['every crop 12,000', Object.fromEntries(CROP_IDS.map((c) => [c, 12000]))],
+  ])('rest income ≥ 0.999 × an exhaustive enumeration at 1–6 fields (%s)', (_, renown) => {
     for (let m = 1; m <= 6; m++) {
-      const s = managed(fields(m))
+      const base = managed(fields(m))
+      const s = { ...base, run: { ...base.run, renown } }
       const income = (c: CropId, j: number) => fieldsCropIncomePerHour(s, c, j * FIELD)
       let best = 0
       const walk = (i: number, left: number, sum: number) => {

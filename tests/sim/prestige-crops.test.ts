@@ -161,11 +161,13 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // unlock and the sold runs reach it sooner, so the vault run is back over the 1.4× floor
     // re-pinned batch 35 (was 1.68): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was 1.66): the deed buy order — sale 1's 65 deeds also buy the 5 new keeps
-    // re-pinned batch 36.6 task 235 (was 1.56): renown carried, start seeds, the T2+ grow bonus
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.48)
+    // re-pinned batch 36.6 task 235 (was 1.56 → 1.48): renown carried, start seeds, the T2+ grow bonus; task 236:
+    // the Estate grow bonus / 4-field share
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.65)
     // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
-    // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2)
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.24)
+    // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2); task
+    // 236 (was 1.24): the Estate grow bonus / 4-field share
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.42)
   })
 
   // batch 34 (task 187 scenario A-carry): run 2 started with the ⭐50 a sale now carries — the ladder bot buys no
@@ -210,8 +212,9 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 33 (was 105.6 / 101): molds: every kind smelts at once
     // re-pinned batch 35 (was [105, 100.1]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was [105.1, 100.1]): the deed buy order
-    // re-pinned batch 36.6 task 235 (was [116.9, 115.5]): renown carried, start seeds, the T2+ grow bonus
-    expect(h).toEqual([122.4, 121.3])
+    // re-pinned batch 36.6 task 235 (was [116.9, 115.5] → [122.4, 121.3]): renown carried, start seeds, the T2+ grow
+    // bonus; task 236: the Estate grow bonus / 4-field share
+    expect(h).toEqual([124.1, 123.4])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -355,8 +358,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 33 (was 108.1 / 73.6): molds: every kind smelts at once
     // re-pinned batch 35 (was [107.5, 72.5]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 234 (was [108.1, 72.6]): the deed buy order (run 1 unchanged)
-    // re-pinned batch 36.6 task 235 (was [108.1, 81.6]): renown carried, start seeds, the T2+ grow bonus (run 1 too)
-    expect(h).toEqual([105.5, 73.4])
+    // re-pinned batch 36.6 task 235 (was [108.1, 81.6] → [105.5, 73.4]): renown carried, start seeds, the T2+ grow bonus
+    // (run 1 too); task 236: the Estate grow bonus / 4-field share
+    expect(h).toEqual([105.5, 74.8])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

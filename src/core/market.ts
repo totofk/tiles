@@ -4,9 +4,17 @@ import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, RELIC_FLOOR_CAP, RELIC_FLOOR
 import { ALL_CROP_IDS, type CropId, type ListingSoil } from './data/crops'
 import type { GameState, MetaState, RunState } from './state'
 
-/** the crop's market floor: its renown tier's (batch 31), lifted by the 📉 Market floor relic, capped (batch 36.4) */
-export const cropFloor = (run: RunState, crop: CropId): number =>
-  Math.min(RELIC_FLOOR_CAP, renownFloor(run.renown[crop] ?? 0) + RELIC_FLOOR_LIFT[relicTier(run.relics, 'marketFloor')])
+/** Estate fields showing the crop's chip (pivot or not; 0 while the Fields are locked) — the renown breadth count */
+export const cropFieldCount = (run: RunState, crop: CropId): number => (run.fields.unlocked ? run.fields.list.filter((f) => f.crop === crop).length : 0)
+
+/** the crop's market floor: its renown tier's (batch 31), shared over more than RENOWN_COVER_FIELDS chips (batch 36.6),
+ * lifted by the 📉 Market floor relic, capped (batch 36.4) */
+export function cropFloor(run: RunState, crop: CropId, fields = cropFieldCount(run, crop)): number {
+  const share = renownShare(fields)
+  const renown = renownFloor(run.renown[crop] ?? 0)
+  const floor = share === 1 ? renown : MARKET_FLOOR + (renown - MARKET_FLOOR) * share
+  return Math.min(RELIC_FLOOR_CAP, floor + RELIC_FLOOR_LIFT[relicTier(run.relics, 'marketFloor')])
+}
 
 /** the crop's renown grow factor (batch 36.6): full at home (fields 0) and on up to RENOWN_COVER_FIELDS fields, shared
  * beyond that */

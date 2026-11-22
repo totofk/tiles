@@ -292,7 +292,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 35 (was [42814, 83952, 83952, 83952, 83952]): crop re-ladder: potato start, carrot licence 💰25 —
     // the forge's source `end` differs ("lemon" here is its old row, now pumpkin)
     // re-pinned batch 36.6 task 235 (was [42249, 82167, …]): home renown carries the T2+ grow bonus — `end` moves
-    expect(lemon).toEqual([45123, 82704, 82704, 82704, 82704])
+    // ([45123, 82704, …]); task 236: the Estate grow bonus / the 4-field share
+    expect(lemon).toEqual([48091, 83180, 83180, 83180, 83180])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -302,8 +303,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32.2 (was [193679, 284610]): workers do one tile per action on the Estate
     // re-pinned batch 33 (was [75745, 63677]): molds: every kind smelts at once — the forge's source `end` differs
     // re-pinned batch 35 (was [75980, 64046]): crop re-ladder: potato start, carrot licence 💰25
-    // re-pinned batch 36.6 task 235 (was [77476, 65169]): the T2+ home grow bonus — `end` moves
-    expect(mixed).toEqual([76881, 66160])
+    // re-pinned batch 36.6 task 235 (was [77476, 65169] → [76881, 66160]): the T2+ home grow bonus — `end` moves; task
+    // 236: the Estate grow bonus / 4-field share
+    expect(mixed).toEqual([77304, 66926])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -322,7 +324,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 31 (was 5): renown floor — the floored lemon price raises each plot's marginal income
     // re-pinned batch 32.2 (was 8): workers do one tile per action on the Estate, so the settled 300 tiles reap less,
     // the lemon glut is lower and each plot's marginal income higher
-    expect(crossing).toBe(10)
+    // re-pinned batch 36.6 task 236 (was 10): the Estate's renown grow bonus — a shorter pressured cycle raises each
+    // plot's marginal income
+    expect(crossing).toBe(12)
   })
 
   it('one tile per action: a planter+harvester pair moves grow ÷ 5 tiles per cycle — the throughput bound and the second pair', () => {
@@ -348,8 +352,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32.2 (was [978, 19]): workers do one tile per action on the Estate (a slower plots window)
     // re-pinned batch 33 (was [982, 11]): molds: every kind smelts at once
     // re-pinned batch 35 (was [977, 11]): crop re-ladder: potato start, carrot licence 💰25
-    // re-pinned batch 36.6 task 235 (was [974, 11]): the T2+ home grow bonus
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([984, 11])
+    // re-pinned batch 36.6 task 235 (was [974, 11]): the T2+ home grow bonus ([984, 11]); task 236: the Estate grow bonus
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([986, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -787,10 +791,12 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // re-pinned batch 33 (was [81,211] [81,598] [81,758]): molds: every kind smelts at once — the source run's `end` moves
     // re-pinned batch 35 (was [81,209] [81,599] [81,755]): crop re-ladder: potato start, carrot licence 💰25 — `end` moves
     // re-pinned batch 36.6 task 235 (was [80,210] [80,598] [80,756]): the T2+ home grow bonus — `end` moves
+    // task 236 (was [82,232] [82,652] [82,816]): the 4-field share — 1,000 tiles of one crop (20 fields) share its renown
+    // floor and grow bonus 4/20, so the top of the curve drops; 100 tiles (2 fields) gain the Estate grow bonus
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [82, 232],
-      [82, 652],
-      [82, 816],
+      [81, 285],
+      [81, 649],
+      [81, 599],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
@@ -801,11 +807,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // and the seeders now replace the labor-bound workers; harvester2 / 3 add little once harvester1 reaps
     // re-pinned batch 33 (was harvester2 1623.4, harvester3 363.6): molds: every kind smelts at once — the source run's
     // `end` moves; harvester2 / 3 add next to nothing at 300 tiles (harvester2 now slightly negative: no payback)
-    // re-pinned batch 36.6 task 235 (was 0.4 / null / null / 0.8): the T2+ home grow bonus moves `end` — harvester2 pays
-    // back again (1,004 h)
+    // re-pinned batch 36.6 task 235 (was 0.4 / null / null / 0.8 → 0.3 / 1004 / null / 0.7): the T2+ home grow bonus
+    // moves `end`; task 236: the Estate grow bonus / 4-field share
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
-      ['harvester1', 0.3],
-      ['harvester2', 1004],
+      ['harvester1', 0.4],
+      ['harvester2', null],
       // re-pinned batch 35 (was 4545.5): crop re-ladder: potato start, carrot licence 💰25 — harvester3 adds nothing at
       // 300 tiles now (no payback)
       ['harvester3', null],

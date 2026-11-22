@@ -1322,9 +1322,12 @@ const pumpFor = (n: number) => [0, 1, 2, 3].find((p) => pumpFieldCap(p) * 50 >= 
  */
 
 function forgePlots(base: GameState, n: number, pump: number, split: readonly CropId[], cash = 50000): GameState {
-  const plots: Plot[] = Array.from({ length: Math.floor(n / plotTiles()) }, (_, i) => {
-    const crop = split[i % split.length]!
-    return { crop, readyTick: base.run.tick + Math.ceil(cropGrowTicks(crop, base.meta, base.run.upgrades.fertilizer, base.run.listing.soil) / FIELD_PRESSURE) }
+  const crops = Array.from({ length: Math.floor(n / plotTiles()) }, (_, i) => split[i % split.length]!)
+  // batch 36.6: the crop's renown grow bonus shared over its forged chips (a field's chip = its first plot's crop)
+  const chips = (crop: CropId) => crops.filter((c, i) => i % 5 === 0 && c === crop).length
+  const plots: Plot[] = crops.map((crop) => {
+    const renown = cropRenownGrow(base.run, crop, chips(crop))
+    return { crop, readyTick: base.run.tick + Math.ceil(cropGrowTicks(crop, base.meta, base.run.upgrades.fertilizer, base.run.listing.soil, renown) / FIELD_PRESSURE) }
   })
   const list: Field[] = []
   for (let i = 0; i < plots.length; i += 5) list.push({ pivot: list.length < pumpFieldCap(pump), crop: plots[i]!.crop, pinned: false, plots: plots.slice(i, i + 5) })

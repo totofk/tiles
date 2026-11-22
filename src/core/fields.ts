@@ -35,7 +35,7 @@ import {
 import { CROP_IDS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { pay } from './mining'
-import { cropFloor, cropRenownGrow, marketSteadyGlut } from './market'
+import { cropFieldCount, cropFloor, cropRenownGrow, marketSteadyGlut } from './market'
 import { drawField, everyNth, fieldCreekSlip, fieldDenseBurn, fieldGrowFactor, fieldSaleSoil } from './survey'
 import type { Field, Fields, GameState, Machines, Plot, RunState } from './state'
 
@@ -69,8 +69,9 @@ export function wetTiles(f: Fields): number {
 
 /** a field plot's grow ticks under pressure: ceil(grow × growFactor / FIELD_PRESSURE); only a 🌻 fertile field
  * passes a factor below 1 (batch 36.5) */
-export function pressuredCycle(state: GameState, crop: CropId, grow = 1): number {
-  return Math.ceil((cropGrowTicks(crop, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil) * grow) / FIELD_PRESSURE)
+export function pressuredCycle(state: GameState, crop: CropId, grow = 1, fields = cropFieldCount(state.run, crop)): number {
+  const renown = cropRenownGrow(state.run, crop, fields)
+  return Math.ceil((cropGrowTicks(crop, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil, renown) * grow) / FIELD_PRESSURE)
 }
 
 /** counts of plots for the UI and sim; emptyWet = empty plots in a field with a pivot and a chip (sowable now) */
@@ -221,17 +222,21 @@ export function fieldsCropIncomePerHour(state: GameState, crop: CropId, tiles: n
   return fieldsCropIncomeCurve(state, crop)(tiles)
 }
 
-/** fieldsCropIncomePerHour for one crop as a function of `tiles`, its constants computed once (the Manager's DP) */
-export function fieldsCropIncomeCurve(state: GameState, crop: CropId): (tiles: number) => number {
+/** fieldsCropIncomePerHour for one crop as a function of `tiles`, its constants computed once (the Manager's DP). With
+ * `breadth` (batch 36.6) each T is valued on its own field count ceil(T / one field's tiles), so the renown share is in
+ * the curve; false = the pre-36.6 rule (share 1 at every T), kept for the crux regression pin */
+export function fieldsCropIncomeCurve(state: GameState, crop: CropId, breadth = true): (tiles: number) => number {
   const { run, meta } = state
-  const fc = pressuredCycle(state, crop)
   const hc = cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil, cropRenownGrow(run, crop))
   const home = run.tiles.filter((t) => t.cropId === crop).length
   const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district)
   const seed = cropSeedCost(crop, meta)
   const homeGlut = marketSteadyGlut(home, hc)
-  const floor = cropFloor(run, crop)
-  const income = (T: number) => (T / fc + home / hc) * 3600 * (sell * marketFactor(crop, marketSteadyGlut(T, fc) + homeGlut, floor) - seed)
+  const income = (T: number) => {
+    const n = breadth ? Math.ceil(T / (fieldPlots() * plotTiles())) : 1
+    const fc = pressuredCycle(state, crop, 1, n)
+    return (T / fc + home / hc) * 3600 * (sell * marketFactor(crop, marketSteadyGlut(T, fc) + homeGlut, cropFloor(run, crop, n)) - seed)
+  }
   const base = income(0)
   return (tiles) => income(tiles) - base
 }
@@ -555,7 +560,8 @@ export function fieldsMarginalIncomePerHour(state: GameState): number {
   let best = 0
   for (const crop of CROP_IDS) {
     if (!fieldsPlantable(run, crop)) continue
-    const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil) / FIELD_PRESSURE)
+    const renown = cropRenownGrow(run, crop, cropFieldCount(run, crop))
+    const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil, renown) / FIELD_PRESSURE)
     const glut = run.market[crop] + marketSteadyGlut(1, cycle)
     const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district) * marketFactor(crop, glut, cropFloor(run, crop)))
     best = Math.max(best, ((price - cropSeedCost(crop, meta)) * 3600) / cycle)

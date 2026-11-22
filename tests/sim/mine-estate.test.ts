@@ -43,7 +43,7 @@ import {
 import { step } from '../../src/core/step'
 import { type WorkerJob } from '../../src/core/data/workers'
 import { assignWorker, buyCertificate, freeWorkers, hireWorker } from '../../src/core/workers'
-import { fieldsCropIncomePerHour, reapPlot } from '../../src/core/fields'
+import { fieldsCropIncomeCurve, reapPlot } from '../../src/core/fields'
 import { managerPlan } from '../../src/core/manager'
 import { acceptOrder, orderCount } from '../../src/core/orders'
 import {
@@ -316,9 +316,10 @@ describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (ta
     expect(r.reached).not.toBeNull()
     // re-pinned batch 36.6 task 235 (was 330, buyable 371): the save's renown (re-seeded from its harvests) grows its home
     // crops faster
-    expect(r.reached!.minute).toBe(367)
+    // task 236 (was 367, buyable 370): the Estate's renown grow bonus / 4-field share on the save's chips
+    expect(r.reached!.minute).toBe(439)
     expect(r.reached!.stars).toBeGreaterThanOrEqual(160)
-    expect(r.buyable).toBe(370)
+    expect(r.buyable).toBe(439)
   }, 300_000)
 })
 
@@ -339,8 +340,11 @@ describe('batch 29: manager', () => {
     },
   })
   /** income of j whole fields per crop (CROP_IDS order) and the best split by exhaustive enumeration (≤ n fields) */
-  const enumerate = (s: GameState, n: number) => {
-    const value = CROP_IDS.map((c) => Array.from({ length: n + 1 }, (_, j) => fieldsCropIncomePerHour(s, c, j * FIELD)))
+  const enumerate = (s: GameState, n: number, breadth = true) => {
+    const value = CROP_IDS.map((c) => {
+      const income = fieldsCropIncomeCurve(s, c, breadth)
+      return Array.from({ length: n + 1 }, (_, j) => income(j * FIELD))
+    })
     let best = -Infinity
     let split: number[] = []
     const cur: number[] = []
@@ -562,6 +566,56 @@ describe('batch 29: manager', () => {
       console.log('PIN31model', JSON.stringify(rows))
       for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
     }, 120_000) // batch 35: the exhaustive split over 10 crops runs past the 5 s default
+  })
+
+  // PIN36u (batch 36.6): the breadth rule on the shipped DP — renown covers 4 fields per crop. A pure DP at the estate
+  // stage with 20 managed empty fields; chilli is the 10-crop ladder's estate best.
+  describe('batch 36.6: the breadth rule (PIN36u)', () => {
+    const BERRY_FAST = { fast: 'berry', slow: 'fruitVeg' } as const
+    const stage20 = (renown: Partial<Record<CropId, number>>, soil: typeof BERRY_FAST | null = null): GameState => {
+      const base = at(true, Array.from({ length: 20 }, () => emptyField()))
+      return { ...base, run: { ...base.run, renown, listing: { district: 'plain', soil } } }
+    }
+    const chilli = CROP_IDS.indexOf('chilli')
+    const every = Object.fromEntries(CROP_IDS.map((c) => [c, 30000]))
+
+    it('(a) crux regression: chilli 30,000 on the pre-36.6 rule (breadth false) → 20 chilli, plain and berry-fast / fruit-veg-slow', () => {
+      const plain = enumerate(stage20({ chilli: 30000 }), 20, false)
+      const soil = enumerate(stage20({ chilli: 30000 }, BERRY_FAST), 20, false)
+      console.log('PIN36u(a)', JSON.stringify({ plain: splitText(plain.split), soil: splitText(soil.split) }))
+      expect([plain.split[chilli], soil.split[chilli]]).toEqual([20, 20])
+    }, 120_000)
+
+    it('(b) with the share, chilli 30,000 on berry-fast / fruit-veg-slow plans fewer than 20 chilli fields', () => {
+      const { split } = enumerate(stage20({ chilli: 30000 }, BERRY_FAST), 20)
+      console.log('PIN36u(b)', splitText(split))
+      expect(split[chilli]).toBeLessThan(20)
+    }, 120_000)
+
+    it('(c) every crop at 30,000, share on, plain listing: the plan uses ≥ 2 crops', () => {
+      const { split } = enumerate(stage20(every), 20)
+      console.log('PIN36u(c)', splitText(split))
+      expect(split.filter((j) => j > 0).length).toBeGreaterThanOrEqual(2)
+    }, 120_000)
+
+    it('(d) managerPlan ≥ 0.99 × the exhaustive best for (b) and (c) at 2 / 6 / 10 fields; its 20-field split printed', () => {
+      const cases = [
+        ['b', { chilli: 30000 }, BERRY_FAST],
+        ['c', every, null],
+      ] as const
+      const rows = cases.flatMap(([name, renown, soil]) =>
+        [2, 6, 10].map((n) => {
+          const base = at(true, Array.from({ length: n }, () => emptyField()))
+          const s: GameState = { ...base, run: { ...base.run, renown, listing: { district: 'plain', soil } } }
+          const { value, best } = enumerate(s, n)
+          const manager = managerPlan(s).rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop as (typeof CROP_IDS)[number])]![r.fields.length]!, 0)
+          return { case: name, n, ratio: Math.round((manager / best) * 10000) / 10000 }
+        }),
+      )
+      const plan20 = (s: GameState) => managerPlan(s).rest.map((r) => `${r.crop}×${r.fields.length}`).join(' ')
+      console.log('PIN36u(d)', JSON.stringify({ rows, b20: plan20(stage20({ chilli: 30000 }, BERRY_FAST)), c20: plan20(stage20(every)) }))
+      for (const row of rows) expect(row.ratio).toBeGreaterThanOrEqual(0.99)
+    }, 120_000)
   })
 })
 

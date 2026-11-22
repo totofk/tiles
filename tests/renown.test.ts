@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { harvest, type ActionResult } from '../src/core/actions'
 import {
+  FIELD_PRESSURE,
   MARKET_FLOOR,
   cropGrowTicks,
   cropRotGraceTicks,
@@ -13,7 +14,8 @@ import {
   renownTier,
 } from '../src/core/balance'
 import type { CropId } from '../src/core/data/crops'
-import { fieldsCropIncomePerHour, pressuredCycle } from '../src/core/fields'
+import { fieldsCropIncomeCurve, fieldsCropIncomePerHour, pressuredCycle } from '../src/core/fields'
+import { cropFloor, cropRenownGrow } from '../src/core/market'
 import { buyMetaUpgrade, sellFarm } from '../src/core/prestige'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 import { step } from '../src/core/step'
@@ -91,15 +93,45 @@ describe('renown tiers', () => {
 })
 
 describe('renown in the plan', () => {
+  // batch 36.6: on the pre-36.6 rule (breadth false: every T keeps the whole renown) — 2,000 tiles are 40 fields, which
+  // the breadth rule shares 4/40
   it('fieldsCropIncomePerHour rises with renown on a glutted crop (2,000 tiles sit on the floor)', () => {
     const s = createInitialState()
-    const at = (points: number) => fieldsCropIncomePerHour({ ...s, run: { ...s.run, renown: { lemon: points } } }, 'lemon', 2000)
-    const [none, t1, t2, t3] = [0, 250, 1000, 4000].map(at)
-    expect(none).toBeLessThan(t1)
-    expect(t1).toBeLessThan(t2)
-    expect(t2).toBeLessThan(t3)
-    // the 0.5 → 0.7 floor lifts the whole sale part by 0.2 × sell per unit
-    expect(t3 - none).toBeCloseTo((2000 / pressuredCycle(s, 'lemon')) * 3600 * 0.2 * cropSellPrice('lemon', s.meta, 0), 6)
+    const at = (points: number) => fieldsCropIncomeCurve({ ...s, run: { ...s.run, renown: { lemon: points } } }, 'lemon', false)(2000)
+    const [none, t1, t2, t3, t4, t5] = [0, 250, 1000, 4000, 12000, 30000].map(at)
+    for (const [a, b] of [[none, t1], [t1, t2], [t2, t3], [t3, t4], [t4, t5]]) expect(a).toBeLessThan(b)
+    // 🥉 (grow ×1): the 0.5 → 0.55 floor lifts the whole sale part by 0.05 × sell per unit
+    expect(t1 - none).toBeCloseTo((2000 / pressuredCycle(s, 'lemon')) * 3600 * 0.05 * cropSellPrice('lemon', s.meta, 0), 6)
+    // with the share the same 2,000 tiles earn less than on the old rule
+    expect(fieldsCropIncomePerHour({ ...s, run: { ...s.run, renown: { lemon: 30000 } } }, 'lemon', 2000)).toBeLessThan(t5)
+  })
+})
+
+describe('PIN36t/u: the breadth rule — renown covers 4 fields per crop', () => {
+  const s = createInitialState()
+  const chips = (n: number, unlocked = true): GameState => ({
+    ...s,
+    run: {
+      ...s.run,
+      renown: { chilli: 30000 },
+      fields: { ...s.run.fields, unlocked, list: Array.from({ length: n }, () => ({ pivot: true, crop: 'chilli' as const, pinned: false, plots: [] })) },
+    },
+  })
+
+  it('cropFloor for chilli 30,000 with 0 / 4 / 5 / 8 / 20 chips = 0.75 / 0.75 / 0.7 / 0.625 / 0.55, and 0.75 with the Fields locked', () => {
+    const floors = [0, 4, 5, 8, 20].map((n) => cropFloor(chips(n).run, 'chilli'))
+    ;[0.75, 0.75, 0.7, 0.625, 0.55].forEach((f, i) => expect(floors[i]).toBeCloseTo(f, 9))
+    expect(cropFloor(chips(20, false).run, 'chilli')).toBe(0.75)
+  })
+
+  it('pressuredCycle shares the grow bonus over 8 chips; a home chilli tile keeps the full 0.8 with 20 chips', () => {
+    const g = cropGrowTicks('chilli', s.meta, 0)
+    expect(pressuredCycle(chips(4), 'chilli')).toBe(Math.ceil(Math.round(g * 0.8) / FIELD_PRESSURE))
+    expect(pressuredCycle(chips(8), 'chilli')).toBe(Math.ceil(Math.round(g * 0.9) / FIELD_PRESSURE))
+    expect(cropRenownGrow(chips(20).run, 'chilli')).toBe(0.8)
+    const tile: Tile = { status: 'planted', cropId: 'chilli', growth: Math.round(g * 0.8), moisture: 1, ticksSinceMature: 0 }
+    const home = { ...chips(20), run: { ...chips(20).run, tiles: s.run.tiles.map((t, i) => (i === 0 ? tile : t)) } }
+    expect(isMature(home.run.tiles[0], home)).toBe(true)
   })
 })
 
