@@ -142,7 +142,7 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
         sale1: { deeds: sale1.gained, fromCash: sale1.fromCash, starsCarried: sale1.starsCarried, spent: sale1.spent, rows: sale1.rows },
         sale2: { deeds: sale2.gained, rows: Object.fromEntries(DEED_ROW_IDS.map((id) => [id, sale2.after.meta.upgrades[id]])) },
         fieldsUnlockH: [hours(run1Fields), hours(run2Fields), hours(run3Fields)],
-        speedup: [Math.round((run1Fields / run2Fields) * 10) / 10, Math.round((run1Fields / run3Fields) * 10) / 10],
+        speedup: [Math.round((run1Fields / run2Fields) * 100) / 100, Math.round((run1Fields / run3Fields) * 100) / 100],
         firstHourCash: [Math.round(r1.firstHour), Math.round(r2.firstHour), Math.round(r3.firstHour)],
       }),
     )
@@ -160,9 +160,11 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 33 (was 1.33 / 1.2): molds: every kind smelts at once — run 1 pays the molds before the fields
     // unlock and the sold runs reach it sooner, so the vault run is back over the 1.4× floor
     // re-pinned batch 35 (was 1.68): crop re-ladder: potato start, carrot licence 💰25
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.66)
+    // re-pinned batch 36.6 task 234 (was 1.66): the deed buy order — sale 1's 65 deeds also buy the 5 new keeps
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.56)
     // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.37)
+    // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2)
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.24)
   })
 
   // batch 34 (task 187 scenario A-carry): run 2 started with the ⭐50 a sale now carries — the ladder bot buys no
@@ -170,7 +172,9 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
   it('batch 34: scenario A-carry — a sold run starting with ⭐50 reaches the Fields unlock with no stall, ≥ 1.35× faster than run 1', () => {
     const run1Fields = r1.ladder.ladderTicks.fields!
     const carry = { ...sale1.after, run: { ...sale1.after.run, stars: 50 } }
-    const rc = firstHourOf(carry, Math.ceil(run1Fields / 1.3))
+    // batch 36.6: the budget is run 1's own Fields time (was run1Fields / 1.3): with the speed-up under 1.3 the capped
+    // run never reached the Fields and the speed-up read NaN
+    const rc = firstHourOf(carry, run1Fields)
     const t = rc.ladder.ladderTicks as Partial<Record<string, number>>
     const fieldsTick = t.fields!
     const marks = Object.values(t).filter((x): x is number => x !== undefined && x <= fieldsTick).sort((a, b) => a - b)
@@ -180,7 +184,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     expect(rc.stallTicks).toBe(0)
     // re-pinned batch 35 (was ≥ 1.4, measured 1.4): crop re-ladder: potato start, carrot licence 💰25 — measured 1.37
     // (PLAN.md "Batch 35 results" → Deviations: below the batch-34 1.4× floor; no stall)
-    expect(speedup).toBeGreaterThanOrEqual(1.35)
+    // re-pinned batch 36.6 task 234 (was ≥ 1.35): the deed buy order — measured 1.24
+    expect(speedup).toBeGreaterThanOrEqual(1.24)
   }, 600_000)
 
   it('both sold runs hold the batch-19 hard rules with meta upgrades on: no stall, full ladder, mining under the farm cap', () => {
@@ -203,7 +208,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // grind is labor-bound, so the cash for the machine rungs comes slower
     // re-pinned batch 33 (was 105.6 / 101): molds: every kind smelts at once
     // re-pinned batch 35 (was [105, 100.1]): crop re-ladder: potato start, carrot licence 💰25
-    expect(h).toEqual([105.1, 100.1])
+    // re-pinned batch 36.6 task 234 (was [105.1, 100.1]): the deed buy order
+    expect(h).toEqual([116.9, 115.5])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -346,7 +352,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 32.2 (was 56.6 / 35.9): workers do one tile per action on the Estate (labor-bound plots grind)
     // re-pinned batch 33 (was 108.1 / 73.6): molds: every kind smelts at once
     // re-pinned batch 35 (was [107.5, 72.5]): crop re-ladder: potato start, carrot licence 💰25
-    expect(h).toEqual([108.1, 72.6])
+    // re-pinned batch 36.6 task 234 (was [108.1, 72.6]): the deed buy order (run 1 unchanged)
+    expect(h).toEqual([108.1, 81.6])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

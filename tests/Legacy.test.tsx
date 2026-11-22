@@ -39,11 +39,11 @@ describe('🏆 Legacy deed shop', () => {
   it('spends deeds on levels: the button buys through act, the price curve doubles, MAX_LEVEL and NO_DEEDS disable', () => {
     current = withDeeds(9)
     const { container, rerender } = render(<Legacy state={current} act={act()} />)
-    // 9 rows (plus each row's ⓘ tip button), priced 2 for the first level and fixed for the one-time keeps
-    expect(container.querySelectorAll('.shop-row > Item, .shop-row > *')).toHaveLength(9)
+    // 14 rows (batch 36.6: +5 keeps; plus each row's ⓘ tip button), priced 2 for the first level and fixed for the one-time keeps
+    expect(container.querySelectorAll('.shop-row > Item, .shop-row > *')).toHaveLength(14)
     expect(screen.getByRole('button', { name: /Fast crops/ }).textContent).toMatch(/Grow ×1\.00 → ×0\.96 · 2 deeds/)
     expect(screen.getByRole('button', { name: /Seed vault/ }).textContent).toMatch(/Crop licenses survive the sale · 2 deeds/)
-    expect(screen.getByRole('button', { name: /Kept certificates/ }).textContent).toMatch(/certificates survive the sale · 3 deeds/)
+    expect(screen.getByRole('button', { name: /Kept certificates The 3/ }).textContent).toMatch(/certificates survive the sale · 3 deeds/)
     expect(screen.getByRole('button', { name: /Kept renown/ }).textContent).toMatch(/Renown tiers survive the sale · 3 deeds/)
     // buying growTime L1 (2 deeds) then L2 (4) — the 2 / 4 / 8 / 16 / 32 curve
     reactAct(() => fireEvent.click(screen.getByRole('button', { name: /Fast crops/ })))

@@ -36,7 +36,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 34
+export const SAVE_VERSION = 35
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -229,8 +229,17 @@ type RunV24 = Omit<RunV25, 'furnace'> & { furnace: FurnaceV24 }
 type RunV23 = Omit<RunV24, 'rack' | 'selectedPickaxe' | 'keepN' | 'oreKeep'> & { pickaxe: Pickaxe | null }
 /** v22: no renown yet */
 type RunV22 = Omit<RunV23, 'renown'>
+/** v23–v34 meta: the deed rows before the five batch-36.6 keeps */
+type MetaV34 = Omit<MetaState, 'upgrades'> & {
+  upgrades: Omit<MetaState['upgrades'], 'keepClerk' | 'keepCertificates2' | 'mineStart' | 'keepBoard' | 'keepManager'>
+}
+/** an old meta with the five batch-36.6 keeps at 0: what the balance functions read, and what migrateV34 writes */
+const liveMeta = (meta: MetaV34): MetaState => ({
+  ...meta,
+  upgrades: { ...meta.upgrades, keepClerk: 0, keepCertificates2: 0, mineStart: 0, keepBoard: 0, keepManager: 0 },
+})
 /** v18–v22 meta: the deed rows before Kept renown */
-type MetaV22 = Omit<GameState['meta'], 'upgrades'> & { upgrades: Omit<GameState['meta']['upgrades'], 'keepRenown'> }
+type MetaV22 = Omit<MetaV34, 'upgrades'> & { upgrades: Omit<MetaV34['upgrades'], 'keepRenown'> }
 /** v21: no 🧺 Ore sorting yet */
 type RunV21 = Omit<RunV22, 'oreSort'>
 type RunV20 = Omit<RunV21, 'fields' | 'counters' | 'workers'> & {
@@ -276,9 +285,9 @@ type SaveV19 = { version: 19; savedAtMs: number; state: { meta: MetaV22; run: Ru
 type SaveV20 = { version: 20; savedAtMs: number; state: { meta: MetaV22; run: RunV20 } }
 type SaveV21 = { version: 21; savedAtMs: number; state: { meta: MetaV22; run: RunV21 } }
 type SaveV22 = { version: 22; savedAtMs: number; state: { meta: MetaV22; run: RunV22 } }
-type SaveV23 = { version: 23; savedAtMs: number; state: { meta: GameState['meta']; run: RunV23 } }
-type SaveV24 = { version: 24; savedAtMs: number; state: { meta: GameState['meta']; run: RunV24 } }
-type SaveV25 = { version: 25; savedAtMs: number; state: { meta: GameState['meta']; run: RunV25 } }
+type SaveV23 = { version: 23; savedAtMs: number; state: { meta: MetaV34; run: RunV23 } }
+type SaveV24 = { version: 24; savedAtMs: number; state: { meta: MetaV34; run: RunV24 } }
+type SaveV25 = { version: 25; savedAtMs: number; state: { meta: MetaV34; run: RunV25 } }
 /** v26: ⭐ Favours on the eight-crop ladder (no potato / eggplant, no fields grants) */
 type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   orders: { unlocked: boolean; slots: number; offers: ((OfferV25 & { stars: number }) | { cooldownTicks: number })[] }
@@ -287,26 +296,27 @@ type RunV26 = Omit<RunV25, 'orders' | 'workers' | 'furnace'> & {
   workers: { pool: number; assigned: Record<WorkerJob, number>; certificates: WorkerJob[] }
   furnace: FurnaceV25 & { stoked: number }
 }
-type SaveV26 = { version: 26; savedAtMs: number; state: { meta: GameState['meta']; run: RunV26 } }
+type SaveV26 = { version: 26; savedAtMs: number; state: { meta: MetaV34; run: RunV26 } }
 /** v29: before the sale listings (batch 36.1) */
-type MetaV29 = Omit<MetaState, 'listingSeed' | 'listingRerolls' | 'districtsPlayed'>
+type MetaV29 = Omit<MetaV34, 'listingSeed' | 'listingRerolls' | 'districtsPlayed'>
 /** v30: before the tree bed and the forge (batch 36.2); the old lifetime, the 10-crop market and no finds/relics/reserve/survey are frozen here (batches 36.4/36.5) */
 type RunV30 = Omit<RunState, 'tree' | 'forge' | 'lifetime' | 'market' | 'finds' | 'relics' | 'energyReserve' | 'survey'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
 type RunV29 = Omit<RunV30, 'listing'>
 /** v28: fractional ⭐ kept in starsFrac, offers paid ⭐ per production-minute, rerolls free of a counter */
 type RunV28 = Omit<RunV29, 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
 type RunV27 = Omit<RunV28, 'barKeep' | 'autoBuyWood'>
-type SaveV27 = { version: 27; savedAtMs: number; state: { meta: GameState['meta']; run: RunV27 } }
-type SaveV28 = { version: 28; savedAtMs: number; state: { meta: GameState['meta']; run: RunV28 } }
+type SaveV27 = { version: 27; savedAtMs: number; state: { meta: MetaV34; run: RunV27 } }
+type SaveV28 = { version: 28; savedAtMs: number; state: { meta: MetaV34; run: RunV28 } }
 type SaveV29 = { version: 29; savedAtMs: number; state: { meta: MetaV29; run: RunV29 } }
-type SaveV30 = { version: 30; savedAtMs: number; state: { meta: MetaState; run: RunV30 } }
-type SaveV31 = { version: 31; savedAtMs: number; state: { meta: MetaState; run: RunV32 } }
-type SaveV32 = { version: 32; savedAtMs: number; state: { meta: MetaState; run: RunV32 } }
+type SaveV30 = { version: 30; savedAtMs: number; state: { meta: MetaV34; run: RunV30 } }
+type SaveV31 = { version: 31; savedAtMs: number; state: { meta: MetaV34; run: RunV32 } }
+type SaveV32 = { version: 32; savedAtMs: number; state: { meta: MetaV34; run: RunV32 } }
 /** v33: the live run without the survey (batch 36.5) */
 type RunV33 = Omit<RunState, 'survey'>
-type SaveV33 = { version: 33; savedAtMs: number; state: { meta: MetaState; run: RunV33 } }
-type SaveV34 = { version: 34; savedAtMs: number; state: GameState }
-export type Save = SaveV34
+type SaveV33 = { version: 33; savedAtMs: number; state: { meta: MetaV34; run: RunV33 } }
+type SaveV34 = { version: 34; savedAtMs: number; state: { meta: MetaV34; run: RunState } }
+type SaveV35 = { version: 35; savedAtMs: number; state: GameState }
+export type Save = SaveV35
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -618,7 +628,7 @@ function migrateV19(save: SaveV19): SaveV20 {
   // the bag can sit above its cap (the v17 fixture: 61 of 60), so the room is clamped at 0
   const bag = Object.values(run.inventory).reduce((a, b) => a + (b ?? 0), 0)
   const moved = Math.max(0, Math.min(coal, run.bagCapacity - bag))
-  const refund = (coal - moved) * itemSellPrice('coal', { ...meta, upgrades: { ...meta.upgrades, keepRenown: 0 } }, run.upgrades.sellPrice)
+  const refund = (coal - moved) * itemSellPrice('coal', liveMeta({ ...meta, upgrades: { ...meta.upgrades, keepRenown: 0 } }), run.upgrades.sellPrice)
   const inventory = moved > 0 || run.inventory.coal !== undefined ? { ...run.inventory, coal: (run.inventory.coal ?? 0) + moved } : run.inventory
   return {
     version: 20,
@@ -818,14 +828,14 @@ function migrateV26(save: SaveV26): SaveV27 {
   for (const c of CROP_IDS_V26) {
     const n = seeds[c] ?? 0
     if (n > 0 && (!licenses.includes(c) || cropSeedCost(c, fresh) < CROP_SEED_V26[c])) {
-      cash += n * Math.round(CROP_SEED_V26[c] * multiplier(meta, 'cost'))
+      cash += n * Math.round(CROP_SEED_V26[c] * multiplier(liveMeta(meta), 'cost'))
       delete seeds[c]
     }
     if (cropSellPrice(c, fresh, 0) < CROP_SELL_V26[c]) {
       const planted =
         run.tiles.filter((t) => t.status === 'planted' && t.cropId === c).length +
         run.fields.list.reduce((a, f) => a + f.plots.filter((p) => p.crop === c).length, 0) * plotTiles()
-      cash += planted * (sellPrice(CROP_SELL_V26[c], meta, run.upgrades.sellPrice) - cropSellPrice(c, meta, run.upgrades.sellPrice))
+      cash += planted * (sellPrice(CROP_SELL_V26[c], liveMeta(meta), run.upgrades.sellPrice) - cropSellPrice(c, liveMeta(meta), run.upgrades.sellPrice))
     }
   }
   const offers = run.orders.offers.map((o): Offer | { cooldownTicks: number } => ('good' in o && o.good in RANK_MAP_V26 ? { ...o, good: rank(o.good as CropId) } : o))
@@ -917,12 +927,31 @@ function migrateV33(save: SaveV33): SaveV34 {
   return { version: 34, savedAtMs: save.savedAtMs, state: { meta: save.state.meta, run: { ...save.state.run, survey: createSurvey() } } }
 }
 
+// v34 → v35 (batch 36.6): the five new keep rows at level 0, and renown re-seeded to max(renown, lifetime home
+// harvests) — a player who sold before 36.6 gets back what the old reset took; nothing is taken away.
+function migrateV34(save: SaveV34): SaveV35 {
+  const { meta, run } = save.state
+  const renown = { ...run.renown }
+  for (const crop of CROP_IDS) {
+    const points = Math.max(run.renown[crop] ?? 0, run.lifetime.harvests[crop] ?? 0)
+    if (points > 0) renown[crop] = points
+  }
+  return { version: 35, savedAtMs: save.savedAtMs, state: { meta: liveMeta(meta), run: { ...run, renown } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
+  if (data.version === 35) return data as SaveV35
+  const v34 = toV34(data)
+  return v34 && migrateV34(v34)
+}
+
+/** v1 … v34 up to v34; null for anything else */
+function toV34(data: RawSave): SaveV34 | null {
   if (data.version === 34) return data as SaveV34
   if (data.version === 33) return migrateV33(data as SaveV33)
   if (data.version === 32) return migrateV33(migrateV32(data as SaveV32))

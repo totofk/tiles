@@ -35,6 +35,11 @@ const NAMES: Record<DeedRowId, string> = {
   keepLicenses: 'Seed vault',
   keepFirstCertificates: 'Kept certificates',
   keepRenown: 'Kept renown',
+  keepClerk: 'Kept Clerk',
+  keepCertificates2: 'Kept certificates II',
+  mineStart: "Miner's start",
+  keepBoard: 'Kept Noticeboard',
+  keepManager: 'Kept Manager',
 }
 
 const TIPS: Record<DeedRowId, string> = {
@@ -47,6 +52,11 @@ const TIPS: Record<DeedRowId, string> = {
   keepLicenses: 'One-time: selling the farm keeps every crop license.',
   keepFirstCertificates: 'One-time: selling the farm keeps the plant, water and harvest certificates.',
   keepRenown: "One-time: selling the farm keeps each crop's renown tier.",
+  keepClerk: 'One-time: selling the farm keeps the Clerk certificate.',
+  keepCertificates2: 'One-time: selling the farm keeps the ore, fuel and mine certificates.',
+  mineStart: 'One-time: every new farm starts with the mine license and a copper pickaxe (not in Wetlands).',
+  keepBoard: 'One-time: every new farm starts with the order board open.',
+  keepManager: 'One-time: selling the farm keeps the Manager certificate.',
 }
 
 /** "Grow ×1 → ×0.96"; at the max level only the current value */
@@ -73,6 +83,16 @@ function effect(id: DeedRowId, level: number, meta: MetaState, runLevel: number,
       return 'The 3 farm certificates survive the sale'
     case 'keepRenown':
       return 'Renown tiers survive the sale'
+    case 'keepClerk':
+      return 'The Clerk certificate survives the sale'
+    case 'keepCertificates2':
+      return 'Ore, fuel and mine certificates survive the sale'
+    case 'mineStart':
+      return 'Mine license + copper pickaxe at the start'
+    case 'keepBoard':
+      return 'Order board open from the start'
+    case 'keepManager':
+      return 'The Manager certificate survives the sale'
   }
 }
 

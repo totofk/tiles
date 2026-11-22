@@ -254,7 +254,18 @@ export type Lifetime = {
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
 export type MultiplierKey = (typeof MULTIPLIER_KEYS)[number]
 /** one meta upgrade per multiplier, plus the batch-20 deed rows; meta stores levels only, every number is in balance.ts */
-export type MetaUpgradeId = MultiplierKey | 'startTiles' | 'workerSpeed' | 'keepLicenses' | 'keepFirstCertificates' | 'keepRenown'
+export type MetaUpgradeId =
+  | MultiplierKey
+  | 'startTiles'
+  | 'workerSpeed'
+  | 'keepLicenses'
+  | 'keepFirstCertificates'
+  | 'keepRenown'
+  | 'keepClerk'
+  | 'keepCertificates2'
+  | 'mineStart'
+  | 'keepBoard'
+  | 'keepManager'
 
 /** one sold run in the Legacy history */
 export type RunHistoryEntry = { endedAtTick: number; deeds: number }
@@ -284,7 +295,7 @@ export function createTile(): Tile {
   return { status: 'untilled', growth: 0, moisture: 0, ticksSinceMature: 0 }
 }
 
-const META_UPGRADE_KEYS: readonly MetaUpgradeId[] = [...MULTIPLIER_KEYS, 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates', 'keepRenown']
+const META_UPGRADE_KEYS: readonly MetaUpgradeId[] = [...MULTIPLIER_KEYS, 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates', 'keepRenown', 'keepClerk', 'keepCertificates2', 'mineStart', 'keepBoard', 'keepManager']
 
 export function createInitialMeta(): MetaState {
   return {

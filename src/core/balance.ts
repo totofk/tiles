@@ -737,7 +737,22 @@ export function startTiles(meta: MetaState): number {
  * The 🏆 Legacy deed rows: levels on the meta upgrade table bought with deeds. Level prices 2 / 4 / 8 / 16 / 32
  * (2^level, the research curve); the two one-time keeps are fixed. No row multiplies ⭐, deeds or mining.
  */
-export const DEED_ROW_IDS = ['growTime', 'sellPrice', 'cost', 'energy', 'startTiles', 'workerSpeed', 'keepLicenses', 'keepFirstCertificates', 'keepRenown'] as const
+export const DEED_ROW_IDS = [
+  'growTime',
+  'sellPrice',
+  'cost',
+  'energy',
+  'startTiles',
+  'workerSpeed',
+  'keepLicenses',
+  'keepFirstCertificates',
+  'keepRenown',
+  'keepClerk',
+  'keepCertificates2',
+  'mineStart',
+  'keepBoard',
+  'keepManager',
+] as const
 export type DeedRowId = (typeof DEED_ROW_IDS)[number]
 const DEED_MAX_LEVEL: Record<DeedRowId, number> = {
   growTime: 5,
@@ -749,8 +764,22 @@ const DEED_MAX_LEVEL: Record<DeedRowId, number> = {
   keepLicenses: 1,
   keepFirstCertificates: 1,
   keepRenown: 1,
+  keepClerk: 1,
+  keepCertificates2: 1,
+  mineStart: 1,
+  keepBoard: 1,
+  keepManager: 1,
 }
-const DEED_ONE_TIME_COST: Partial<Record<DeedRowId, number>> = { keepLicenses: 2, keepFirstCertificates: 3, keepRenown: 3 }
+const DEED_ONE_TIME_COST: Partial<Record<DeedRowId, number>> = {
+  keepLicenses: 2,
+  keepFirstCertificates: 3,
+  keepRenown: 3,
+  keepClerk: 6,
+  keepCertificates2: 8,
+  mineStart: 4,
+  keepBoard: 4,
+  keepManager: 24,
+}
 
 export const deedMaxLevel = (id: DeedRowId): number => DEED_MAX_LEVEL[id]
 
