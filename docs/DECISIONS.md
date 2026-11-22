@@ -1311,3 +1311,68 @@ Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these
     verify step after the worker.
 - **Renumbered:** none. Batch 36.4 = tasks 224–228, save v33. Next: 36.5 (Soil survey, v34), planned only after 36.4 is
   pushed, re-anchored on 36.4's HEAD.
+
+## Batch 36.5 refined (2026-11-22, the 🧭 Soil survey: a soil trait per home bed and per Estate field, ⭐ rerolls; save v33 → v34)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-split.md` row 36.5 "Soil survey (⭐ ladder,
+per bed at home / per field on the Estate, two pools, Lv3 ×1.5, Fertile soil row). v34" and reject-list item 2 (36 ⭐
+prices ×8: ⭐80 / 200 / 320); `tiles-new-players-feedback-decisions.md` — capped ladder with per-unit rerolls reset per
+sale, two pools ACCEPTED in full incl. 🌱 Fertile soil, per BED at home (6 tiles = one sprinkler socket), the Manager =
+DP counts then a trait match ACCEPTED, survey crop-group traits = sell price (+15 % home / +20 % Estate) while listing
+soil = grow time, and 2026-11-12 item 2: the near-zero traits stay as they are; `research/calc34.md` §6). Draft
+`tiles-b36.5-plan.md` of 2026-11-21 08:18 (anchors d0c52954, SAVE_VERSION 29; kept as
+`tiles-b36.5-plan.draft-0818.md`) re-anchored on 5f97e77 (origin/main after 36.4).
+Go: Toon (Trin) 2026-11-22 16:29 "งั้นปล่อยให้หมดเลยทีเดียว" — batches 36.3–36.6 one after another; this entry covers
+36.5 only.
+
+Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these as written):
+1. Numbering 229–233 (five tasks: 229 save v34 + shape, 230 ladder / rolls / rerolls, 231 trait effects, 232 UI, 233
+   pins + changelog). The save bump is its own first commit.
+2. Save v34 carries all of 36.5's shape in one key, `run.survey` (level, 4 bed slots, field slots that exist only once
+   rolled). Migration adds the fresh default only: no traits granted, nothing refunded.
+3. Rolls are uniform: home 1 of 7, Estate 1 of 6 with the group price taking a second draw over the 3 groups (a berry
+   price field is 1 in 18). No distribution was ever decided.
+4. Reroll = ⭐16 × 1.5^n per bed / field (16, 24, 36, 54, 81 …): the earlier ⭐2 → 3 → 5 → 8 idea ×8 like every 36 ⭐
+   price. A reroll may land on the same trait (a pure redraw).
+5. Lv1 rolls every bed, Lv2 every existing field; a field bought later at Lv2+ rolls at purchase. All 4 beds roll at Lv1
+   even before their tiles are bought (the trait waits for the tiles).
+6. CHANGED from the draft: Lv3 multiplies each trait's DELTA by 1.5 for every trait, so loose rot grace ×2 → ×2.5 (draft
+   ×3) and contract ×1.5 → ×1.75 (draft ×2.25). The draft's own rule (its hidden call 4 and calc34 :177) said "delta";
+   those two values multiplied the factor instead.
+7. Home fertile works as faster growth (+1 extra growth tick on 1 of 9 ticks = ×0.9 time; 3 of 17 at Lv3), so
+   `isMature` / `growthProgress` stay index-free; creek and dense use the same integer tick rule (`everyNth`), so the
+   Fields stay exact integers and a level-0 run is byte-identical.
+8. creek means "unpaid": an empty tank OR no pivot; it then grows ×1.3 instead of ×1. dense thins the plots' tank burn
+   to 7 of 10 ticks. contract units count ×1.5 toward an accepted crop order and still pay the order's per-unit price;
+   the order's ⭐ is unchanged. easySell adds 0.7 glut per unit sold.
+9. A home bed's price trait also lifts its 🌳 Orchard tree tiles' fruit sales (same bed, same rule).
+10. Orders pay the global price; survey price traits lift market units only. Traits stay out of the Manager's DP,
+    order sizing, the payback label and the Estate's ≈💰/h text (estimates, marked ≈).
+11. The Manager's soil match runs after the DP counts, before the keep-chip pass: a group-price field takes its group's
+    counted crop (keeps its chip when that already fits). Contracts and 📌 pinned fields are untouched.
+12. Glyphs: 🧭 is the survey (🌱 is already the Farm tab and the seeder); traits 🥔 🍅 🍓 (price), 🧱 clay, 🍂 loose,
+    💎 rich, 🌻 fertile, 💦 creek, 🌑 dense, 📜 contract, 🤝 easy market (🛒 is the Shop). Names and texts are Hermes's
+    wording.
+13. UI: one ⭐ Favours row "🧭 Soil survey Lv N" (Lv2 locked until the 🚜 Fields), a closed `<details>` soil list under
+    the Favours rows with every bed / field and its reroll button, a small trait chip at each bed's top-left (inside the
+    existing 12 px padding, no layout change), a trait badge on the Estate field chip and a soil line + reroll button in
+    the field sheet. No HUD change; no Info page section.
+14. The draft's scenario A/B bot measurements become pure pins (batch-refine 1g): PIN36p ladder and roll shares,
+    PIN36q every trait at Lv1 / Lv3 on its real hook, PIN36r the Manager match, PIN36s the migrated v33 save 2 game-h
+    with and without traits for 3 seeds (report, band ≥ 0.98 × plain). No bot buys the survey, so no sim number may
+    move.
+15. Fixture `tests/fixtures/save-v33.json` = the live re-save taken in 36.4's verify (2026-11-22 21:22,
+    `post-deploy-v33.json`): save-v32.json seeded on the old live v32 build, loaded by the live v33 build CcIYSqqF,
+    migrated and re-saved by the live code (v33, plain, ⭐79, 24 tiles all sprinklered, 10 licences, 12 pivoted chilli
+    fields, Manager 1, digs 23), committed with this plan.
+16. CHANGELOG 36.5 line (175 code points): "🧭 Soil survey (⭐ Favours): level 1 gives each home bed a soil trait, level
+    2 each field, level 3 makes every trait 1.5× stronger. Reroll one for ⭐; traits last until you sell."
+17. Worker: GLM (glm-5.3 through z.ai, as `b36-split.md` item 4 names for 36.5), `--max-turns 300` with a resume leg
+    expected; retry deadline 2026-11-29 21:00; live relay into thread 1573420437554200597 (the 36 planning thread).
+18. Not in this batch: the open 36.2 nits, the 375 top-bar wrap, PIN36h (stays `it.fails`). The live checks (v33 → v34
+    migration, width sweep of the Favours row + soil list, bed chips, field badge and sheet) are Hermes's verify step.
+- **Open for Toon (36.4 finding, NOT fixed here):** the 🌰 Ancient fruit button exists only in the desktop side panel's
+  "Crop to plant" list (`src/app/Farm.tsx`, `farmTab` `src/app/App.tsx:67`); the phone / tablet / collapsed-panel Shop
+  seeds list (`src/app/Shop.tsx:105`) loops `CROP_IDS` only, so a player there cannot choose to plant a dug 🦴 seed.
+  Fix candidate: the same 🌰 button in the Shop seeds list when the Farm tab is not shown. Waits for Toon's word.
+- **Renumbered:** none. Batch 36.5 = tasks 229–233, save v34. Next: 36.6 (renown tiers, deed rows, v35), planned only
+  after 36.5 is pushed, re-anchored on 36.5's HEAD.
