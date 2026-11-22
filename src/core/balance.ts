@@ -1,6 +1,7 @@
 // Every tunable number lives here. Read them through the functions, never the tables,
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
 import { ANCIENT_CROP, CROP_GROUPS, cropGroup, type CropId, type ListingSoil } from './data/crops'
+import { RELIC_IDS, type RelicId } from './data/relics'
 import type { DistrictId } from './data/districts'
 import type { UpgradeId } from './data/upgrades'
 import { ORE_IDS, PICKAXE_TIERS, type BarId, type ForgeRecipeId, type ItemId, type OreId, type PickaxeTier } from './data/items'
@@ -115,7 +116,9 @@ const SMELT_ORES: Record<OreId, { bar: ItemId; barTicks: number }> = {
   goldOre: { bar: 'goldBar', barTicks: 180 },
 }
 const FIRE_UNIT_TICKS = 30
-const FUEL_UNITS = { coal: 2, wood: 1 }
+// batch 36.4: stone joins as a fuel only with the ⛰️ Stone fire relic (addFuel gates it); its units come from the
+// relic table (2, 3 in a set), not from here
+const FUEL_UNITS = { coal: 2, wood: 1, stone: 2 }
 export type FuelId = keyof typeof FUEL_UNITS
 export const FUEL_IDS = Object.keys(FUEL_UNITS) as FuelId[]
 /** fire capacity in units per fire-capacity level (index = level) */
@@ -504,6 +507,24 @@ export function digFindChances(): { shard: number; dust: number; ancient: number
   return { shard: DIG_SHARD_CHANCE, dust: DIG_DUST_CHANCE, ancient: DIG_ANCIENT_CHANCE }
 }
 
+// batch 36.4 relics (Toon's locked table): 5 🏺 shards buy one of the 6 run-long rules; RELIC_SET_FACTOR is already
+// folded into each table's set column. Index: 0 = rule not owned, 1 = owned, 2 = the whole set owned.
+export const RELIC_PICK_SHARDS = 5
+export const RELIC_SET_FACTOR = 1.5
+/** no market-floor lift can push a floor past this */
+export const RELIC_FLOOR_CAP = 0.9
+export const RELIC_ORDER_BONUS: readonly [number, number, number] = [0.1, 0.2, 0.3] // base 0.1 (batch 16: 0.25 → 0.10)
+export const RELIC_FLOOR_LIFT: readonly [number, number, number] = [0, 0.1, 0.15]
+export const RELIC_COOLDOWN_TICKS: readonly [number, number, number] = [600, 300, 200]
+export const RELIC_REGEN_FACTOR: readonly [number, number, number] = [1, 1.1, 1.15]
+export const RELIC_RESERVE_CAP: readonly [number, number, number] = [0, 20, 30]
+/** ⛰️ stone's fire units; 0 = the fuel is locked without the relic */
+export const RELIC_STONE_UNITS: readonly [number, number, number] = [0, 2, 3]
+/** 0 = rule not owned, 1 = owned, 2 = the whole set owned */
+export function relicTier(relics: readonly RelicId[], id: RelicId): 0 | 1 | 2 {
+  return relics.includes(id) ? (relics.length === RELIC_IDS.length ? 2 : 1) : 0
+}
+
 // Bank v0 placeholders (PLAN.md batch 4.5): debt starts at principal × (1 + fee) and grows by
 // principal × rate per tick up to principal × cap (33 → 60 in 450 ticks).
 const LOAN_PRINCIPAL = 30
@@ -533,14 +554,13 @@ export function handPickedBonus(): number {
 // Noticeboard (batch 14, DECISIONS "📋 Noticeboard + ⭐", docs/research/orders.md): a Shop purchase shown after
 // ORDER_BOARD.at sales. An order's count = its tier's minutes × what the player makes per minute (crops: tiles ÷ grow
 // ticks × 60; vein items: ORDER_ROCKS_PER_MIN × drop share; bars: furnace bars per minute), so ⭐ is paced by time.
-// Item counts are clamped to half the storage capacity. Ordered crops pay base × (1 + ORDER_BOARD.bonus) and add no
-// glut; delivered items pay base value × bonus. A discarded order's slot refills after ORDER_COOLDOWN_TICKS.
-const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; bonus: number; slots: number } = {
+// Item counts are clamped to half the storage capacity. Ordered crops pay base × (1 + orderBonus()) and add no
+// glut; delivered items pay base value × orderBonus() (the 📋 Order bonus relic raises both, batch 36.4). A discarded
+// order's slot refills after orderCooldownTicks().
+const ORDER_BOARD: { cost: Price; counter: CounterId; at: number; slots: number } = {
   cost: { stone: 10, cash: 100 },
   counter: 'sales',
   at: 50,
-  // batch 16: 0.25 → 0.10 (batch 14 measured +27–41 % income; the goal was +12–18 %)
-  bonus: 0.1,
   slots: 2,
 }
 // batch 35.3: an order pays its tier's fixed ⭐, whatever the good and its count
@@ -554,7 +574,6 @@ const CONTRACT_WET_SHARE = 0.15
 const ORDER_ROCKS_PER_MIN = 12
 /** an item order asks for at most this share of the storage capacity (rounded down) */
 const ORDER_ITEM_BAG_SHARE = 0.5
-const ORDER_COOLDOWN_TICKS = 600
 // ⭐ shop (task 81): ⭐ for each slot past the starting ones (3rd, 4th); only ⭐ buys these.
 const ORDER_SLOT_STARS = [80, 240] // batch 35.3: [10, 30] ×8
 // batch 35.3: a reroll (every slot without an accepted order gets a fresh offer now, cooldowns skipped) costs cash,
@@ -576,9 +595,9 @@ export function orderStartSlots(): number {
   return ORDER_BOARD.slots
 }
 
-/** extra share of the base price an ordered good pays */
-export function orderBonus(): number {
-  return ORDER_BOARD.bonus
+/** extra share of the base price an ordered good pays (batch 36.4: the 📋 Order bonus relic) */
+export function orderBonus(relics: readonly RelicId[] = []): number {
+  return RELIC_ORDER_BONUS[relicTier(relics, 'orderBonus')]
 }
 
 /** share of the wet tiles' pressured output a contract asks per minute */
@@ -617,8 +636,8 @@ export function orderItemCap(bagCapacity: number): number {
   return Math.floor(bagCapacity * ORDER_ITEM_BAG_SHARE)
 }
 
-export function orderCooldownTicks(): number {
-  return ORDER_COOLDOWN_TICKS
+export function orderCooldownTicks(relics: readonly RelicId[] = []): number {
+  return RELIC_COOLDOWN_TICKS[relicTier(relics, 'orderCooldown')]
 }
 
 export function orderMaxSlots(): number {
@@ -929,9 +948,10 @@ export function fuelUnits(fuel: FuelId): number {
   return FUEL_UNITS[fuel]
 }
 
-/** burn ticks one item of this fuel adds */
-export function fuelTicks(fuel: FuelId): number {
-  return FUEL_UNITS[fuel] * FIRE_UNIT_TICKS
+/** burn ticks one item of this fuel adds (batch 36.4: ⛰️ stone's units come from the relic table) */
+export function fuelTicks(fuel: FuelId, relics: readonly RelicId[] = []): number {
+  const units = fuel === 'stone' ? RELIC_STONE_UNITS[relicTier(relics, 'stoneFuel')] : FUEL_UNITS[fuel]
+  return units * FIRE_UNIT_TICKS
 }
 
 /** fire capacity in units at this fire-capacity level */

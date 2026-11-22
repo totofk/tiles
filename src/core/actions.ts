@@ -24,6 +24,8 @@ import {
 } from './balance'
 import { ANCIENT_CROP, CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import { RELIC_IDS } from './data/relics'
+// actions ↔ relics is a cycle of function bindings only (used at call time), like actions ↔ orders
+import { spendEnergy } from './relics'
 import { districtSells } from './data/districts'
 import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
@@ -134,11 +136,14 @@ export function farmAction(
   if (!Number.isInteger(i) || i < 0 || i >= run.tiles.length) return fail('BAD_TILE')
   const error = check(run.tiles[i])
   if (error) return fail(error)
-  if (run.energy < energy) return fail('NO_ENERGY')
+  // batch 36.4: ⚡ first, then the 🔋 reserve (spendEnergy); cost 0 (workers) always succeeds unchanged
+  const spent = spendEnergy(run, energy)
+  if (!spent) return fail('NO_ENERGY')
   const { tile, cashDelta = 0, counters, harvested, run: next = run } = apply(run.tiles[i])
   return withRun(state, {
     ...next,
-    energy: run.energy - energy,
+    energy: spent.energy,
+    energyReserve: spent.energyReserve,
     cash: run.cash + cashDelta,
     tiles: run.tiles.map((t, j) => (j === i ? tile : t)),
     counters: { ...next.counters, ...counters },
@@ -275,11 +280,12 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
 // Dig for seeds: the anti-soft-lock floor. No tile, no license, free from tick 0; 1 energy, and a chance of one
 // seed into the pouch. The roll and the digs counter advance whether or not a seed drops.
 // Batch 36.4: after the potato roll every dig draws THREE finds in a fixed order (shard, star dust, ancient seed),
-// independent of it — a fixed count keeps runs replayable. 1 ✨ = ⭐1. After the full relic set (task 226) the shard
-// draw pays a second ancient seed instead. The run's first dig opens the 📖 book.
+// independent of it — a fixed count keeps runs replayable. 1 ✨ = ⭐1. After the full relic set the shard draw pays a
+// second ancient seed instead. The run's first dig opens the 📖 book.
 export function digForSeeds(state: GameState): ActionResult {
   const { run } = state
-  if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
+  const spent = spendEnergy(run, ACTION_ENERGY_COST)
+  if (!spent) return fail('NO_ENERGY')
   const [r, rngState] = nextRandom(run.rngState)
   const { crop, chance } = digSeedDrop()
   const [r2, afterShard] = nextRandom(rngState)
@@ -308,7 +314,8 @@ export function digForSeeds(state: GameState): ActionResult {
   }
   if (r4 < DIG_ANCIENT_CHANCE) seedFind(1)
   return withRun(state, {
-    energy: run.energy - ACTION_ENERGY_COST,
+    energy: spent.energy,
+    energyReserve: spent.energyReserve,
     rngState: afterAncient,
     stars: run.stars + (dust ? 1 : 0),
     seeds,

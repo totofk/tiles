@@ -284,7 +284,8 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
         <Bar value={f.fire / fireCapTicks(f.levels.fireCap)} kind="fire" />
         {f.fire > 0 && !f.smart && !owned.some((kind) => moldSmelting(f, kind)) && <small className="furnace-hint">burning with nothing to smelt</small>}
         <div className="mine-furnace-actions">
-          {FUEL_IDS.map((fuel) => {
+          {/* batch 36.4: ⛰️ stone burns only with the Stone fire relic */}
+          {FUEL_IDS.filter((fuel) => fuel !== 'stone' || run.relics.includes('stoneFuel')).map((fuel) => {
             const r = addFuel(state, fuel)
             return (
               <button key={fuel} disabled={!r.ok} onClick={() => act((s) => addFuel(s, fuel))}>

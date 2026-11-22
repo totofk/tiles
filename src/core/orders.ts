@@ -115,12 +115,12 @@ export function rollOffer(state: GameState, rngState: number): [Offer, number] {
 export function itemOrderValue(state: GameState, good: ItemId): number {
   if (!isSellable(good)) return 0
   const price = itemSellPrice(good, state.meta, state.run.upgrades.sellPrice)
-  return barOre(good) || isForgeGood(good) ? price * (1 + orderBonus()) : price * orderBonus()
+  return barOre(good) || isForgeGood(good) ? price * (1 + orderBonus(state.run.relics)) : price * orderBonus(state.run.relics)
 }
 
 /** cash one ordered crop unit pays: the unglutted price × (1 + bonus) × `bonus` (hand-picked) */
 export function cropOrderPrice(state: GameState, crop: CropId, bonus = 1): number {
-  return Math.round(cropSellPrice(crop, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * (1 + orderBonus()) * bonus)
+  return Math.round(cropSellPrice(crop, state.meta, state.run.upgrades.sellPrice, state.run.listing.district) * (1 + orderBonus(state.run.relics)) * bonus)
 }
 
 /**
@@ -235,7 +235,7 @@ export function acceptOrder(state: GameState, slot: number): ActionResult {
 export function discardOrder(state: GameState, slot: number): ActionResult {
   const offer = offerAt(state.run, slot)
   if (typeof offer === 'string') return fail(offer)
-  return withRun(state, { orders: setSlot(state.run, slot, { cooldownTicks: orderCooldownTicks() }) })
+  return withRun(state, { orders: setSlot(state.run, slot, { cooldownTicks: orderCooldownTicks(state.run.relics) }) })
 }
 
 /**

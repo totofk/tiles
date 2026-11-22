@@ -23,6 +23,7 @@ import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { listingText } from './listings'
 import { dropText, expectedUses, heldPickaxe, pickaxePreserve } from './mining'
+import { relicRegenFactor } from './relics'
 import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
 import { HIDDEN_JOBS, WORKER_JOBS } from './data/workers'
@@ -102,7 +103,7 @@ export function stats(state: GameState): Stats {
     { label: 'Grow time', value: times(growTimeFactor(upgrades.fertilizer) * multiplier(meta, 'growTime')), source: lv('fertilizer') },
     { label: 'This farm', value: listingText(run.listing) },
     { label: 'Energy max', value: `${energyMax(upgrades.energyMax, meta)}`, source: lv('energyMax') },
-    { label: 'Energy regen', value: `${energyRegenPerTick(upgrades.energyRegen, meta).toFixed(2)}/s`, source: lv('energyRegen') },
+    { label: 'Energy regen', value: `${(energyRegenPerTick(upgrades.energyRegen, meta) * relicRegenFactor(run.relics)).toFixed(2)}/s`, source: lv('energyRegen') },
     pickaxe
       ? {
           label: `${PICKAXE_NAMES[pickaxe.tier]} preserve`,

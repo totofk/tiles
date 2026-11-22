@@ -1,11 +1,12 @@
 // The crop market (batch 12, DECISIONS "Crop market"): every crop unit sold adds 1 glut to its crop; glut decays
 // each tick and lowers that crop's sale price. Items are not in the market. Pure: no DOM, no clock, no dice.
-import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, cropGrowTicks, cropSellPrice, marketFactor, renownFloor } from './balance'
+import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, RELIC_FLOOR_CAP, RELIC_FLOOR_LIFT, cropGrowTicks, cropSellPrice, marketFactor, relicTier, renownFloor } from './balance'
 import { ALL_CROP_IDS, type CropId, type ListingSoil } from './data/crops'
 import type { GameState, MetaState, RunState } from './state'
 
-/** the crop's market floor: its renown tier's (batch 31) */
-export const cropFloor = (run: RunState, crop: CropId): number => renownFloor(run.renown[crop] ?? 0)
+/** the crop's market floor: its renown tier's (batch 31), lifted by the 📉 Market floor relic, capped (batch 36.4) */
+export const cropFloor = (run: RunState, crop: CropId): number =>
+  Math.min(RELIC_FLOOR_CAP, renownFloor(run.renown[crop] ?? 0) + RELIC_FLOOR_LIFT[relicTier(run.relics, 'marketFloor')])
 
 /** price of one unit of `cropId` sold while the glut is `glut` (before that unit is added) */
 export function marketCropPrice(state: GameState, cropId: CropId, glut: number): number {

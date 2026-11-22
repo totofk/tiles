@@ -2,6 +2,7 @@
 // with a berry crop, locked for the run. Its 6 tiles stay plain `tilled` tiles marked by run.tree.bed; they need no
 // water, never rot, and each grows fruit on its own until 3 wait. Harvest takes a tile's whole stock as one action.
 import { addLifetime, fail, farmAction, withRun, type ActionResult } from './actions'
+import { spendEnergy } from './relics'
 import { RENOWN_BY_HAND, RENOWN_BY_WORKER, TREE_MATURE_CYCLES, TREE_PLANT_ENERGY, TREE_STOCK_CAP, addRenown, handPickedBonus, treeCadenceTicks, treePlantCost } from './balance'
 import { CROP_GROUPS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
@@ -24,12 +25,14 @@ export function plantTreeBed(state: GameState, bed: number, crop: CropId): Actio
   const first = bed * BED_TILES
   const inBed = (j: number) => j >= first && j < first + BED_TILES
   if (run.tiles.some((t, j) => inBed(j) && t.status === 'planted')) return fail('BED_BUSY')
-  if (run.energy < TREE_PLANT_ENERGY) return fail('NO_ENERGY')
+  const spent = spendEnergy(run, TREE_PLANT_ENERGY)
+  if (!spent) return fail('NO_ENERGY')
   const cost = treePlantCost(crop, state.meta)
   if (run.cash < cost) return fail('NO_CASH')
   const start = -(TREE_MATURE_CYCLES - 1) * treeCadenceTicks(crop)
   return withRun(state, {
-    energy: run.energy - TREE_PLANT_ENERGY,
+    energy: spent.energy,
+    energyReserve: spent.energyReserve,
     cash: run.cash - cost,
     tiles: run.tiles.map((t, j) => (inBed(j) ? { status: 'tilled', growth: 0, moisture: 0, ticksSinceMature: 0 } : t)),
     tree: { bed, crop, ticks: Array(BED_TILES).fill(start), stock: Array(BED_TILES).fill(0) },

@@ -20,6 +20,7 @@ import {
   type MoldOre,
 } from './balance'
 import { ORE_IDS, type BarId, type OreId } from './data/items'
+import type { RelicId } from './data/relics'
 import { bagCount, orderNeed, pay, sellItem } from './mining'
 import type { Furnace, GameState, Lifetime, Mold, RunState } from './state'
 
@@ -38,26 +39,28 @@ export function cycleOre(f: Furnace): number {
   return smeltOre() * batchBars(f.levels.batch)
 }
 
-/** whole items of this fuel that fit under the fire cap now */
-export function fuelRoom(f: Furnace, fuel: FuelId): number {
-  return Math.floor((fireCapTicks(f.levels.fireCap) - f.fire) / fuelTicks(fuel))
+/** whole items of this fuel that fit under the fire cap now (stone's units need the relic, batch 36.4) */
+export function fuelRoom(f: Furnace, fuel: FuelId, relics: readonly RelicId[] = []): number {
+  return Math.floor((fireCapTicks(f.levels.fireCap) - f.fire) / fuelTicks(fuel, relics))
 }
 
 /**
  * The "fill" press: moves as many whole items of this fuel from storage into the fire as fit under the cap (never
- * over it), at most `max`; partial when storage runs short. Order: NO_FURNACE, FULL, NO_FUEL.
+ * over it), at most `max`; partial when storage runs short. Order: LOCKED (stone without the relic, batch 36.4),
+ * NO_FURNACE, FULL, NO_FUEL.
  */
 export function addFuel(state: GameState, fuel: FuelId, max = Infinity): ActionResult {
   const { run } = state
   const f = run.furnace
+  if (fuel === 'stone' && !run.relics.includes('stoneFuel')) return fail('LOCKED')
   if (!f.built) return fail('NO_FURNACE')
-  const room = fuelRoom(f, fuel)
+  const room = fuelRoom(f, fuel, run.relics)
   if (room < 1) return fail('FULL')
   const n = Math.min(room, run.inventory[fuel] ?? 0, max)
   if (n < 1) return fail('NO_FUEL')
   return withRun(state, {
     inventory: { ...run.inventory, [fuel]: run.inventory[fuel]! - n },
-    furnace: { ...f, fire: f.fire + n * fuelTicks(fuel) },
+    furnace: { ...f, fire: f.fire + n * fuelTicks(fuel, run.relics) },
   })
 }
 

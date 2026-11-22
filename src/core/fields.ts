@@ -4,6 +4,7 @@
 // plot: sow, reap (by hand, worker or machine). A plot ripens on its absolute readyTick; nothing ever stalls or dies.
 // Harvests sell through harvestSale exactly like home-plot harvests (accepted orders first, then the market).
 import { fail, nextRandom, withRun, type ActionResult } from './actions'
+import { spendEnergy } from './relics'
 import {
   FIELD_PRESSURE,
   TANK_UNITS_PER_COAL,
@@ -330,15 +331,17 @@ function reapAt(state: GameState, field: number, plot: number, energy: number): 
   }
 }
 
-// Reap by hand. Order: LOCKED, BAD_TILE, NOT_MATURE (empty or growing), NO_ENERGY (reapPlotEnergy ⚡).
+// Reap by hand. Order: LOCKED, BAD_TILE, NOT_MATURE (empty or growing), NO_ENERGY (reapPlotEnergy ⚡, then the 🔋
+// reserve, batch 36.4).
 export function reapPlot(state: GameState, field: number, plot: number): ActionResult {
   const { run } = state
   const f = run.fields
   if (!f.unlocked) return fail('LOCKED')
   if (!isIndex(field, f.list.length) || !isIndex(plot, f.list[field].plots.length)) return fail('BAD_TILE')
   if (plotState(f.list[field].plots[plot], run.tick) !== 'ready') return fail('NOT_MATURE')
-  if (run.energy < reapPlotEnergy()) return fail('NO_ENERGY')
-  return withRun(state, reapAt(state, field, plot, reapPlotEnergy()))
+  const spent = spendEnergy(run, reapPlotEnergy())
+  if (!spent) return fail('NO_ENERGY')
+  return withRun(state, { ...reapAt(state, field, plot, reapPlotEnergy()), energy: spent.energy, energyReserve: spent.energyReserve })
 }
 
 // Reap the oldest ready plot by hand. Order: LOCKED, NOTHING_TO_DO (nothing ready), NO_ENERGY.

@@ -29,6 +29,7 @@ import {
 } from './balance'
 import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type BarId, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import { noMine } from './wetlands'
+import { spendEnergy } from './relics'
 import type { GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
@@ -167,12 +168,14 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
   const pickaxe = activePickaxe(run)
   const tier = pickaxe?.tier ?? null
   if (breakDrop(run, minedRock(run.vein.rock, tier)) === 'full') return fail('BAG_FULL')
-  if (run.energy < energy) return fail('NO_ENERGY')
+  const spent = spendEnergy(run, energy)
+  if (!spent) return fail('NO_ENERGY')
   const [keep, rngState] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
   const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
   let s = okState(
     withRun(state, {
-      energy: run.energy - energy,
+      energy: spent.energy,
+      energyReserve: spent.energyReserve,
       rngState,
       rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
       counters: { ...run.counters, mines: run.counters.mines + 1 },

@@ -16,6 +16,7 @@ import { tickForge } from './forge'
 import { tickFurnace } from './furnace'
 import { decayMarket } from './market'
 import { tickOrders } from './orders'
+import { relicRegenFactor, reserveCap } from './relics'
 import type { GameState, Loan, MetaState, RunState, Tile } from './state'
 import { isTreeTile, tickTree } from './tree'
 import { workersAct } from './workers'
@@ -64,12 +65,18 @@ function stepOnce(state: GameState): GameState {
   // the Fields cohorts grow after the workers (a batch planted this tick starts growing this tick, like a home tile)
   const { run, meta } = fieldsAct(workersAct(worked))
   const max = energyMax(run.upgrades.energyMax, meta)
-  let energy = Math.min(max, run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta))
+  // batch 36.4: ⚡ Second wind speeds regen; regen past ⚡ max banks into the 🔋 Reserve, up to its cap (never fills
+  // without the relic), so ⚡0 + banked overflow still regenerates
+  const raw = run.energy + energyRegenPerTick(run.upgrades.energyRegen, meta) * relicRegenFactor(run.relics)
+  let energy = Math.min(max, raw)
   const rounded = Math.round(energy)
   if (Math.abs(energy - rounded) < FLOAT_EPSILON) energy = rounded
+  const cap = reserveCap(run, meta)
+  const overflow = Math.max(0, raw - energy)
   const nextRun: RunState = {
     ...run,
     energy,
+    energyReserve: cap > 0 ? Math.min(cap, run.energyReserve + overflow) : run.energyReserve,
     // tree tiles grow fruit in tickTree instead: no moisture, no growth, no rot
     tiles: run.tiles.map((t, i) => (isTreeTile(run, i) ? t : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil))),
     tree: tickTree(run.tree),
