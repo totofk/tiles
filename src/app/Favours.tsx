@@ -7,6 +7,7 @@ import {
   seamVeinLevel,
   sellPriceFactor,
   smeltOre,
+  soilRerollStars,
   STAR_CARRY_CAP,
   upgradeMaxLevel,
   workerPoolCap,
@@ -14,11 +15,13 @@ import {
 import { BUNKHOUSE_EMOJI, MIST_EMOJI, SEAM_EMOJI } from '../core/data/favours'
 import { ITEMS } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
-import { SURVEY_EMOJI } from '../core/data/soil'
+import { SOIL_TRAITS, SURVEY_EMOJI } from '../core/data/soil'
 import { buyFavour, favourLevel, favourLock, favourPrice, favourShown, FAVOUR_IDS, type FavourId, type FavourLock } from '../core/favours'
+import { rerollSoil, soilStrong } from '../core/survey'
 import type { GameState, RunState } from '../core/state'
 import { count } from './fmt'
 import { Item } from './Info'
+import { soilTraitText } from './soilText'
 import { FAVOUR_TIPS } from './tips'
 import { FIRE_EMOJI, type Act } from './useGame'
 
@@ -127,6 +130,39 @@ export function Favours({ state, act }: { state: GameState; act: Act }) {
           )
         })}
       </div>
+      {run.survey.level >= 1 && (
+        <details className="soil-traits">
+          <summary>{`${SURVEY_EMOJI} Soil traits · ${run.survey.beds.length} beds · ${run.survey.fields.length} fields`}</summary>
+          {run.survey.beds.map((_, k) => (
+            <SoilRow key={`b${k}`} state={state} act={act} where="bed" k={k} name={`Bed ${k + 1}`} />
+          ))}
+          {run.survey.fields.map((_, k) => (
+            <SoilRow key={`f${k}`} state={state} act={act} where="field" k={k} name={`Field ${k + 1}`} />
+          ))}
+        </details>
+      )}
     </div>
   )
 }
+
+/** one rolled unit's row in the soil list (batch 36.5): the trait, its effect line, and its ⭐ reroll */
+function SoilRow({ state, act, where, k, name }: { state: GameState; act: Act; where: 'bed' | 'field'; k: number; name: string }) {
+  const unit = (where === 'bed' ? state.run.survey.beds[k] : state.run.survey.fields[k]) ?? null
+  const trait = unit?.trait ?? null
+  if (unit === null || trait === null) return null
+  const t = SOIL_TRAITS[trait]
+  return (
+    <div className="soil-row">
+      <span>{`${name}: ${t.emoji} ${t.name}`}</span>
+      <small>{soilTraitText(trait, soilStrong(state.run))}</small>
+      <button
+        aria-label={`Reroll ${name.toLowerCase()}'s soil`}
+        disabled={!rerollSoil(state, where, k).ok}
+        onClick={() => act((s) => rerollSoil(s, where, k))}
+      >
+        {`Reroll ${STAR_EMOJI}${soilRerollStars(unit.rerolls)}`}
+      </button>
+    </div>
+  )
+}
+

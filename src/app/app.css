@@ -496,6 +496,22 @@ button:disabled::after {
   line-height: 26px;
   text-align: center;
 }
+/* the bed's rolled 🧭 soil trait (batch 36.5): the same box as the sprinkler glyph, opposite corner, earth tone */
+.bed-soil {
+  position: absolute;
+  top: -12px;
+  left: 8px;
+  right: auto;
+  z-index: 1;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #8d6e63;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 15px;
+  line-height: 26px;
+  text-align: center;
+}
 /* square, but a tile may grow taller rather than clip its text on a narrow screen; a cell compacts by its own
    width (batch 27): the label hides below 80 px, the "rots in" text below 64 px — the emoji + bars carry the state */
 .cell {
@@ -798,6 +814,11 @@ button:disabled::after {
   line-height: 1;
 }
 .map-badge-order {
+  left: 1px;
+  right: auto;
+}
+/* the field's rolled 🧭 soil trait emoji on the map chip (batch 36.5) */
+.map-badge-soil {
   left: 1px;
   right: auto;
 }
@@ -1869,6 +1890,30 @@ details > summary:focus-visible {
   position: absolute;
   top: 1px;
   right: 1px;
+}
+/* the 🧭 soil trait list under the ⭐ Favours rows (batch 36.5): one line per rolled bed / field, its effect
+   text and its ⭐ reroll; a row and its button keep the 44 px touch target */
+.soil-traits {
+  margin-top: 10px;
+}
+.soil-traits summary {
+  cursor: pointer;
+  padding: 6px 0;
+}
+.soil-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1);
+  min-height: 44px;
+  padding: 4px 0;
+}
+.soil-row small {
+  flex: 1;
+  min-width: 140px;
+}
+.soil-row button {
+  min-height: 44px;
 }
 /* floats over everything, placed by Info (placeTip) from the ⓘ's rect, so opening one moves no row and the
    scrolling side panel never clips it; above the toast (4) and the slide-over (3) */

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FarmGrid } from '../src/app/FarmGrid'
 import type { ActionResult } from '../src/core/actions'
+import type { HomeTraitId } from '../src/core/data/soil'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 import { plantTreeBed } from '../src/core/tree'
 
@@ -120,5 +121,24 @@ describe('batch 36.3: Wetlands bank beds', () => {
     render(<FarmGrid state={{ ...wet, run: { ...wet.run, listing: { district: 'plain', soil: null } } }} onTap={() => {}} />)
     expect(beds()[0].className).toBe('bed')
     expect(beds()[0].querySelector('.bed-socket')).toBeTruthy()
+  })
+})
+
+describe('batch 36.5: the bed soil chip', () => {
+  const withSoil = (level: number, traits: (HomeTraitId | null)[]): GameState => {
+    const s = at(24)
+    return { ...s, run: { ...s.run, survey: { level, beds: traits.map((trait) => ({ trait, rerolls: 0 })), fields: [] } } }
+  }
+
+  it('a rolled bed shows its 🧭 trait chip with the effect in the title; a null bed and a level-0 run show none', () => {
+    render(<FarmGrid state={withSoil(1, ['roots', null, 'clay', 'fertile'])} onTap={() => {}} />)
+    expect([...document.querySelectorAll<HTMLElement>('.bed-soil')].map((c) => [c.getAttribute('aria-label'), c.textContent, c.title])).toEqual([
+      ['Bed 1 soil: Root soil', '🥔', 'Root soil — roots crops sell +15 %'],
+      ['Bed 3 soil: Clay', '🧱', 'Clay — drains 40 % slower'],
+      ['Bed 4 soil: Fertile soil', '🌻', 'Fertile soil — grows 10 % faster'],
+    ])
+    cleanup()
+    render(<FarmGrid state={withSoil(0, ['roots', null, 'clay', 'fertile'])} onTap={() => {}} />)
+    expect(document.querySelectorAll('.bed-soil')).toHaveLength(0)
   })
 })

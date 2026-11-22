@@ -10,6 +10,7 @@ import { Upgrades } from '../src/app/Upgrades'
 import { UI_KEY } from '../src/app/uiState'
 import type { Act } from '../src/app/useGame'
 import { ITEMS } from '../src/core/data/items'
+import type { FieldTraitId, HomeTraitId } from '../src/core/data/soil'
 import { createInitialState, type GameState, type RunState } from '../src/core/state'
 import { serialize } from '../src/save/serialize'
 import { SAVE_KEY } from '../src/save/storage'
@@ -177,5 +178,64 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
     cleanup()
     render(<Mine state={withRun({ mineLicense: true, vein: { level: 3, progress: 0, rock: 'stone' } })} act={() => {}} />)
     expect(screen.queryByRole('group', { name: 'Seam aim' })).toBeNull()
+  })
+})
+
+describe('batch 36.5: the 🧭 soil traits list under the ⭐ Favours rows', () => {
+  const fieldsOpen = { ...init.run.fields, unlocked: true }
+  const survey = (level: number, fields: (FieldTraitId | null)[] = []): RunState['survey'] => ({
+    level,
+    beds: (['roots', 'clay', 'fertile', 'rich'] as HomeTraitId[]).map((trait) => ({ trait, rerolls: 0 })),
+    fields: fields.map((trait) => ({ trait, rerolls: 0 })),
+  })
+
+  it('the row climbs its ladder ⭐80/200/320 then max, and locks on the Fields at Lv1 before they open', () => {
+    render(<Favours state={withRun({ stars: 20 })} act={() => {}} />)
+    expect(document.querySelector('.soil-traits')).toBeNull()
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('a trait for each home bed · ⭐80')
+    cleanup()
+    render(<Favours state={withRun({ stars: 20, survey: survey(1) })} act={() => {}} />)
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('needs the 🚜 Fields')
+    expect((rowOf(/Soil survey/) as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+    render(<Favours state={withRun({ stars: 400, survey: survey(1), fields: fieldsOpen })} act={() => {}} />)
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('a trait for each field · ⭐200')
+    cleanup()
+    render(<Favours state={withRun({ stars: 400, survey: survey(2), fields: fieldsOpen })} act={() => {}} />)
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('every trait ×1.5 · ⭐320')
+    cleanup()
+    render(<Favours state={withRun({ stars: 400, survey: survey(3), fields: fieldsOpen })} act={() => {}} />)
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('max')
+  })
+
+  it('Lv2: the closed list names every rolled bed and field, its effect line, and its ⭐16 reroll', () => {
+    render(<Favours state={withRun({ stars: 20, survey: survey(2, ['berryPrice', 'creek']), fields: fieldsOpen })} act={() => {}} />)
+    const list = document.querySelector<HTMLDetailsElement>('.soil-traits')!
+    expect(list.open).toBe(false)
+    expect(list.querySelector('summary')!.textContent).toBe('🧭 Soil traits · 4 beds · 2 fields')
+    expect([...list.querySelectorAll('.soil-row')].map((r) => r.textContent)).toEqual([
+      'Bed 1: 🥔 Root soilroots crops sell +15 %Reroll ⭐16',
+      'Bed 2: 🧱 Claydrains 40 % slowerReroll ⭐16',
+      'Bed 3: 🌻 Fertile soilgrows 10 % fasterReroll ⭐16',
+      'Bed 4: 💎 Rich soil+10 % double harvestReroll ⭐16',
+      'Field 1: 🍓 Berry soilberry crops sell +20 %Reroll ⭐16',
+      'Field 2: 💦 Creekgrows ×1.3 with an empty tankReroll ⭐16',
+    ])
+    expect(list.querySelector<HTMLButtonElement>('[aria-label="Reroll field 1\'s soil"]')!.textContent).toBe('Reroll ⭐16')
+  })
+
+  it('Lv3 re-reads the pair: +22.5 %; a reroll spends ⭐16 and the next one costs ⭐24', () => {
+    render(<Favours state={withRun({ stars: 400, survey: survey(3), fields: fieldsOpen })} act={() => {}} />)
+    expect(document.querySelector('.soil-row')!.textContent).toContain('roots crops sell +22.5 %')
+    cleanup()
+    const h = holder(withRun({ stars: 20, survey: survey(1), fields: fieldsOpen }))
+    const view = render(<Favours state={h.get()} act={h.act} />)
+    const reroll = () => screen.getByRole('button', { name: `Reroll bed 2's soil` }) as HTMLButtonElement
+    expect(reroll().textContent).toBe('Reroll ⭐16')
+    fireEvent.click(reroll())
+    expect([h.get().run.stars, h.get().run.survey.beds[1].rerolls]).toEqual([4, 1])
+    view.rerender(<Favours state={h.get()} act={h.act} />)
+    expect(reroll().textContent).toBe('Reroll ⭐24')
+    expect(reroll().disabled).toBe(true)
   })
 })

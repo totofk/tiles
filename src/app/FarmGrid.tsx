@@ -1,8 +1,11 @@
 import { useState, type CSSProperties } from 'react'
 import { BANK_BEDS, cropRotGraceTicks, sprinklerCost, treeCadenceTicks, treePlantCost, waterMoisture } from '../core/balance'
 import { CROP_GROUPS, CROPS, type CropId } from '../core/data/crops'
+import { SOIL_TRAITS } from '../core/data/soil'
+import { bedTrait, soilStrong } from '../core/survey'
 import { plantTreeBed } from '../core/tree'
 import { price } from './fmt'
+import { soilTraitText } from './soilText'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { isOffer } from '../core/orders'
 import type { GameState, Tile } from '../core/state'
@@ -139,8 +142,20 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
         <div className="beds" style={style}>
           {Array.from({ length: beds }, (_, k) => {
             const irrigated = state.run.workshop.beds[k] === true || bank(k)
+            // batch 36.5: the bed's rolled 🧭 soil trait chip (opposite corner of the sprinkler glyph)
+            const soil = bedTrait(run, k)
             return (
               <div className={bank(k) ? 'bed bed-irrigated bed-bank' : irrigated ? 'bed bed-irrigated' : 'bed'} role="group" aria-label={`Bed ${k + 1}`} key={k}>
+                {soil !== null && (
+                  <span
+                    className="bed-soil"
+                    role="img"
+                    aria-label={`Bed ${k + 1} soil: ${SOIL_TRAITS[soil].name}`}
+                    title={`${SOIL_TRAITS[soil].name} — ${soilTraitText(soil, soilStrong(run))}`}
+                  >
+                    {SOIL_TRAITS[soil].emoji}
+                  </span>
+                )}
                 {bank(k) ? (
                   <span className="bed-fountain" title="The river waters this bed forever">
                     🌊

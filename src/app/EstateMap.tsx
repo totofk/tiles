@@ -1,6 +1,8 @@
 import { memo, useCallback, useState, type CSSProperties } from 'react'
-import { fieldPlots, pivotCost, plotTiles, pumpCost, pumpFieldCap } from '../core/balance'
+import { fieldPlots, pivotCost, plotTiles, pumpCost, pumpFieldCap, soilRerollStars } from '../core/balance'
 import { CROPS, type CropId } from '../core/data/crops'
+import { STAR_EMOJI } from '../core/data/orders'
+import { SOIL_TRAITS, SURVEY_EMOJI } from '../core/data/soil'
 import {
   buildPivot,
   buyPlot,
@@ -12,12 +14,14 @@ import {
   setFieldCrop,
   sowPlot,
 } from '../core/fields'
+import { fieldTrait, rerollSoil, soilStrong } from '../core/survey'
 import type { GameState } from '../core/state'
 import { SPRINKLER_EMOJI } from '../core/workshop'
 import { CROP_EMOJI } from './FarmGrid'
 import { priceTag } from './marketText'
 import { priceText } from './Mine'
 import { Modal } from './Modal'
+import { soilTraitText } from './soilText'
 import type { UiState } from './uiState'
 import type { Act } from './useGame'
 import { shortOf } from './Workshop'
@@ -98,11 +102,13 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
     <>
       <p className="map-legend">1 square = 1 plot of 10 tiles · a field = 5 plots under one ⛲ pivot</p>
       <div className="map-rows">
-        {list.slice(0, cap).map((field, k) => (
+        {list.slice(0, cap).map((field, k) => {
+          const soil = fieldTrait(run, k)
+          return (
           <div className="map-row" key={k}>
             <button
               className="map-chip"
-              aria-label={`Field ${k + 1} · ${field.crop ? CROPS[field.crop].name : 'no crop'}${field.pinned ? ' · pinned' : ''}${field.pivot ? '' : ' · no pivot'} — open`}
+              aria-label={`Field ${k + 1} · ${field.crop ? CROPS[field.crop].name : 'no crop'}${field.pinned ? ' · pinned' : ''}${field.pivot ? '' : ' · no pivot'}${soil !== null ? ` · soil ${SOIL_TRAITS[soil].name}` : ''} — open`}
               onClick={() => setSheet(k)}
             >
               <span aria-hidden="true">{!field.pivot ? BEYOND_EMOJI : field.crop ? CROP_EMOJI[field.crop] : '—'}</span>
@@ -110,6 +116,11 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
               <span className={`map-badge ${field.pivot ? 'map-badge-pivot' : 'map-badge-none'}`} aria-hidden="true">
                 {field.pivot ? SPRINKLER_EMOJI : '＋'}
               </span>
+              {soil !== null && (
+                <span className="map-badge map-badge-soil" aria-hidden="true">
+                  {SOIL_TRAITS[soil].emoji}
+                </span>
+              )}
             </button>
             {Array.from({ length: fieldPlots() }, (_, j) => {
               const v = plotCellView(state, k, j)
@@ -131,7 +142,8 @@ export function EstateMap({ state, act, ui }: { state: GameState; act: Act; ui: 
               )
             })}
           </div>
-        ))}
+          )
+        })}
         {n > cap && (
           <div className="estate-row">
             <span>{`Fields ${cap + 1}–${n} · ${BEYOND_EMOJI} beyond Pump ${pump}`}</span>
@@ -199,6 +211,20 @@ function FieldSheet({ state, act, ui, k, close }: { state: GameState; act: Act; 
       ) : (
         field.crop && <p className="sheet-line">{`≈💰${approx(estateCropIncomePerHour(state, k))}/h · ${priceTag(state, field.crop, ui.priceShown[field.crop])}`}</p>
       )}
+      {(() => {
+        // batch 36.5: the field's rolled 🧭 soil trait and its ⭐ reroll (Lv2+)
+        const soil = fieldTrait(run, k)
+        if (soil === null) return null
+        const rerolls = run.survey.fields[k]?.rerolls ?? 0
+        return (
+          <>
+            <p className="sheet-line">{`${SURVEY_EMOJI} Soil: ${SOIL_TRAITS[soil].emoji} ${SOIL_TRAITS[soil].name} — ${soilTraitText(soil, soilStrong(run))}`}</p>
+            <button className="sheet-build" disabled={!rerollSoil(state, 'field', k).ok} onClick={() => act((s) => rerollSoil(s, 'field', k))}>
+              {`Reroll this field's soil · ${STAR_EMOJI}${soilRerollStars(rerolls)}`}
+            </button>
+          </>
+        )
+      })()}
       <p className="sheet-line">Crop — applies at the next sowing; standing plots finish as they are</p>
       <div className="map-crops">
         {run.licenses.map((c) => (

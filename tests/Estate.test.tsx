@@ -6,6 +6,7 @@ import { TANK_UNITS_PER_COAL, pivotCost, pumpCost, pumpFieldCap, tankCapCoal } f
 import { CROPS } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
 import { fieldsOverview, fieldsPlantable, nextReapTarget, nextSowTarget, pivotsOwned } from '../src/core/fields'
+import type { FieldTraitId } from '../src/core/data/soil'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { Estate, EstateBar } from '../src/app/Estate'
 import { EstateMap } from '../src/app/EstateMap'
@@ -369,6 +370,46 @@ describe('task 153: the field chip and its sheet', () => {
     render(<Estate state={withManager(0)} act={() => {}} ui={ui} />)
     expect(screen.queryByRole('combobox')).toBeNull()
     expect(screen.queryByRole('button', { name: /^(Sow|Build pivot|Reap ⚡10|Pin Field 1)$/ })).toBeNull()
+  })
+})
+
+describe('batch 36.5: the field soil badge and its sheet reroll', () => {
+  const chip = (name: string | RegExp) => screen.getByRole('button', { name })
+  const sheet = () => screen.getByRole('dialog')
+  const withSoil = (level: number, traits: (FieldTraitId | null)[], run: Partial<GameState['run']> = {}): GameState =>
+    withFields(
+      [field([plot(null)])],
+      { ...run, survey: { level, beds: Array.from({ length: 4 }, () => ({ trait: null, rerolls: 0 })), fields: traits.map((trait) => ({ trait, rerolls: 0 })) } },
+    )
+
+  it('Lv2: the chip carries the trait emoji and "soil <name>" in its label; below Lv2 no badge even with an entry', () => {
+    setup(withSoil(2, ['berryPrice']))
+    const c = chip(`Field 1 · ${CROPS.radish.name} · soil Berry soil — open`)
+    expect(c.textContent).toBe(`${CROP_EMOJI.radish}F1⛲🍓`)
+    expect(c.querySelector('.map-badge-soil')!.getAttribute('aria-hidden')).toBe('true')
+    cleanup()
+    setup(withSoil(1, ['berryPrice']))
+    expect(chip(`Field 1 · ${CROPS.radish.name} — open`).querySelector('.map-badge-soil')).toBeNull()
+  })
+
+  it('the sheet: the soil line above the crop pick, and the ⭐16 reroll that counts up and disables', () => {
+    const t = setup(withSoil(2, ['berryPrice'], { stars: 20 }))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(sheet()).getByText('🧭 Soil: 🍓 Berry soil — berry crops sell +20 %').className).toBe('sheet-line')
+    const reroll = within(sheet()).getByRole('button', { name: `Reroll this field's soil · ⭐16` }) as HTMLButtonElement
+    expect(reroll.disabled).toBe(false)
+    fireEvent.click(reroll)
+    expect([t.cur.run.stars, t.cur.run.survey.fields[0].rerolls]).toEqual([4, 1])
+    expect((within(sheet()).getByRole('button', { name: `Reroll this field's soil · ⭐24` }) as HTMLButtonElement).disabled).toBe(true)
+    expect(within(sheet()).getByText('Crop — applies at the next sowing; standing plots finish as they are')).toBeTruthy()
+    cleanup()
+    setup(withSoil(2, ['berryPrice'], { stars: 5 }))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect((within(sheet()).getByRole('button', { name: `Reroll this field's soil · ⭐16` }) as HTMLButtonElement).disabled).toBe(true)
+    cleanup()
+    setup(withSoil(1, []))
+    fireEvent.click(chip(/^Field 1 ·/))
+    expect(within(sheet()).queryByText(/^🧭 Soil:/)).toBeNull()
   })
 })
 
