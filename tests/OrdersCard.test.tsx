@@ -47,6 +47,13 @@ describe('📋 Orders', () => {
     expect(wait.textContent).toBe('⏳ next order in 7:12')
   })
 
+  it('batch 36.4: the 📋 Order bonus relic pays +20 % on the row and in the note', () => {
+    setup(board([offer({})], { relics: ['orderBonus'] }))
+    const bonus = Math.round(40 * cropSellPrice('radish', init.meta, 0) * orderBonus(['orderBonus']))
+    expect(rows()[0].textContent).toContain(`●●○ · ⭐2 · +💰${bonus}`)
+    expect(document.querySelector('.order-note')!.textContent).toContain('at +20 %')
+  })
+
   it('Accept, then an accepted crop order has ✕ only; an item order Deliver (enabled when storage holds the rest)', () => {
     const t = setup(board([offer({}), offer({ good: 'stone', count: 8, done: 0, tier: 0, accepted: true, stars: 1 })], { inventory: { stone: 8 } }))
     within(rows()[0]).getByRole('button', { name: /Accept Carrot order/ }).click()

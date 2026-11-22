@@ -195,6 +195,18 @@ describe('Mine panel', () => {
     expect([t.get().run.inventory.copperBar, t.get().run.furnace.molds.copperOre!.ready]).toEqual([1, 0])
   })
 
+  it('batch 36.4: ⛰️ stone fuel needs the Stone fire relic — no button without it, 2 fire units with it', () => {
+    setup({ furnace: built, inventory: { stone: 5 } })
+    expect(screen.queryByRole('button', { name: /^Fill with ⛰️/ })).toBeNull()
+    cleanup()
+    const t = setup({ furnace: built, inventory: { stone: 1 }, relics: ['stoneFuel'] })
+    const stone = () => screen.getByRole('button', { name: /^Fill with ⛰️/ }) as HTMLButtonElement
+    expect(stone().textContent).toBe(`Fill with ${STONE} stoneuses 1`)
+    fireEvent.click(stone())
+    t.rerender()
+    expect([t.get().run.furnace.fire, t.get().run.inventory.stone]).toEqual([60, 0])
+  })
+
   it('batch 35.2: the fuel row has an Auto-buy wood toggle, off by default; the fill buttons do not change', () => {
     const t = setup({ furnace: built })
     const box = screen.getByRole('checkbox', { name: /^Auto-buy wood 💰4 into the fire/ }) as HTMLInputElement

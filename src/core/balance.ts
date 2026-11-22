@@ -923,9 +923,9 @@ export function smeltOre(): number {
   return SMELT.ore
 }
 
-/** items of this fuel one cycle of this ore burns (copper: coal 1, wood 2; iron twice that) */
-export function smeltFuel(fuel: FuelId, ore: OreId = 'copperOre'): number {
-  return barTicks(ore) / fuelTicks(fuel)
+/** items of this fuel one cycle of this ore burns (copper: coal 1, wood 2; iron twice that; stone via the relic, batch 36.4) */
+export function smeltFuel(fuel: FuelId, ore: OreId = 'copperOre', relics: readonly RelicId[] = []): number {
+  return barTicks(ore) / fuelTicks(fuel, relics)
 }
 
 /** fire ticks one cycle of this ore burns (copper 60, iron 120) */

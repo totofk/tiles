@@ -2,10 +2,13 @@ import { useState } from 'react'
 import { buySeeds, digForSeeds, selectCrop, setAutoBuySeeds } from '../core/actions'
 import { cropSeedCost, digSeedDrop } from '../core/balance'
 import { ANCIENT_CROP, CROPS, CROP_IDS } from '../core/data/crops'
+import { RELIC_IDS, RELICS } from '../core/data/relics'
+import { pickRelic, relicSet, reserveCap } from '../core/relics'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import { Fields } from './Fields'
 import { price } from './fmt'
+import { Bar } from './Bar'
 import { Info } from './Info'
 import { HAND_EMOJI, priceTag } from './marketText'
 import { Orders } from './Orders'
@@ -87,31 +90,65 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
 
 export function DigSeeds({ state, act }: { state: GameState; act: Act }) {
   const [lastDig, setLastDig] = useState<string | null>(null)
-  void state // batch 227 adds the 📖 collection book under this line
+  const { run } = state
   return (
-    <p className="dig-seeds">
-      <button
-        onClick={() =>
-          act(digForSeeds, (prev, next) => {
-            const { crop } = digSeedDrop()
-            // batch 36.4: list every find of this dig, in a fixed order, by comparing prev/next
-            const parts: string[] = []
-            if ((next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)) parts.push(`a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed`)
-            if (!prev.run.finds.book && next.run.finds.book) parts.push('the 📖 collection book')
-            if (next.run.finds.shards > prev.run.finds.shards) parts.push('a 🏺 relic shard')
-            if (next.run.finds.starDust > prev.run.finds.starDust) parts.push('✨ star dust (⭐+1)')
-            const ancient = next.run.finds.ancientSeeds - prev.run.finds.ancientSeeds
-            if (ancient === 1) parts.push('a 🦴 ancient seed')
-            if (ancient > 1) parts.push(`${ancient} 🦴 ancient seeds`)
-            setLastDig(parts.length > 0 ? `Found ${parts.join(' + ')}!` : 'Nothing this time')
-            return null
-          })
-        }
-      >
-        {HAND_EMOJI} Dig for seeds <small>⚡1</small>
-      </button>
-      {lastDig && <span role="status">{lastDig}</span>}
-    </p>
+    <>
+      <p className="dig-seeds">
+        <button
+          onClick={() =>
+            act(digForSeeds, (prev, next) => {
+              const { crop } = digSeedDrop()
+              // batch 36.4: list every find of this dig, in a fixed order, by comparing prev/next
+              const parts: string[] = []
+              if ((next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)) parts.push(`a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed`)
+              if (!prev.run.finds.book && next.run.finds.book) parts.push('the 📖 collection book')
+              if (next.run.finds.shards > prev.run.finds.shards) parts.push('a 🏺 relic shard')
+              if (next.run.finds.starDust > prev.run.finds.starDust) parts.push('✨ star dust (⭐+1)')
+              const ancient = next.run.finds.ancientSeeds - prev.run.finds.ancientSeeds
+              if (ancient === 1) parts.push('a 🦴 ancient seed')
+              if (ancient > 1) parts.push(`${ancient} 🦴 ancient seeds`)
+              setLastDig(parts.length > 0 ? `Found ${parts.join(' + ')}!` : 'Nothing this time')
+              return null
+            })
+          }
+        >
+          {HAND_EMOJI} Dig for seeds <small>⚡1</small>
+        </button>
+        {lastDig && <span role="status">{lastDig}</span>}
+      </p>
+      {/* batch 36.4: the 📖 collection book opens on the run's first dig; no HUD change (the reserve lives here too) */}
+      {run.finds.book && (
+        <section className="relic-book" aria-label="Collection book">
+          <h3>📖 Collection book</h3>
+          <p className="relic-shards">{relicSet(run) ? '🏺 Set complete — every rule ×1.5' : `🏺 Shards ${run.finds.shards} · 5 buy one rule`}</p>
+          <ul>
+            {RELIC_IDS.map((id) => (
+              <li key={id}>
+                <span>
+                  {RELICS[id].name} — {RELICS[id].text}
+                </span>
+                {run.relics.includes(id) ? (
+                  <em>✓ owned</em>
+                ) : (
+                  <button disabled={!pickRelic(state, id).ok} onClick={() => act((s) => pickRelic(s, id))}>
+                    Take 🏺5
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {run.relics.includes('overflowReserve') && (
+            <p className="relic-reserve">
+              🔋 Reserve {Math.floor(run.energyReserve)} / {reserveCap(run, state.meta)}
+              <Bar value={run.energyReserve / reserveCap(run, state.meta)} kind="energy" />
+            </p>
+          )}
+          <small>
+            Ever found: 🏺 {run.lifetime.shardsFound} · ✨ {run.lifetime.starDustFound} · 🦴 {run.lifetime.ancientSeedsFound} · rules {run.lifetime.relicsEver.length} / 6 · relics are lost when the farm is sold
+          </small>
+        </section>
+      )}
+    </>
   )
 }
 

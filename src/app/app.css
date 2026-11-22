@@ -2281,3 +2281,51 @@ details > summary:focus-visible {
     bottom: 16px;
   }
 }
+
+/* 📖 the collection book (batch 36.4): under the dig button, opens on the run's first dig */
+.relic-book {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: var(--s2) var(--s3);
+  margin: var(--s2) 0 0;
+}
+.relic-book h3 {
+  margin: 0 0 var(--s1);
+  font-size: 14px;
+}
+.relic-shards {
+  margin: 0 0 var(--s1);
+  font-weight: 600;
+}
+.relic-book ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.relic-book li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2);
+  min-height: 44px;
+  font-size: 12px;
+  color: #555;
+}
+.relic-book li > em {
+  font-style: normal;
+  white-space: nowrap;
+}
+.relic-reserve {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: var(--s1) 0 0;
+  font-size: 12px;
+  color: #555;
+}
+.relic-book > small {
+  display: block;
+  margin-top: var(--s1);
+  font-size: 12px;
+  color: #555;
+}
