@@ -15,6 +15,7 @@ import { TOOL_JOBS, type ToolJob } from '../../src/core/data/tools'
 import { buyToolTier, buyTool } from '../../src/core/tools'
 import {
   ACTION_ENERGY_COST,
+  BARGE_ITEMS,
   TILE_CAP,
   certificateCost,
   cropGrowTicks,
@@ -48,8 +49,10 @@ import {
   toolTierCost,
   veinUpgradeCost,
   workshopCost,
+  type BargeItemId,
   type Price,
 } from '../../src/core/balance'
+import { buyBarge } from '../../src/core/wetlands'
 import { ITEM_IDS } from '../../src/core/data/items'
 import {
   addFuel,
@@ -560,6 +563,15 @@ const FIELDS_LADDER: Goal[] = [
 
 const FIELDS_ON_GOALS = FIELDS_LADDER.slice(WORKSHOP_LADDER.length)
 
+/**
+ * batch 36.3 (barge): FIELDS_LADDER's goals that need no mine, in order — storage, the copper / iron / gold farm tools,
+ * the planter certificate, the tiles and the Fields; every vein, furnace, pickaxe, mold, smart, loader / mine
+ * certificate, workshop and sprinkler goal is dropped. Their bars, stone and coal come from the barge.
+ */
+const WETLANDS_LADDER: Goal[] = FIELDS_LADDER.filter(
+  (g) => /^(storageLv|copper:|iron:|gold:)/.test(g.name) || ['plantCertificate', 'tiles13', 'tiles19', 'fields'].includes(g.name),
+)
+
 /** the sum of two keeps, except coal: the bigger phase budget covers both (batch 19: the sum topped the bag and wedged the miner on a full coal bag; kept as is with molds, batch 33) */
 const plusKeep = (a: (s: GameState) => Price, b: (s: GameState) => Price) => (s: GameState): Price => {
   const out = a(s)
@@ -651,6 +663,7 @@ function runBot(
     /** batch 19 (with fields): MACHINES_LADDER; the machines are bought as goals, the keeps hold their bars */
     machines = false,
     buyTools = false,
+    barge = false,
     onEnd,
     onTick,
     initial,
@@ -716,6 +729,12 @@ function runBot(
      * certificates' stone and coal when storage is full; hires only once a farm certificate is owned
      */
     buyTools?: boolean
+    /**
+     * batch 36.3 (a no-mine Wetlands run): WETLANDS_LADDER; before each goal buy (and each farm certificate) the bot buys
+     * the keep's shortfall of the barge's goods when the buy then succeeds; it never mines (idle energy stays idle);
+     * once the Fields are open it keeps an hour of burn in the tank with barge coal
+     */
+    barge?: boolean
     /** batch 20: the prestige sim's run 2 starts from a sold state (createFreshRun already shaped it) */
     initial?: GameState
     /**
@@ -738,7 +757,7 @@ function runBot(
   const log = simLog(testName, logName ?? `run${runNo}`)
   let bought: string[] = []
   const marked = new Set<string>()
-  const goals = machines ? MACHINES_LADDER : fields ? FIELDS_LADDER : sprinklers ? WORKSHOP_LADDER : gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
+  const goals = barge ? WETLANDS_LADDER : machines ? MACHINES_LADDER : fields ? FIELDS_LADDER : sprinklers ? WORKSHOP_LADDER : gold ? GOLD_LADDER : ironTools ? IRON_TOOLS_LADDER : iron ? IRON_LADDER : planter ? PLANT_LADDER : furnace ? FURNACE_LADDER : copperTools ? COPPER_LADDER : LADDER
   const ladderTicks: Partial<Record<LadderStep | 'firstBar' | 'ironMold' | 'firstIronBar' | 'goldMold' | 'firstGoldBar', number>> = {}
   const workerTicks: Partial<Record<'firstCertificate' | `${WorkerJob}Certificate` | 'firstHire' | 'pool3', number>> = {}
   // batch 13: the first tick each certificate could be bought (its gates met) and the storage held then
@@ -787,6 +806,27 @@ function runBot(
       if (r.ok) bought.push(`buy:${item}`)
     }
     return tryAct(r, null)
+  }
+  // batch 36.3: every barge buy (tick, good, units, cash)
+  const bargeBuys: { tick: number; id: BargeItemId; n: number; cash: number }[] = []
+  const bargeBuy = (id: BargeItemId, n: number, from: GameState): ActionResult => {
+    const r = buyBarge(from, id, n)
+    if (r.ok) bargeBuys.push({ tick: from.run.tick, id, n, cash: from.run.cash - r.state.run.cash })
+    return r
+  }
+  /** barge: tops up `need`'s barge goods, kept only when `buy` then succeeds (no bars bought for a buy still locked) */
+  const bargeFor = (item: string, need: (s: GameState) => Price, buy: (s: GameState) => ActionResult) => {
+    const mark = bargeBuys.length
+    let t = s
+    for (const id of BARGE_ITEMS) {
+      const n = (need(t)[id] ?? 0) - (t.run.inventory[id] ?? 0)
+      if (n < 1) continue
+      const r = bargeBuy(id, n, t)
+      if (!r.ok) break
+      t = r.state
+    }
+    if (t !== s && buy(t).ok) buyAs(`barge:${item}`, { ok: true, state: t })
+    else bargeBuys.length = mark
   }
 
   // Mining fills idle energy only. Order: license → sell stone when the bag is full
@@ -879,11 +919,13 @@ function runBot(
   // more workers than harvest, else to harvest. Certificates bought here are farm jobs only; the loaders' come from
   // FURNACE_LADDER and, with `furnace`, each certified loader gets one worker before free ones go to the farm.
   const staff = (tick: number) => {
-    for (const job of FARM_JOBS)
+    for (const job of FARM_JOBS) {
+      if (barge && !s.run.workers.certificates.includes(job)) bargeFor(`${job}Certificate`, (x) => certificateCost(job, x.meta), (x) => buyCertificate(x, job))
       if (buyAs(`${job}Certificate`, buyCertificate(s, job), () => certificateCost(job, s.meta))) {
         workerTicks.firstCertificate ??= tick
         workerTicks[`${job}Certificate`] = tick
       }
+    }
     const certified = !buyTools || FARM_JOBS.some((job) => s.run.workers.certificates.includes(job))
     while (certified && buyAs('hire', hireWorker(s))) {
       workerTicks.firstHire ??= tick
@@ -941,8 +983,9 @@ function runBot(
       for (const job of WORKER_JOBS) if (certificateUnlocked(s.run, job)) certUnlocked[job] ??= { tick, bagCapacity: s.run.bagCapacity }
     if (workers) staff(tick)
     // batch 16: a gold run's staffed lemon farm eats every point of energy, so the ladder buy cannot wait for idle mining
-    if (gold || sprinklers) {
+    if (gold || sprinklers || barge) {
       const goal = goals.find((g) => !g.done(s))
+      if (goal && barge) bargeFor(goal.name, goal.keep, goal.buy)
       if (goal && buyAs(goal.name, goal.buy(s), () => goal.keep(s))) ladderTicks[goal.name] ??= tick
     }
     // batch 18: the planter works the fields only once a crop is picked — the bot picks lemons, its best licensed crop
@@ -956,6 +999,13 @@ function runBot(
       const spare = (s.run.inventory.coal ?? 0) - (goals.find((g) => !g.done(s))?.keep(s).coal ?? 0)
       if (spare >= 1) tryAct(fillTank(s, spare), null)
     }
+    // batch 36.3: the hour of burn comes from the barge (no miner digs coal)
+    if (barge && s.run.fields.unlocked) {
+      const f = s.run.fields
+      const room = Math.floor((tankCapCoal(f.pump) * TANK_UNITS_PER_COAL - f.tank) / TANK_UNITS_PER_COAL)
+      const n = Math.min(room, hourOfBurn(s) - Math.floor(f.tank / TANK_UNITS_PER_COAL))
+      if (n >= 1 && buyAs('barge:tank', bargeBuy('coal', n, s))) tryAct(fillTank(s, n), null)
+    }
     while (s.run.energy >= ACTION_ENERGY_COST) {
       // batch 16: while a gold run's next goal still waits on mined goods, the player mines instead of supplementing
       // the staffed farm — the farm's actions would otherwise eat every point of energy and stall the ladder
@@ -963,6 +1013,7 @@ function runBot(
       const gatherTail = machines ? MACHINES_LADDER.slice(GOLD_LADDER.length) : fields ? FIELDS_LADDER.slice(GOLD_LADDER.length) : sprinklers ? WORKSHOP_LADDER.slice(GOLD_LADDER.length) : GOLD_LADDER.slice(IRON_TOOLS_LADDER.length)
       const gatherGoal = nextGoal && gatherTail.includes(nextGoal) ? nextGoal : undefined
       const gathering =
+        !barge &&
         gatherGoal !== undefined &&
         Object.entries(gatherGoal.keep(s)).some(([id, n]) => id !== 'cash' && (s.run.inventory[id as keyof typeof s.run.inventory] ?? 0) < n!)
       const next = gathering ? null : bestFarmAction(s, crops)
@@ -973,7 +1024,7 @@ function runBot(
         if (next.kind.startsWith('harvest') && next.kind.endsWith(':eggplant')) m.firstPumpkinHarvest ??= tick
         if (next.kind.startsWith('plant:eggplant')) m.firstPumpkinPlanted ??= tick
         milestones()
-      } else if (!mineOnce(tick)) break
+      } else if (barge || !mineOnce(tick)) break
     }
     milestones()
     // batch 33: where the bot switched the furnace to iron / gold it buys that mold (the goal's keep holds its price)
@@ -1035,6 +1086,7 @@ function runBot(
   onEnd?.(s)
   return {
     borrowed,
+    bargeBuys,
     workerTicks,
     certUnlocked,
     wagesPaid: s.run.lifetime.wagesPaid,

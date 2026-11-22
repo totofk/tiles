@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BARGE_ITEMS,
   FORGE_RECIPES,
   treeCadenceTicks,
   type SellableItemId,
@@ -33,6 +34,7 @@ import {
 } from '../src/core/balance'
 import { buySeeds } from '../src/core/actions'
 import { buyWood } from '../src/core/mining'
+import { bargePrice } from '../src/core/wetlands'
 import { CROP_IDS } from '../src/core/data/crops'
 import { FORGE_GOOD_IDS, ORE_IDS, PICKAXE_TIERS, type ItemId, type PickaxeTier } from '../src/core/data/items'
 import { createInitialMeta, createInitialState, type MetaState } from '../src/core/state'
@@ -212,5 +214,18 @@ describe('batch 36.2: tree bed and forge numbers', () => {
       expect(sell / inputs).toBeGreaterThan(1)
       expect(sell / inputs).toBeLessThanOrEqual(1.3)
     }
+  })
+})
+
+describe('batch 36.3: PIN36i the barge never buys below sell', () => {
+  it('every barge good, Better prices 0 … 30, sell / cost deeds 0 … 10: bargePrice > itemSellPrice; at no upgrades 125 / 625 / 1,250 / 3 / 5', () => {
+    const base = createInitialMeta()
+    expect(BARGE_ITEMS.map((id) => bargePrice(id, base, 0))).toEqual([125, 625, 1250, 3, 5])
+    for (let sellDeed = 0; sellDeed <= 10; sellDeed++)
+      for (let costDeed = 0; costDeed <= 10; costDeed++) {
+        const meta: MetaState = { ...base, upgrades: { ...base.upgrades, sellPrice: sellDeed, cost: costDeed } }
+        for (let level = 0; level <= 30; level++)
+          for (const id of BARGE_ITEMS) expect(bargePrice(id, meta, level)).toBeGreaterThan(itemSellPrice(id, meta, level))
+      }
   })
 })

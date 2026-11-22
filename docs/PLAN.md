@@ -86,7 +86,7 @@ Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin bel
 
 ## Tasks (219–223)
 
-- [ ] 219. **Save v32 (version stamp; no new state).** 36.3 adds no run or meta field: the barge holds static prices,
+- [x] 219. **Save v32 (version stamp; no new state).** 36.3 adds no run or meta field: the barge holds static prices,
   bank beds and every reroute derive from `run.listing.district` + `run.mineLicense`. The bump keeps the accepted save
   chain (36.3 = v32, 36.4 = v33 …) and the real v31 fixture proves it. `SAVE_VERSION` 31 → 32
   (`src/save/serialize.ts:38`). `SaveV31` (`:296`) stays `{ version: 31; savedAtMs: number; state: GameState }`; new
@@ -101,7 +101,7 @@ Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin bel
   keeps the state deep-equal and stamps 32; every fixture save-v1 … save-v31 lands on version 32; the migration switch
   test (`:546`) accepts v21 … v32. Update every `SAVE_VERSION`/"→ v31" pin (save.test, App.test "Will migrate v15 →
   v31") to 32. Commit this task FIRST, before any mechanic.
-- [ ] 220. **Wetlands framework: supply list, berry ×1.4, the Next farm hint, no mine licence.**
+- [x] 220. **Wetlands framework: supply list, berry ×1.4, the Next farm hint, no mine licence.**
   - `src/core/data/districts.ts`: `DISTRICT_SELLS.wetlands` (`:24`, today `CROP_IDS`) = `[...CHEAP_RUNGS, 'tomato',
     'lemon', 'grape', 'strawberry']` (9 crops, no chilli — accepted calculator assumption 3); update the `:19` comment.
     `DISTRICT_HINT` (`:30–33`) gains `wetlands: 'sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine'` (58 code
@@ -117,7 +117,7 @@ Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin bel
     workshop (vein 4, `src/core/workshop.ts:13–18`) — no new checks needed there.
   - `buyLicense` already returns NOT_SOLD_HERE for unowned unlisted crops (`src/core/actions.ts:275–278`); an owned
     chilli licence (keepLicenses deed, or bought before 36.3) keeps working (36.2 call 4).
-- [ ] 221. **Bank beds and the reroutes (core).** All of these apply ONLY where stated; plain, Orchard Valley and Iron
+- [x] 221. **Bank beds and the reroutes (core).** All of these apply ONLY where stated; plain, Orchard Valley and Iron
   Hills behave byte-identically (every existing pin and sim number stays).
   | Gate (code today) | Plain | Wetlands |
   |---|---|---|
@@ -134,7 +134,7 @@ Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin bel
   | smart valve (`buyValve`, `workshop.ts:38–44`, needs the workshop) | buyable | absent on a no-mine run: pivoted fields burn tank coal on every plot (`burningPlots`, `fields.ts:397–403`) — priced into barge coal |
   `BANK_BEDS = 2` (est.) in balance.ts. Fields with an empty tank never stall (they grow at the unpressured ×1 pace,
   `fields.ts:409–414`), so coal can never soft-lock a run; it only slows it.
-- [ ] 222. **The 🌊 barge and the River view (core + UI).**
+- [x] 222. **The 🌊 barge and the River view (core + UI).**
   - Core (`src/core/wetlands.ts`; numbers in balance.ts, all est., accepted calculator item 5): `BARGE_ITEMS =
     ['copperBar', 'ironBar', 'goldBar', 'stone', 'coal']`, `BARGE_PRICE = { copperBar: 125, ironBar: 625, goldBar: 1250,
     stone: 3, coal: 5 }` (bars ×1.25 of their sell 100 / 500 / 1,000, `ITEM_SELL_PRICE` `balance.ts:73–82`).
@@ -170,7 +170,7 @@ Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin bel
     socket on a bank bed. Tiles in bank beds render exactly as sprinkler-bed tiles do today.
   - `src/app/tips.ts`: a `barge` tip "Wetlands has no mine: the barge sells bars, stone and coal for cash. Buying costs
     more than selling." if a tip slot is used; no other new copy beyond what this plan names.
-- [ ] 223. **The no-mine bot, pins, CHANGELOG, results.**
+- [x] 223. **The no-mine bot, pins, CHANGELOG, results.**
   - Bot knob (priced here, rule 1g; `tests/sim/bot.ts`): new `runBot` option `barge?: boolean` (`:633–733`, with
     `fields`): goals = `WETLANDS_LADDER` = `FIELDS_LADDER` (`:554`) filtered to the goals that need no mine, kept in order
     — storage levels (`storageLv1`–`4`), the copper / iron / gold farm-tool tiers (`copper:*`, `iron:*`, `gold:*`),
@@ -254,3 +254,79 @@ on Wetlands); a contract ⭐ bonus (PIN36j call); the pool doc's 18-tile home ca
 beyond the tank hand's coal; the almanac "+1 deed per district first finish"; dig finds + relics (36.4); Soil survey
 (36.5); renown tiers + the breadth rule (36.6); any change to plain-listing balance or the mine itself; the open 36.2
 nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason, the 375 top-bar wrap).
+
+## Batch 36.3 results
+
+Tests: 1232 passed + 7 expected fail (1239) before → 1264 passed + 8 expected fail (1272) after (`pnpm test`, 69 files;
+the new expected fail is the PIN36h band, see Deviations). `pnpm lint`, `pnpm build` and
+`tsc -b --force` clean; purity grep over src/core + src/save shows only the known `src/save/storage.ts:26` wallClock;
+case-clash check prints nothing; no dist/ or sim-logs/ tracked.
+
+- 219 (`b3e67547`): `SAVE_VERSION` 32, `SaveV32`, `migrateV31` (a version stamp) chained on every branch. The real
+  `save-v31.json` migrates to `{ ...v31, version: 32 }` deep-equal (plain listing, ⭐79, 24 tiles, 10 licences, mine
+  licence, tree null, forge unbuilt); every fixture v1 … v31 lands on v32; the switch accepts v21 … v32 and rejects v33.
+- 220 (`77579f5b`): `DISTRICT_SELLS.wetlands` = the 5 cheap rungs + tomato, lemon, grape, strawberry; berries ×1.4 on
+  Wetlands; the Wetlands Next farm hint; `buyMineLicense` → LOCKED on Wetlands (after ALREADY_OWNED);
+  `noMine()` in the new `src/core/wetlands.ts`.
+- 221 (`af93868b`): `BANK_BEDS = 2`; `isIrrigated` true on beds 0–1 of every Wetlands run; `buildSprinkler` LOCKED on a
+  bank bed; `fieldsGates().water` true on Wetlands; `buyPump` skips NO_WORKSHOP on Wetlands; `buyStorage` needs no
+  licence on a no-mine run; the fuel certificate unlocks with the Fields on a no-mine run; the fuel loader buys one
+  barge coal into the tank when no coal is stored (`bargeCoalToTank`); `craftPickaxe` → NO_MINE_LICENSE on a no-mine
+  run. PIN36k core gates in `tests/wetlands.test.ts`.
+- 222 (`c18ce09`): `BARGE_ITEMS`, `BARGE_PRICE`, `bargePrice` (cost deed, floor sell + 1), `buyBarge`; the River view
+  (Mine.tsx, item grid extracted into `ItemGrid`, `Barge` group), the "🌊 River" phone tab, Shop (no licence / wood
+  rows, Fields row without a workshop), Upgrades storage row, Workers rows, badges, FarmGrid bank beds, the `barge` tip;
+  Legacy's sale-gate text uses `fieldsGates`.
+- 223: the bot's `barge` knob + `WETLANDS_LADDER`; PIN36h, PIN36i, PIN36j, the rest of PIN36k; CHANGELOG 36.3 (139
+  code points).
+
+Pins:
+- PIN36h: `{"plain10":7.65,"wetlands":null,"bargeSpendToFields":{"cash":190,"copperBar":0,"ironBar":0,"goldBar":0,
+  "stone":55,"coal":5},"afterUnlock":{"hours":0,"pressuredShare":null,"bargeCoal":0,"tankEmptyTicks":0}}`. plain10 =
+  PIN36c's 7.65 h (plain unchanged). The no-mine assertion passes (no licence, vein 0, empty rack, mines 0 for 24
+  game-h); the ±20 % band is `it.fails` (bot deadlock, see Deviations). Barge spend is the whole run (no unlock).
+- PIN36i: at no upgrades the barge prices are 125 / 625 / 1,250 / 3 / 5; for every good, Better prices 0 … 30 and
+  sell / cost deeds 0 … 10, `bargePrice > itemSellPrice`.
+- PIN36j: the no-mine Wetlands pool = the 9 licences; 200 rolled offers each pay their tier's ⭐ (8 / 16 / 32), same
+  tier and ⭐ as on plain for the same rng. Report: `{"plainPool":18,"plainItemShare":0.444,"wetlandsPool":9,
+  "wetlandsItemShare":0}`. No contract ⭐ bonus.
+- PIN36k (`tests/wetlands.test.ts`, 14 tests): every gate in the plan's list, including a barge-funded run through
+  storage Lv1 … Lv10, the Noticeboard, water / harvest / plant / clerk / Manager certificates, the copper / iron / gold
+  tool tiers, the Fields unlock and the fuel certificate.
+
+New UI strings: "🌊 River" (h2 and phone tab), "🌊 Barge" (h3), barge rows "{emoji} {name} 💰{price}" with "×1" /
+"×10", "📦 Storage" (Upgrades heading on a no-mine run), "unlocks with the 🚜 Fields" (fuel row), bed title "The
+river waters this bed forever", tip "Wetlands has no mine: the barge sells bars, stone and coal for cash. Buying costs
+more than selling.", hint "sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine", the CHANGELOG line.
+
+### Deviations
+
+- **PIN36h is `it.fails` (bot-ladder deadlock).** WETLANDS_LADDER (built as specified, in order) waits from 0.19 h
+  (after storageLv2) on `copper:water`. Every starting tile sits in a bank bed, so nothing is ever watered, `waters`
+  stays 0 and the water tool Lv1 (gate `waters` 20) never unlocks. At 24 game-h the bot holds 💰874,779 with
+  `tools.water` 0, so cash was not the limit. This is not a game soft-lock: tile 13 is a cash buy, it lands in bed 2,
+  which needs water, and the Fields gate needs only the plant and harvest certificates. PIN36k proves that path with
+  barge goods. The ×1.0 bar fallback does not apply (it covers a slow unlock, not a missing one), so no number was
+  changed and the bot was not tuned. Fix candidates for Hermes / Toon (not applied): water tiers after `tiles13`, or
+  water tiers left out of WETLANDS_LADDER. Playtest note: on Wetlands the water tool, its tiers, the water certificate
+  and the water worker are all inert until tile 13.
+- The `barge` knob also tops up the farm certificates' barge goods inside `staff()` (the harvest certificate's 🪨20 ⚫5,
+  the water certificate's 🪨20). Without it they are unreachable for a non-mining bot. This is outside the plan's
+  "before the goal buy" wording, behind `barge` only.
+- `craftPickaxe` had no licence check (the plan assumed it did). PIN36k requires NO_MINE_LICENSE, so it was added for a
+  no-mine run only, which leaves plain byte-identical.
+- PIN36a (`tests/sim/fields.test.ts`) and PIN36b (`tests/fields.test.ts`) used `wetlands` only as a soil carrier
+  (plain-identical in 36.2). They now carry the soil on `plain`, which is core-identical to the old carrier (no core
+  branch reads `district === 'plain'`), so their numbers do not move. I ran the PIN36a sim alone once to check this,
+  against the brief's "no other sim alone" rule.
+- Pump tiers: PUMP_COSTS has 3 buys (pump 0 → 3, caps 2 / 6 / 12 / 20). PIN36k buys all 3, then expects MAX_LEVEL
+  ("tiers 1–4" read as the four pump levels).
+- Legacy.tsx `gateShort` (the sale-gate "needs …" text) now uses `fieldsGates(run).water`, like the Shop row, so it
+  never asks a Wetlands run for "1 bed sprinkler".
+- The Fields unlock toast still says "its card sits below the Workshop", which is inaccurate on Wetlands (no workshop).
+  Left as is (no new copy beyond the plan).
+- Old-vs-new sim byte-identity was not diffed line by line. Every existing sim pin passes in `pnpm test`, and PIN36h's
+  plain10 reproduces PIN36c's 7.65 h. Every new core branch is behind `district === 'wetlands'` / `noMine` / `barge`.
+- Not verified (no browser): layout and wrap of the River view and barge rows at 375 / 1024 / 1440 / 2560 / 3440, the
+  "🌊 River" tab at 375, the 🌊 bed marks, the Shop 🚜 Fields row, the Upgrades storage row and the Wetlands hint.
+  These are for Hermes's live sweep. jsdom render tests cover their content.

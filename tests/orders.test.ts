@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { harvest, nextRandom, type ActionResult } from '../src/core/actions'
 import { fieldsHarvest, reapPlot } from '../src/core/fields'
 import { cropSale } from '../src/core/market'
-import type { CropId } from '../src/core/data/crops'
+import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import {
   FIELD_PRESSURE,
   certificateCost,
@@ -633,5 +633,38 @@ describe('batch 36.2: PIN36g forge goods in the order pool', () => {
     const goods = pool.filter((g) => ['toolbox', 'ploughBlade', 'anchorChain'].includes(g))
     expect(goods).toEqual(['toolbox', 'ploughBlade', 'anchorChain'])
     expect(goods.length / pool.length).toBeLessThanOrEqual(0.35)
+  })
+})
+
+describe('batch 36.3: PIN36j Wetlands orders (no contract ⭐ bonus)', () => {
+  const WETLANDS: CropId[] = ['potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'lemon', 'grape', 'strawberry']
+
+  it("a no-mine Wetlands pool is exactly the licences; every rolled offer's ⭐ is its tier's 8 / 16 / 32, as on plain", () => {
+    const wet: GameState = { ...fresh, run: { ...fresh.run, listing: { district: 'wetlands', soil: null }, licenses: WETLANDS } }
+    const plain: GameState = { ...wet, run: { ...wet.run, listing: { district: 'plain', soil: null } } }
+    expect(orderPool(wet.run)).toEqual(WETLANDS)
+    expect([0, 1, 2].map(orderTierStars)).toEqual([8, 16, 32])
+    let rng = 12345
+    for (let k = 0; k < 200; k++) {
+      const [offer, next] = rollOffer(wet, rng)
+      const [onPlain] = rollOffer(plain, rng)
+      expect(WETLANDS).toContain(offer.good)
+      expect(offer.stars).toBe(orderTierStars(offer.tier))
+      expect([offer.tier, offer.stars]).toEqual([onPlain.tier, onPlain.stars])
+      rng = next
+    }
+    // report: the item share of plain's pool at the PIN36g state (vein 4, every mold, no forge)
+    const empty = { ore: 0, progress: 0, ready: 0 }
+    const pool = orderPool({
+      ...init.run,
+      licenses: [...CROP_IDS],
+      mineLicense: true,
+      vein: { level: 4, progress: 0, rock: 'stone' },
+      rack: { copper: 3, iron: 3 },
+      furnace: { ...init.run.furnace, built: true, molds: { copperOre: empty, ironOre: empty, goldOre: empty } },
+    })
+    const itemShare = Math.round((pool.filter((g) => !isCropGood(g)).length / pool.length) * 1000) / 1000
+    console.log('PIN36j', JSON.stringify({ plainPool: pool.length, plainItemShare: itemShare, wetlandsPool: WETLANDS.length, wetlandsItemShare: 0 }))
+    expect(itemShare).toBeGreaterThan(0)
   })
 })
