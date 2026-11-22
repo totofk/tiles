@@ -94,7 +94,7 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
     const s = withRun({ stars: 20, counters: { ...init.run.counters, harvests: 30 } })
     render(<Favours state={s} act={() => {}} />)
     const names = [...document.querySelectorAll('.favours .item > button:first-child')].map((b) => b.firstChild?.textContent)
-    expect(names).toEqual(['🏠 Bunkhouse Lv 0', '💧 Fine mist Lv 0', '⭐ Sell price Lv 0', '🔥 Furnace speed Lv 0', '🔥 Furnace batch Lv 0', '⛏ Seam survey'])
+    expect(names).toEqual(['🏠 Bunkhouse Lv 0', '💧 Fine mist Lv 0', '⭐ Sell price Lv 0', '🔥 Furnace speed Lv 0', '🔥 Furnace batch Lv 0', '⛏ Seam survey', '🧭 Soil survey Lv 0'])
     expect(rowOf(/Bunkhouse/).querySelector('small')!.textContent).toBe('pool 6 → 7 · ⭐15')
     expect((rowOf(/Bunkhouse/) as HTMLButtonElement).disabled).toBe(false)
     expect(rowOf(/Fine mist/).querySelector('small')!.textContent).toBe('needs fertilizer Lv5')
@@ -102,6 +102,8 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
     expect(rowOf(/Furnace speed/).querySelector('small')!.textContent).toBe('needs a furnace')
     expect(rowOf(/Seam survey/).querySelector('small')!.textContent).toBe('needs vein Lv3')
     expect((rowOf(/Seam survey/) as HTMLButtonElement).disabled).toBe(true)
+    expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('a trait for each home bed · ⭐80')
+    expect((rowOf(/Soil survey/) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('the furnace rows past the bar ladder: speed effect and price, batch 6 locked on the tray; the Stoker shows once ready', () => {

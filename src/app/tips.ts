@@ -106,4 +106,5 @@ export const FAVOUR_TIPS: Record<FavourId, string> = {
   furnaceBatch: 'Past 5 bars, each level makes one more bar per cycle, up to 10; the tray and ore slot must hold two cycles.',
   seam: 'Aim the vein at one ore: it drops twice as often, the other ores half as often. Re-aim any time for free.',
   stoker: WORKER_TIPS.stoker,
+  soilSurvey: 'Level 1 gives each home bed a soil trait, level 2 each field, level 3 makes every trait 1.5× stronger. Reroll any one for ⭐. Traits last until you sell the farm.',
 }

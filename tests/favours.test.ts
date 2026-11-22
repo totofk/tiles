@@ -19,7 +19,8 @@ const furnaceTop = (tray = 2, slot = 2) => ({ ...createFurnace(), built: true, f
 
 describe('batch 34: ⭐ Favours — prices', () => {
   it('the k-th ⭐ level of every row for k = 0 … 4 is the table (null past a capped row)', () => {
-    const rows: [Exclude<FavourId, 'stoker'>, (number | null)[]][] = [
+    // the soil survey is priced in favourPrice (not geometric), not in the FAVOURS table
+    const rows: [Exclude<FavourId, 'stoker' | 'soilSurvey'>, (number | null)[]][] = [
       ['bunkhouse', [15, 24, 38, 61, null]],
       ['mist', [8, 11, 15, 20, 27]],
       ['sell', [10, 14, 20, 27, 38]],

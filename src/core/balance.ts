@@ -686,6 +686,21 @@ export function listingRerollStars(rerolls: number): number {
   return LISTING_REROLL_STARS[Math.min(rerolls, LISTING_REROLL_STARS.length - 1)]
 }
 
+// 🧭 Soil survey (batch 36.5, DECISIONS "Batch 36.5 refined"): a capped ⭐ ladder in ⭐ Favours — Lv1 a trait for each
+// of the 4 home beds, Lv2 each Estate field (needs the 🚜 Fields), Lv3 every trait 1.5× stronger. Rerolls are per
+// bed / field and reset only with the run. The trait factors themselves are the SOIL_* [lv1, lv3] pairs below.
+export const SURVEY_STARS = [80, 200, 320]
+/** the level that rolls the Estate fields (and gates on the Fields being unlocked) */
+export const SURVEY_FIELDS_LEVEL = 2
+/** the level that multiplies every trait's delta by 1.5 */
+export const SURVEY_STRONG_LEVEL = 3
+export const SOIL_REROLL_BASE = 16
+export const SOIL_REROLL_GROWTH = 1.5
+/** ⭐ the next reroll of one bed / field after `rerolls` rerolls of that unit this run (16, 24, 36, 54, 81 …) */
+export function soilRerollStars(rerolls: number): number {
+  return Math.round(SOIL_REROLL_BASE * SOIL_REROLL_GROWTH ** rerolls)
+}
+
 /**
  * Effect of one multiplier-row level (level 0 = ×1). The batch-20 deed prices retuned these (DECISIONS "Sell the
  * farm"): growTime / cost −4 %, sellPrice +5 %. energy's deed row is flat (+2 max, see energyMax), so its step is 1

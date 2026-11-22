@@ -14,6 +14,7 @@ import {
 import { BUNKHOUSE_EMOJI, MIST_EMOJI, SEAM_EMOJI } from '../core/data/favours'
 import { ITEMS } from '../core/data/items'
 import { STAR_EMOJI } from '../core/data/orders'
+import { SURVEY_EMOJI } from '../core/data/soil'
 import { buyFavour, favourLevel, favourLock, favourPrice, favourShown, FAVOUR_IDS, type FavourId, type FavourLock } from '../core/favours'
 import type { GameState, RunState } from '../core/state'
 import { count } from './fmt'
@@ -29,6 +30,7 @@ const ROWS: Record<FavourId, { emoji: string; name: string; once?: true }> = {
   furnaceBatch: { emoji: FIRE_EMOJI, name: 'Furnace batch' },
   seam: { emoji: SEAM_EMOJI, name: 'Seam survey', once: true },
   stoker: { emoji: FIRE_EMOJI, name: 'Stoker', once: true },
+  soilSurvey: { emoji: SURVEY_EMOJI, name: 'Soil survey' },
 }
 
 const pct = (f: number) => `${Math.round(f * 100)} %`
@@ -63,6 +65,8 @@ function lockText(run: RunState, lock: FavourLock): string {
       return `needs vein Lv${seamVeinLevel()}`
     case 'stoker':
       return 'needs the fuel certificate'
+    case 'fields':
+      return 'needs the 🚜 Fields'
   }
 }
 
@@ -85,6 +89,8 @@ function effectText(run: RunState, id: FavourId): string {
       return 'aim one ore ×2'
     case 'stoker':
       return 'furnace ×1.5, fuel ×2'
+    case 'soilSurvey':
+      return ['a trait for each home bed', 'a trait for each field', 'every trait ×1.5'][run.survey.level] ?? ''
   }
 }
 

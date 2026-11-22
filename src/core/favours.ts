@@ -3,14 +3,15 @@
 // sell price, furnace speed / batch), so every reader picks it up; all of it resets on Sell the farm. No number here:
 // prices, caps and gates are in balance.ts.
 import { fail, withRun, type ActionResult } from './actions'
-import { batchBars, certificateCost, favourStars, furnaceTrayCap, furnaceUpgradeMaxLevel, seamVeinLevel, upgradeMaxLevel, veinDrops, type Price } from './balance'
+import { batchBars, certificateCost, favourStars, furnaceTrayCap, furnaceUpgradeMaxLevel, seamVeinLevel, SURVEY_FIELDS_LEVEL, SURVEY_STARS, upgradeMaxLevel, veinDrops, type Price } from './balance'
 import type { OreId } from './data/items'
 import { batchLocked } from './furnace'
 import { pay } from './mining'
+import { surveyLevelGain } from './survey'
 import type { GameState, MetaState, RunState } from './state'
 import { certificateUnlocked, hireUnlocked, stokerReady } from './workers'
 
-export const FAVOUR_IDS = ['bunkhouse', 'mist', 'sell', 'furnaceSpeed', 'furnaceBatch', 'seam', 'stoker'] as const
+export const FAVOUR_IDS = ['bunkhouse', 'mist', 'sell', 'furnaceSpeed', 'furnaceBatch', 'seam', 'stoker', 'soilSurvey'] as const
 export type FavourId = (typeof FAVOUR_IDS)[number]
 
 /** ⭐ levels bought of a row (one-time rows: 0 or 1) */
@@ -30,6 +31,8 @@ export function favourLevel(run: RunState, id: FavourId): number {
       return Number(run.favours.seam)
     case 'stoker':
       return Number(run.workers.certificates.includes('stoker'))
+    case 'soilSurvey':
+      return run.survey.level
   }
 }
 
@@ -44,7 +47,7 @@ export function favoursVisible(run: RunState): boolean {
 }
 
 /** why a row cannot be bought yet (null = its gate is met): the ladder it extends is not at its max, or what it needs */
-export type FavourLock = 'hire' | 'fertilizer' | 'sellPrice' | 'furnace' | 'speed' | 'batch' | 'tray' | 'slot' | 'vein' | 'stoker'
+export type FavourLock = 'hire' | 'fertilizer' | 'sellPrice' | 'furnace' | 'speed' | 'batch' | 'tray' | 'slot' | 'vein' | 'stoker' | 'fields'
 export function favourLock(run: RunState, id: FavourId): FavourLock | null {
   const f = run.furnace
   switch (id) {
@@ -66,12 +69,20 @@ export function favourLock(run: RunState, id: FavourId): FavourLock | null {
       return run.vein.level >= seamVeinLevel() ? null : 'vein'
     case 'stoker':
       return certificateUnlocked(run, 'stoker') ? null : 'stoker'
+    case 'soilSurvey':
+      // only Lv2 (the fields' traits) waits for the 🚜 Fields; Lv1 and Lv3 have no gate
+      return run.survey.level === SURVEY_FIELDS_LEVEL - 1 && !run.fields.unlocked ? 'fields' : null
   }
 }
 
 /** the next ⭐ level's price; null at the max (or owned) */
 export function favourPrice(run: RunState, meta: MetaState, id: FavourId): Price | null {
   if (id === 'stoker') return favourLevel(run, id) > 0 ? null : certificateCost('stoker', meta)
+  // the survey's prices are not geometric, so it is priced here, not in the FAVOURS table
+  if (id === 'soilSurvey') {
+    const level = favourLevel(run, id)
+    return level >= SURVEY_STARS.length ? null : { cash: 0, stars: SURVEY_STARS[level] }
+  }
   const stars = favourStars(id, favourLevel(run, id))
   return stars === null ? null : { cash: 0, stars }
 }
@@ -94,6 +105,8 @@ function favourGain(run: RunState, id: FavourId): Partial<RunState> {
       return { favours: { ...run.favours, seam: true } }
     case 'stoker':
       return { workers: { ...run.workers, certificates: [...run.workers.certificates, 'stoker'] } }
+    case 'soilSurvey':
+      return surveyLevelGain(run)
   }
 }
 

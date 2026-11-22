@@ -28,6 +28,7 @@ import {
   pumpFieldCap,
   reapPlotEnergy,
   seedKeepChance,
+  SURVEY_FIELDS_LEVEL,
   tankCapCoal,
   type MachineKind,
 } from './balance'
@@ -35,6 +36,7 @@ import { CROP_IDS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { pay } from './mining'
 import { cropFloor, marketSteadyGlut } from './market'
+import { drawField } from './survey'
 import type { Field, Fields, GameState, Machines, Plot, RunState } from './state'
 
 export type PlotState = 'empty' | 'growing' | 'ready'
@@ -152,7 +154,15 @@ export function buyPlot(state: GameState): ActionResult {
     at >= 0
       ? f.list.map((x, i) => (i === at ? { ...x, plots: [...x.plots, emptyPlot()] } : x))
       : [...f.list, { pivot: false, crop: null, pinned: false, plots: [emptyPlot()] }]
-  return withRun(state, { cash: run.cash - cost, fields: { ...f, list } })
+  if (at >= 0 || run.survey.level < SURVEY_FIELDS_LEVEL) return withRun(state, { cash: run.cash - cost, fields: { ...f, list } })
+  // the plot opened a NEW field at Lv2+: its soil trait is rolled at purchase (rngState advances)
+  const [trait, rngState] = drawField(run.rngState)
+  return withRun(state, {
+    cash: run.cash - cost,
+    fields: { ...f, list },
+    rngState,
+    survey: { ...run.survey, fields: [...run.survey.fields, { trait, rerolls: 0 }] },
+  })
 }
 
 // Order: LOCKED, BAD_TILE (no such field), ALREADY_OWNED, PUMP_FULL (pivots at the pump's cap), NOT_ENOUGH_ITEMS,
