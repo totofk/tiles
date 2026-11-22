@@ -82,7 +82,7 @@ no relic owned and nothing dug, every existing pin and sim number stays; the onl
 
 ## Tasks (224–228)
 
-- [ ] 224. **Save v33 and the new shape (no mechanic yet).** Commit this task FIRST.
+- [x] 224. **Save v33 and the new shape (no mechanic yet).** Commit this task FIRST.
   - Crop identity (`src/core/data/crops.ts:3–18`): `CROP_IDS` stays the 10 shop crops in licence order (the Shop,
     milestones, the Manager, districts, stats and the sims iterate it — unchanged). New `ANCIENT_CROP = 'ancientFruit'
     as const` and `ALL_CROP_IDS = [...CROP_IDS, ANCIENT_CROP] as const`; `CropId` becomes
@@ -127,7 +127,7 @@ no relic owned and nothing dug, every existing pin and sim number stays; the onl
     (`save.test.ts:1678`, `:1687`, `:1709–1710`; App.test "Will migrate v15 → v32" `tests/App.test.tsx:487`) to 33.
   - Grep `src/` and `tests/` for every `Lifetime` / `RunState` literal, `createFreshRun` caller and `market` literal
     with the 10 crop keys; CI `tsc -b` fails on a stale one.
-- [ ] 225. **Dig finds and the ancient crop (core + the dig/pouch UI).**
+- [x] 225. **Dig finds and the ancient crop (core + the dig/pouch UI).**
   - `digForSeeds` (`src/core/actions.ts:248–262`): the potato roll stays FIRST and unchanged (`r1 < 0.2`,
     `digSeedDrop()` `balance.ts:489–490`, `:1200–1202`). Then, on every successful dig, THREE more draws in this fixed
     order whether or not anything dropped (a fixed count keeps runs replayable): `r2` shard (`< DIG_SHARD_CHANCE
@@ -167,7 +167,7 @@ no relic owned and nothing dug, every existing pin and sim number stays; the onl
       holds one.
     - "Crop to plant" (`Farm.tsx:103–112`): an `🌰 Ancient fruit` button after the licensed crops while
       `run.seeds.ancientFruit > 0` or it is the selected crop, same markup.
-- [ ] 226. **The 6 relics (core): picks, the set ×1.5, the reserve, stone fuel.** New `src/core/relics.ts`. Toon's
+- [x] 226. **The 6 relics (core): picks, the set ×1.5, the reserve, stone fuel.** New `src/core/relics.ts`. Toon's
   locked numbers; `RELIC_SET_FACTOR` 1.5 is already applied in the set column:
   | Relic | none | owned | set (all 6) | Hook (today) |
   |---|---|---|---|---|
@@ -186,7 +186,7 @@ no relic owned and nothing dug, every existing pin and sim number stays; the onl
     `finds.shards` −5, `relics` + id, `lifetime.relicsEver` + id when new. Every unowned rule is offered (no random
     offer). `relicSet(run)` = all 6 owned. 30 shards = the set.
   - The fuel loader (`src/core/workers.ts:71–81`) keeps loading coal / wood only (never stone, est.).
-- [ ] 227. **UI: the 📖 collection book, stone in the furnace, the order bonus label.**
+- [x] 227. **UI: the 📖 collection book, stone in the furnace, the order bonus label.**
   - In `DigSeeds`, under the result line, once `run.finds.book`: a `<section className="relic-book">` with
     `<h3>📖 Collection book</h3>` and, in order:
     1. `🏺 Shards {finds.shards} · 5 buy one rule`; once the set is complete: `🏺 Set complete — every rule ×1.5`.
@@ -207,7 +207,7 @@ no relic owned and nothing dug, every existing pin and sim number stays; the onl
   - jsdom tests (no browser): `tests/OrdersCard.test.tsx` (+20 % with the relic), `tests/Mine.test.tsx` (stone button
     hidden / shown), a DigSeeds render test (book hidden before the first dig, shown after; Take disabled at 4 shards,
     enabled at 5; the set line), the pouch 🦴 row and the 🌰 crop button.
-- [ ] 228. **Pins, sim re-pins, CHANGELOG, results.**
+- [x] 228. **Pins, sim re-pins, CHANGELOG, results.**
   - New `tests/relics.test.ts` (pure, no bot):
     - PIN36l dig find odds: 200,000 digs from a fixed seed with ⚡ refilled — shards / dust / ancient within ±15 % of
       0.5 % / 0.3 % / 0.05 %, potato still 0.2 ± 0.01, the book on dig 1 only, same seed → same state; with the set
@@ -240,3 +240,70 @@ Out of scope: a farm-dig worker job (hand-only); the ancient crop on the Estate 
 relics as district signatures; the almanac; dust as its own spendable currency; any ⭐ Favour row; the open 36.2 nits
 (tree fruit count at 1024, empty Orchard tree sheet hint, Forge Collect reason) and the 375 top-bar wrap; the PIN36h
 sim-bot ladder deadlock (36.3 Deviation, stays `it.fails`).
+
+## Batch 36.4 results
+
+Tests 1264 passed / 1274 total (8 expected-fail) before → **1285 passed / 1293 total (8 expected-fail, 71 files)** after;
+`pnpm lint`, `pnpm build`, `npx tsc -b --force` clean, `dist/` deleted, purity grep clean (`src/save/storage.ts:26`
+wallClock excepted), case-clash check empty. Commits: d2a68a2 (224), 34b017b (225), fc888f1 (226), fdf66e5 (227), this
+commit (228).
+
+- 224 — save v33: `finds` / `relics` / `energyReserve` run fields, the 4 find lifetime counters, the licence-free
+  `ancientFruit` crop id, `migrateV32` defaults, frozen v32 shapes; every fixture v1…v32 lands on v33.
+- 225 — dig finds: 4 fixed draws per dig (potato, shard 0.5 %, dust 0.3 % = ⭐1, ancient 0.05 %; a second ancient after
+  the set), the book on the run's first dig, the ancient crop (seed back + 25 % second, no renown, depth ×4, no
+  auto-buy, last-seed switch), the dig result line, 🦴 pouch row, 🌰 crop button.
+- 226 — the 6 relics: `RELIC_*` tables + `relicTier` in balance, `src/core/relics.ts` (`pickRelic` 5 shards,
+  `spendEnergy` ⚡→reserve, `reserveCap`, `relicRegenFactor`), orderBonus / cooldown / cropFloor / fuelTicks / fuelRoom
+  relic-aware, reserve banking + regen ×factor in `step`, `spendEnergy` at every ⚡ site.
+- 227 — panels read the relics: the 📖 collection book section (shards line, 6 `Take 🏺5` rows → `✓ owned`, set line,
+  🔋 reserve + Bar, lifetime line), `Fill with ⛰️ stone` behind the Stone fire relic, Orders note `+20 %`; jsdom tests
+  `tests/DigSeeds.test.tsx`, OrdersCard +20 %, Mine stone hidden/shown.
+- 228 — `tests/relics.test.ts` PIN36l–o, CHANGELOG 36.4 (158 code points), this results section; no sim re-pin needed.
+
+PINs (`tests/relics.test.ts`, all from the fresh fixed seed):
+
+- PIN36l (200,000 digs): shards 991 = **0.4955 %**, dust 609 = **0.3045 %**, ancient 98 = **0.049 %** (targets
+  0.5 / 0.3 / 0.05, all inside ±15 %), potato 39,811 = **19.9055 %** (0.2 ± 0.01), book on dig 1, 100-dig replay
+  deep-equal. Set owned: 0 shards, ancient 207 = **0.1035 %** (≈ 0.1 % ± 25 %).
+- PIN36m: none/owned/set — orderBonus 0.1/0.2/0.3, cooldown 600/300/200, regen ×1/×1.10/×1.15, floor 0.7/0.8/0.85 on a
+  renown-4,000 crop (cap 0.9), reserve caps 0/200/300 (20 × / 30 × the ⚡ max 10), stone 0/60/90 fire ticks and `addFuel`
+  LOCKED without the rule; reserve fills only past ⚡ max and only with the rule (100 ticks at max → 33.33, capped at
+  300); `spendEnergy` pays ⚡ first then the reserve; `pickRelic` NOT_ENOUGH_ITEMS at 4 / price 5 / ALREADY_OWNED;
+  `sellFarm` drops run finds/relics/reserve, keeps the 4 lifetime book fields.
+- PIN36n (closed form, logged): digs/h at Lv10 regen **4,200**; dust ⭐/h **12.6**, **14.49** with the set (≤ 14.5),
+  both < 19.2; first rule pick **3.33 h**.
+- PIN36o (report only, the migrated v32 fixture, 2 game-h): cash gained **+23,665,652** (no relic) vs **+28,909,457**
+  (all 6), ⭐ **+0 / +0** (step-only runs no order deliveries), 🔋 reserve **0 / 1800**.
+
+Sims: **nothing re-pinned** — `tests/sim/early.test.ts` 81 passed unchanged and bars-ladder PIN35stingy passes unchanged
+(report now firstDugSeed 0.1 min, firstHarvest 1.2 min, carrot 3.0 min, 31 digs, lowest 0): both scenarios' pins are
+bands/defined-ness and absorbed the 3-extra-draw PRNG shift; `fields`, `mine-estate`, `market-orders`, `prestige-crops`,
+`tools-workshop`, `furnace-iron`, `districts` byte-identical inside `pnpm test` (PIN36h still `it.fails`, untouched).
+
+v32 fixture check (`tests/save.test.ts`): `deserialize(save-v32)` → version 33, `finds` at zero/book false, `relics` [],
+`energyReserve` 0, `market.ancientFruit` 0, the four lifetime fields added — nothing else moved.
+
+New UI strings (all jsdom-verified except the visual notes below): dig result parts `a 🥔 Potato seed`, `the 📖
+collection book`, `a 🏺 relic shard`, `✨ star dust (⭐+1)`, `a 🦴 ancient seed` / `N 🦴 ancient seeds`;
+`📖 Collection book`; `🏺 Shards {n} · 5 buy one rule`; `🏺 Set complete — every rule ×1.5`; `Take 🏺5`; `✓ owned`;
+`🔋 Reserve {n} / {cap}`; `Ever found: 🏺 n · ✨ n · 🦴 n · rules n / 6 · relics are lost when the farm is sold`;
+`🦴 Ancient seed` pouch row (TIPS.ancient); `🌰 Ancient fruit` crop button; `Fill with ⛰️ stone` (Mine, hidden without
+the relic); Orders note `at +20 %`; CHANGELOG 36.4 line.
+
+### Deviations
+
+- The Mine `Fill with ⛰️ stone` gate was committed with task 226 (fc888f1), not 227: FUEL_UNITS gaining stone broke
+  the Mine "three groups" pin mid-batch, and the gate (planned for 227) was the fix; 227 then added its hidden/shown
+  test only.
+- `balance.ts`: the dead `ORDER_BOARD.bonus` field and `ORDER_COOLDOWN_TICKS` constant were removed (their values live
+  on as `RELIC_ORDER_BONUS[0]` / `RELIC_COOLDOWN_TICKS[0]`; lint no-unused forced the deletion, no number changed).
+- `tests/App.test.tsx` batch-35 dig text pins: with 4 draws per dig the first potato seed moved to dig 11, past a fresh
+  run's ⚡10 = 10 digs — both tests now pin the deterministic first-dig `Found the 📖 collection book!`; potato odds stay
+  pinned at unit level (PIN36l 200,000 digs + the 2,000-dig rate test in `tests/actions.farm.test.ts`).
+- `tests/relics.test.ts` float notes: the reserve below ⚡ max is asserted `< 1e-9`, not `=== 0` (the integer rounding
+  of ⚡ banks 4.4e-16 dust per tick); PIN36n's 4,199.999… digs/h asserted via `Math.round = 4200`.
+- PIN36o's ⭐ gained is +0 in both runs — the migrated fixture's 2 game-h of pure `step` delivers no orders; report-only
+  as planned, Toon judges the relic's worth in the playtest.
+- jsdom only, no browser (per brief): layout, wrap and the Bar's visual fill at 375 / 1024 / 1440 / 2560 / 3440 are
+  unverified.
