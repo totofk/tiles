@@ -1248,3 +1248,66 @@ Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these
     storage row, Wetlands hint) are Hermes's verify step after the worker, not the worker's.
 - **Renumbered:** none. Batch 36.3 = tasks 219–223, save v32. Next: 36.4 (dig finds + relics, v33), planned only after
   36.3 is pushed, re-anchored on 36.3's HEAD.
+
+## Batch 36.4 refined (2026-11-22, dig finds: 🏺 shards, ✨ star dust, 🦴 the ancient seed, 6 relics, 📖 the collection book; save v32 → v33)
+Sources: Toon's batch 36 decisions (Hermes drafts, outside the repo: `b36-split.md` row 36.4 "Dig finds (shards 0.5 %,
+star dust 0.3 %, ancient seed 0.05 % + its crop and own market), 6 relics + set bonus, collection book (lost on sale).
+New RNG rolls → re-pins the sims. v33"; `tiles-new-players-feedback-decisions.md` — finds list and the 6-rule pool
+FINAL, collection-book proposal 1–4 accepted, locked rates and the ancient crop (grow 1,440, sell 1,500, +25 % seed,
+market 4× deeper), relic-buffs results accepted (floor +0.10 / +0.15, reserve 20× / 30× ⚡ max, stone 1:1 / 1.5:1);
+`research/relic-buffs.md`, `research/calc34.md` §8–9). Draft `tiles-b36.4-plan.md` of 2026-11-21 08:18 (anchors
+d0c52954, SAVE_VERSION 29; kept as `tiles-b36.4-plan.draft-0818.md`) re-anchored on 2788495 (origin/main after 36.3).
+Go: Toon (Trin) 2026-11-22 16:29 "งั้นปล่อยให้หมดเลยทีเดียว" — batches 36.3–36.6 one after another; this entry covers
+36.4 only.
+
+Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these as written):
+1. Numbering 224–228 (five tasks: 224 save v33 + shape, 225 dig finds + the ancient crop, 226 relics core, 227 book /
+   furnace / orders UI, 228 pins + sim re-pins + changelog). The save bump is its own first commit (36.2 call 2).
+2. Save v33 carries all of 36.4's shape: `run.finds`, `run.relics`, `run.energyReserve`, `run.market.ancientFruit`
+   and four lifetime fields (the book page). Migration adds defaults only; nothing granted (no shards for old digs).
+3. `CROP_IDS` stays the 10 shop crops; the ancient crop joins `CropId` through `ALL_CROP_IDS`, in no soil group. Every
+   loop over the shop ladder (Shop, milestones, Manager, districts, stats, sims) stays byte-identical.
+4. The crop shows as 🌰 "Ancient fruit"; 🦴 stays the seed and find glyph (a bone on a growing tile reads wrong).
+5. Finds are independent of the 20 % potato roll, three fixed draws per dig in a fixed order (the seedless-only
+   reading would cut every locked rate ×0.8; a fixed count keeps runs replayable).
+6. ✨ star dust converts at once: 1 ✨ = ⭐1 (not counted in the orders' ⭐ total). 0.2 ⭐ per dust would be a blank find
+   in the ×8 era. Ceiling: 4,200 digs/h at regen Lv10 × 0.3 % = 12.6 ⭐/h, 14.5 with the regen relic set, under the
+   ×8-scaled dust ceiling 19.2 (PIN36n). Reject → 2 ✨ = ⭐1.
+7. 📖 The book is found on the run's first dig (no rate was ever decided); every run gets a "dig finds something"
+   moment at ⚡1.
+8. CHANGED from the draft: after the set, the shard draw pays a second 🦴 ancient seed (0.05 %), not a second dust draw.
+   The draft's dust slot (0.3 % → 0.8 %) breaks its own ceiling: 4,830 digs/h (regen Lv10 × the set's ×1.15) × 0.8 % =
+   38.6 ⭐/h > 19.2. The ancient seed is the other "other find" and pays cash, not ⭐.
+9. A pick offers every rule not owned this run (no random 1-of-N); 5 shards each, 30 = the set.
+10. The 🔋 reserve pays any ⚡ action once ⚡ is empty (farm actions, farm dig, Fields reap, mine dig, tree planting),
+    not digs only — relic-buffs §2 banks hand mining too. Workers (⚡ 0) never touch it.
+11. CHANGED from the draft: the ancient crop is home-only in 36.4 (not plantable on the Estate). A field takes a whole
+    plot of seeds per planting and the field harvest path (reap, machines) would need its own seed-return branch; at
+    0.05 % per dig the pouch rarely holds that many early, and fields / Manager / contracts stay byte-identical. Reject →
+    a later batch makes it field-plantable from stock.
+12. The ancient seed is never auto-bought; selecting it needs a seed in the pouch; planting the last one switches "Crop
+    to plant" to the run's top licensed crop, so the plant worker never idles on an empty ancient pouch.
+13. No renown for the ancient crop; orders never ask for it (offers draw from licences); its market is 4× deeper.
+14. The fuel loader never loads stone: the stone fire stays a player verb, coal / wood logic unchanged.
+15. CHANGED from the draft: the 🔋 reserve shows in the 📖 book, not as a bar next to the HUD ⚡ (the 375 top bar is not
+    touched in this batch).
+16. The book lives under the dig button (`DigSeeds`, rendered on phone and desktop): shards held, one Take 🏺5 button per
+    unowned rule, the reserve, a lifetime line. Relic names and texts (📋 Order bonus, 📉 Market floor, ⏳ Quick
+    notices, ⚡ Second wind, 🔋 Reserve, ⛰️ Stone fire) are Hermes's wording.
+17. The draft's scenario A/B bot measurements become pure pins (batch-refine 1g: closed-form claims are pure tests, no
+    new bot knob): PIN36l find odds, PIN36m the rule table, PIN36n the ceilings, PIN36o a report-only run of the
+    migrated v32 save with and without the 6 relics (no band).
+18. Fixture `tests/fixtures/save-v32.json` = the live re-save taken in 36.3's verify (2026-11-22 17:50): save-v31.json
+    seeded on the old live build, loaded by the live v32 build rH8CzeUZ, migrated and re-saved by the live code (v32,
+    plain, ⭐79, 24 tiles, 10 licences, mine licence, digs 23), committed with this plan.
+19. CHANGELOG 36.4 line (158 code points): "🏺 Digging the farm now finds relic shards (5 buy one of 6 run-long rules,
+    ×1.5 as a set), ✨ star dust worth ⭐1 and a rare 🦴 ancient seed the shop never sells."
+20. Worker: GLM (glm-5.3 through z.ai, as `b36-split.md` item 4 names for 36.4: bounded, numbers fixed, acceptance as
+    tests), `--max-turns 300` with a resume leg expected; retry deadline 2026-11-29 21:00; live relay into thread
+    1573420437554200597 (the 36 planning thread).
+21. Not in this batch: the open 36.2 nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason),
+    the 375 top-bar wrap, the PIN36h sim-bot ladder deadlock (stays `it.fails`). The live checks (v32 → v33 migration,
+    width sweep of the dig line, the book, the 🦴 pouch row, the 🌰 crop button, the stone fuel button) are Hermes's
+    verify step after the worker.
+- **Renumbered:** none. Batch 36.4 = tasks 224–228, save v33. Next: 36.5 (Soil survey, v34), planned only after 36.4 is
+  pushed, re-anchored on 36.4's HEAD.

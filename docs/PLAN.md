@@ -52,7 +52,7 @@ no branch ceremony yet).
 
 ## Archive
 Finished batches live in `docs/archive/PLAN-history.md`: every batch plan, `## Batch N results` and `### Deviations`
-for batches 1–36.2, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
+for batches 1–36.3, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
 `PLAN.md:N` citation from before 2026-11-14 points at the same line there. References like PLAN.md "Batch 24 results"
 in tests and `docs/DECISIONS.md` resolve there too.
 
@@ -63,270 +63,180 @@ cites, or `grep -n '^## Batch N'` and read that range.
 New batch plans are appended below, and workers write `## Batch N results` + `### Deviations` at the end of this file.
 After a batch is pushed, Hermes moves its plan and results to the end of the archive.
 
-## Batch 36.3 — Wetlands, the farm with no mine: river bank beds, the 🌊 barge, its supply list and berry ×1.4 (tasks 219–223, save v31 → v32)
+## Batch 36.4 — Dig finds: 🏺 relic shards, ✨ star dust, 🦴 the ancient seed, 6 relics and the 📖 collection book (tasks 224–228, save v32 → v33)
 
-Why: Direction C (accepted) gives each district its own supply list + ONE signature. 36.2 did Orchard Valley and Iron
-Hills; Wetlands still plays like the plain farm (36.1 name + soil only). Toon accepted the crux (b36-synthesis): Wetlands
-has NO mine, with the full reroute — the river waters bank beds and they count as the Fields' sprinkler gate; a barge
-sells bars, stone and coal for cash so every bar-priced certificate and the Fields stay reachable; berries pay ×1.4
-(accepted calculator item 1, "Orchard/Wetlands"); the contract ⭐ bonus ships only if the numbers show a gap. Research
-(districts-pool §2, signatures §4.8): an absent system works only when a full replacement loop exists and fails when it
-can soft-lock, so this batch's spine is the gate table and the no-soft-lock test. Hard guards (DECISIONS batch 24
-stance): no soft lock, no stall, no infinite cash loop, nothing negative, saves migrate, nothing taken away.
-Playtest question: is a run without a mine fun and never stuck?
-Anchors below are commit ad3075d0 (origin/main 974e4dc6 after batch 36.2 + the local 36.2 archive commit; src/ and
-tests/ identical to 974e4dc6), SAVE_VERSION 31. Re-measure with `grep -n` before editing.
+Why: the farm dig (`digForSeeds`, the anti-soft-lock floor) pays one potato seed 20 % of the time; after the first
+licences it is a dead button. Toon's locked finds (shards 0.5 %, star dust 0.3 %, ancient seed 0.05 % per dig; the 6
+relic rules with their buffed numbers; the collection book with a set bonus lost on the sale) turn it into a small
+lottery that still costs ⚡. Digging stays hand-only (no farm-dig worker job; the ladder bot never digs the farm), so
+nothing here waits offline. Playtest question: is digging worth ⚡ again?
+Hard guards (DECISIONS batch 24 stance): no soft lock, no stall, no infinite cash loop, nothing negative, saves
+migrate, nothing taken away.
+Anchors below are commit 2788495 (origin/main after batch 36.3), SAVE_VERSION 32. Re-measure with `grep -n` before
+editing. Every new number lives in `src/core/balance.ts`; numbers marked (est.) are Hermes picks (DECISIONS "Batch 36.4
+refined"), the rest are Toon's locked values.
 
-"No-mine run" below = `noMine(run)`: `run.listing.district === 'wetlands' && !run.mineLicense`. A fresh Wetlands run is
-always no-mine (the licence cannot be bought there). A Wetlands run that already OWNS the mine licence (bought under
-36.1 / 36.2, when Wetlands still had a full shop) keeps its whole mine as today — grandfathered, nothing taken away;
-it still gets the bank beds, the barge, the list and ×1.4.
+Scope fence: plain / Orchard Valley / Iron Hills / Wetlands play byte-identically until the player digs the farm. With
+no relic owned and nothing dug, every existing pin and sim number stays; the only sims that move are the two that call
+`digForSeeds` (task 228).
 
-Every new number lives in `src/core/balance.ts` and is `(est.)` unless a pin below measures it.
+## Tasks (224–228)
 
-## Tasks (219–223)
+- [ ] 224. **Save v33 and the new shape (no mechanic yet).** Commit this task FIRST.
+  - Crop identity (`src/core/data/crops.ts:3–18`): `CROP_IDS` stays the 10 shop crops in licence order (the Shop,
+    milestones, the Manager, districts, stats and the sims iterate it — unchanged). New `ANCIENT_CROP = 'ancientFruit'
+    as const` and `ALL_CROP_IDS = [...CROP_IDS, ANCIENT_CROP] as const`; `CropId` becomes
+    `(typeof ALL_CROP_IDS)[number]`. `CROPS.ancientFruit = { name: 'Ancient fruit' }`. It is in NO `CROP_GROUPS` group
+    (`:26–30`), so `listingGrowFactor` (`balance.ts:644–648`) already returns 1 and `districtSellFactor` (`:770–771`) 1
+    for it; `tests/listings.test.ts:35` (groups cover `CROP_IDS`) stays as is.
+  - Every `Record<CropId, …>` literal gains the key: `CROP_BASE` (`balance.ts:20–38`) `ancientFruit: { growTicks: 1_440,
+    seedCost: 0, sellPrice: 1_500, licenseCost: 0 }` (Toon's locked grow 1,440 / sell 1,500; seed and licence 0 because
+    it is never bought); `CROP_EMOJI` (`src/app/FarmGrid.tsx:20–31`) `ancientFruit: '🌰'`; `CROP_TIPS`
+    (`src/app/tips.ts:10–21`) `ancientFruit: 'Grows only from 🦴 ancient seeds you dig up; no shop sells it. Each
+    harvest gives its seed back, sometimes two, and it has its own deep market.'`.
+  - `RunState` (`src/core/state.ts:55–103`) gains `finds: Finds` (`{ shards: number; starDust: number; ancientSeeds:
+    number; book: boolean }` — shards HELD, the run's dust and ancient-seed counts, the run's book), `relics:
+    RelicId[]` (owned this run, pick order) and `energyReserve: number`. `Lifetime` (`:201–220`) gains `shardsFound`,
+    `starDustFound`, `ancientSeedsFound` (numbers) and `relicsEver: RelicId[]` (every rule ever picked, no repeats).
+    New `src/core/data/relics.ts`: `RELIC_IDS = ['orderBonus', 'marketFloor', 'orderCooldown', 'energyRegen',
+    'overflowReserve', 'stoneFuel'] as const`, `RelicId`, and `RELICS: Record<RelicId, { name: string; text: string }>`
+    with the names and texts of task 227.
+  - `createFreshRun` (`state.ts:285–330`): `finds: { shards: 0, starDust: 0, ancientSeeds: 0, book: false }`,
+    `relics: []`, `energyReserve: 0`, `market` built from `ALL_CROP_IDS` (`:321`, so `market.ancientFruit = 0`), and the
+    default lifetime literal (`:309`) gains `shardsFound: 0, starDustFound: 0, ancientSeedsFound: 0, relicsEver: []`. A
+    sold run carries `lifetime` (already, `src/core/prestige.ts:74`) and with it the book page; it carries NO finds,
+    relics or reserve (the fresh run's defaults) — the set bonus is lost on the sale, as decided.
+  - Save (`src/save/serialize.ts`): `SAVE_VERSION` 32 → 33 (`:38`). `SaveV32` (`:297`) becomes a frozen past shape `{
+    version: 32; savedAtMs: number; state: { meta: MetaState; run: RunV32 } }` with `RunV32 = Omit<RunState, 'finds' |
+    'relics' | 'energyReserve' | 'lifetime' | 'market'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number>
+    }` (freeze `CropIdV32` = the 10 crops and `LifetimeV32 = Omit<Lifetime, 'shardsFound' | 'starDustFound' |
+    'ancientSeedsFound' | 'relicsEver'>` next to `CropIdV26` `:41–45`; `SaveV31` `:296` moves to the same frozen run
+    shape so `migrateV31` stays a stamp). New `SaveV33 = { version: 33; savedAtMs: number; state: GameState }`, `Save =
+    SaveV33`. `migrateV32(save: SaveV32): SaveV33` after `migrateV31` (`:878–880`) adds exactly the defaults above
+    (finds zero / book false, relics [], energyReserve 0, market.ancientFruit 0, the four lifetime fields 0 / []) —
+    nothing granted, refunded or removed; a veteran digs for the first shard like anyone. `migrate()` (`:885–902`):
+    `version === 33` returns as is, `32` → `migrateV32(...)`, and every older branch (`:889–901`, incl. the `toV20`
+    tail) wraps its chain in `migrateV32(...)`.
+  - Fixture `tests/fixtures/save-v32.json` is ALREADY committed with this plan: a real live v32 save (the committed
+    save-v31.json seeded on the old live v31 build, loaded by the live v32 build rH8CzeUZ on 2026-11-22, migrated and
+    re-saved by the live code; plain listing, ⭐79, 24 tiles, 10 licences, mine licence, digs 23). Never edit any file in
+    tests/fixtures. `tests/save.test.ts` (v32 describe `:1699–1712`): import save-v32; new describe 'save v33: dig
+    finds, relics and the reserve (batch 36.4)': v32 → v33 adds exactly the new keys at their defaults (no other run /
+    meta / top-level key added or removed; cash, ⭐, the 10 crops' market, offers, licences and the old lifetime fields
+    deep-equal) and stamps 33; every fixture save-v1 … save-v32 lands on 33. Update every `SAVE_VERSION` / "→ v32" pin
+    (`save.test.ts:1678`, `:1687`, `:1709–1710`; App.test "Will migrate v15 → v32" `tests/App.test.tsx:487`) to 33.
+  - Grep `src/` and `tests/` for every `Lifetime` / `RunState` literal, `createFreshRun` caller and `market` literal
+    with the 10 crop keys; CI `tsc -b` fails on a stale one.
+- [ ] 225. **Dig finds and the ancient crop (core + the dig/pouch UI).**
+  - `digForSeeds` (`src/core/actions.ts:248–262`): the potato roll stays FIRST and unchanged (`r1 < 0.2`,
+    `digSeedDrop()` `balance.ts:489–490`, `:1200–1202`). Then, on every successful dig, THREE more draws in this fixed
+    order whether or not anything dropped (a fixed count keeps runs replayable): `r2` shard (`< DIG_SHARD_CHANCE
+    0.005`), `r3` star dust (`< DIG_DUST_CHANCE 0.003`), `r4` ancient seed (`< DIG_ANCIENT_CHANCE 0.0005`). The finds
+    are independent of the potato roll (a dig can drop a seed and a find). Effects: shard → `finds.shards` +1 and
+    `lifetime.shardsFound` +1; dust → `run.stars` +1 (1 ✨ = ⭐1, est.), `finds.starDust` +1, `lifetime.starDustFound` +1
+    (NOT `lifetime.starsEarned`, which stays the orders' total); ancient → `run.seeds.ancientFruit` +1,
+    `finds.ancientSeeds` +1, `lifetime.ancientSeedsFound` +1. After the set (all 6 relics owned, task 226) the shard
+    draw no longer pays a shard: `r2 < DIG_ANCIENT_CHANCE` pays a SECOND ancient seed instead (est.; dust stays 0.3 %).
+    📖 book: no draw — the run's first successful dig sets `finds.book = true` (est.). New balance export
+    `digFindChances(): { shard: number; dust: number; ancient: number }`. Keep the existing energy check here; task 226
+    swaps it for `spendEnergy`.
+  - The ancient crop is licence-free and pouch-only:
+    - `plant` (`actions.ts:164–189`): for `ANCIENT_CROP` skip the licence check (`:174`) and NEVER auto-buy (stock 0 →
+      `NO_SEEDS` even with `autoBuySeeds` on, `:175`). When the plant takes the LAST ancient seed (stock 1 → 0, not kept
+      by the dibber), `plantCrop` switches to the top licensed crop the run owns (the last of `CROP_IDS` in
+      `run.licenses`), so the plant worker (`src/core/workers.ts:34`) never idles on an empty ancient pouch (est.).
+    - `selectCrop` (`:192–194`): `ancientFruit` selects when `run.seeds.ancientFruit > 0`, else `NO_SEEDS`; other crops
+      unchanged.
+    - `harvest` (`:211–246`): for `ancientFruit`, after the existing sickle rolls, its seed always comes back (+1 into
+      the pouch) and one more draw `< ANCIENT_SEED_EXTRA 0.25` adds a second; no renown (skip `addRenown`, `:239`).
+      Every other crop draws nothing new (its replay stays exact). Hand and worker harvests alike.
+    - Market: `marketDepthGlut` (`balance.ts:704–706`) × `ANCIENT_MARKET_DEPTH` 4 for `ancientFruit` only;
+      `decayMarket` (`src/core/market.ts:27–37`) loops `ALL_CROP_IDS`.
+    - Not on the Estate in 36.4: `fieldsPlantable` (`src/core/fields.ts:127–129`) is already false for it (no licence),
+      so fields, the Manager and contracts never plant it — leave it so (est.). Orders never ask for it (offers draw from
+      `run.licenses`). The Orchard tree takes berries only (`src/core/tree.ts:21`) — unchanged.
+  - UI (`src/app/Farm.tsx`):
+    - `DigSeeds` (`:74–93`) gains a `state` prop (callers `Farm.tsx:114`, `src/app/App.tsx:197`, `:232`). The result
+      line: a seed-only dig keeps `Found a 🥔 Potato seed!`, an empty dig keeps `Nothing this time`; any find shows
+      `Found ` + the parts joined by ` + ` + `!`, parts in this order: `a 🥔 Potato seed`, `the 📖 collection book`,
+      `a 🏺 relic shard`, `✨ star dust (⭐+1)`, `a 🦴 ancient seed` (`2 🦴 ancient seeds` when both draws hit after the
+      set). Build it by comparing prev/next state.
+    - `SeedPouch` (`:20–71`): after the licence rows, one `🦴 Ancient seed` row with `×{run.seeds.ancientFruit ?? 0}`,
+      the ⓘ `TIPS.ancient` = `'Dug up, never sold in a shop. Plant it like any seed; each harvest gives it back.'` and
+      no Buy buttons (keep the row's grid cells with empty spans); shown while `run.finds.ancientSeeds > 0` or the pouch
+      holds one.
+    - "Crop to plant" (`Farm.tsx:103–112`): an `🌰 Ancient fruit` button after the licensed crops while
+      `run.seeds.ancientFruit > 0` or it is the selected crop, same markup.
+- [ ] 226. **The 6 relics (core): picks, the set ×1.5, the reserve, stone fuel.** New `src/core/relics.ts`. Toon's
+  locked numbers; `RELIC_SET_FACTOR` 1.5 is already applied in the set column:
+  | Relic | none | owned | set (all 6) | Hook (today) |
+  |---|---|---|---|---|
+  | `orderBonus` | 0.1 | 0.2 | 0.3 | `orderBonus()` `balance.ts:565–567` → `orderBonus(relics: readonly RelicId[] = [])`; callers `src/core/orders.ts:118`, `:123`, `src/app/Orders.tsx:21`, `:93` pass `run.relics` |
+  | `marketFloor` | +0 | +0.10 | +0.15, capped at `RELIC_FLOOR_CAP` 0.9 | `cropFloor` `src/core/market.ts:8` = `min(0.9, renownFloor(points) + lift)`; MARKET_DECAY and `marketDepthGlut` untouched (the floor alone moves the steady price) |
+  | `orderCooldown` | 600 | 300 | 200 ticks | `orderCooldownTicks()` `balance.ts:605–607` → `(relics = [])`, ×½ / ×⅓ rounded; caller `orders.ts:238` |
+  | `energyRegen` | ×1 | ×1.10 | ×1.15 | regen in `step` `src/core/step.ts:67` × `relicRegenFactor(run.relics)`; also the Stats "Energy regen" row (`src/core/stats.ts:105`); Upgrades' per-level preview (`src/app/Upgrades.tsx:39`) stays the base |
+  | `overflowReserve` | — | cap 20 × ⚡ max | cap 30 × ⚡ max | `step.ts:66–69`: regen past ⚡ max adds to `energyReserve`, up to `reserveCap(run, meta)` = factor × `energyMax(level, meta)`; never fills without the relic |
+  | `stoneFuel` | LOCKED | stone = 2 fire units | 3 units | `FUEL_UNITS` `balance.ts:116` gains `stone: 2`; `fuelTicks(fuel, relics = [])` `:918–920` → stone ×1.5 units in a set; `fuelRoom(f, fuel, relics = [])` `src/core/furnace.ts:42–44`; `addFuel` `:50–62` order LOCKED (stone without the relic), NO_FURNACE, FULL, NO_FUEL |
+  - `spendEnergy(run, cost): { energy: number; energyReserve: number } | null` pays ⚡ first, then the reserve; null when
+    both together are short. Use it at every ⚡ check/spend: `farmAction` `actions.ts:132`/`:136`, `digForSeeds`
+    `:252`/`:256`, Fields reap `fields.ts:326` with its checks `:340` and in `reapNext`, the mine `dig`
+    `src/core/mining.ts:170`/`:175`, `plantTree` `src/core/tree.ts:27`/`:32`. Cost 0 (workers) always succeeds and
+    changes nothing; with `energyReserve` 0 every result equals today's.
+  - `pickRelic(state, id)`: order ALREADY_OWNED, NOT_ENOUGH_ITEMS (`finds.shards < RELIC_PICK_SHARDS` 5); then
+    `finds.shards` −5, `relics` + id, `lifetime.relicsEver` + id when new. Every unowned rule is offered (no random
+    offer). `relicSet(run)` = all 6 owned. 30 shards = the set.
+  - The fuel loader (`src/core/workers.ts:71–81`) keeps loading coal / wood only (never stone, est.).
+- [ ] 227. **UI: the 📖 collection book, stone in the furnace, the order bonus label.**
+  - In `DigSeeds`, under the result line, once `run.finds.book`: a `<section className="relic-book">` with
+    `<h3>📖 Collection book</h3>` and, in order:
+    1. `🏺 Shards {finds.shards} · 5 buy one rule`; once the set is complete: `🏺 Set complete — every rule ×1.5`.
+    2. One row per relic in `RELIC_IDS` order: name + text; an owned rule shows `✓ owned`, an unowned rule a button
+       `Take 🏺5`, disabled while `pickRelic` fails. Names / texts (`RELICS`, est.): orderBonus `📋 Order bonus` —
+       `Orders pay +20 % instead of +10 % (+30 % in a set).`; marketFloor `📉 Market floor` — `Every crop's price floor
+       +0.10 (+0.15 in a set).`; orderCooldown `⏳ Quick notices` — `A discarded order refills in half the time (a
+       third in a set).`; energyRegen `⚡ Second wind` — `⚡ regen +10 % (+15 % in a set).`; overflowReserve `🔋 Reserve`
+       — `⚡ regen past full is banked, up to 20 × your ⚡ max (30 × in a set).`; stoneFuel `⛰️ Stone fire` (the
+       `ITEMS.stone.emoji`) — `Stone burns in the furnace: 2 fire units each (3 in a set).`
+    3. With `overflowReserve` owned: `🔋 Reserve {Math.floor(energyReserve)} / {reserveCap}` and a `<Bar kind="energy">`.
+    4. A `<small>` lifetime line: `Ever found: 🏺 {shardsFound} · ✨ {starDustFound} · 🦴 {ancientSeedsFound} · rules
+       {relicsEver.length} / 6 · relics are lost when the farm is sold`.
+    No HUD change (the 375 top bar is not touched in this batch).
+  - Furnace fuel buttons (`src/app/Mine.tsx:286–296`): the stone button (`Fill with ⛰️ stone`) shows only while
+    `stoneFuel` is owned; its `uses(...)` text and `smeltFuel` read `run.relics`.
+  - Orders card (`src/app/Orders.tsx:21`, `:93`): the bonus value and text read `orderBonus(state.run.relics)`.
+  - jsdom tests (no browser): `tests/OrdersCard.test.tsx` (+20 % with the relic), `tests/Mine.test.tsx` (stone button
+    hidden / shown), a DigSeeds render test (book hidden before the first dig, shown after; Take disabled at 4 shards,
+    enabled at 5; the set line), the pouch 🦴 row and the 🌰 crop button.
+- [ ] 228. **Pins, sim re-pins, CHANGELOG, results.**
+  - New `tests/relics.test.ts` (pure, no bot):
+    - PIN36l dig find odds: 200,000 digs from a fixed seed with ⚡ refilled — shards / dust / ancient within ±15 % of
+      0.5 % / 0.3 % / 0.05 %, potato still 0.2 ± 0.01, the book on dig 1 only, same seed → same state; with the set
+      owned no shard drops and the ancient rate is ≈ 0.1 % (±25 %).
+    - PIN36m the rule table above (each rule none / owned / set; the floor cap 0.9 on a renown-0.7 crop; the reserve
+      fills only from overflow and only with the relic, and `spendEnergy` drains it after ⚡; stone LOCKED → 2 → 3 fire
+      units; `pickRelic` errors and the 5-shard price; `sellFarm` drops relics / finds / reserve and keeps the four
+      lifetime book fields).
+    - PIN36n closed-form ceilings from `balance.ts` (report with `console.log('PIN36n', …)`): digs/h at ⚡ regen Lv10
+      = 3600 × `energyRegenPerTick(10, freshMeta)` (= 4,200); dust ⭐/h = digs/h × 0.003 ≤ 12.6, with the regen relic
+      set (×1.15) ≤ 14.5, both under 19.2 (the ×8-scaled dust ceiling); first rule pick at 25 % of Lv0 regen = 5 / (0.25
+      × 1,200 × 0.005) = 3.3 h.
+    - PIN36o report only: the migrated save-v32 fixture stepped 2 game-h with no relic vs with all 6 granted — log cash
+      gained, ⭐ gained and the reserve; no band (Toon judges the relic's worth in his playtest).
+  - Ancient crop pins (in `tests/actions.farm.test.ts` beside digForSeeds `:135–157`): plant without a licence, never
+    auto-buys, the last seed switches the crop to plant, harvest returns 1 seed + a 25 % second, no renown, market depth
+    ×4.
+  - Sims: every farm dig now draws 3 more values, so the two sim files that call `digForSeeds` replay differently after
+    their first dig: `tests/sim/early.test.ts` (`:218` the greedy bot's dig, `:340–348` `digBench`, the affordable pin
+    `:335` and any other pin there that moves) and `tests/sim/bars-ladder.test.ts` PIN35stingy (`:248`, report `:258`).
+    Re-pin what moves, old → new with its cause, in the results. The ladder bot never digs the farm (`tests/sim/bot.ts`
+    has no `digForSeeds`), so `fields`, `mine-estate`, `market-orders`, `prestige-crops`, `tools-workshop`,
+    `furnace-iron` and `districts` must NOT move — a moved number there is a bug to fix, not a re-pin.
+  - CHANGELOG (top of `CHANGELOG` in `src/app/changelog.ts`, batch '36.4', 158 code points): "🏺 Digging the farm now
+    finds relic shards (5 buy one of 6 run-long rules, ×1.5 as a set), ✨ star dust worth ⭐1 and a rare 🦴 ancient seed
+    the shop never sells."
+  - `## Batch 36.4 results` + `### Deviations` at the true end of this file; tick 224–228.
 
-- [x] 219. **Save v32 (version stamp; no new state).** 36.3 adds no run or meta field: the barge holds static prices,
-  bank beds and every reroute derive from `run.listing.district` + `run.mineLicense`. The bump keeps the accepted save
-  chain (36.3 = v32, 36.4 = v33 …) and the real v31 fixture proves it. `SAVE_VERSION` 31 → 32
-  (`src/save/serialize.ts:38`). `SaveV31` (`:296`) stays `{ version: 31; savedAtMs: number; state: GameState }`; new
-  `SaveV32 = { version: 32; savedAtMs: number; state: GameState }`, `Save = SaveV32` (`:297`). `migrateV31(save:
-  SaveV31): SaveV32` after `migrateV30` (`:872–874`) returns the same state with version 32 (nothing added, refunded or
-  removed). `migrate()` (`:879–895`): `version === 32` returns as is, `version === 31` → `migrateV31(...)`, and every
-  older branch (31's `return data`, 30, 29 … 21 and the `toV20` tail) wraps its chain in `migrateV31(...)`.
-  Fixture `tests/fixtures/save-v31.json` is ALREADY committed with this plan: a real live v31 save (the committed
-  save-v30.json seeded on the live v31 build CAC14g-7, migrated, offline catch-up 8 h, re-saved by the live code on
-  2026-11-22; plain listing, ⭐79, 24 tiles, 10 licences, mine licence owned, tree null, forge unbuilt). Never edit any
-  file in tests/fixtures. In `tests/save.test.ts` (imports `:3–…`, the v31 describe `:1671`): import save-v31; v31 → v32
-  keeps the state deep-equal and stamps 32; every fixture save-v1 … save-v31 lands on version 32; the migration switch
-  test (`:546`) accepts v21 … v32. Update every `SAVE_VERSION`/"→ v31" pin (save.test, App.test "Will migrate v15 →
-  v31") to 32. Commit this task FIRST, before any mechanic.
-- [x] 220. **Wetlands framework: supply list, berry ×1.4, the Next farm hint, no mine licence.**
-  - `src/core/data/districts.ts`: `DISTRICT_SELLS.wetlands` (`:24`, today `CROP_IDS`) = `[...CHEAP_RUNGS, 'tomato',
-    'lemon', 'grape', 'strawberry']` (9 crops, no chilli — accepted calculator assumption 3); update the `:19` comment.
-    `DISTRICT_HINT` (`:30–33`) gains `wetlands: 'sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine'` (58 code
-    points; Legacy.tsx `:158` already renders any hint). New export `noMine(run: { listing: Listing; mineLicense:
-    boolean }): boolean` (definition above) — put it where both core and app can import it without a cycle (e.g. a
-    new `src/core/wetlands.ts`, which also holds the barge in 222).
-  - Berry ×1.4: `districtSellFactor` (`src/core/balance.ts:770–771`) returns `DISTRICT_BERRY_SELL` for the berry group in
-    `orchardValley` OR `wetlands`. The 6 runtime call sites already pass `run.listing.district` (36.2); nothing else
-    changes. The v26 migration and test call sites stay plain.
-  - `buyMineLicense` (`src/core/mining.ts:64–70`): order ALREADY_OWNED, then new `LOCKED` when
-    `run.listing.district === 'wetlands'`, then NO_CASH. Every other mine action keeps its own NO_MINE_LICENSE check, so
-    a no-mine run can never dig, craft a pickaxe, upgrade the vein, build the furnace (vein 1, `balance.ts:92`) or the
-    workshop (vein 4, `src/core/workshop.ts:13–18`) — no new checks needed there.
-  - `buyLicense` already returns NOT_SOLD_HERE for unowned unlisted crops (`src/core/actions.ts:275–278`); an owned
-    chilli licence (keepLicenses deed, or bought before 36.3) keeps working (36.2 call 4).
-- [x] 221. **Bank beds and the reroutes (core).** All of these apply ONLY where stated; plain, Orchard Valley and Iron
-  Hills behave byte-identically (every existing pin and sim number stays).
-  | Gate (code today) | Plain | Wetlands |
-  |---|---|---|
-  | `isIrrigated` (`src/core/workshop.ts:22–24`) | sprinkler bed | ALSO true for beds 0–1 (tiles 0–11, bed index `⌊i/6⌋ < BANK_BEDS`, never grid rows) on every Wetlands run — "the river waters this bed". `step` (`src/core/step.ts:74`), `water` → IRRIGATED (`src/core/actions.ts:202`), `toolTargets` (`src/core/tools.ts:54`) and the waterer (`src/app/Workers.tsx:55`) follow it with no change. |
-  | `buildSprinkler` (`workshop.ts:28–34`) | any bed | LOCKED on a bank bed in Wetlands (after NO_WORKSHOP; only a grandfathered run can have a workshop) |
-  | `fieldsGates().water` (`src/core/fields.ts:110–117`) | workshop built + ≥ 1 sprinkler | true on every Wetlands run (the bank beds are always there; START_TILES 9 fills bed 0) — "the river irrigates" |
-  | `buyPump` (`fields.ts:171–179`, NO_WORKSHOP `:175`) | needs the workshop | the NO_WORKSHOP check is skipped on a Wetlands run (the river powers the pump); prices and PUMP_FIELD_CAP 2/6/12/20 unchanged |
-  | `buyStorage` → `buyMineUpgrade` (`src/core/mining.ts:275–280`, `:294–298`) | needs the mine licence | `buyStorage` skips the NO_MINE_LICENSE check on a no-mine run (give `buyMineUpgrade` a flag, or check in buyStorage); stone comes from the barge. `upgradeVein` keeps the check. |
-  | fuel certificate gate (`CERTIFICATES.fuel`, `src/core/balance.ts:245`: counter bars ≥ 30, unreachable without a furnace) | bars ≥ 30 | on a no-mine run `certificateUnlocked(run, 'fuel')` (`src/core/workers.ts:204–208`) = `run.fields.unlocked` — the tank hand comes with the Fields. Price unchanged (🥉8 + 💰200, barge bars). |
-  | fuel loader (`NO_TILE_WORK.fuel`, `workers.ts:71–81`) | fire coal, wood, then the tank from stored coal | unchanged order; on a no-mine run, when `fillTank` fails for NOT_ENOUGH_ITEMS (no coal stored) and the tank has room, it buys ONE barge coal straight into the tank (cash `bargePrice('coal')`; NO_CASH → idle). New helper in `src/core/wetlands.ts`, e.g. `bargeCoalToTank(state)`. |
-  | ore / mine / stoker certificates (`balance.ts:244, 247, 255`) | buyable | never unlock (bars / vein counters stay 0 or the vein stays 0) — no core change; their rows are hidden in 222 |
-  | item, ore and bar orders (`orderPool`, `src/core/orders.ts:55–62`) | roll with the mine licence | never roll: the pool is the licences only (already true with no mine licence — no core change). ⭐ per order is the tier's fixed 8 / 16 / 32; see 223 PIN36j. |
-  | Noticeboard 🪨10, water / harvest certificates 🪨20 (+ ⚫5), plant 🥉10, clerk 🥉6, Manager 🥇4, tool tiers 🥉4 / 🥈4 / 🥇4, Fields 🥈10, pivots, pumps, machines (`balance.ts:221–223, 240–252, 362, 368–370, 459–465, 524`) | mined / smelted | paid through `pay` (`mining.ts:261–271`) UNCHANGED with barge-bought items — the reroute is supply, not pricing |
-  | smart valve (`buyValve`, `workshop.ts:38–44`, needs the workshop) | buyable | absent on a no-mine run: pivoted fields burn tank coal on every plot (`burningPlots`, `fields.ts:397–403`) — priced into barge coal |
-  `BANK_BEDS = 2` (est.) in balance.ts. Fields with an empty tank never stall (they grow at the unpressured ×1 pace,
-  `fields.ts:409–414`), so coal can never soft-lock a run; it only slows it.
-- [x] 222. **The 🌊 barge and the River view (core + UI).**
-  - Core (`src/core/wetlands.ts`; numbers in balance.ts, all est., accepted calculator item 5): `BARGE_ITEMS =
-    ['copperBar', 'ironBar', 'goldBar', 'stone', 'coal']`, `BARGE_PRICE = { copperBar: 125, ironBar: 625, goldBar: 1250,
-    stone: 3, coal: 5 }` (bars ×1.25 of their sell 100 / 500 / 1,000, `ITEM_SELL_PRICE` `balance.ts:73–82`).
-    `bargePrice(item, meta, sellPriceLevel)` = `max(round(BARGE_PRICE[item] × multiplier(meta, 'cost')),
-    itemSellPrice(item, meta, sellPriceLevel) + 1)` — scales with the cost deed like `woodCost` (`:838–840`) and is
-    ALWAYS above what the item sells for (`itemSellPrice` `:846–848`, which grows with the Better prices levels, the ⭐
-    sell Favour and the sell deed), so buy → sell never makes cash.
-    `buyBarge(state, item, n)` (the `buyWood` precedent, `mining.ts:72–79`): order LOCKED (district not wetlands, or
-    item not in BARGE_ITEMS), BAD_AMOUNT, BAG_FULL (`bagCount + n > bagCapacity`), NO_CASH (`n × bargePrice`); adds to
-    `run.inventory`. No energy, no counter (barge buys are not sales and not bars collected).
-  - UI: in `src/app/Mine.tsx` `Mine()` (`:375`), a no-mine run renders a River section INSTEAD of the 🔒 Mine card
-    (`:377–388`) and the mine body: `<section className="mine mine-river">`, `<h2>🌊 River <small>📦 Storage {n} /
-    {cap}</small></h2>`, then a "🌊 Barge" group: one row per BARGE_ITEMS entry "{emoji} {name} 💰{bargePrice}" with
-    buttons "×1" and "×10" (each disabled with the error's short text, as the Forge card does `:116`), then the same
-    item grid as today (`:566–596` — extract it into a shared component; do not duplicate it). No Dig, pickaxe, vein,
-    furnace, wood, Forge or ore-sorting parts. A grandfathered Wetlands run (licence owned) renders the Mine as today
-    PLUS the Barge group under the item grid.
-  - The tab: `src/app/App.tsx:137` mobile tab label is "🌊 River" on a no-mine run, "⛏️ Mine" otherwise (same view id
-    `mine`, same badge). The only other "⛏️ Mine" label is the section heading (`Mine.tsx:441`), replaced by the River
-    heading; the Shop's "⛏️ Mine license" (`Shop.tsx:159`) is simply not rendered on a no-mine run.
-  - Shop (`src/app/Shop.tsx`): Supplies (`:147–163`) shows neither the ⛏️ Mine license nor wood on a no-mine run. The
-    🚜 Fields row (`:180–200`) shows when `!run.fields.unlocked && (run.workshop.built || district === 'wetlands')`;
-    its "needs …" text lists "1 bed sprinkler" only when `!fieldsGates(run).water`.
-  - Upgrades (`src/app/Upgrades.tsx:52–…`, rendered `:119` only with the mine licence): on a no-mine run render the
-    storage row alone under the heading "📦 Storage" (no vein row).
-  - Workers (`src/app/Workers.tsx:91`): on a no-mine run hide the ore and mine job rows (the stoker is already hidden
-    until owned); the fuel row reads as today (its gate progress shows "Fields" — use the existing locked-row format;
-    if it only knows counters, show the text "unlocks with the 🚜 Fields").
-  - badges (`src/app/badges.ts:29`, `:52–54`): no mineLicense shop badge on a Wetlands run; the storage badge also
-    fires on a no-mine run.
-  - FarmGrid (`src/app/FarmGrid.tsx:133–145`): on a Wetlands run beds 0–1 render `bed bed-irrigated bed-bank` with a
-    `🌊` span (class `bed-fountain`, title "The river waters this bed forever") in place of the ⛲ fountain; no sprinkler
-    socket on a bank bed. Tiles in bank beds render exactly as sprinkler-bed tiles do today.
-  - `src/app/tips.ts`: a `barge` tip "Wetlands has no mine: the barge sells bars, stone and coal for cash. Buying costs
-    more than selling." if a tip slot is used; no other new copy beyond what this plan names.
-- [x] 223. **The no-mine bot, pins, CHANGELOG, results.**
-  - Bot knob (priced here, rule 1g; `tests/sim/bot.ts`): new `runBot` option `barge?: boolean` (`:633–733`, with
-    `fields`): goals = `WETLANDS_LADDER` = `FIELDS_LADDER` (`:554`) filtered to the goals that need no mine, kept in order
-    — storage levels (`storageLv1`–`4`), the copper / iron / gold farm-tool tiers (`copper:*`, `iron:*`, `gold:*`),
-    `plantCertificate`, `tiles13`, `tiles19`, `fields` — i.e. drop every `vein*`, `furnace`, `*Pickaxe`, mold, `smart`,
-    ore / fuel / mine certificate, `workshop` and `sprinkler*` goal (check each goal's `buy` against the list). Each
-    tick, before the goal buy (`:944–954`, run it for `barge` too), buy the goal's `keep` shortfall of BARGE_ITEMS with
-    `buyBarge` when cash covers the shortfall + the goal's cash; `mineOnce` (`:794`) is never called with `barge` (idle
-    energy is not spent; `gathering` at `:963` is false); after the Fields unlock keep `hourOfBurn` coal in the tank by
-    buying barge coal (the `:955–960` tank fill, from the barge). Every other option keeps today's default, so no
-    existing sim number moves.
-  - PIN36h (the ONLY sim of the batch; `tests/sim/districts.test.ts`, new describe `'batch 36.3: wetlands'`): the
-    PIN36c flag set (`:22–40`) with plain10's licences for plain, and for Wetlands `licenses` = radish, corn, eggplant,
-    pumpkin, tomato, lemon, grape, strawberry, `barge: true`, `run.listing = { district: 'wetlands', soil: null }`.
-    plain10 runs to the Fields unlock (20 game-h cap); Wetlands runs 24 game-h. `console.log('PIN36h',
-    JSON.stringify({ plain10 h, wetlands h, bargeSpendToFields: { cash, copperBar, ironBar, goldBar, stone, coal },
-    afterUnlock: { hours, pressuredShare, bargeCoal, tankEmptyTicks } }))`; assert the Wetlands unlock within ±20 % of
-    plain10 and zero mine actions (`run.mineLicense` false, vein 0, no pickaxe) for the whole run. References: PIN36c
-    plain10 7.65 h; Hermes's model: barge ×1.25 → ≈ +17.8 % (b36-calculator item 4; it counted 🥉22 / 🥈28 / 🥇8 + 🪨70 +
-    ⚫5 ≈ 💰24,360 of barge bars vs 💰32,000 sprinkler cash saved and 50.5k mine cash lost). If Wetlands is SLOWER than
-    +20 %: set `BARGE_PRICE` bars to ×1.0 (100 / 500 / 1,000; the `+1` rule still keeps them above sell) and re-run once;
-    if still out of band, or if it is FASTER than −20 %, or the bot deadlocks: pin it `it.fails` with the measurement and
-    record it under `### Deviations` — change no other number and do not tune the bot further.
-  - PIN36i (`tests/balance.test.ts`, pure): for every BARGE_ITEMS entry, Better prices level 0 … 30 and the sell / cost
-    deeds 0 … 10 (`meta.upgrades.sellPrice` / `.cost`), `bargePrice > itemSellPrice` (no buy → sell cash loop); and at no
-    upgrades the prices are 125 / 625 / 1,250 / 3 / 5.
-  - PIN36j (`tests/orders.test.ts`, pure): on a no-mine Wetlands state with the 9 Wetlands licences, `orderPool` is
-    exactly the licences; rolled offers' ⭐ equal the tier ⭐ (8 / 16 / 32) as on plain for the same tier. Also report
-    (`console.log('PIN36j', …)`) the item share of plain's pool at the PIN36g state (vein 4, every mold). Decision
-    (Hermes call, see DECISIONS): NO contract ⭐ bonus in 36.3 — ⭐ per order and the offer rate do not depend on the
-    pool, and every Wetlands offer is a crop the farm grows. Do not add a ⭐ bonus.
-  - PIN36k (new `tests/wetlands.test.ts`, the gate-by-gate no-soft-lock test; pure, no bot): on a fresh Wetlands run
-    (cash funded) — buyMineLicense → LOCKED; dig / craftPickaxe / upgradeVein → NO_MINE_LICENSE; buildFurnace,
-    buildWorkshop → LOCKED; buyStorage Lv1 … Lv10 succeed with barge stone; buyBarge each item (×1, ×10; BAG_FULL;
-    NO_CASH; LOCKED on plain); the Noticeboard, water / harvest / plant / clerk certificates, the three tool tiers and
-    the Manager certificate (counters / ⭐ set) are buyable with barge items; `fieldsGates().water` true with no
-    workshop; `unlockFields` succeeds with the planter + harvester certificates and barge 🥈10; `buyPump` tiers 1–4 with
-    no workshop; `buildSprinkler` on a bank bed → LOCKED (grandfathered run with a workshop); bank-bed tiles never dry
-    through `step` and `water` → IRRIGATED there, bed 2 still drains; the fuel certificate unlocks exactly at the Fields
-    unlock; the fuel loader with no coal buys one barge coal into the tank; with an empty tank and no coal, a sown plot
-    still ripens; `orderPool` has no item. Grandfathered: a Wetlands run that owns the mine licence digs, builds the
-    furnace and keeps every mine action as today. Plain / Orchard / Iron Hills: buyBarge LOCKED, isIrrigated and
-    fieldsGates and buyPump and the fuel certificate unchanged.
-  - CHANGELOG (top of `src/app/changelog.ts`, above the 36.2 entry `:7`): `{ batch: '36.3', date: '<today>', line:
-    "🌊 Wetlands is the farm with no mine: the river waters two beds for free, a barge sells bars, stone and coal for
-    cash, and berries pay ×1.4." }` (139 code points; copy verbatim as ONE line).
-
-Tests to add (game terms; the worker greps every caller before editing):
-- districts (`tests/districts.test.ts`): Wetlands sells 9 (no chilli; buyLicense chilli → NOT_SOLD_HERE, an owned chilli
-  still plants); strawberry sells ×1.4 on Wetlands (market sale, order price); `noMine` true on a fresh Wetlands run,
-  false on plain and on a Wetlands run with the licence; the Wetlands hint text.
-- save: task 219's tests. PIN36h–k as above.
-- UI (jsdom): Mine.test — a no-mine Wetlands run shows "🌊 River", the storage count, 5 barge rows with prices and ×1 /
-  ×10, the item grid, and no Dig / Mine license / vein / furnace; plain shows today's Mine; a grandfathered Wetlands run
-  shows the Mine plus the barge. App.test (or the tab test) — tab label "🌊 River" on Wetlands. Shop.test — no Mine
-  license / wood row on Wetlands, 🚜 Fields row without a workshop and no "1 bed sprinkler" need; chilli "not sold in
-  Wetlands". Upgrades.test — storage row under "📦 Storage" on Wetlands, no vein row. WorkersCard.test — no ore / mine
-  rows on Wetlands. Beds.test — bank beds 1–2 show 🌊, no sprinkler socket; bed 3 unchanged. Legacy.test — the Wetlands
-  Next farm row shows its hint (update the 36.2 test that asserted Wetlands has no hint).
-
-Scenarios: (A) fresh Wetlands run — 9 tiles from tick 0, all in bank beds: no watering until tile 13; the first barge
-buys are 🪨 for the Noticeboard (🪨10 + 💰100) and the harvest certificate; report PIN36h's Wetlands Fields hour vs
-plain10 and the barge spend. (B) veteran — `save-v31.json` (plain run) migrated to v32 stays plain: mine intact, no
-barge, no bank beds, no hint changes on the plain row; sold into Wetlands with keepLicenses, his chilli licence keeps
-working; the 8 h offline catch-up never needs the player (the tank burns what it holds, the tank hand buys barge coal).
-(C) plain, Orchard Valley and Iron Hills runs are byte-identical to 36.2 (every new branch is behind the district).
-
-Sims: only PIN36h (task 223, two ladder-bot runs). Run it with `npx vitest run tests/sim/districts.test.ts -t "36.3"`
-while developing; every other sim runs only as part of `pnpm test`. Never paste full-suite output: grep the lines.
-
-Hermes verify (after the worker, before the push): `pnpm test` ×2, lint, build, `tsc -b --force`, purity grep,
-case-clash, no sim-logs/ tracked; push on green (Toon's 2026-11-22 16:29 go covers it); Pages run by headSha; live bundle
-has "River" / "Barge" + the 36.3 changelog line; live v31 → v32 migration (seed save-v31.json on the OLD live build
-first, then load it in the new one: version 32, `tiles.save.backup.v31`, no `tiles.save.bad`, state equal); LIVE width
-sweep 375 / 1024 / 1440 / 2560 / 3440 of the River view + barge rows (seed a fresh Wetlands run), the "🌊 River" tab
-label (375), the bank beds' 🌊 marks, the Shop 🚜 Fields row with no workshop, the Upgrades storage row, and the
-Wetlands Next farm hint. CSS-only defects → Hermes fix (rule 11).
-
-Out of scope: fishing (the river's later fishing spot); ⭐ Favour rows Mill race / Leat (36's ⭐ prices wait for Toon's
-single playtest; the in-run ⭐ pool is frozen) and any change to the ⭐ Favours section (its furnace rows stay as they are
-on Wetlands); a contract ⭐ bonus (PIN36j call); the pool doc's 18-tile home cap; an auto-buy toggle for barge goods
-beyond the tank hand's coal; the almanac "+1 deed per district first finish"; dig finds + relics (36.4); Soil survey
-(36.5); renown tiers + the breadth rule (36.6); any change to plain-listing balance or the mine itself; the open 36.2
-nits (1024 tree fruit count, empty Orchard tree sheet hint, Forge Collect reason, the 375 top-bar wrap).
-
-## Batch 36.3 results
-
-Tests: 1232 passed + 7 expected fail (1239) before → 1264 passed + 8 expected fail (1272) after (`pnpm test`, 69 files;
-the new expected fail is the PIN36h band, see Deviations). `pnpm lint`, `pnpm build` and
-`tsc -b --force` clean; purity grep over src/core + src/save shows only the known `src/save/storage.ts:26` wallClock;
-case-clash check prints nothing; no dist/ or sim-logs/ tracked.
-
-- 219 (`b3e67547`): `SAVE_VERSION` 32, `SaveV32`, `migrateV31` (a version stamp) chained on every branch. The real
-  `save-v31.json` migrates to `{ ...v31, version: 32 }` deep-equal (plain listing, ⭐79, 24 tiles, 10 licences, mine
-  licence, tree null, forge unbuilt); every fixture v1 … v31 lands on v32; the switch accepts v21 … v32 and rejects v33.
-- 220 (`77579f5b`): `DISTRICT_SELLS.wetlands` = the 5 cheap rungs + tomato, lemon, grape, strawberry; berries ×1.4 on
-  Wetlands; the Wetlands Next farm hint; `buyMineLicense` → LOCKED on Wetlands (after ALREADY_OWNED);
-  `noMine()` in the new `src/core/wetlands.ts`.
-- 221 (`af93868b`): `BANK_BEDS = 2`; `isIrrigated` true on beds 0–1 of every Wetlands run; `buildSprinkler` LOCKED on a
-  bank bed; `fieldsGates().water` true on Wetlands; `buyPump` skips NO_WORKSHOP on Wetlands; `buyStorage` needs no
-  licence on a no-mine run; the fuel certificate unlocks with the Fields on a no-mine run; the fuel loader buys one
-  barge coal into the tank when no coal is stored (`bargeCoalToTank`); `craftPickaxe` → NO_MINE_LICENSE on a no-mine
-  run. PIN36k core gates in `tests/wetlands.test.ts`.
-- 222 (`c18ce09`): `BARGE_ITEMS`, `BARGE_PRICE`, `bargePrice` (cost deed, floor sell + 1), `buyBarge`; the River view
-  (Mine.tsx, item grid extracted into `ItemGrid`, `Barge` group), the "🌊 River" phone tab, Shop (no licence / wood
-  rows, Fields row without a workshop), Upgrades storage row, Workers rows, badges, FarmGrid bank beds, the `barge` tip;
-  Legacy's sale-gate text uses `fieldsGates`.
-- 223: the bot's `barge` knob + `WETLANDS_LADDER`; PIN36h, PIN36i, PIN36j, the rest of PIN36k; CHANGELOG 36.3 (139
-  code points).
-
-Pins:
-- PIN36h: `{"plain10":7.65,"wetlands":null,"bargeSpendToFields":{"cash":190,"copperBar":0,"ironBar":0,"goldBar":0,
-  "stone":55,"coal":5},"afterUnlock":{"hours":0,"pressuredShare":null,"bargeCoal":0,"tankEmptyTicks":0}}`. plain10 =
-  PIN36c's 7.65 h (plain unchanged). The no-mine assertion passes (no licence, vein 0, empty rack, mines 0 for 24
-  game-h); the ±20 % band is `it.fails` (bot deadlock, see Deviations). Barge spend is the whole run (no unlock).
-- PIN36i: at no upgrades the barge prices are 125 / 625 / 1,250 / 3 / 5; for every good, Better prices 0 … 30 and
-  sell / cost deeds 0 … 10, `bargePrice > itemSellPrice`.
-- PIN36j: the no-mine Wetlands pool = the 9 licences; 200 rolled offers each pay their tier's ⭐ (8 / 16 / 32), same
-  tier and ⭐ as on plain for the same rng. Report: `{"plainPool":18,"plainItemShare":0.444,"wetlandsPool":9,
-  "wetlandsItemShare":0}`. No contract ⭐ bonus.
-- PIN36k (`tests/wetlands.test.ts`, 14 tests): every gate in the plan's list, including a barge-funded run through
-  storage Lv1 … Lv10, the Noticeboard, water / harvest / plant / clerk / Manager certificates, the copper / iron / gold
-  tool tiers, the Fields unlock and the fuel certificate.
-
-New UI strings: "🌊 River" (h2 and phone tab), "🌊 Barge" (h3), barge rows "{emoji} {name} 💰{price}" with "×1" /
-"×10", "📦 Storage" (Upgrades heading on a no-mine run), "unlocks with the 🚜 Fields" (fuel row), bed title "The
-river waters this bed forever", tip "Wetlands has no mine: the barge sells bars, stone and coal for cash. Buying costs
-more than selling.", hint "sells 9 of 10 crops · berries ×1.4 · 🌊 river beds, no mine", the CHANGELOG line.
-
-### Deviations
-
-- **PIN36h is `it.fails` (bot-ladder deadlock).** WETLANDS_LADDER (built as specified, in order) waits from 0.19 h
-  (after storageLv2) on `copper:water`. Every starting tile sits in a bank bed, so nothing is ever watered, `waters`
-  stays 0 and the water tool Lv1 (gate `waters` 20) never unlocks. At 24 game-h the bot holds 💰874,779 with
-  `tools.water` 0, so cash was not the limit. This is not a game soft-lock: tile 13 is a cash buy, it lands in bed 2,
-  which needs water, and the Fields gate needs only the plant and harvest certificates. PIN36k proves that path with
-  barge goods. The ×1.0 bar fallback does not apply (it covers a slow unlock, not a missing one), so no number was
-  changed and the bot was not tuned. Fix candidates for Hermes / Toon (not applied): water tiers after `tiles13`, or
-  water tiers left out of WETLANDS_LADDER. Playtest note: on Wetlands the water tool, its tiers, the water certificate
-  and the water worker are all inert until tile 13.
-- The `barge` knob also tops up the farm certificates' barge goods inside `staff()` (the harvest certificate's 🪨20 ⚫5,
-  the water certificate's 🪨20). Without it they are unreachable for a non-mining bot. This is outside the plan's
-  "before the goal buy" wording, behind `barge` only.
-- `craftPickaxe` had no licence check (the plan assumed it did). PIN36k requires NO_MINE_LICENSE, so it was added for a
-  no-mine run only, which leaves plain byte-identical.
-- PIN36a (`tests/sim/fields.test.ts`) and PIN36b (`tests/fields.test.ts`) used `wetlands` only as a soil carrier
-  (plain-identical in 36.2). They now carry the soil on `plain`, which is core-identical to the old carrier (no core
-  branch reads `district === 'plain'`), so their numbers do not move. I ran the PIN36a sim alone once to check this,
-  against the brief's "no other sim alone" rule.
-- Pump tiers: PUMP_COSTS has 3 buys (pump 0 → 3, caps 2 / 6 / 12 / 20). PIN36k buys all 3, then expects MAX_LEVEL
-  ("tiers 1–4" read as the four pump levels).
-- Legacy.tsx `gateShort` (the sale-gate "needs …" text) now uses `fieldsGates(run).water`, like the Shop row, so it
-  never asks a Wetlands run for "1 bed sprinkler".
-- The Fields unlock toast still says "its card sits below the Workshop", which is inaccurate on Wetlands (no workshop).
-  Left as is (no new copy beyond the plan).
-- Old-vs-new sim byte-identity was not diffed line by line. Every existing sim pin passes in `pnpm test`, and PIN36h's
-  plain10 reproduces PIN36c's 7.65 h. Every new core branch is behind `district === 'wetlands'` / `noMine` / `barge`.
-- Not verified (no browser): layout and wrap of the River view and barge rows at 375 / 1024 / 1440 / 2560 / 3440, the
-  "🌊 River" tab at 375, the 🌊 bed marks, the Shop 🚜 Fields row, the Upgrades storage row and the Wetlands hint.
-  These are for Hermes's live sweep. jsdom render tests cover their content.
+Out of scope: a farm-dig worker job (hand-only); the ancient crop on the Estate fields; growing the relic pool past 6;
+relics as district signatures; the almanac; dust as its own spendable currency; any ⭐ Favour row; the open 36.2 nits
+(tree fruit count at 1024, empty Orchard tree sheet hint, Forge Collect reason) and the 375 top-bar wrap; the PIN36h
+sim-bot ladder deadlock (36.3 Deviation, stays `it.fails`).
