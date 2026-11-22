@@ -194,7 +194,7 @@ export default function App() {
             below={
               !farmTab && (
                 <>
-                  <DigSeeds act={act} />
+                  <DigSeeds state={state} act={act} />
                   {phone ? (
                     /* task 144: the three cards fold into the 📋 sheet; DigSeeds and the Fields summary stay */
                     <>
@@ -229,7 +229,7 @@ export default function App() {
             {grid}
             {!farmTab && (
               <>
-                <DigSeeds act={act} />
+                <DigSeeds state={state} act={act} />
                 <Orders state={state} act={act} card flashSlot={clerkSlot} />
                 <Workers state={state} act={act} worked={worked} />
                 <Workshop state={state} act={act} />

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { buySeeds, digForSeeds, selectCrop, setAutoBuySeeds } from '../core/actions'
 import { cropSeedCost, digSeedDrop } from '../core/balance'
-import { CROPS, CROP_IDS } from '../core/data/crops'
+import { ANCIENT_CROP, CROPS, CROP_IDS } from '../core/data/crops'
 import type { GameState } from '../core/state'
 import { CROP_EMOJI } from './FarmGrid'
 import { Fields } from './Fields'
@@ -57,6 +57,20 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
             ))}
           </div>
         ))}
+        {/* batch 36.4: the dig-only ancient seed — no shop sells it, so no Buy buttons; shown once found or held */}
+        {(run.finds.ancientSeeds > 0 || (run.seeds[ANCIENT_CROP] ?? 0) > 0) && (
+          <div className="item-row">
+            <span className="item-name">
+              <span className="item-label">🦴 Ancient seed</span>
+            </span>
+            <span className="item-count">×{run.seeds[ANCIENT_CROP] ?? 0}</span>
+            <span className="item-extra">
+              <Info text={TIPS.ancient} />
+            </span>
+            <span />
+            <span />
+          </div>
+        )}
         </div>
       </div>
       <div className="pouch-auto">
@@ -71,16 +85,25 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
 }
 
 
-export function DigSeeds({ act }: { act: Act }) {
+export function DigSeeds({ state, act }: { state: GameState; act: Act }) {
   const [lastDig, setLastDig] = useState<string | null>(null)
+  void state // batch 227 adds the 📖 collection book under this line
   return (
     <p className="dig-seeds">
       <button
         onClick={() =>
           act(digForSeeds, (prev, next) => {
             const { crop } = digSeedDrop()
-            const found = (next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)
-            setLastDig(found ? `Found a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed!` : 'Nothing this time')
+            // batch 36.4: list every find of this dig, in a fixed order, by comparing prev/next
+            const parts: string[] = []
+            if ((next.run.seeds[crop] ?? 0) > (prev.run.seeds[crop] ?? 0)) parts.push(`a ${CROP_EMOJI[crop]} ${CROPS[crop].name} seed`)
+            if (!prev.run.finds.book && next.run.finds.book) parts.push('the 📖 collection book')
+            if (next.run.finds.shards > prev.run.finds.shards) parts.push('a 🏺 relic shard')
+            if (next.run.finds.starDust > prev.run.finds.starDust) parts.push('✨ star dust (⭐+1)')
+            const ancient = next.run.finds.ancientSeeds - prev.run.finds.ancientSeeds
+            if (ancient === 1) parts.push('a 🦴 ancient seed')
+            if (ancient > 1) parts.push(`${ancient} 🦴 ancient seeds`)
+            setLastDig(parts.length > 0 ? `Found ${parts.join(' + ')}!` : 'Nothing this time')
             return null
           })
         }
@@ -109,9 +132,17 @@ export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked
             <small>{priceTag(state, id, ui.priceShown[id])}</small>
           </button>
         ))}
+        {/* batch 36.4: the ancient crop joins the list while a seed is held (or it is still the selected crop) */}
+        {((run.seeds[ANCIENT_CROP] ?? 0) > 0 || cropId === ANCIENT_CROP) && (
+          <button className={cropId === ANCIENT_CROP ? 'selected' : ''} aria-pressed={cropId === ANCIENT_CROP} onClick={() => onSelectCrop(ANCIENT_CROP)}>
+            {CROP_EMOJI[ANCIENT_CROP]} {CROPS[ANCIENT_CROP].name}
+            <small>seeds {run.seeds[ANCIENT_CROP] ?? 0}</small>
+            <small>{priceTag(state, ANCIENT_CROP, ui.priceShown[ANCIENT_CROP])}</small>
+          </button>
+        )}
       </div>
       <SeedPouch state={state} act={act} />
-      <DigSeeds act={act} />
+      <DigSeeds state={state} act={act} />
       <Workers state={state} act={act} worked={worked} />
       <Workshop state={state} act={act} />
       <Fields state={state} onOpen={openEstate} />

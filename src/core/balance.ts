@@ -1,6 +1,6 @@
 // Every tunable number lives here. Read them through the functions, never the tables,
 // so prestige multipliers (meta) apply everywhere. 1 tick = 1 second.
-import { CROP_GROUPS, cropGroup, type CropId, type ListingSoil } from './data/crops'
+import { ANCIENT_CROP, CROP_GROUPS, cropGroup, type CropId, type ListingSoil } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { UpgradeId } from './data/upgrades'
 import { ORE_IDS, PICKAXE_TIERS, type BarId, type ForgeRecipeId, type ItemId, type OreId, type PickaxeTier } from './data/items'
@@ -491,6 +491,19 @@ export function machineCost(kind: MachineKind, tier: number, meta: MetaState): P
 const DIG_SEED_CROP: CropId = 'potato'
 const DIG_SEED_CHANCE = 0.2
 
+// batch 36.4 dig finds (Toon's locked odds): checked per dig after the potato roll, in this order, each its own draw
+export const DIG_SHARD_CHANCE = 0.005
+export const DIG_DUST_CHANCE = 0.003
+export const DIG_ANCIENT_CHANCE = 0.0005
+/** the ancient crop: chance a harvest returns a second 🦴 seed */
+export const ANCIENT_SEED_EXTRA = 0.25
+/** the ancient crop's market is this many times deeper than a shop crop's */
+export const ANCIENT_MARKET_DEPTH = 4
+/** the three find odds of one dig, for tests and display */
+export function digFindChances(): { shard: number; dust: number; ancient: number } {
+  return { shard: DIG_SHARD_CHANCE, dust: DIG_DUST_CHANCE, ancient: DIG_ANCIENT_CHANCE }
+}
+
 // Bank v0 placeholders (PLAN.md batch 4.5): debt starts at principal × (1 + fee) and grows by
 // principal × rate per tick up to principal × cap (33 → 60 in 450 ticks).
 const LOAN_PRINCIPAL = 30
@@ -702,9 +715,9 @@ export function multiplier(meta: MetaState, key: MultiplierKey): number {
   return META_UPGRADE_STEP[key] ** meta.upgrades[key] * (meta.legacyMultipliers?.[key] ?? 1)
 }
 
-/** glut (units) at which this crop's price factor bottoms out; deeper for slower crops */
+/** glut (units) at which this crop's price factor bottoms out; deeper for slower crops; the ancient crop's ×4 (batch 36.4) */
 export function marketDepthGlut(cropId: CropId): number {
-  return MARKET_DEPTH_TILES / (CROP_BASE[cropId].growTicks * (1 - MARKET_DECAY))
+  return (MARKET_DEPTH_TILES / (CROP_BASE[cropId].growTicks * (1 - MARKET_DECAY))) * (cropId === ANCIENT_CROP ? ANCIENT_MARKET_DEPTH : 1)
 }
 
 /** sale price factor at this glut: 1 with no glut, sinking to the floor (MARKET_FLOOR, or the crop's renown floor) */

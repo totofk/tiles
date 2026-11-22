@@ -408,7 +408,8 @@ describe('layout content', () => {
     render(<App />)
     const dig = within(document.querySelector<HTMLElement>('.farm')!).getByRole('button', { name: /Dig for seeds/ })
     fireEvent.click(dig)
-    expect(within(dig.parentElement!).getByRole('status').textContent).toMatch(/Found a 🥔 Potato seed!|Nothing this time/)
+    // batch 36.4: the first dig opens the 📖 collection book, find or no find
+    expect(within(dig.parentElement!).getByRole('status').textContent).toBe('Found the 📖 collection book!')
   })
 
   it('batch 35: a fresh game picks only 🥔 Potato and digs potato seeds', () => {
@@ -420,9 +421,10 @@ describe('layout content', () => {
     const crops = [...picker.querySelectorAll('button')].map((b) => b.textContent!)
     expect([crops.length, crops[0]!.startsWith('🥔 Potato')]).toEqual([1, true])
     const dig = panel.getByRole('button', { name: /Dig for seeds/ })
-    const status = () => within(dig.parentElement!).queryByRole('status')?.textContent
-    for (let i = 0; i < 20 && !status()?.startsWith('Found'); i++) fireEvent.click(dig)
-    expect(status()).toBe('Found a 🥔 Potato seed!')
+    // batch 36.4: the dig now draws 4 values, so the first 🥔 drop lands past a fresh run's ⚡ budget (dig 11);
+    // the potato odds stay pinned in actions.farm.test.ts — here the deterministic first dig opens the 📖 book
+    fireEvent.click(dig)
+    expect(within(dig.parentElement!).getByRole('status').textContent).toBe('Found the 📖 collection book!')
   })
 
   it('the 📊 Stats feedback draft survives a tab switch (the form lives in the 💬 modal)', () => {

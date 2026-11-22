@@ -3,6 +3,7 @@ import * as actions from '../src/core/actions'
 import { digForSeeds, harvest, nextRandom, plant, till, water, type ActionResult } from '../src/core/actions'
 import {
   ACTION_ENERGY_COST,
+  MARKET_DECAY,
   START_TILES,
   cropGrowTicks,
   cropRotGraceTicks,
@@ -10,14 +11,16 @@ import {
   cropSellPrice,
   digSeedDrop,
   handPickedBonus,
+  marketDepthGlut,
 } from '../src/core/balance'
 
 /** what one unit the player harvests sells for at glut 0: the price × the hand-picked bonus */
 const picked = (price: number) => Math.round(price * handPickedBonus())
 import * as bank from '../src/core/bank'
+import { CROP_IDS } from '../src/core/data/crops'
 import { ITEM_IDS, type ItemId } from '../src/core/data/items'
 import * as mining from '../src/core/mining'
-import { marketCropPrice } from '../src/core/market'
+import { decayMarket, marketCropPrice } from '../src/core/market'
 import { createInitialState, type GameState, type Tile } from '../src/core/state'
 
 function withTile(tile: Partial<Tile>, run: Partial<GameState['run']> = {}): GameState {
@@ -136,12 +139,17 @@ describe('digForSeeds', () => {
   it('works at tick 0 with no license: 1 energy, counts the dig, rolls the seeded PRNG', () => {
     const s = createInitialState()
     const next = okState(digForSeeds(s))
-    const [r, rngState] = nextRandom(s.run.rngState)
+    // batch 36.4: one dig draws four values — the potato roll, then shard / dust / ancient, in that order
+    const [r, a] = nextRandom(s.run.rngState)
+    const [, b] = nextRandom(a)
+    const [, c] = nextRandom(b)
+    const [, rngState] = nextRandom(c)
     expect(next.run.energy).toBe(s.run.energy - ACTION_ENERGY_COST)
     expect(next.run.rngState).toBe(rngState)
     expect(next.run.counters.digs).toBe(1)
     expect(next.run.counters.mines).toBe(0)
     expect(next.run.seeds.potato ?? 0).toBe(r < digSeedDrop().chance ? 1 : 0)
+    expect(next.run.finds.book).toBe(true) // the first dig opens the 📖 book
     expect(next.run.cash).toBe(s.run.cash)
     expect(digForSeeds(s)).toEqual({ ok: true, state: next }) // same seed, same result
   })
@@ -166,6 +174,52 @@ describe('digForSeeds', () => {
     expect(ITEM_IDS as readonly string[]).not.toContain('potato')
     const s = withTile({}, { seeds: { potato: 5 } })
     expect(mining.sellItem(s, 'potato' as ItemId, 1)).toEqual({ ok: false, error: 'NOT_SELLABLE' })
+  })
+  it('finds land only through the dig: the four find counters and the book on the first dig', () => {
+    // 2000 digs from the fixed seed: shard / dust / ancient rates near their odds, dust pays ⭐1 each
+    let s = withTile({}, { energy: 1e6, stars: 10 })
+    for (let k = 0; k < 2000; k++) s = okState(digForSeeds(s))
+    expect(s.run.finds.book).toBe(true)
+    expect(s.run.lifetime.shardsFound / 2000).toBeCloseTo(0.005, 1)
+    expect(s.run.lifetime.starDustFound / 2000).toBeCloseTo(0.003, 1)
+    expect(s.run.lifetime.ancientSeedsFound / 2000).toBeCloseTo(0.0005, 2)
+    expect(s.run.stars).toBe(10 + s.run.finds.starDust) // 1 ✨ = ⭐1, not lifetime.starsEarned
+    expect(s.run.lifetime.starsEarned).toBe(0)
+  })
+})
+
+describe('the ancient crop (batch 36.4)', () => {
+  const matureAncient = { status: 'planted', cropId: 'ancientFruit' } as const
+  it('plants licence-free from a dug seed at no cash cost; stock 0 → NO_SEEDS even with auto-buy on', () => {
+    const twoSeeds = withTile(tilled, { autoBuySeeds: true, cash: 1e6, seeds: { ancientFruit: 2 } })
+    expect(twoSeeds.run.licenses).not.toContain('ancientFruit')
+    const next = okState(plant(twoSeeds, 0, 'ancientFruit'))
+    expect(next.run.tiles[0].cropId).toBe('ancientFruit')
+    expect(next.run.seeds.ancientFruit).toBe(1)
+    expect(next.run.cash).toBe(1e6)
+    expect(plant(withTile(tilled, { autoBuySeeds: true, cash: 1e6 }), 0, 'ancientFruit')).toEqual({ ok: false, error: 'NO_SEEDS' })
+  })
+  it('planting the last ancient seed switches "Crop to plant" to the top licensed crop', () => {
+    const last = withTile(tilled, { seeds: { ancientFruit: 1 }, plantCrop: 'ancientFruit', licenses: ['potato', 'radish', 'tomato'] })
+    const next = okState(plant(last, 0, 'ancientFruit'))
+    expect([next.run.seeds.ancientFruit, next.run.plantCrop]).toEqual([0, 'tomato'])
+  })
+  it('harvest sells at its own market price, always returns the seed (a 25 % second) and pays no renown', () => {
+    const s = withTile({ ...matureAncient, growth: cropGrowTicks('ancientFruit', meta, 0) }, { seeds: { ancientFruit: 0 } })
+    const next = okState(harvest(s, 0))
+    expect(next.run.cash - s.run.cash).toBe(picked(cropSellPrice('ancientFruit', meta, 0)))
+    expect(next.run.seeds.ancientFruit).toBeGreaterThanOrEqual(1)
+    expect(next.run.renown).toEqual({})
+    // plant → force-mature → harvest, 2000 cycles: the pouch grows by the second-seed rate ≈ 0.25
+    const force = (st: GameState): GameState => ({ ...st, run: { ...st.run, tiles: st.run.tiles.map((t, i) => (i === 0 ? { ...t, growth: cropGrowTicks('ancientFruit', meta, 0) } : t)) } })
+    let run = withTile(tilled, { energy: 1e9, seeds: { ancientFruit: 1 } })
+    for (let k = 0; k < 2000; k++) run = okState(harvest(force(okState(plant(run, 0, 'ancientFruit'))), 0))
+    expect((run.run.seeds.ancientFruit! - 1) / 2000).toBeCloseTo(0.25, 1)
+  })
+  it('market depth ×4 and the ancient glut decays like any crop', () => {
+    expect(marketDepthGlut('ancientFruit') / marketDepthGlut('chilli')).toBeCloseTo((4 * cropGrowTicks('chilli', meta, 0)) / cropGrowTicks('ancientFruit', meta, 0), 5)
+    const decayed = decayMarket({ ...Object.fromEntries(CROP_IDS.map((c) => [c, 0])), ancientFruit: 2 } as GameState['run']['market'])
+    expect(decayed.ancientFruit).toBeCloseTo(2 * MARKET_DECAY, 9)
   })
 })
 

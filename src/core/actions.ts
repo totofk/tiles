@@ -1,5 +1,9 @@
 import {
   ACTION_ENERGY_COST,
+  ANCIENT_SEED_EXTRA,
+  DIG_ANCIENT_CHANCE,
+  DIG_DUST_CHANCE,
+  DIG_SHARD_CHANCE,
   TILE_CAP,
   cropGrowTicks,
   cropSeedCost,
@@ -18,7 +22,8 @@ import {
   upgradeUnlocked,
   waterMoisture,
 } from './balance'
-import type { CropId } from './data/crops'
+import { ANCIENT_CROP, CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
+import { RELIC_IDS } from './data/relics'
 import { districtSells } from './data/districts'
 import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
@@ -161,18 +166,21 @@ export function till(state: GameState, i: number, energy = ACTION_ENERGY_COST): 
 // Planting uses 1 seed from the pouch. With 0 in stock and autoBuySeeds on it buys that one seed at the
 // seed price instead (the pre-v4 cost, so auto-buy costs exactly what planting always did). A copper dibber may keep
 // the seed: the checks still need one in hand, but a kept seed leaves the pouch as it was and auto-buy charges nothing.
+// The ancient crop (batch 36.4) is licence-free and never auto-bought; planting its last seed switches "Crop to
+// plant" to the top licensed shop crop so the plant worker never idles on an empty ancient pouch.
 export function plant(state: GameState, i: number, cropId: CropId, energy = ACTION_ENERGY_COST): ActionResult {
   const { run } = state
   const stock = run.seeds[cropId] ?? 0
   const price = stock > 0 ? 0 : cropSeedCost(cropId, state.meta)
+  const ancient = cropId === ANCIENT_CROP
   return farmAction(
     state,
     i,
     (t) => {
       if (isTreeTile(run, i)) return 'LOCKED'
       if (t.status !== 'tilled') return 'NOT_TILLED'
-      if (!run.licenses.includes(cropId)) return 'NO_LICENSE'
-      if (stock === 0 && !run.autoBuySeeds) return 'NO_SEEDS'
+      if (!ancient && !run.licenses.includes(cropId)) return 'NO_LICENSE'
+      if (stock === 0 && (ancient || !run.autoBuySeeds)) return 'NO_SEEDS'
       return run.cash < price ? 'NO_CASH' : null
     },
     (t) => {
@@ -181,15 +189,24 @@ export function plant(state: GameState, i: number, cropId: CropId, energy = ACTI
         tile: { ...t, status: 'planted', cropId, growth: 0, ticksSinceMature: 0 },
         cashDelta: kept ? 0 : -price,
         counters: { plants: run.counters.plants + 1 },
-        run: { ...run, rngState, seeds: stock > 0 && !kept ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds },
+        run: {
+          ...run,
+          rngState,
+          seeds: stock > 0 && !kept ? { ...run.seeds, [cropId]: stock - 1 } : run.seeds,
+          plantCrop: ancient && stock === 1 && !kept ? topLicensedCrop(run) : run.plantCrop,
+        },
       }
     },
     energy,
   )
 }
 
-/** "Crop to plant" for taps, the plant tool and the plant worker; free, needs the license */
+/** the highest licensed shop crop (the last of CROP_IDS in licence order); potato when none is licensed */
+const topLicensedCrop = (run: RunState): CropId => CROP_IDS.reduce((best, c) => (run.licenses.includes(c) ? c : best), STARTING_CROP as CropId)
+
+/** "Crop to plant" for taps, the plant tool and the plant worker; free, needs the license (the ancient crop: a seed in hand) */
 export function selectCrop(state: GameState, cropId: CropId): ActionResult {
+  if (cropId === ANCIENT_CROP) return (state.run.seeds[ANCIENT_CROP] ?? 0) > 0 ? withRun(state, { plantCrop: cropId }) : fail('NO_SEEDS')
   return state.run.licenses.includes(cropId) ? withRun(state, { plantCrop: cropId }) : fail('NO_LICENSE')
 }
 
@@ -223,8 +240,18 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
       const tier = run.toolTier.harvest
       const { hit, rngState: afterDouble } = tierRoll(run, tier, doubleHarvestChance(tier))
       // batch 32: then the sickle's seed roll (tier 0 rolls nothing), +1 seed of the crop into the pouch
-      const { hit: seed, rngState } = tierRoll({ ...run, rngState: afterDouble }, tier, seedDropChance(tier))
+      const { hit: seed, rngState: afterSeed } = tierRoll({ ...run, rngState: afterDouble }, tier, seedDropChance(tier))
       const crops = hit ? 2 : 1
+      // batch 36.4: the ancient crop's seed always comes back; one tier-independent draw may add a second, and it pays
+      // no renown. Other crops draw nothing new (their replay stays exact).
+      const ancient = t.cropId === ANCIENT_CROP
+      let extraSeeds = 0
+      let rngState = afterSeed
+      if (ancient) {
+        const [r, next] = nextRandom(afterSeed)
+        rngState = next
+        extraSeeds = r < ANCIENT_SEED_EXTRA ? 2 : 1
+      }
       // the market prices each unit at the glut before that unit's sale, in sequence; a player's harvest (energy spent)
       // is hand-picked, a worker's (energy 0) is not
       const bonus = energy > 0 ? handPickedBonus() : 1
@@ -236,8 +263,8 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
         harvested: t.cropId,
         run: {
           ...sale.run,
-          renown: addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER),
-          seeds: seed ? { ...sale.run.seeds, [t.cropId!]: (sale.run.seeds[t.cropId!] ?? 0) + 1 } : sale.run.seeds,
+          renown: ancient ? sale.run.renown : addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER),
+          seeds: ancient || seed ? { ...sale.run.seeds, [t.cropId!]: (sale.run.seeds[t.cropId!] ?? 0) + (ancient ? extraSeeds : 1) } : sale.run.seeds,
         },
       }
     },
@@ -247,17 +274,47 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
 
 // Dig for seeds: the anti-soft-lock floor. No tile, no license, free from tick 0; 1 energy, and a chance of one
 // seed into the pouch. The roll and the digs counter advance whether or not a seed drops.
+// Batch 36.4: after the potato roll every dig draws THREE finds in a fixed order (shard, star dust, ancient seed),
+// independent of it — a fixed count keeps runs replayable. 1 ✨ = ⭐1. After the full relic set (task 226) the shard
+// draw pays a second ancient seed instead. The run's first dig opens the 📖 book.
 export function digForSeeds(state: GameState): ActionResult {
   const { run } = state
   if (run.energy < ACTION_ENERGY_COST) return fail('NO_ENERGY')
   const [r, rngState] = nextRandom(run.rngState)
   const { crop, chance } = digSeedDrop()
+  const [r2, afterShard] = nextRandom(rngState)
+  const [r3, afterDust] = nextRandom(afterShard)
+  const [r4, afterAncient] = nextRandom(afterDust)
+  const setDone = run.relics.length === RELIC_IDS.length
+  const dust = r3 < DIG_DUST_CHANCE
+  const seeds = { ...run.seeds }
+  if (r < chance) seeds[crop] = (seeds[crop] ?? 0) + 1
+  const finds = { ...run.finds, book: true }
+  const lifetime = { ...run.lifetime }
+  const seedFind = (n: number) => {
+    seeds[ANCIENT_CROP] = (seeds[ANCIENT_CROP] ?? 0) + n
+    finds.ancientSeeds += n
+    lifetime.ancientSeedsFound += n
+  }
+  if (setDone) {
+    if (r2 < DIG_ANCIENT_CHANCE) seedFind(1)
+  } else if (r2 < DIG_SHARD_CHANCE) {
+    finds.shards += 1
+    lifetime.shardsFound += 1
+  }
+  if (dust) {
+    finds.starDust += 1
+    lifetime.starDustFound += 1
+  }
+  if (r4 < DIG_ANCIENT_CHANCE) seedFind(1)
   return withRun(state, {
     energy: run.energy - ACTION_ENERGY_COST,
-    rngState,
-    seeds: r < chance ? { ...run.seeds, [crop]: (run.seeds[crop] ?? 0) + 1 } : run.seeds,
+    rngState: afterAncient,
+    stars: run.stars + (dust ? 1 : 0),
+    seeds,
+    finds,
     counters: { ...run.counters, digs: run.counters.digs + 1 },
-    lifetime: addLifetime(run, ACTION_ENERGY_COST, 0),
+    lifetime: addLifetime({ ...run, lifetime }, ACTION_ENERGY_COST, 0),
   })
 }
 
