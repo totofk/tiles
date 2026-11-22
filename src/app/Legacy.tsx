@@ -16,6 +16,7 @@ import {
 import { STAR_EMOJI } from '../core/data/orders'
 import { useState } from 'react'
 import { DISTRICTS, DISTRICT_HINT } from '../core/data/districts'
+import { fieldsGates } from '../core/fields'
 import { currentListings, rerollListings, soilText, type Listing } from '../core/listings'
 import { buyMetaUpgrade, deedsClaimable, sellFarmUnlocked } from '../core/prestige'
 import type { GameState, MetaState } from '../core/state'
@@ -111,7 +112,7 @@ function gateShort(state: GameState): string {
   return [
     !run.workers.certificates.includes('plant') && 'planter certificate',
     !run.workers.certificates.includes('harvest') && 'harvester certificate',
-    !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
+    !fieldsGates(run).water && '1 bed sprinkler',
     deeds < PRESTIGE_GATE_DEEDS && `${PRESTIGE_GATE_DEEDS - deeds} more deeds`,
   ]
     .filter(Boolean)

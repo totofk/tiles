@@ -4,6 +4,7 @@ import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { CounterId, GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { isIrrigated } from '../core/workshop'
+import { noMine } from '../core/wetlands'
 import { managerPlanText } from './estateText'
 import { price } from './fmt'
 import { Info } from './Info'
@@ -31,8 +32,11 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
     void [cash, stars]
     const itemCount = Object.values(items).reduce((n, k) => n + (k ?? 0), 0)
     // only the gates still missing, one line each (both on one line would push the ⓘ off the 284 px row at 1024)
+    // batch 36.3: a no-mine run's fuel certificate comes with the Fields, not the bars counter
     const missing = [
-      run.counters[counter] < at && `${GATE_LABEL[counter] ?? counter} ${run.counters[counter]}/${at}`,
+      job === 'fuel' && noMine(run)
+        ? !run.fields.unlocked && 'unlocks with the 🚜 Fields'
+        : run.counters[counter] < at && `${GATE_LABEL[counter] ?? counter} ${run.counters[counter]}/${at}`,
       run.vein.level < vein && `vein Lv${vein}`,
       toolLevel < tool && `needs ${WORKER_JOB_EMOJI[job]} ${TOOLS[job as ToolJob].names[tool - 1]} (tool Lv${tool})`,
       itemCount > run.bagCapacity && `needs 📦 ${itemCount} storage`,
@@ -88,7 +92,11 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
       {/* batch 24: the job rows are one group, hiring another over a divider */}
       <div className="group">
         {/* batch 34: the Stoker's certificate is bought in ⭐ Favours, so its row shows only once owned */}
-        {WORKER_JOBS.filter((job) => !HIDDEN_JOBS.includes(job) && (job !== 'stoker' || run.workers.certificates.includes(job))).map((job) => (
+        {/* batch 36.3: a no-mine run has no ore or mine work */}
+        {WORKER_JOBS.filter(
+          (job) =>
+            !HIDDEN_JOBS.includes(job) && (job !== 'stoker' || run.workers.certificates.includes(job)) && !(noMine(run) && (job === 'ore' || job === 'mine')),
+        ).map((job) => (
           <JobRow key={job} state={state} act={act} job={job} active={worked.some((w) => w.job === job)} />
         ))}
       </div>

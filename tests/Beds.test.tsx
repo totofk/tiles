@@ -100,3 +100,25 @@ describe('batch 36.2: the 🌳 fruit tree in the beds', () => {
     expect(beds()[0].querySelectorAll('.cell-tree')).toHaveLength(0)
   })
 })
+
+describe('batch 36.3: Wetlands bank beds', () => {
+  it('beds 1–2 show 🌊 (river title) and no sprinkler socket even with a workshop; bed 3 is unchanged', () => {
+    const s = at(13)
+    const wet: GameState = { ...s, run: { ...s.run, listing: { district: 'wetlands', soil: null }, workshop: { ...s.run.workshop, built: true } } }
+    render(<FarmGrid state={wet} onTap={() => {}} />)
+    const [b1, b2, b3] = beds()
+    for (const b of [b1, b2]) {
+      expect(b.className).toBe('bed bed-irrigated bed-bank')
+      const mark = b.querySelector<HTMLElement>('.bed-fountain')!
+      expect([mark.textContent, mark.title]).toEqual(['🌊', 'The river waters this bed forever'])
+      expect(b.querySelector('.bed-socket')).toBeNull()
+    }
+    expect(b3.className).toBe('bed')
+    expect(b3.querySelector('.bed-fountain')).toBeNull()
+    expect(b3.querySelector('.bed-socket')).toBeTruthy()
+    cleanup()
+    render(<FarmGrid state={{ ...wet, run: { ...wet.run, listing: { district: 'plain', soil: null } } }} onTap={() => {}} />)
+    expect(beds()[0].className).toBe('bed')
+    expect(beds()[0].querySelector('.bed-socket')).toBeTruthy()
+  })
+})

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { FarmGrid } from '../src/app/FarmGrid'
 import { Hud } from '../src/app/Hud'
-import { bannerText, pushRate, ratesPerHour, type Act, type RateSample } from '../src/app/useGame'
+import { WORKER_JOB_LABEL, bannerText, pushRate, ratesPerHour, type Act, type RateSample } from '../src/app/useGame'
 import { Workers } from '../src/app/Workers'
 import { workerHireCost } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
@@ -35,6 +35,21 @@ const row = (job: keyof typeof LABEL) => screen.getByText(LABEL[job]).closest('.
 const summary = () => document.querySelector('summary')!.textContent
 const certified = (pool: number, water = 0, harvest = 0) => ({
   workers: { pool, assigned: { plant: 0, water, harvest, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['water', 'harvest'] as ('water' | 'harvest')[] },
+})
+
+describe('batch 36.3: Wetlands workers', () => {
+  const label = (job: 'ore' | 'fuel' | 'mine') => WORKER_JOB_LABEL[job]
+  it('no ore / mine rows on a no-mine run; the fuel row says it unlocks with the 🚜 Fields; plain keeps every row', () => {
+    setup({ listing: { district: 'wetlands', soil: null } })
+    expect(screen.queryByText(label('ore'))).toBeNull()
+    expect(screen.queryByText(label('mine'))).toBeNull()
+    const fuel = screen.getByText(label('fuel')).closest('.worker-row') as HTMLElement
+    expect(within(fuel).getByText('unlocks with the 🚜 Fields')).toBeTruthy()
+    expect(fuel.textContent).not.toMatch(/bars \d+\/30/)
+    cleanup()
+    setup({})
+    for (const job of ['ore', 'fuel', 'mine'] as const) expect(screen.getByText(label(job))).toBeTruthy()
+  })
 })
 
 describe('batch 29: the 💼 Manager row', () => {

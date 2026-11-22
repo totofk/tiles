@@ -1,6 +1,7 @@
 import { Fragment } from 'react'
 import type { ActionError, ActionResult } from '../core/actions'
 import {
+  BARGE_ITEMS,
   FORGE_CYCLE_TICKS,
   FORGE_RECIPES,
   FORGE_TRAY,
@@ -50,6 +51,7 @@ import { SEAM_EMOJI } from '../core/data/favours'
 import { STAR_EMOJI } from '../core/data/orders'
 import { setSeamAim } from '../core/favours'
 import { buildForge, collectForge, forgeTrayCount, loadForge, setForgeRecipe } from '../core/forge'
+import { bargePrice, buyBarge, noMine } from '../core/wetlands'
 import { addFuel, setAutoBuyWood, buyFurnaceUpgrade, buyMold, collectAll, collectBars, cycleOre, furnaceUpgradeLevel, loadOre, moldSmelting } from '../core/furnace'
 import {
   activePickaxe,
@@ -76,7 +78,7 @@ import type { Furnace as FurnaceState, GameState, Mold } from '../core/state'
 import { Bar } from './Bar'
 import { count, gain, price } from './fmt'
 import { Info, Item } from './Info'
-import { FURNACE_TIPS } from './tips'
+import { FURNACE_TIPS, TIPS } from './tips'
 import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 
 /** pickaxe tiers above wooden map 1:1 to an ore; the vein at this level drops it */
@@ -371,9 +373,88 @@ function Furnace({ state, act, smeltActed = false }: { state: GameState; act: Ac
   )
 }
 
+/** batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all; the columns live on the
+ * container, rows are subgrids; the wrap is the container the two-line mode queries */
+function ItemGrid({ state, act }: { state: GameState; act: Act }) {
+  const { run, meta } = state
+  return (
+    <div className="item-grid-wrap">
+      <div className="item-grid">
+        {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => {
+          const n = run.inventory[id] ?? 0
+          return (
+            <div key={id} className="item-row">
+              <span className="item-name">
+                <span className="item-label">
+                  {ITEMS[id].emoji} {ITEMS[id].name}
+                </span>
+              </span>
+              <span className="item-count">×{n}</span>
+              <span className="item-extra">{isSellable(id) ? `💰${gain(itemSellPrice(id, meta, run.upgrades.sellPrice))}` : ''}</span>
+              {isSellable(id) ? (
+                <>
+                  <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
+                  <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
+                </>
+              ) : (
+                <>
+                  <span />
+                  <span />
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** batch 36.3: Wetlands' barge — one row per good, ×1 and ×10 (disabled with the reason, as the Forge's buttons) */
+function Barge({ state, act }: { state: GameState; act: Act }) {
+  const { run, meta } = state
+  return (
+    <div className="group mine-barge">
+      <h3>
+        🌊 Barge <Info text={TIPS.barge} />
+      </h3>
+      {BARGE_ITEMS.map((id) => (
+        <div key={id} className="mine-furnace-actions">
+          <span>
+            {ITEMS[id].emoji} {ITEMS[id].name} 💰{price(bargePrice(id, meta, run.upgrades.sellPrice))}
+          </span>
+          {[1, 10].map((n) => {
+            const r = buyBarge(state, id, n)
+            return (
+              <button key={n} disabled={!r.ok} onClick={() => act((s) => buyBarge(s, id, n))}>
+                {`×${n}`}
+                {!r.ok && <small>{shortReason(r)}</small>}
+              </button>
+            )
+          })}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** minerActed: a mine worker pressed Mine on this tick, so the Mine button flashes and pops ⛏️ (as a farm worker's tile does) */
 export function Mine({ state, act, minerActed = false, smeltActed = false }: { state: GameState; act: Act; minerActed?: boolean; smeltActed?: boolean }) {
   const { run, meta } = state
+  if (noMine(run)) {
+    return (
+      <section className="mine mine-river">
+        <h2>
+          🌊 River{' '}
+          <small>
+            📦 Storage {bagCount(run)} / {run.bagCapacity}
+          </small>
+        </h2>
+        <Barge state={state} act={act} />
+        <ItemGrid state={state} act={act} />
+      </section>
+    )
+  }
   if (!run.mineLicense) {
     const cost = mineLicenseCost(meta)
     return (
@@ -563,37 +644,8 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
       <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
         Buy wood 💰{price(woodCost(meta))}
       </button>
-      {/* batch 24.1: one shared grid for repeated rows — name | count | extra | sell 1 | sell all; the columns live on
-          the container, rows are subgrids; the wrap is the container the two-line mode queries */}
-      <div className="item-grid-wrap">
-        <div className="item-grid">
-          {ITEM_IDS.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => {
-            const n = run.inventory[id] ?? 0
-            return (
-              <div key={id} className="item-row">
-                <span className="item-name">
-                  <span className="item-label">
-                    {ITEMS[id].emoji} {ITEMS[id].name}
-                  </span>
-                </span>
-                <span className="item-count">×{n}</span>
-                <span className="item-extra">{isSellable(id) ? `💰${gain(itemSellPrice(id, meta, run.upgrades.sellPrice))}` : ''}</span>
-                {isSellable(id) ? (
-                  <>
-                    <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, 1))}>sell 1</button>
-                    <button disabled={n === 0} onClick={() => act((s) => sellItem(s, id, s.run.inventory[id] ?? 0))}>sell all</button>
-                  </>
-                ) : (
-                  <>
-                    <span />
-                    <span />
-                  </>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      <ItemGrid state={state} act={act} />
+      {run.listing.district === 'wetlands' && <Barge state={state} act={act} />}
       {/* batch 32: one table — kind (+ unlock price) | Unlock or the Sell on dig checkbox | keep up to (Keep N) */}
       {run.vein.level >= oreSortVeinLevel() && (
         <div className="group">

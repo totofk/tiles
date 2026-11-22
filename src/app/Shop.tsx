@@ -24,7 +24,8 @@ import {
 } from '../core/balance'
 import { buildFurnace } from '../core/furnace'
 import { buildWorkshop } from '../core/workshop'
-import { fieldsUnlockable, unlockFields } from '../core/fields'
+import { fieldsGates, fieldsUnlockable, unlockFields } from '../core/fields'
+import { noMine } from '../core/wetlands'
 import { BOARD_EMOJI } from '../core/data/orders'
 import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
@@ -146,7 +147,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
 
       <h2>Supplies</h2>
       <div className="shop-row">
-        {run.mineLicense ? (
+        {noMine(run) ? null : run.mineLicense ? (
           <Item tip={TIPS.wood}>
             <button disabled={!buyWood(state, 1).ok} onClick={() => act((s) => buyWood(s, 1))}>
               {ITEMS.wood.emoji} Wood
@@ -177,7 +178,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
             </button>
           </Item>
         )}
-        {run.workshop.built && !run.fields.unlocked && (
+        {!run.fields.unlocked && (run.workshop.built || run.listing.district === 'wetlands') && (
           <Item tip={TIPS.fields}>
             <button
               disabled={!unlockFields(state).ok}
@@ -190,7 +191,7 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui }: 
                   : `needs ${[
                       !run.workers.certificates.includes('plant') && 'planter certificate',
                       !run.workers.certificates.includes('harvest') && 'harvester certificate',
-                      !run.workshop.beds.some(Boolean) && '1 bed sprinkler',
+                      !fieldsGates(run).water && '1 bed sprinkler',
                     ]
                       .filter(Boolean)
                       .join(' + ')}`}

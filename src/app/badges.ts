@@ -12,6 +12,7 @@ import { bestPickaxeTier, buyStorage, craftPickaxe, upgradeVein } from '../core/
 import type { GameState } from '../core/state'
 import { buyToolTier, buyTool } from '../core/tools'
 import { buyCertificate, certificateUnlocked } from '../core/workers'
+import { noMine } from '../core/wetlands'
 
 export const BADGE_TABS = ['shop', 'upgrades', 'farm', 'mine'] as const
 export type BadgeTab = (typeof BADGE_TABS)[number]
@@ -26,7 +27,7 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
   const { run, meta } = state
   const shop: string[] = []
   for (const id of CROP_IDS) if (!run.licenses.includes(id) && run.cash >= licenseCost(id, meta)) shop.push(`license:${id}`)
-  if (!run.mineLicense && run.cash >= mineLicenseCost(meta)) shop.push('mineLicense')
+  if (!run.mineLicense && run.listing.district !== 'wetlands' && run.cash >= mineLicenseCost(meta)) shop.push('mineLicense')
   if (buildFurnace(state).ok) shop.push('furnace')
   // the sprinkler and valve recipes live in the 🌾 Farm tab's Workshop card, which is not a badge tab — no keys for them
   if (buildWorkshop(state).ok) shop.push('workshop')
@@ -53,7 +54,7 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
     upgrades.push('mine')
     if (buyStorage(state).ok) upgrades.push(`storage@${run.storageLevel}`)
     if (upgradeVein(state).ok) upgrades.push(`vein@${run.vein.level}`)
-  }
+  } else if (noMine(run) && buyStorage(state).ok) upgrades.push(`storage@${run.storageLevel}`)
 
   // batch 31.1 (task 166a): the 🌱 Farm and ⛏️ Mine nav items — certificates (unlocked, then affordable), the order
   // board, and a pickaxe tier above the one held

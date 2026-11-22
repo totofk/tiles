@@ -54,6 +54,19 @@ describe('mobile tab bar', () => {
     expect(labels).toEqual(['🌱 Farm', '⛏️ Mine', '🛒 Shop', '⬆️ Upgrades', '🏦 Bank', '📊 Stats'])
   })
 
+  it('batch 36.3: the Mine tab reads "🌊 River" on a no-mine Wetlands run and opens the River view', () => {
+    const s = createInitialState()
+    localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, listing: { district: 'wetlands', soil: null } } }, Date.now()))
+    render(<App />)
+    const labels = within(screen.getByRole('navigation'))
+      .getAllByRole('button')
+      .map((b) => b.textContent)
+    expect(labels).toEqual(['🌱 Farm', '🌊 River', '🛒 Shop', '⬆️ Upgrades', '🏦 Bank', '📊 Stats'])
+    fireEvent.click(mobileTab(/River/))
+    expect(pressed(mobileTab(/River/))).toBe(true)
+    expect(document.querySelector('.mine-river')).toBeTruthy()
+  })
+
   it('the Bank tab borrows and the HUD shows the debt badge', () => {
     render(<App />)
     expect(screen.queryByTitle('Bank debt')).toBeNull()

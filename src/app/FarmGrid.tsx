@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import { cropRotGraceTicks, sprinklerCost, treeCadenceTicks, treePlantCost, waterMoisture } from '../core/balance'
+import { BANK_BEDS, cropRotGraceTicks, sprinklerCost, treeCadenceTicks, treePlantCost, waterMoisture } from '../core/balance'
 import { CROP_GROUPS, CROPS, type CropId } from '../core/data/crops'
 import { plantTreeBed } from '../core/tree'
 import { price } from './fmt'
@@ -123,7 +123,9 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
   // the bed whose socket sheet is open (batch 26); closing the sheet is the cancel — no placement mode
   const [sheet, setSheet] = useState<number | null>(null)
   const { run } = state
-  const sprinklerOpen = (k: number) => run.workshop.built && run.workshop.beds[k] !== true
+  // batch 36.3: Wetlands' bank beds — the river waters them, so they have no sprinkler socket
+  const bank = (k: number) => run.listing.district === 'wetlands' && k < BANK_BEDS
+  const sprinklerOpen = (k: number) => run.workshop.built && run.workshop.beds[k] !== true && !bank(k)
   // batch 36.2: an Orchard Valley run with no tree yet can plant one from any bed's socket
   const treeOpen = run.listing.district === 'orchardValley' && run.tree === null
   const treeCrops = CROP_GROUPS.berry.filter((c) => run.licenses.includes(c))
@@ -133,13 +135,19 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
       <div className="beds-wrap">
         <div className="beds" style={style}>
           {Array.from({ length: beds }, (_, k) => {
-            const irrigated = state.run.workshop.beds[k] === true
+            const irrigated = state.run.workshop.beds[k] === true || bank(k)
             return (
-              <div className={irrigated ? 'bed bed-irrigated' : 'bed'} role="group" aria-label={`Bed ${k + 1}`} key={k}>
-                {irrigated && (
-                  <span className="bed-fountain" title="A sprinkler waters this bed forever">
-                    {SPRINKLER_EMOJI}
+              <div className={bank(k) ? 'bed bed-irrigated bed-bank' : irrigated ? 'bed bed-irrigated' : 'bed'} role="group" aria-label={`Bed ${k + 1}`} key={k}>
+                {bank(k) ? (
+                  <span className="bed-fountain" title="The river waters this bed forever">
+                    🌊
                   </span>
+                ) : (
+                  irrigated && (
+                    <span className="bed-fountain" title="A sprinkler waters this bed forever">
+                      {SPRINKLER_EMOJI}
+                    </span>
+                  )
                 )}
                 {(sprinklerOpen(k) || (treeOpen && (k + 1) * 6 <= run.tiles.length)) && (
                   <button

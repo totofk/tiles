@@ -58,6 +58,7 @@ export const TIPS = {
   autoBuy: 'When the pouch is empty, planting buys one seed for you at the normal price. Turn it off to plant only seeds you hold.',
   mineLicense: 'Opens the mine: spend spare energy on stone while crops grow. A one-time cost.',
   wood: 'Crafts and repairs pickaxes. A pickaxe wears with use, so it needs wood again from time to time.',
+  barge: 'Wetlands has no mine: the barge sells bars, stone and coal for cash. Buying costs more than selling.',
   tile: 'One more farm tile. Each new tile costs more than the last, up to the tile cap.',
   board: 'Orders for what you make now. An accepted crop order takes your harvests of that crop at a bonus price, with no market glut; item orders are delivered from storage. Every finished order pays stars. No timers: discard any order for free.',
   storage: 'More room for stone and other mined items. Paid in stone and cash; the price rises each level.',

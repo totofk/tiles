@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { water } from '../src/core/actions'
-import { TANK_UNITS_PER_COAL, cropGrowTicks, waterMoisture } from '../src/core/balance'
+import { BARGE_ITEMS, TANK_UNITS_PER_COAL, cropGrowTicks, waterMoisture, type BargeItemId } from '../src/core/balance'
 import type { DistrictId } from '../src/core/data/districts'
 import { WORKER_JOBS, type WorkerJob } from '../src/core/data/workers'
 import { buyPump, fieldsGates, unlockFields } from '../src/core/fields'
 import { buildFurnace } from '../src/core/furnace'
 import { buyMineLicense, buyStorage, craftPickaxe, dig, upgradeVein } from '../src/core/mining'
-import { orderPool } from '../src/core/orders'
+import { buyOrderBoard, orderPool } from '../src/core/orders'
 import { createInitialState, createTile, type GameState } from '../src/core/state'
 import { step } from '../src/core/step'
-import { certificateUnlocked } from '../src/core/workers'
+import { buyToolTier } from '../src/core/tools'
+import { buyCertificate, certificateUnlocked } from '../src/core/workers'
+import { buyBarge } from '../src/core/wetlands'
 import { buildSprinkler, buildWorkshop, isIrrigated } from '../src/core/workshop'
 
 const on = (district: DistrictId, run: Partial<GameState['run']> = {}): GameState => {
@@ -135,6 +137,58 @@ describe('batch 36.3: PIN36k no-soft-lock gates (core)', () => {
   it('orderPool on a no-mine run is the licences only', () => {
     const s = on('wetlands', { licenses: ['potato', 'radish', 'tomato'] })
     expect(orderPool(s.run)).toEqual(['potato', 'radish', 'tomato'])
+  })
+
+  it('buyBarge: ×1 / ×10 of every good at its price; LOCKED on plain / Orchard / Iron Hills; BAD_AMOUNT; BAG_FULL; NO_CASH', () => {
+    const prices = { copperBar: 125, ironBar: 625, goldBar: 1250, stone: 3, coal: 5 }
+    for (const item of BARGE_ITEMS) {
+      const s = on('wetlands', { cash: 20_000 })
+      const one = ok(buyBarge(s, item, 1))
+      expect([one.run.cash, one.run.inventory[item]]).toEqual([20_000 - prices[item], 1])
+      const ten = ok(buyBarge(one, item, 10))
+      expect([ten.run.cash, ten.run.inventory[item]]).toEqual([20_000 - 11 * prices[item], 11])
+      expect([ten.run.energy, ten.run.counters, ten.run.rngState]).toEqual([s.run.energy, s.run.counters, s.run.rngState])
+      for (const d of ['plain', 'orchardValley', 'ironHills'] as DistrictId[]) expect(buyBarge(on(d, { cash: 20_000 }), item, 1)).toEqual({ ok: false, error: 'LOCKED' })
+    }
+    expect(buyBarge(on('wetlands', { cash: 100 }), 'wood' as BargeItemId, 1)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(buyBarge(on('wetlands', { cash: 100 }), 'coal', 0)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    expect(buyBarge(on('wetlands', { cash: 100 }), 'coal', 1.5)).toEqual({ ok: false, error: 'BAD_AMOUNT' })
+    expect(buyBarge(on('wetlands', { cash: 1e6, inventory: { stone: 15 } }), 'coal', 6)).toEqual({ ok: false, error: 'BAG_FULL' })
+    expect(buyBarge(on('wetlands', { cash: 1e6, inventory: { stone: 15 } }), 'coal', 5).ok).toBe(true)
+    expect(buyBarge(on('wetlands', { cash: 49 }), 'coal', 10)).toEqual({ ok: false, error: 'NO_CASH' })
+  })
+
+  it('barge-bought goods pay storage Lv1 … Lv10, the Noticeboard, every farm certificate, the clerk, the three tool tiers and the Manager', () => {
+    const counters = { harvests: 999, sales: 999, mines: 0, digs: 0, waters: 999, plants: 999, bars: 0, orders: 999, contractsByHand: 999 }
+    let s = on('wetlands', { cash: 1e9, stars: 1000, counters, tools: { plant: 3, water: 3, harvest: 3 } })
+    /** buys exactly what `need` lacks at the barge, then runs the purchase */
+    const viaBarge = (need: Partial<Record<BargeItemId, number>>, buy: (s: GameState) => ReturnType<typeof buyStorage>) => {
+      for (const [item, n] of Object.entries(need) as [BargeItemId, number][]) {
+        const short = n - (s.run.inventory[item] ?? 0)
+        if (short > 0) s = ok(buyBarge(s, item, short))
+      }
+      s = ok(buy(s))
+    }
+    for (let lv = 0; lv < 10; lv++) viaBarge({ stone: 15 + 5 * lv }, buyStorage)
+    expect(s.run.storageLevel).toBe(10)
+    viaBarge({ stone: 10 }, buyOrderBoard)
+    viaBarge({ stone: 20 }, (x) => buyCertificate(x, 'water'))
+    viaBarge({ stone: 20, coal: 5 }, (x) => buyCertificate(x, 'harvest'))
+    viaBarge({ copperBar: 10 }, (x) => buyCertificate(x, 'plant'))
+    viaBarge({ copperBar: 6 }, (x) => buyCertificate(x, 'clerk'))
+    viaBarge({ goldBar: 4 }, (x) => buyCertificate(x, 'manager'))
+    for (const job of ['plant', 'water', 'harvest'] as const) viaBarge({ copperBar: 4 }, (x) => buyToolTier(x, job))
+    for (const job of ['plant', 'water', 'harvest'] as const) viaBarge({ ironBar: 4 }, (x) => buyToolTier(x, job))
+    for (const job of ['plant', 'harvest'] as const) viaBarge({ goldBar: 4 }, (x) => buyToolTier(x, job))
+    viaBarge({ ironBar: 10 }, unlockFields)
+    expect(s.run.orders.unlocked).toBe(true)
+    expect([...s.run.workers.certificates].sort()).toEqual(['clerk', 'harvest', 'manager', 'plant', 'water'])
+    expect(s.run.toolTier).toEqual({ plant: 3, water: 2, harvest: 3 })
+    expect(s.run.fields.unlocked).toBe(true)
+    // the fuel certificate opens with the Fields and is paid with barge copper bars
+    expect(certificateUnlocked(s.run, 'fuel')).toBe(true)
+    viaBarge({ copperBar: 8 }, (x) => buyCertificate(x, 'fuel'))
+    expect(s.run.workers.certificates).toContain('fuel')
   })
 
   it('grandfathered: a Wetlands run that owns the mine licence crafts, digs and builds the furnace as today', () => {

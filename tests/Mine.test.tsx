@@ -635,3 +635,45 @@ describe('batch 36.2: the 🔨 Forge card', () => {
     expect(screen.getByRole('button', { name: /^Collect\s*Tray/ }).textContent).toBe('CollectTray 10 / 10')
   })
 })
+
+describe('batch 36.3: the 🌊 River view (Wetlands, no mine)', () => {
+  const wetlands = { district: 'wetlands' as const, soil: null }
+  const bargeRow = (name: string) => screen.getByText(new RegExp(`^${ITEMS[name as 'coal'].emoji} ${ITEMS[name as 'coal'].name} 💰`)).closest('.mine-furnace-actions') as HTMLElement
+
+  it('a no-mine run shows the River: storage count, 5 barge rows with prices and ×1 / ×10, the item grid; no Dig / licence / vein / furnace', () => {
+    const t = setup({ mineLicense: false, listing: wetlands, cash: 200, inventory: { stone: 4 } })
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toBe('🌊 River 📦 Storage 4 / 20')
+    expect(document.querySelector('.mine-river')).toBeTruthy()
+    const prices = { copperBar: 125, ironBar: 625, goldBar: 1250, stone: 3, coal: 5 }
+    for (const [id, p] of Object.entries(prices)) {
+      const r = bargeRow(id)
+      expect(r.querySelector('span')!.textContent).toBe(`${ITEMS[id as 'coal'].emoji} ${ITEMS[id as 'coal'].name} 💰${price(p)}`)
+      expect([...r.querySelectorAll('button')].map((b) => b.firstChild?.textContent)).toEqual(['×1', '×10'])
+    }
+    // 💰200: ×10 coal (💰50) fits, ×1 gold bar does not; the reason is the error's short text
+    const [gold1] = [...bargeRow('goldBar').querySelectorAll('button')]
+    expect(gold1.disabled).toBe(true)
+    expect(gold1.textContent).toMatch(/^×1.+/)
+    const [, coal10] = [...bargeRow('coal').querySelectorAll('button')]
+    expect(coal10.disabled).toBe(false)
+    fireEvent.click(coal10)
+    t.rerender()
+    expect([t.get().run.cash, t.get().run.inventory.coal]).toEqual([150, 10])
+    expect(screen.getByText(`${ITEMS.coal.emoji} ${ITEMS.coal.name}`, { selector: '.item-label' })).toBeTruthy()
+    expect(screen.getByText(`${STONE} ${ITEMS.stone.name}`, { selector: '.item-label' })).toBeTruthy()
+    expect(text()).not.toMatch(/Dig|Mine license|Vein|Furnace|Buy wood|Ore sorting/)
+  })
+
+  it('plain shows the Mine as today (no barge); a grandfathered Wetlands run shows the Mine plus the barge under the item grid', () => {
+    setup({})
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/^⛏️ Mine/)
+    expect(screen.queryByText(/🌊 Barge/)).toBeNull()
+    cleanup()
+    setup({ listing: wetlands, inventory: { stone: 2 } })
+    expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/^⛏️ Mine/)
+    expect(screen.getByRole('button', { name: /Dig/ })).toBeTruthy()
+    const grid = document.querySelector('.item-grid-wrap')!
+    const barge = document.querySelector('.mine-barge')!
+    expect(grid.compareDocumentPosition(barge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})

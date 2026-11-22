@@ -86,3 +86,16 @@ describe('Mine upgrades in the Upgrades tab', () => {
     expect(vein.textContent).toContain(`${stone.emoji} Stone 50 % · ⚫ Coal 20 % · ${copperOre.emoji} Copper ore 12 % · ${ironOre.emoji} Iron ore 10 % · ${goldOre.emoji} Gold ore 8 % · max`)
   })
 })
+
+describe('batch 36.3: Wetlands storage row', () => {
+  it('a no-mine run shows the storage row alone under "📦 Storage" (no vein, no Mine heading) and buys it', () => {
+    const act = vi.fn()
+    render(<Upgrades state={withRun({ listing: { district: 'wetlands', soil: null }, cash: 50, inventory: { stone: 20 } })} act={act} />)
+    expect(screen.queryByRole('heading', { name: '⛏ Mine' })).toBeNull()
+    const [storage, ...rest] = row('📦 Storage')
+    expect(rest).toEqual([])
+    expect(storage.textContent).toMatch(/^📦 Storage Lv 0\/10Storage 20 → 30 slots/)
+    expect(storage.disabled).toBe(false)
+    expect(screen.queryByText(/Vein Lv/)).toBeNull()
+  })
+})

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { selectCrop } from '../core/actions'
 import { CROPS, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
+import { noMine } from '../core/wetlands'
 import { DigSeeds } from './Farm'
 import { EMPTY_FEEDBACK } from './feedback'
 import { Fields } from './Fields'
@@ -134,7 +135,7 @@ export default function App() {
   const Panel = shown.Panel
   const mobileTabs = [
     { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: dot('farm') },
-    { label: '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: dot('mine') },
+    { label: noMine(state.run) ? '🌊 River' : '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: dot('mine') },
     ...tabs.map((t) => ({
       label: t.label,
       dot: dot(t.id),

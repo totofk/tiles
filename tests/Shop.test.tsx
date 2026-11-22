@@ -236,3 +236,26 @@ describe('batch 36.2: district supply list in the Shop', () => {
     expect(screen.queryByText(/not sold in/)).toBeNull()
   })
 })
+
+describe('batch 36.3: the Wetlands Shop', () => {
+  const wetlands = { district: 'wetlands' as const, soil: null }
+
+  it('no Mine license or wood row; chilli "not sold in Wetlands"; plain keeps the Mine license row', () => {
+    setup({ cash: 1_000_000, listing: wetlands })
+    expect(screen.queryByText(/Mine license/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /Wood/ })).toBeNull()
+    expect(btn(/Chilli/).textContent).toBe('🔒 Chillinot sold in Wetlands')
+    cleanup()
+    setup({ cash: 1_000_000 })
+    expect(btn(/Mine license/)).toBeTruthy()
+  })
+
+  it('the 🚜 Fields row shows without a workshop and never asks for a bed sprinkler; plain without a workshop has no row', () => {
+    setup({ listing: wetlands })
+    expect(btn(/Fields/).textContent).toBe('🚜 Fieldsneeds planter certificate + harvester certificate')
+    expect(btn(/Fields/).disabled).toBe(true)
+    cleanup()
+    setup({})
+    expect(screen.queryByRole('button', { name: /Fields/ })).toBeNull()
+  })
+})
