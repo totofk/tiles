@@ -323,9 +323,11 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // re-pinned batch 32 (was [1.984, 27.933]; 1.978 in task 168, gold 600 durability): 6.234 with carry-over — 8 hits
     // break ~3 vein-Lv4 rocks per press, and the mastered tier lifts the ore weights; pumpkin 29.153 with the gold
     // sickle's seed drops (task 172)
-    expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([6.234, 29.153])
+    // re-pinned batch 36.6 task 235 (pumpkin was 29.153): the T2+ home grow bonus
+    expect([Math.round(goldLv10 * 1000) / 1000, Math.round(pumpkinGold * 1000) / 1000]).toEqual([6.234, 29.08])
     // re-pinned batch 32 (was 81827; 74044 in task 168, 86511 in task 170): gold 600 repairs, carry-over, seed drops
-    expect(ladder.finalCash).toBe(84717)
+    // re-pinned batch 36.6 task 235 (was 84717): the T2+ home grow bonus
+    expect(ladder.finalCash).toBe(84467)
   })
 
   it('climbs the gold ladder in order: storage Lv4 → vein Lv4 → gold pickaxe → gold sickle → gold dibber; every step ≤ 60 game-minutes', () => {
@@ -469,8 +471,10 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     expect(steps.map((x) => minute(x))).toEqual([370.3, 392, 413.9, 414.2, 437.2, 438.1, 473.9])
     expect(gaps.map((g) => minute(g))).toEqual([21.8, 21.8, 0.3, 23, 0.9, 35.8])
     // re-pinned batch 35 (was incomes [21539, 26421, 28430], cash 540267): crop re-ladder: potato start, carrot licence 💰25
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22160, 26835, 28612])
-    expect(ladder.finalCash).toBe(545928)
+    // re-pinned batch 36.6 task 235 (incomeAfter was 28612): the T2+ home grow bonus
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22160, 26835, 29573])
+    // re-pinned batch 36.6 task 235 (was 545928): the T2+ home grow bonus
+    expect(ladder.finalCash).toBe(564749)
   })
 
   it('climbs in order: workshop → sprinklers 1–2 → tiles 13 → sprinkler 3 → tiles 19 → sprinkler 4, every step ≤ 60 game-minutes', () => {
@@ -504,7 +508,8 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // mines more per press): the sickle's seed roll moves the window
     // re-pinned batch 33 (was [478, 7]): molds: every kind smelts at once
     // re-pinned batch 35 (was [483, 7]): crop re-ladder: potato start, carrot licence 💰25
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([482, 7])
+    // re-pinned batch 36.6 task 235 (was [482, 7]): the T2+ home grow bonus
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([473, 7])
     expect(r.furnaceCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 

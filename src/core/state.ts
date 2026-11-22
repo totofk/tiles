@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, renownStartSeeds, startTiles, type MineDropId } from './balance'
 import { ALL_CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { RelicId } from './data/relics'
@@ -326,6 +326,7 @@ export type RunCarry = {
 /** a run at tick 0: what a new game starts, and what "Sell the farm" starts after it — honors the start-tiles and
  * energy Legacy rows and the keeps */
 export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
+  const kit = (c: CropId) => renownStartSeeds(carry?.renown[c] ?? 0)
   return {
     cash: STARTING_CASH,
     energy: energyMax(0, meta),
@@ -354,7 +355,8 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     masteredTiers: [],
     rngState: INITIAL_RNG_SEED,
     loan: null,
-    seeds: {},
+    // batch 36.6: a renown kit for every licensed crop at tier ≥ 1; a new game starts empty
+    seeds: Object.fromEntries((carry?.licenses ?? []).filter((c) => kit(c) > 0).map((c) => [c, kit(c)])),
     autoBuySeeds: true,
     plantCrop: STARTING_CROP,
     tools: { water: 0, harvest: 0, plant: 0 },

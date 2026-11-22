@@ -507,7 +507,8 @@ describe('batch 14: 📋 orders and ⭐ (rules.batch13 on)', () => {
     expect({ carrot9: pick(farms.carrot9), lemon24: pick(farms.lemon24), lemon24x6: pick(farms.lemon24x6), shopStars, hoursToShop }).toEqual({
       // batch 35.3 (order ⭐ fixed per tier, ⭐ prices ×8): ⭐/h 11 / 5 / 10 → 88 / 40 / 80, the ⭐ shop 60 → 480, hours to
       // it unchanged
-      carrot9: { starsPerHour: 88, ordersPerHour: 6.5, harvestsPerHour: 320, incomePerHour: 3861, incomeOff: 3542, bonusPct: 9 },
+      // batch 36.6 task 235 (was 320 / 3861 / 3542 / 9): carrot passes 1,000 renown in the window — the 🥈 grow bonus
+      carrot9: { starsPerHour: 88, ordersPerHour: 6.5, harvestsPerHour: 323, incomePerHour: 3890, incomeOff: 3567, bonusPct: 9.1 },
       lemon24: { starsPerHour: 40, ordersPerHour: 3, harvestsPerHour: 114, incomePerHour: 14374, incomeOff: 12525, bonusPct: 14.8 },
       lemon24x6: { starsPerHour: 80, ordersPerHour: 6.5, harvestsPerHour: 228, incomePerHour: 25640, incomeOff: 21808, bonusPct: 17.6 },
       shopStars: 480,

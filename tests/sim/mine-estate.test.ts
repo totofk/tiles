@@ -314,9 +314,11 @@ describe('batch 31.1: the 💼 Manager unlock, contracts delivered by anyone (ta
     const r = contractRun(loaded, 600)
     console.log('PIN311b', JSON.stringify(r))
     expect(r.reached).not.toBeNull()
-    expect(r.reached!.minute).toBe(330)
+    // re-pinned batch 36.6 task 235 (was 330, buyable 371): the save's renown (re-seeded from its harvests) grows its home
+    // crops faster
+    expect(r.reached!.minute).toBe(367)
     expect(r.reached!.stars).toBeGreaterThanOrEqual(160)
-    expect(r.buyable).toBe(371)
+    expect(r.buyable).toBe(370)
   }, 300_000)
 })
 
@@ -520,7 +522,8 @@ describe('batch 29: manager', () => {
       expect(reached[2]!).toBeLessThanOrEqual(48)
     }, 120_000)
 
-    it('prestige reset: strawberry 4,000 sold without Kept renown → {}; with it 4,000 kept, and the next run sells on the 0.7 floor', () => {
+    // batch 36.6: renown carries with or without the row (was: {} without Kept renown)
+    it('prestige reset: strawberry 4,000 carries either way, and the next run sells on the 0.7 floor', () => {
       const gate = (keepRenown: number): GameState => ({
         meta: { ...init.meta, upgrades: { ...init.meta.upgrades, keepRenown } },
         run: {
@@ -536,7 +539,7 @@ describe('batch 29: manager', () => {
         if (!r.ok) throw new Error(r.error)
         return r.state
       }
-      expect(sold(0).run.renown).toEqual({})
+      expect(sold(0).run.renown).toEqual({ strawberry: 4000 })
       const next = sold(1)
       expect(next.run.renown).toEqual({ strawberry: 4000 })
       const glut = 1e9

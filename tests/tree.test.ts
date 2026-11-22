@@ -107,6 +107,10 @@ describe('batch 36.2: the 🌳 fruit tree bed', () => {
     const worker = ok(harvest(s, 6, 0))
     expect(worker.run.cash - s.run.cash).toBe(harvestSale(s, 'lemon', 3).cash)
     expect([worker.run.energy, worker.run.renown.lemon]).toEqual([s.run.energy, RENOWN_BY_WORKER])
+    // batch 36.6 Apprentices: a worker pick earns like a hand pick; a tap stays +2
+    const apprentices = { ...s, meta: { ...s.meta, upgrades: { ...s.meta.upgrades, keepRenown: 1 } } }
+    expect(ok(harvest(apprentices, 6, 0)).run.renown.lemon).toBe(RENOWN_BY_HAND)
+    expect(ok(harvest(apprentices, 6)).run.renown.lemon).toBe(RENOWN_BY_HAND)
     // a tap on a tree tile harvests it
     expect(ok(tapTile(s, 6, 'potato')).run.tree!.stock[0]).toBe(0)
   })

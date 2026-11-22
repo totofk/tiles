@@ -1,19 +1,17 @@
 // "Sell the farm" (batch 20, DECISIONS "Prestige: Sell the farm"). The gate needs every farm job covered by worker
 // or machine (the Fields unlock gate) and PRESTIGE_GATE_DEEDS lifetime-cash deeds; the sale resets the run to a fresh
 // one and the cash deeds move to meta's ledger. The ⭐ balance carries, capped at STAR_CARRY_CAP, and no longer turns
-// into deeds (batch 34); everything bought with ⭐ resets. Lifetime totals carry (they are Stats totals and the deed
+// into deeds (batch 34); everything bought with ⭐ resets. Renown carries (batch 36.6). Lifetime totals carry (they are Stats totals and the deed
 // meter reads them), so deedsClaimed keeps the same lifetime cash from paying twice.
 import { fail, type ActionResult } from './actions'
 import {
   DEED_ROW_IDS,
   PRESTIGE_GATE_DEEDS,
-  RENOWN_TIERS,
   RUN_HISTORY_CAP,
   deedCost,
   deedMaxLevel,
   deedsFor,
   orderStartSlots,
-  renownTier,
   type DeedRowId,
 } from './balance'
 import { STARTING_CROP } from './data/crops'
@@ -74,16 +72,8 @@ export function sellFarm(state: GameState, choice: Listing = PLAIN_LISTING): Act
         lifetime: run.lifetime,
         stars: run.stars,
         listing: choice,
-        // Kept renown keeps each crop's reached tier threshold, not its points; tier 0 crops are dropped
-        renown:
-          nextMeta.upgrades.keepRenown > 0
-            ? Object.fromEntries(
-                Object.entries(run.renown).flatMap(([c, p]) => {
-                  const tier = renownTier(p ?? 0)
-                  return tier > 0 ? [[c, RENOWN_TIERS[tier - 1]]] : []
-                }),
-              )
-            : {},
+        // batch 36.6: every crop's renown points carry, no deed needed
+        renown: run.renown,
       }),
     },
   }

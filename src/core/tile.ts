@@ -1,6 +1,7 @@
 import { harvest, plant, till, water, type ActionResult } from './actions'
 import { SOIL_LOOSE_ROT, cropGrowTicks, cropRotGraceTicks } from './balance'
 import type { CropId } from './data/crops'
+import { cropRenownGrow } from './market'
 import { bedTrait, soilPair } from './survey'
 import type { GameState, Tile } from './state'
 import { BED_TILES, isTreeTile } from './tree'
@@ -8,7 +9,7 @@ import { BED_TILES, isTreeTile } from './tree'
 export type TileAction = 'harvest' | 'water' | 'plant' | 'till'
 
 function growTicks(cropId: CropId, s: GameState): number {
-  return cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer, s.run.listing.soil)
+  return cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer, s.run.listing.soil, cropRenownGrow(s.run, cropId))
 }
 
 export function isMature(tile: Tile, s: GameState): boolean {

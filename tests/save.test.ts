@@ -1598,9 +1598,11 @@ describe('save v28: bars Keep N and auto-buy wood (batch 35.2)', () => {
 
   it('scenario B: the Fields tank fills to its cap and storage is full far less often (v27 as is: 3565 of 3600 ticks)', () => {
     const { start, end, fullTicks } = scenarioB()
-    expect([start.run.fields.tank / TANK_UNITS_PER_COAL, end.run.fields.tank / TANK_UNITS_PER_COAL].map((c) => Math.round(c * 10) / 10)).toEqual([182.5, 399.4])
+    expect([start.run.fields.tank / TANK_UNITS_PER_COAL, end.run.fields.tank / TANK_UNITS_PER_COAL].map((c) => Math.round(c * 10) / 10)).toEqual([182.5, 399.5])
     expect(tankCapCoal(end.run.fields.pump)).toBe(400)
-    expect(fullTicks).toBe(1125)
+    // re-pinned batch 36.6 task 235 (was 399.4 tank coal, 1125 full ticks): the save's renown (chilli 🏅, strawberry
+    // 🥇 …) grows its home crops 10–15 % faster
+    expect(fullTicks).toBe(1195)
   })
 
   // Σ Keep N of the save's own Sell-on-dig kinds (200) + bars (30) = 230 > 120: kept coal refills storage (Deviations)

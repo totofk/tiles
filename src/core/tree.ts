@@ -1,9 +1,9 @@
 // Orchard Valley's 🌳 fruit tree bed (batch 36.2, DECISIONS "Batch 36.2 refined" call 8–9): one home bed planted once
 // with a berry crop, locked for the run. Its 6 tiles stay plain `tilled` tiles marked by run.tree.bed; they need no
 // water, never rot, and each grows fruit on its own until 3 wait. Harvest takes a tile's whole stock as one action.
-import { addLifetime, fail, farmAction, withRun, type ActionResult } from './actions'
+import { addLifetime, fail, farmAction, harvestRenown, withRun, type ActionResult } from './actions'
 import { spendEnergy } from './relics'
-import { RENOWN_BY_HAND, RENOWN_BY_WORKER, TREE_MATURE_CYCLES, TREE_PLANT_ENERGY, TREE_STOCK_CAP, addRenown, handPickedBonus, treeCadenceTicks, treePlantCost } from './balance'
+import { TREE_MATURE_CYCLES, TREE_PLANT_ENERGY, TREE_STOCK_CAP, addRenown, handPickedBonus, treeCadenceTicks, treePlantCost } from './balance'
 import { CROP_GROUPS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { bedSaleSoil } from './survey'
@@ -78,7 +78,7 @@ export function harvestTreeTile(state: GameState, i: number, energy: number): Ac
         run: {
           ...sale.run,
           tree: { ...tree, stock: tree.stock.map((n, k) => (k === slot(tree, i) ? 0 : n)) },
-          renown: addRenown(sale.run.renown, tree.crop, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER),
+          renown: addRenown(sale.run.renown, tree.crop, harvestRenown(state, energy)),
         },
       }
     },

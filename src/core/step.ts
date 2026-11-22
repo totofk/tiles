@@ -18,7 +18,7 @@ import { recordMilestones } from './data/milestones'
 import { fieldsAct, machinesAct } from './fields'
 import { tickForge } from './forge'
 import { tickFurnace } from './furnace'
-import { decayMarket } from './market'
+import { cropRenownGrow, decayMarket } from './market'
 import { tickOrders } from './orders'
 import { relicRegenFactor, reserveCap } from './relics'
 import { bedTrait, everyNth, soilStrong } from './survey'
@@ -46,11 +46,12 @@ function stepTile(
   trait: HomeTraitId | null,
   strong: boolean,
   tick: number,
+  renown: number,
 ): Tile {
   const wet = irrigated ? { ...tile, moisture: waterMoisture(2) } : tile
   let next = wet
   if (wet.status === 'planted' && wet.cropId) {
-    if (wet.growth < cropGrowTicks(wet.cropId, meta, fertilizerLevel, soil)) {
+    if (wet.growth < cropGrowTicks(wet.cropId, meta, fertilizerLevel, soil, renown)) {
       if (wet.moisture > 0) {
         const extra = trait === 'fertile' && everyNth(tick, strong ? SOIL_FERTILE_EXTRA[1] : SOIL_FERTILE_EXTRA[0]) ? 1 : 0
         next = { ...wet, growth: wet.growth + 1 + extra }
@@ -102,7 +103,7 @@ function stepOnce(state: GameState): GameState {
     tiles: run.tiles.map((t, i) =>
       isTreeTile(run, i)
         ? t
-        : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil, bedTrait(run, Math.floor(i / BED_TILES)), soilStrong(run), run.tick),
+        : stepTile(t, meta, run.upgrades.fertilizer, isIrrigated(run, i), run.listing.soil, bedTrait(run, Math.floor(i / BED_TILES)), soilStrong(run), run.tick, t.cropId ? cropRenownGrow(run, t.cropId) : 1),
     ),
     tree: tickTree(run.tree),
     tick: run.tick + 1,

@@ -291,7 +291,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // source `end` differs
     // re-pinned batch 35 (was [42814, 83952, 83952, 83952, 83952]): crop re-ladder: potato start, carrot licence 💰25 —
     // the forge's source `end` differs ("lemon" here is its old row, now pumpkin)
-    expect(lemon).toEqual([42249, 82167, 82167, 82167, 82167])
+    // re-pinned batch 36.6 task 235 (was [42249, 82167, …]): home renown carries the T2+ grow bonus — `end` moves
+    expect(lemon).toEqual([45123, 82704, 82704, 82704, 82704])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -301,7 +302,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32.2 (was [193679, 284610]): workers do one tile per action on the Estate
     // re-pinned batch 33 (was [75745, 63677]): molds: every kind smelts at once — the forge's source `end` differs
     // re-pinned batch 35 (was [75980, 64046]): crop re-ladder: potato start, carrot licence 💰25
-    expect(mixed).toEqual([77476, 65169])
+    // re-pinned batch 36.6 task 235 (was [77476, 65169]): the T2+ home grow bonus — `end` moves
+    expect(mixed).toEqual([76881, 66160])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -346,7 +348,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 32.2 (was [978, 19]): workers do one tile per action on the Estate (a slower plots window)
     // re-pinned batch 33 (was [982, 11]): molds: every kind smelts at once
     // re-pinned batch 35 (was [977, 11]): crop re-ladder: potato start, carrot licence 💰25
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([974, 11])
+    // re-pinned batch 36.6 task 235 (was [974, 11]): the T2+ home grow bonus
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([984, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -783,10 +786,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // workers-only arm is labor-bound at every N; the full fleet (whose plots the workers still help finish) moves less
     // re-pinned batch 33 (was [81,211] [81,598] [81,758]): molds: every kind smelts at once — the source run's `end` moves
     // re-pinned batch 35 (was [81,209] [81,599] [81,755]): crop re-ladder: potato start, carrot licence 💰25 — `end` moves
+    // re-pinned batch 36.6 task 235 (was [80,210] [80,598] [80,756]): the T2+ home grow bonus — `end` moves
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [80, 210],
-      [80, 598],
-      [80, 756],
+      [82, 232],
+      [82, 652],
+      [82, 816],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
@@ -797,13 +801,15 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // and the seeders now replace the labor-bound workers; harvester2 / 3 add little once harvester1 reaps
     // re-pinned batch 33 (was harvester2 1623.4, harvester3 363.6): molds: every kind smelts at once — the source run's
     // `end` moves; harvester2 / 3 add next to nothing at 300 tiles (harvester2 now slightly negative: no payback)
+    // re-pinned batch 36.6 task 235 (was 0.4 / null / null / 0.8): the T2+ home grow bonus moves `end` — harvester2 pays
+    // back again (1,004 h)
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
-      ['harvester1', 0.4],
-      ['harvester2', null],
+      ['harvester1', 0.3],
+      ['harvester2', 1004],
       // re-pinned batch 35 (was 4545.5): crop re-ladder: potato start, carrot licence 💰25 — harvester3 adds nothing at
       // 300 tiles now (no payback)
       ['harvester3', null],
-      ['seeders', 0.8],
+      ['seeders', 0.7],
     ])
     // re-pinned batch 28 (was null / 300 / null / null); batch 32.2 (was 300 / 1000 / 1000 / null): workers do one tile
     // per action on the Estate

@@ -34,7 +34,7 @@ import { CROP_IDS, type CropId } from './data/crops'
 import { FORGE_GOOD_IDS, ITEM_IDS, ORE_IDS, isForgeGood, type ItemId } from './data/items'
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
 import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
-import { PLAIN_SALE, cropSale, type SaleSoil } from './market'
+import { PLAIN_SALE, cropRenownGrow, cropSale, type SaleSoil } from './market'
 import { bestPickaxeTier, minedRock, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
 
@@ -67,7 +67,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   // batch 19: the Fields' standing tiles of the crop produce at the same per-tile pace as the home plot
   if (isCropGood(good)) {
     const standing = plantedTiles(run.fields, good)
-    const home = ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer, run.listing.soil)) * 60
+    const home = ((run.tiles.length + standing) / cropGrowTicks(good, meta, run.upgrades.fertilizer, run.listing.soil, cropRenownGrow(run, good))) * 60
     // batch 29: a contract (after the Tractor, a crop the fields can sow) scales with the wet tiles
     if (!run.fields.unlocked || !fieldsPlantable(run, good)) return home
     return Math.max(home, ((contractWetShare() * wetTiles(run.fields)) / pressuredCycle(state, good)) * 60)

@@ -806,15 +806,29 @@ export function marketFactor(cropId: CropId, glut: number, floor = MARKET_FLOOR)
 // each tier reached raises that crop's market floor.
 export const RENOWN_BY_HAND = 2
 export const RENOWN_BY_WORKER = 1
-export const RENOWN_TIERS = [250, 1000, 4000]
-export const RENOWN_FLOORS = [0.55, 0.6, 0.7]
+// Batch 36.6: 5 tiers 🥉🥈🥇🏅🏆 that carry over a sale; tiers 2+ also grow the crop faster at home, and a crop's
+// renown covers RENOWN_COVER_FIELDS Estate fields (more fields share it, renownShare).
+export const RENOWN_TIERS = [250, 1000, 4000, 12000, 30000]
+export const RENOWN_FLOORS = [0.55, 0.6, 0.7, 0.7, 0.75]
+/** grow-time factor for tiers 1–5 (tier 0 = 1) */
+export const RENOWN_GROW = [1, 0.95, 0.9, 0.85, 0.8]
+export const RENOWN_BADGES = ['🥉', '🥈', '🥇', '🏅', '🏆']
+/** seeds of the crop a sold run starts with, tiers 1–5 (6 = one sprinkler bed, 24 = the 4 beds) */
+export const RENOWN_START_SEEDS = [6, 6, 6, 24, 24]
+export const RENOWN_COVER_FIELDS = 4
 
 export function addRenown(renown: Partial<Record<CropId, number>>, crop: CropId, points: number): Partial<Record<CropId, number>> {
   return { ...renown, [crop]: (renown[crop] ?? 0) + points }
 }
 
-/** tiers reached (0–3) */
+/** tiers reached (0–5) */
 export const renownTier = (points: number): number => RENOWN_TIERS.filter((t) => points >= t).length
+export const renownGrow = (points: number): number => (renownTier(points) === 0 ? 1 : RENOWN_GROW[renownTier(points) - 1])
+/** the tier's badge; '' at tier 0 */
+export const renownBadge = (points: number): string => (renownTier(points) === 0 ? '' : RENOWN_BADGES[renownTier(points) - 1])
+export const renownStartSeeds = (points: number): number => (renownTier(points) === 0 ? 0 : RENOWN_START_SEEDS[renownTier(points) - 1])
+/** the share of a crop's renown each of its `fields` Estate fields gets */
+export const renownShare = (fields: number): number => (fields <= RENOWN_COVER_FIELDS ? 1 : RENOWN_COVER_FIELDS / fields)
 
 /** the crop's market floor at these points */
 export function renownFloor(points: number): number {
@@ -837,9 +851,10 @@ export function deedsFor(lifetimeCash: number): number {
   return Math.floor(Math.sqrt(lifetimeCash / DEED_DIVISOR))
 }
 
-/** whole ticks; fertilizer shortens growth of crops already in the ground too; soil = the run's listing soil */
-export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number, soil: ListingSoil | null = null): number {
-  return Math.round(CROP_BASE[cropId].growTicks * growTimeFactor(fertilizerLevel) * multiplier(meta, 'growTime') * listingGrowFactor(cropId, soil))
+/** whole ticks; fertilizer shortens growth of crops already in the ground too; soil = the run's listing soil; renown
+ * = the crop's renown grow factor (cropRenownGrow) */
+export function cropGrowTicks(cropId: CropId, meta: MetaState, fertilizerLevel: number, soil: ListingSoil | null = null, renown = 1): number {
+  return Math.round(CROP_BASE[cropId].growTicks * growTimeFactor(fertilizerLevel) * multiplier(meta, 'growTime') * listingGrowFactor(cropId, soil) * renown)
 }
 
 /** based on the unfertilized grow time, so fertilizer never shortens the harvest window */

@@ -1,12 +1,20 @@
 // The crop market (batch 12, DECISIONS "Crop market"): every crop unit sold adds 1 glut to its crop; glut decays
 // each tick and lowers that crop's sale price. Items are not in the market. Pure: no DOM, no clock, no dice.
-import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, RELIC_FLOOR_CAP, RELIC_FLOOR_LIFT, cropGrowTicks, cropSellPrice, marketFactor, relicTier, renownFloor } from './balance'
+import { FLOAT_EPSILON, MARKET_DECAY, MARKET_FLOOR, RELIC_FLOOR_CAP, RELIC_FLOOR_LIFT, cropGrowTicks, cropSellPrice, marketFactor, relicTier, renownFloor, renownGrow, renownShare } from './balance'
 import { ALL_CROP_IDS, type CropId, type ListingSoil } from './data/crops'
 import type { GameState, MetaState, RunState } from './state'
 
 /** the crop's market floor: its renown tier's (batch 31), lifted by the 📉 Market floor relic, capped (batch 36.4) */
 export const cropFloor = (run: RunState, crop: CropId): number =>
   Math.min(RELIC_FLOOR_CAP, renownFloor(run.renown[crop] ?? 0) + RELIC_FLOOR_LIFT[relicTier(run.relics, 'marketFloor')])
+
+/** the crop's renown grow factor (batch 36.6): full at home (fields 0) and on up to RENOWN_COVER_FIELDS fields, shared
+ * beyond that */
+export function cropRenownGrow(run: RunState, crop: CropId, fields = 0): number {
+  const grow = renownGrow(run.renown[crop] ?? 0)
+  const share = renownShare(fields)
+  return share === 1 ? grow : 1 - (1 - grow) * share
+}
 
 /** a sale's soil factors (batch 36.5): price multiplies each unit's cash, glut each unit's glut and the glut it
  * adds, order counts each unit toward an accepted order; PLAIN_SALE is exactly today's sale */

@@ -86,6 +86,7 @@ import {
 } from '../../src/core/state'
 import { step } from '../../src/core/step'
 import { growthProgress } from '../../src/core/tile'
+import { cropRenownGrow } from '../../src/core/market'
 import { WORKER_JOBS, type WorkerJob } from '../../src/core/data/workers'
 import {
   assignWorker,
@@ -147,7 +148,7 @@ function bestFarmAction(s: GameState, crops: CropId[] = ['eggplant', 'radish', '
   const tiles = s.run.tiles
   const growing = (i: number) => {
     const { cropId, growth } = tiles[i]
-    return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer, s.run.listing.soil)
+    return cropId !== undefined && growth < cropGrowTicks(cropId, s.meta, s.run.upgrades.fertilizer, s.run.listing.soil, cropRenownGrow(s.run, cropId))
   }
   const byPlayer = (job: WorkerJob) => s.run.workers.assigned[job] === 0
   const tries: Array<[string, (i: number) => ActionResult | null]> = [

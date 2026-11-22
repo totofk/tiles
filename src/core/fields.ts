@@ -35,7 +35,7 @@ import {
 import { CROP_IDS, type CropId } from './data/crops'
 import { harvestSale } from './orders'
 import { pay } from './mining'
-import { cropFloor, marketSteadyGlut } from './market'
+import { cropFloor, cropRenownGrow, marketSteadyGlut } from './market'
 import { drawField, everyNth, fieldCreekSlip, fieldDenseBurn, fieldGrowFactor, fieldSaleSoil } from './survey'
 import type { Field, Fields, GameState, Machines, Plot, RunState } from './state'
 
@@ -225,7 +225,7 @@ export function fieldsCropIncomePerHour(state: GameState, crop: CropId, tiles: n
 export function fieldsCropIncomeCurve(state: GameState, crop: CropId): (tiles: number) => number {
   const { run, meta } = state
   const fc = pressuredCycle(state, crop)
-  const hc = cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil)
+  const hc = cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil, cropRenownGrow(run, crop))
   const home = run.tiles.filter((t) => t.cropId === crop).length
   const sell = cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district)
   const seed = cropSeedCost(crop, meta)

@@ -30,6 +30,7 @@ import { spendEnergy } from './relics'
 import { districtSells } from './data/districts'
 import { recordMilestones } from './data/milestones'
 import type { UpgradeId } from './data/upgrades'
+import { cropRenownGrow } from './market'
 // actions ↔ orders is a cycle of function bindings only (used at call time), like step ↔ workers
 import { harvestSale } from './orders'
 // actions ↔ survey is a cycle of function bindings only (used at call time)
@@ -241,6 +242,10 @@ export function water(state: GameState, i: number, energy = ACTION_ENERGY_COST):
 // Harvest sells instantly: there is no inventory and no separate sell action. A copper sickle may yield 2 crops:
 // both sell (sales +2, cash ×2), but it is still one harvest (counters and per-crop totals +1). An accepted order for
 // the crop takes the units first (harvestSale), so every harvest — tap, tool press or worker — fills it.
+/** renown one home harvest earns: a tap or tool press +2, a worker +1 (+2 with 🎓 Apprentices, batch 36.6) */
+export const harvestRenown = (state: GameState, energy: number): number =>
+  energy > 0 || state.meta.upgrades.keepRenown > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER
+
 export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST): ActionResult {
   if (isTreeTile(state.run, i)) return harvestTreeTile(state, i, energy)
   return farmAction(
@@ -248,7 +253,7 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
     i,
     (t) => {
       if (t.status !== 'planted' || !t.cropId) return 'NOT_PLANTED'
-      return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil) ? 'NOT_MATURE' : null
+      return t.growth < cropGrowTicks(t.cropId, state.meta, state.run.upgrades.fertilizer, state.run.listing.soil, cropRenownGrow(state.run, t.cropId)) ? 'NOT_MATURE' : null
     },
     (t) => {
       const { run } = state
@@ -281,7 +286,7 @@ export function harvest(state: GameState, i: number, energy = ACTION_ENERGY_COST
         harvested: t.cropId,
         run: {
           ...sale.run,
-          renown: ancient ? sale.run.renown : addRenown(sale.run.renown, t.cropId!, energy > 0 ? RENOWN_BY_HAND : RENOWN_BY_WORKER),
+          renown: ancient ? sale.run.renown : addRenown(sale.run.renown, t.cropId!, harvestRenown(state, energy)),
           seeds: ancient || seed ? { ...sale.run.seeds, [t.cropId!]: (sale.run.seeds[t.cropId!] ?? 0) + (ancient ? extraSeeds : 1) } : sale.run.seeds,
         },
       }
