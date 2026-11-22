@@ -1,7 +1,10 @@
 // Identity only; every number for a crop lives in balance.ts.
 /** in license order; the Shop lists them this way */
 export const CROP_IDS = ['potato', 'radish', 'corn', 'eggplant', 'pumpkin', 'tomato', 'lemon', 'grape', 'strawberry', 'chilli'] as const
-export type CropId = (typeof CROP_IDS)[number]
+/** batch 36.4: the dig-only crop — licence-free, never sold in a shop, in no soil group, never on the Estate */
+export const ANCIENT_CROP = 'ancientFruit' as const
+export const ALL_CROP_IDS = [...CROP_IDS, ANCIENT_CROP] as const
+export type CropId = (typeof ALL_CROP_IDS)[number]
 
 export const CROPS: Record<CropId, { name: string }> = {
   potato: { name: 'Potato' },
@@ -15,6 +18,7 @@ export const CROPS: Record<CropId, { name: string }> = {
   grape: { name: 'Grape' },
   strawberry: { name: 'Strawberry' },
   chilli: { name: 'Chilli' },
+  ancientFruit: { name: 'Ancient fruit' },
 }
 
 export const STARTING_CROP: CropId = 'potato'

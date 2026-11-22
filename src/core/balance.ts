@@ -35,6 +35,8 @@ const CROP_BASE: Record<CropId, { growTicks: number; seedCost: number; sellPrice
   strawberry: { growTicks: 960, seedCost: 260, sellPrice: 1_150, licenseCost: 22_000 },
   // batch 35: the top row continues the compression (grow +200, seed ×1.77, sell ×1.8, licence ×1.45); margin 2.25
   chilli: { growTicks: 1_160, seedCost: 460, sellPrice: 2_070, licenseCost: 32_000 },
+  // batch 36.4 (Toon's locked grow 1,440 / sell 1,500): seed and licence 0 — it is never bought, only dug and replanted
+  ancientFruit: { growTicks: 1_440, seedCost: 0, sellPrice: 1_500, licenseCost: 0 },
 }
 const ROT_GRACE_FACTOR = 2
 

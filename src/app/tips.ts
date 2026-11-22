@@ -18,6 +18,7 @@ export const CROP_TIPS: Record<CropId, string> = {
   grape: 'Slow and rich. Each seed costs a lot, so plant it on land you will not need to re-plan quickly.',
   strawberry: 'Slow and very rich. Waiting, not energy or water, is the limit; its deep market absorbs a whole farm alone.',
   chilli: 'The top crop: the slowest grow and the richest sale. Each seed costs a lot, so plant it where you will not re-plan soon.',
+  ancientFruit: 'Grows only from 🦴 ancient seeds you dig up; no shop sells it. Each harvest gives its seed back, sometimes two, and it has its own deep market.',
 }
 
 /** index 0 = level 1 */

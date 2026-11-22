@@ -363,7 +363,7 @@ describe('batch 29: manager', () => {
         const s = at(stage, Array.from({ length: n }, () => emptyField()))
         const { value, best, split } = enumerate(s, n)
         const plan = managerPlan(s)
-        const manager = plan.rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop)]![r.fields.length]!, 0)
+        const manager = plan.rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop as (typeof CROP_IDS)[number])]![r.fields.length]!, 0)
         const mono = value[CROP_IDS.indexOf('strawberry')]![n]!
         // M2's original greedy-by-marginal rule: each field to the crop whose next field adds the most
         const k = CROP_IDS.map(() => 0)
@@ -551,7 +551,7 @@ describe('batch 29: manager', () => {
             const base = at(stage, Array.from({ length: n }, () => emptyField()))
             const s: GameState = { ...base, run: { ...base.run, renown: Object.fromEntries(CROP_IDS.map((c) => [c, points])) } }
             const { value, best } = enumerate(s, n)
-            const manager = managerPlan(s).rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop)]![r.fields.length]!, 0)
+            const manager = managerPlan(s).rest.reduce((sum, r) => sum + value[CROP_IDS.indexOf(r.crop as (typeof CROP_IDS)[number])]![r.fields.length]!, 0)
             return { renown: points, floor: renownFloor(points), at: stage ? 'stage' : 'base', n, ratio: Math.round((manager / best) * 10000) / 10000 }
           }),
         ),

@@ -1,6 +1,7 @@
 import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, startTiles, type MineDropId } from './balance'
-import { CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
+import { ALL_CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
+import type { RelicId } from './data/relics'
 // state ↔ listings is a cycle of bindings used at call time only
 import { PLAIN_LISTING, type Listing } from './listings'
 import type { BarId, ForgeGoodId, ForgeRecipeId, ItemId, OreId, PickaxeTier } from './data/items'
@@ -100,7 +101,16 @@ export type RunState = {
   tree: TreeBed | null
   /** Iron Hills' 🔨 forge (batch 36.2) */
   forge: Forge
+  /** batch 36.4 dig finds: 🏺 shards held, this run's ✨ / 🦴 totals, the 📖 book (found on the run's first dig) */
+  finds: Finds
+  /** batch 36.4: relic rules owned this run, in pick order; lost when the farm is sold */
+  relics: RelicId[]
+  /** batch 36.4: ⚡ banked past max by the 🔋 Reserve relic */
+  energyReserve: number
 }
+
+/** the dig finds of one run (batch 36.4); shards are the relic currency, the rest are run totals */
+export type Finds = { shards: number; starDust: number; ancientSeeds: number; book: boolean }
 
 /** one home bed (tiles 6·bed … 6·bed+5), locked for the run; per tile: ticks toward the next fruit, fruit waiting */
 export type TreeBed = { bed: number; crop: CropId; ticks: number[]; stock: number[] }
@@ -217,6 +227,12 @@ export type Lifetime = {
   goldBarsSmelted: number
   /** batch 35: crops fields-plantable without their home harvests (a v26 save's fields access kept over the re-ladder) */
   fieldsGranted: CropId[]
+  /** batch 36.4 dig finds, ever; ⭐ from ✨ dust is NOT starsEarned (that stays the orders' total) */
+  shardsFound: number
+  starDustFound: number
+  ancientSeedsFound: number
+  /** every relic rule ever picked, no repeats (the 📖 book's lifetime line; survives the sale) */
+  relicsEver: RelicId[]
 }
 
 export const MULTIPLIER_KEYS = ['growTime', 'sellPrice', 'cost', 'energy', 'moistureDrain'] as const
@@ -306,7 +322,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     furnace: createFurnace(),
     workshop: createWorkshop(),
     fields: createFields(),
-    lifetime: carry?.lifetime ?? { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0, fieldsGranted: [] },
+    lifetime: carry?.lifetime ?? { cashEarned: 0, energySpent: 0, bars: 0, harvests: {}, wagesPaid: 0, fireBurnt: 0, fireWasted: 0, barsSmelted: 0, workerPlants: 0, workerMines: 0, ironBars: 0, ironBarsSmelted: 0, ordersCompleted: 0, starsEarned: 0, goldBars: 0, goldBarsSmelted: 0, fieldsGranted: [], shardsFound: 0, starDustFound: 0, ancientSeedsFound: 0, relicsEver: [] },
     mastery: {},
     masteredTiers: [],
     rngState: INITIAL_RNG_SEED,
@@ -318,7 +334,7 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     toolN: { water: 1, harvest: 1, plant: 1 },
     toolTier: { water: 0, harvest: 0, plant: 0 },
     workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: carry?.certificates ?? [] },
-    market: Object.fromEntries(CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
+    market: Object.fromEntries(ALL_CROP_IDS.map((crop) => [crop, 0])) as Record<CropId, number>,
     milestones: {},
     orders: { unlocked: false, slots: carry?.orderSlots ?? orderStartSlots(), offers: [], rerolls: 0 },
     stars: Math.min(carry?.stars ?? 0, STAR_CARRY_CAP),
@@ -327,6 +343,10 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     listing: carry?.listing ?? PLAIN_LISTING,
     tree: null,
     forge: createForge(),
+    // batch 36.4: a fresh (or sold) run owns no finds, rules or reserve — the set bonus is lost on the sale
+    finds: { shards: 0, starDust: 0, ancientSeeds: 0, book: false },
+    relics: [],
+    energyReserve: 0,
   }
 }
 

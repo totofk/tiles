@@ -28,6 +28,7 @@ export const CROP_EMOJI: Record<CropId, string> = {
   grape: '🍇',
   strawberry: '🍓',
   chilli: '🌶️',
+  ancientFruit: '🌰',
 }
 /** empty tiles; Unicode ≤ 11 like ITEMS.*.emoji (the old 🟫 🟤 are Unicode 12 and show as a box on older fonts) */
 const SOIL_EMOJI = { untilled: '🌿', tilled: '🕳️' }
