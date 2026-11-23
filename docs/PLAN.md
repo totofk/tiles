@@ -314,3 +314,17 @@ manage', 'N crops → M orders · rest' (rest-only edge '0 crops → 0 orders ·
   plan's sketch of a new query — same rule, one block, the WorkersCard HUD pin still matches.
 - `src/app/SoilTraits.tsx` was briefly created before task 242's Favours deletion and flagged by the stop hook; deleted
   the same turn and re-created in task 242 together with the deletion — no commit ever carried both copies.
+
+### Hermes live check (2026-11-23, live 8b4ecf90 bundle BKMm2S6w, Toon's v35 save, 375/390/414/430/1024/1440/2560/3440)
+- Fixed (CSS only, proven by injection at every width before the edit):
+  1. Worker rows: the ⓘ column was 20 px but the ⓘ button is 44 px wide, so it poked 24 px past every row (9/9 rows,
+     scrollWidth 374 vs 350 at 1440). Column → 44 px (also in the 299 px fallback): 0/9 rows overflow at
+     1024/1440/2560/3440; name column 146 px at 1440.
+  2. Seed pouch: `.pouch-grid` lost to the later `.item-grid` rule (same specificity), so the pouch kept 5 columns
+     (Buy ×1 sat in the 43 px `extra` column, under the 44 px floor), and the 359 px fallback (3 tracks for 2 areas)
+     put Buy ×1 at 207–222 px and every row on 2 lines (75 px) at 375 / 1024 / 1440. Now `.item-grid.pouch-grid`, the
+     fallback resets the pouch to one line down to 270 px and a new 269 px block holds the two-line layout: every pouch
+     row one 44 px line with two 64 px Buy buttons at 375/390/414/430 (Shop tab) and 1024/1440/2560/3440 (Farm tab).
+- Measured OK, no change: order ✕ at the same top-right 44×44 in all 4 order cards; HUD one line at 375 with ⏱ hidden;
+  soil traits card on the Farm tab; vein drop table 5 cells; sale preview 1 column at 1440, 3 × 144 px at 2560.
+- Not seen by eye: the 🌰 Shop row (the v35 save holds no ancient seeds), the empty Orchard sheet hint.

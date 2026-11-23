@@ -1342,14 +1342,15 @@ details > summary:focus-visible {
   gap: var(--s2);
   font-size: 14px;
 }
-/* batch 36.7 (task 240): every job row is ONE 44 px line on a shared grid — name | − n + (144 px) | ⓘ (20 px) —
+/* batch 36.7 (task 240): every job row is ONE 44 px line on a shared grid — name | − n + (144 px) | ⓘ (44 px: the
+   button's own touch box; 20 px let it poke 24 px past the row, live check) —
    the same subgrid shape as .recipe-grid, so the Manager's plan can no longer push −/+ to a third line */
 .workers .group {
   container-type: inline-size;
 }
 .worker-group {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 144px 20px;
+  grid-template-columns: minmax(0, 1fr) 144px 44px;
   gap: var(--s2);
   align-items: center;
 }
@@ -1393,7 +1394,7 @@ details > summary:focus-visible {
 /* the 276 px Farm tab at 1024 (and the phone sheet): the controls drop under the name, ⓘ spans both lines */
 @container (max-width: 299px) {
   .worker-row {
-    grid-template-columns: minmax(0, 1fr) 20px;
+    grid-template-columns: minmax(0, 1fr) 44px;
     grid-template-areas:
       'name info'
       'controls info';
@@ -1850,8 +1851,9 @@ details > summary:focus-visible {
 .h-with-info h2 {
   margin: var(--s2) 0 var(--s1);
 }
-/* the seed pouch drops the ⓘ column the Mine list keeps: name | ×count | Buy ×1 | Buy ×10 */
-.pouch-grid {
+/* the seed pouch drops the ⓘ column the Mine list keeps: name | ×count | Buy ×1 | Buy ×10 (two classes: the
+   .item-grid rule below has the same specificity and came later, so a bare .pouch-grid kept 5 columns, live check) */
+.item-grid.pouch-grid {
   grid-template-columns: minmax(0, 1fr) auto 64px 64px;
 }
 .item-grid {
@@ -1891,18 +1893,34 @@ details > summary:focus-visible {
   .item-row > :nth-child(5) {
     grid-area: b2;
   }
-  /* batch 36.7: the pouch has no extra cell — name+count on line 1, the two Buys under them */
+  /* batch 36.7 live check: the pouch has no extra cell, so its 4 columns fit one line down to 270 px (1024's 276 px
+     Farm tab: name 98 px) — undo the two-line rows above for it */
   .pouch-grid .item-row {
-    grid-template-columns: minmax(0, 1fr) 64px 64px;
+    grid-template-columns: subgrid;
+    grid-template-areas: none;
+    row-gap: 0;
+    padding: 0;
+  }
+  .pouch-grid .item-row > :nth-child(n) {
+    grid-area: auto;
+  }
+}
+/* narrower than that: name + count on line 1, the two Buys share line 2 */
+@container (max-width: 269px) {
+  .pouch-grid .item-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-areas:
       'name count'
       'b1 b2';
+    row-gap: var(--s1);
+    padding: var(--s1) 0;
   }
   .pouch-grid .item-row > :nth-child(1) {
     grid-area: name;
   }
   .pouch-grid .item-row > :nth-child(2) {
     grid-area: count;
+    justify-self: end;
   }
   .pouch-grid .item-row > :nth-child(3) {
     grid-area: b1;

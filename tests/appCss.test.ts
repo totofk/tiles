@@ -95,8 +95,9 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
   })
   it('task 241: one ⓘ per heading (.h-with-info), the pouch is a 4-column grid with a narrow two-line branch, Buy never wraps', () => {
     expect(css).toMatch(/\.h-with-info\s*{[^}]*display: flex;[^}]*gap: var\(--s1\);/s)
-    expect(css).toMatch(/\.pouch-grid\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) auto 64px 64px;/s)
-    expect(css).toMatch(/@container \(max-width: 359px\)[\s\S]*\.pouch-grid \.item-row\s*\{[^}]*grid-template-areas:\s*'name count'\s*'b1 b2';/s)
+    expect(css).toMatch(/\.item-grid\.pouch-grid\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) auto 64px 64px;/s)
+    expect(css).toMatch(/@container \(max-width: 359px\)[\s\S]*\.pouch-grid \.item-row\s*\{[^}]*grid-template-columns: subgrid;[^}]*grid-template-areas: none;/s)
+    expect(css).toMatch(/@container \(max-width: 269px\)\s*\{\s*\.pouch-grid \.item-row\s*\{[^}]*grid-template-areas:\s*'name count'\s*'b1 b2';/s)
     expect(css).toMatch(/\.item-row > button\s*{[^}]*white-space: nowrap/s)
   })
 
@@ -108,7 +109,7 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
 
   it('task 240: worker rows share one subgrid — name | − n + (144 px) | ⓘ (20 px) — with a 299 px two-line fallback', () => {
     expect(css).toMatch(/\.workers \.group\s*{[^}]*container-type: inline-size/s)
-    expect(css).toMatch(/\.worker-group\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) 144px 20px/s)
+    expect(css).toMatch(/\.worker-group\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) 144px 44px/s)
     expect(css).toMatch(/\.worker-row\s*{[^}]*grid-column: 1 \/ -1;[^}]*grid-template-columns: subgrid/s)
     expect(css).toMatch(/@container \(max-width: 299px\)\s*{[^}]*\.worker-row\s*{[^}]*grid-template-areas:\s*'name info'\s*'controls info';/s)
     expect(css).toMatch(/\.worker-controls\s*{[^}]*display: flex/s)
