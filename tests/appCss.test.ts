@@ -126,6 +126,11 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
     expect(css).toMatch(/\.mine-furnace-actions button\[aria-pressed='true'\]\s*{[^}]*background: #c8e6c9;/s)
     expect(css).toMatch(/\.mine-dig\s*{[^}]*padding-bottom: var\(--s1\);/s)
   })
+
+  it('task 244: a tree cell keeps its visible label inside the 79 px cell; the HUD ⏱ clock hides on phones', () => {
+    expect(css).toMatch(/@container \(max-width: 79px\)\s*\{[^@]*\.cell-tree \.cell-label\s*\{[^}]*position: static;[^}]*clip-path: none;[^}]*font-size: 11px;/s)
+    expect(css).toMatch(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.hud > \.hud-clock\s*\{[^}]*display: none;/s)
+  })
 })
 
 describe('app.css Estate map (batch 30)', () => {

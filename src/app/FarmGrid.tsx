@@ -210,6 +210,10 @@ export function FarmGrid({ state, onTap, acted = [], act }: { state: GameState; 
           {treeOpen && (
             <>
               <h3>{TREE_EMOJI} Fruit tree</h3>
+              {/* batch 36.7: an empty tree socket names the licences that unlock planting here */}
+              {treeCrops.length === 0 && (
+                <p className="sheet-line">Needs a berry licence to plant — 🛒 Shop sells 🍋 Lemon, 🍇 Grape, 🍓 Strawberry here</p>
+              )}
               {treeCrops.map((c) => {
                 const r = plantTreeBed(state, sheet, c)
                 return (

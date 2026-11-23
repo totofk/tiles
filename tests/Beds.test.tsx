@@ -74,6 +74,15 @@ describe('batch 36.2: the 🌳 fruit tree in the beds', () => {
     expect(screen.getByText('Permanent for this farm — cannot be moved')).toBeTruthy()
   })
 
+  it('batch 36.7: no berry licence yet — the tree sheet says what to buy instead of showing plant buttons', () => {
+    render(<FarmGrid state={orchard({ licenses: ['potato'] })} onTap={() => {}} act={act} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Bed 2 tree socket' }))
+    expect(screen.getByText('Needs a berry licence to plant — 🛒 Shop sells 🍋 Lemon, 🍇 Grape, 🍓 Strawberry here')).toBeTruthy()
+    expect(screen.queryByText(/Fruits every/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /🍋 Lemon ·/ })).toBeNull()
+    expect(screen.getByText('Permanent for this farm — cannot be moved')).toBeTruthy()
+  })
+
   it('a lemon the player cannot afford is disabled with the short reason', () => {
     render(<FarmGrid state={orchard({ cash: 10 })} onTap={() => {}} act={act} />)
     fireEvent.click(screen.getByRole('button', { name: 'Bed 1 tree socket' }))

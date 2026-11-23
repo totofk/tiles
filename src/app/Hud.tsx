@@ -50,7 +50,7 @@ export function Hud({ state, rates = null }: { state: GameState; rates?: Rates |
           {wages}
         </span>
       )}
-      <span>⏱ {duration(run.tick)}</span>
+      <span className="hud-clock">⏱ {duration(run.tick)}</span>
     </header>
   )
 }

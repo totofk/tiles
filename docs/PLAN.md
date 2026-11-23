@@ -85,7 +85,7 @@ one → it gets none (stated so the worker does not invent one).
 
 ## Tasks (239–244)
 
-- [ ] 239. **Farm panel card rhythm: chip gap after the tab bar, card-to-card space, order ✕ pinned top-right.**
+- [x] 239. **Farm panel card rhythm: chip gap after the tab bar, card-to-card space, order ✕ pinned top-right.**
   - `.legacy-chip` (app.css:2105–2109) has `margin-bottom` only → add `margin-top: var(--s2)`. One shared rule for
     sibling cards inside the panel tab (`.farm-tab` has NO gap today; `.farm-tab h2` margins exist only ≥ 1024,
     app.css:274–277), exact CSS after it:
@@ -107,7 +107,7 @@ one → it gets none (stated so the worker does not invent one).
     if selectors break), `tests/Legacy.test.tsx` / `tests/Shop.test.tsx` (legacy-chip placement queries),
     `tests/appCss.test.ts` — ADD pins: the new `.farm-tab` sibling-card rule and `position: absolute` inside `.order-x`.
 
-- [ ] 240. **Workers rows on ONE shared grid (name | − count + | ⓘ), Manager plan one line, Hire grouped.**
+- [x] 240. **Workers rows on ONE shared grid (name | − count + | ⓘ), Manager plan one line, Hire grouped.**
   - Today `.worker-row` is `flex-wrap` with `flex: 1 0 auto; white-space: nowrap` on the label
     (app.css:1297–1310) — the plan text pushes −/+ to a third line (feedback item 6). Replace with the subgrid pattern
     (same shape as `.recipe-grid`, app.css:1358–1384). Rows live in `.workers > .group` (Workers.tsx:93–102, 104–111).
@@ -148,7 +148,7 @@ one → it gets none (stated so the worker does not invent one).
     pins; `managerPlanText` unchanged), `tests/appCss.test.ts` (ADD: `.worker-row` declares `subgrid` and the
     `@container (max-width: 299px)` fallback exists).
 
-- [ ] 241. **One ⓘ per heading, pouch on a 4-column grid, Buy ×10 never wraps, 🌰 in the Shop list, sale preview 3 columns.**
+- [x] 241. **One ⓘ per heading, pouch on a 4-column grid, Buy ×10 never wraps, 🌰 in the Shop list, sale preview 3 columns.**
   - Seed pouch (Farm.tsx:24–90, also rendered by Shop at Shop.tsx:159): today every row carries the SAME ⓘ
     (`TIPS.pouch`, Farm.tsx:43). Move it to ONE `<Info>` beside the `<h2>Seed pouch</h2>` (Farm.tsx:28), and ONE beside
     `<h2>Crop to plant</h2>` (Farm.tsx:166) with a new `TIPS.plantPick` in tips.ts (verbatim):
@@ -183,7 +183,7 @@ one → it gets none (stated so the worker does not invent one).
     4 columns, `.sell-cols-wrap` container + the 419 px rule; UPDATE `.item-grid` five-column pin only if it breaks —
     it must NOT, Mine keeps 5).
 
-- [ ] 242. **Soil traits list + reroll move from ⭐ Favours to a collapsible card on the 🌾 Farm tab.**
+- [x] 242. **Soil traits list + reroll move from ⭐ Favours to a collapsible card on the 🌾 Farm tab.**
   - Move the whole `<details className="soil-traits">` block (Favours.tsx:133–143) and `SoilRow` (Favours.tsx:149–167)
     VERBATIM into a new `src/app/SoilTraits.tsx` (`export function SoilTraits({ state, act })`, same guard
     `run.survey.level >= 1`, same `.soil-traits` / `.soil-row` CSS app.css:1899–1922, default closed as today). Delete
@@ -201,7 +201,7 @@ one → it gets none (stated so the worker does not invent one).
     summary text + row texts + reroll aria-labels) to a new `tests/SoilTraits.test.tsx`; keep every soilSurvey ladder
     assertion in FavoursSection. No `survey.test.ts` change (core untouched).
 
-- [ ] 243. **Estate Expand group + mine column spots (vein drop table, Seam row, dig subtext, Forge Collect reason).**
+- [x] 243. **Estate Expand group + mine column spots (vein drop table, Seam row, dig subtext, Forge Collect reason).**
   - Estate (Estate.tsx:91–164): `Expand` `<h3>` (:94) reads weaker than the row titles under it — add
     `className="expand-h"` + `.expand-h { font-size: 15px; font-weight: 600; color: #222; margin: 0; }` (the Farm tab h2
     look, app.css:274–277 / `.shop h2` :1855). Box ONLY the Fill tank row (mockup `.expand-row`):
@@ -237,7 +237,7 @@ one → it gets none (stated so the worker does not invent one).
     `.vein-drop` spans; Forge Collect reason when BAG_FULL), `tests/Estate.test.tsx` (Fill tank :220 area, Machines),
     `tests/appCss.test.ts` (ADD: `.expand-h`, `.recipe-row-boxed`, `.seam-row`, the aria-pressed rule, `.vein-drops`).
 
-- [ ] 244. **36.2 nits (tree fruit count, Orchard sheet hint) + top bar one line at 375; pins, CHANGELOG, report.**
+- [x] 244. **36.2 nits (tree fruit count, Orchard sheet hint) + top bar one line at 375; pins, CHANGELOG, report.**
   - Tree tiles hide the fruit count at 1024 (36.2 nit a): `.cell-label` goes clip-path-hidden under 79 px container
     width (app.css:530–539) — on a tree tile the label IS the state (FarmGrid.tsx:63–66: `🌳` + `🍓3`). Add inside that
     same `@container` block: `.cell-tree .cell-label { position: static; width: auto; height: auto; clip-path: none; font-size: 11px; white-space: nowrap; }`
@@ -267,3 +267,50 @@ worker rows from the first certificate; empty states: no orders (wait row), surv
 
 Out of scope (36.8+ unless Toon says otherwise): clerk scope change (core, batch B), hired rigs, any core/economy
 change, save bump, the mockup's tab-strip restyle, moving Tools/Orders groups, `prefers-reduced-motion` pass.
+
+## Batch 36.7 results
+
+Tests before → after: 1335 passed / 5 failed / 8 expected fail (1348, 72 files) → 1348 passed / 8 expected fail plus 3
+known-flake timeouts (1359, 73 files; the 3 flakes are the relics Monte-Carlo PIN36l ×2 + PIN36o pins, which pass solo —
+see Deviations). No sim file and no core number moved; `SAVE_VERSION` stays 35; no fixture touched.
+
+- 239 `1f706d91` — Farm-panel card rhythm: `.legacy-chip` clears the tab bar, `.farm-tab > details + details / details +
+  div / section + details` sit 16 px apart, the order ✕ is absolutely pinned top-right (44×44) with every order state
+  padding a `calc(44px + var(--s2))` slot.
+- 240 `b9b2ca40` — worker rows on one `.worker-group` subgrid (name | 144 px controls | 20 px ⓘ), 299 px two-line
+  fallback, Manager plan one ellipsised line (new `managerPlanShort`, full plan in the row's ⓘ), Hire row inside the group.
+- 241 `aca8b6a0` — ONE ⓘ per heading (`.h-with-info` + new `TIPS.plantPick`), pouch a 4-column grid with a 359 px
+  two-line branch, `white-space: nowrap` buttons, 🌰 Ancient fruit in the Shop seeds list without a Farm tab, sale preview
+  1 column → 3 from 419 px (`.sell-cols-wrap`).
+- 242 `bd91351b` — the 🧭 soil traits list + reroll moved verbatim from ⭐ Favours to a default-closed card under the
+  Workshop (`SoilTraits.tsx`; Farm tab + every no-Farm-tab App layout + the phone 📋 sheet); Favours keeps the BUY ladder;
+  `rerollSoil` now greps in exactly `SoilTraits.tsx` + `EstateMap.tsx`.
+- 243 `ecec2cf1` — Estate `.expand-h` heading + boxed `.recipe-row-boxed` Fill tank + `.estate-machines` card gap; Mine
+  vein line split into `.vein-label` + per-drop `.vein-drops` grid cells; Seam aim one `.seam-row` flex line with the
+  pressed aim green; `.mine-dig` padding; Forge Collect shows the short 'storage full' reason when the tray holds goods.
+- 244 (this commit) — a tree keeps its visible `.cell-label` inside the 79 px cell; the empty Orchard tree sheet names the
+  berry licences; the HUD ⏱ gets `.hud-clock` and hides < 768 (one line at 375); CHANGELOG 36.7 entry; this report.
+
+New UI strings: `TIPS.plantPick` ("The crop your taps, tools and workers plant. seeds N is your pouch; the price line is
+today's market factor."); 'not sold — dig for 🦴 seeds' (Shop ancient row); `managerPlanShort` lines — 'no wet fields to
+manage', 'N crops → M orders · rest' (rest-only edge '0 crops → 0 orders · rest'); the Manager row ⓘ '… Plan: ' prefix
+(`managerPlanText` unchanged); 'Needs a berry licence to plant — 🛒 Shop sells 🍋 Lemon, 🍇 Grape, 🍓 Strawberry here';
+'storage full' re-used on the Forge Collect button; the CHANGELOG line.
+
+### Deviations
+
+- jsdom shows no layout: the subgrid worker columns/areas, the ✕-overlap geometry, the 419 px 3-column switch, the
+  375 px single-line HUD and the 79 px tree label are verified by `tests/appCss.test.ts` pins + string assertions only.
+- Vein drop table: the plan called the split markup "byte-identical"; in reality the DOM now joins drops with single
+  spaces (each i>0 drop carries one leading space inside its span), so the two Mine vein pins moved ' · ' → ' ' and gained
+  `.vein-drop` cell pins (task 243).
+- The 359 px pouch fallback declares 3 grid tracks for 2-area rows (the third 64 px track is unused) — implemented
+  verbatim as planned.
+- Statistical flakes under parallel load (survey PIN36q, relics PIN36l/PIN36o) failed in 3 of 6 gate runs and passed solo
+  every time — pre-existing (batch 36.4/36.5 pins), untouched by this UI-only batch; 243's gate was fully green.
+- Two full-suite gate runs (tasks 239, 241) were killed by background-command time limits mid-run (600 s default, then
+  20 min) and rerun with a 2 h budget — machine load average 10–12 on the 16 GB machine, no rogue process.
+- The `.hud-clock` hide sits inside the existing `@media (max-width: 767px)` block (after `.hud-rate`) instead of the
+  plan's sketch of a new query — same rule, one block, the WorkersCard HUD pin still matches.
+- `src/app/SoilTraits.tsx` was briefly created before task 242's Favours deletion and flagged by the stop hook; deleted
+  the same turn and re-created in task 242 together with the deletion — no commit ever carried both copies.

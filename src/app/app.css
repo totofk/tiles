@@ -143,6 +143,10 @@ body {
   .hud-rate {
     display: none;
   }
+  /* batch 36.7: the ⏱ clock goes too — the ⚡ bar already shows the day's pace on a phone */
+  .hud > .hud-clock {
+    display: none;
+  }
 }
 
 /* ---- tablet: Farm + Mine side by side, side panel as a slide-over ---- */
@@ -546,6 +550,15 @@ button:disabled::after {
   }
   .cell-rot {
     font-size: 10px;
+  }
+  /* batch 36.7: a tree keeps its name — the label is its identity, not a status */
+  .cell-tree .cell-label {
+    position: static;
+    width: auto;
+    height: auto;
+    clip-path: none;
+    font-size: 11px;
+    white-space: nowrap;
   }
 }
 /* < 64 px: the "rots in" text goes too (the red rot bar stays), tighter padding */
