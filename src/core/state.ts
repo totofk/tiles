@@ -1,4 +1,4 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, renownStartSeeds, startTiles, type MineDropId } from './balance'
+import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, renownStartSeeds, startTiles, type MachineKind, type MineDropId } from './balance'
 import { ALL_CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { RelicId } from './data/relics'
@@ -207,9 +207,11 @@ export type Field = { pivot: boolean; crop: CropId | null; pinned: boolean; plot
 
 /**
  * The batch-19 throughput machines: owned tiers per kind (max 1 of each, tiers stack) and the fleet's fractional
- * accumulators — whole tiles to reap / to plant, and maintenance cash accrued past the last whole cash paid.
+ * accumulators — whole tiles to reap / to plant, and maintenance cash accrued past the last whole cash paid. Batch 36.8:
+ * rigs = HIRED extra units in hire order (newest last; the Nth entry pays the Nth sign-on on the ONE shared ladder
+ * across both kinds), carry.rigFee = management cash accrued past the last whole cash paid.
  */
-export type Machines = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number } }
+export type Machines = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number; rigFee: number }; rigs: MachineKind[] }
 
 /**
  * The 🚜 Fields (batch 18, plots since batch 28): unlocked once, then land is bought a plot at a time into fields of
@@ -414,7 +416,7 @@ export function createFields(): Fields {
   return { unlocked: false, list: [], pump: 0, tank: 0, machines: createMachines() }
 }
 
-/** no machines bought; the fleet's accumulators start empty */
+/** no machines bought, no rigs hired; the fleet's accumulators start empty */
 export function createMachines(): Machines {
-  return { harvester: [], seeder: [], carry: { harvest: 0, plant: 0, maint: 0 } }
+  return { harvester: [], seeder: [], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] }
 }

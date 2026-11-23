@@ -480,17 +480,17 @@ describe('machinesAct on whole plots', () => {
     const five = step(s, 5)
     expect(five.run.fields.list[0].plots).toEqual([lemon(50), empty(), lemon(9999)])
     // a big banked carry reaps every ready plot at once, then the carry clamps to one plot
-    const banked = machinesAct(withFields([field([lemon(50), lemon(40), lemon(9999)])], { tick: 100 }, { machines: fleet({ harvester: [3], carry: { harvest: 35, plant: 0, maint: 0 } }) }))
+    const banked = machinesAct(withFields([field([lemon(50), lemon(40), lemon(9999)])], { tick: 100 }, { machines: fleet({ harvester: [3], carry: { harvest: 35, plant: 0, maint: 0, rigFee: 0 } }) }))
     expect(banked.run.fields.list[0].plots).toEqual([empty(), empty(), lemon(9999)])
     expect(banked.run.fields.machines.carry.harvest).toBe(10)
     // nothing ready: nothing accrues, no maintenance
     const idle = withFields([field([lemon(9999)])], { tick: 100, cash: 500 }, { machines: fleet({ harvester: [1, 2, 3] }) })
-    expect(step(idle, 600).run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0 })
+    expect(step(idle, 600).run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0, rigFee: 0 })
   })
 
   it('the harvester rolls the best sickle double harvest per tile; a basic sickle rolls nothing', () => {
     const at = (harvest: number) =>
-      withFields([field([lemon(50)])], { tick: 100, cash: 0, toolTier: { ...init.run.toolTier, harvest } }, { machines: fleet({ harvester: [3], carry: { harvest: 10, plant: 0, maint: 0 } }) })
+      withFields([field([lemon(50)])], { tick: 100, cash: 0, toolTier: { ...init.run.toolTier, harvest } }, { machines: fleet({ harvester: [3], carry: { harvest: 10, plant: 0, maint: 0, rigFee: 0 } }) })
     const gold = machinesAct(at(3))
     const basic = machinesAct(at(0))
     expect([sown(gold), sown(basic)]).toEqual([0, 0])
@@ -504,18 +504,18 @@ describe('machinesAct on whole plots', () => {
       tiles,
       tick: 5,
       workers: { pool: 1, assigned: { plant: 0, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
-    }, { machines: fleet({ harvester: [3], carry: { harvest: 9, plant: 0, maint: 0 } }) })
+    }, { machines: fleet({ harvester: [3], carry: { harvest: 9, plant: 0, maint: 0, rigFee: 0 } }) })
     const after = step(base, 1)
     expect(sown(after)).toBe(0)
     expect(after.run.lifetime.wagesPaid).toBe(0)
     // batch 32.2: the control's worker finishes the plot from the same 9 tiles on the shared counter
-    const control = step({ ...base, run: { ...base.run, fields: { ...base.run.fields, machines: fleet({ carry: { harvest: 9, plant: 0, maint: 0 } }) } } }, 1)
+    const control = step({ ...base, run: { ...base.run, fields: { ...base.run.fields, machines: fleet({ carry: { harvest: 9, plant: 0, maint: 0, rigFee: 0 } }) } } }, 1)
     expect(sown(control)).toBe(0)
     expect(control.run.lifetime.wagesPaid).toBe(1)
   })
 
   it('maintenance: an hour the cash cannot pay pauses the fleet with the debt capped at it', () => {
-    const due = withFields([field([lemon(50)])], { cash: 0, tick: 100 }, { machines: fleet({ harvester: [3], carry: { harvest: 9.5, plant: 0, maint: 0.999 } }) })
+    const due = withFields([field([lemon(50)])], { cash: 0, tick: 100 }, { machines: fleet({ harvester: [3], carry: { harvest: 9.5, plant: 0, maint: 0.999, rigFee: 0 } }) })
     const paused = machinesAct(due)
     expect([paused.run.cash, sown(paused), paused.run.fields.machines.carry.maint]).toEqual([0, 1, 1])
     const paid = machinesAct({ ...due, run: { ...due.run, cash: 5 } })
@@ -533,7 +533,7 @@ describe('machinesAct on whole plots', () => {
     expect(sown(broke)).toBe(0)
     expect(broke.run.fields.machines.carry.plant).toBe(10)
     const noChip = step(withFields([field([empty()], null)], {}, { machines: fleet({ seeder: [2] }) }), 30)
-    expect(noChip.run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0 })
+    expect(noChip.run.fields.machines.carry).toEqual({ harvest: 0, plant: 0, maint: 0, rigFee: 0 })
   })
 })
 
@@ -665,7 +665,7 @@ describe('step identity over plots', () => {
         workers: { pool: 2, assigned: { plant: 1, water: 0, harvest: 1, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: ['plant', 'harvest'] },
         orders: { unlocked: true, slots: 1, offers: [{ good: 'pumpkin', count: 20, done: 0, tier: 0, accepted: true, stars: 1 }], rerolls: 0 },
       },
-      { pump: 1, machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9 } }) },
+      { pump: 1, machines: fleet({ harvester: [1, 2], seeder: [1], carry: { harvest: 0.5, plant: 3.25, maint: 0.9, rigFee: 0 } }) },
     )
     let one = s
     for (let i = 0; i < 600; i++) one = step(one, 1)

@@ -236,7 +236,7 @@ describe('batch 30: the Estate map cells (plotCellView)', () => {
     const s = at({ fields, machines: { harvester: [1] } })
     const carry = (harvest: number, plant = 0): GameState => ({
       ...s,
-      run: { ...s.run, tick: 10, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry: { harvest, plant, maint: 0 } } } },
+      run: { ...s.run, tick: 10, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry: { harvest, plant, maint: 0, rigFee: 0 } } } },
     })
     expect(plotCellView(carry(3), 0, 2).label).toMatch(/ · 🚜 next · 3\/10$/)
     expect(plotCellView(carry(3.7), 0, 2).label).toMatch(/ · 🚜 next · 3\/10$/)

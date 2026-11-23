@@ -141,14 +141,14 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
     [300, 3, CROP_IDS],
   ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms, step(s, n) identity', (plots, pump, split) => {
     const forged = forgePlots(base, plots * plotTiles(), pump, split, 1_000_000)
-    const big = { ...forged, run: { ...forged.run, fields: { ...forged.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0 } } } } }
+    const big = { ...forged, run: { ...forged.run, fields: { ...forged.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] } } } }
     expect(big.run.fields.list.filter((f) => f.pivot)).toHaveLength(Math.min(20, Math.ceil(plots / 5)))
     const t0 = Date.now()
     catchUp(big, 8 * HOUR_TICKS * 1000)
     const ms = Date.now() - t0
     console.log('PIN28perf', { plots, ms })
     expect(ms).toBeLessThan(2000)
-    let one = big
+    let one: GameState = big
     for (let i = 0; i < 600; i++) one = step(one, 1)
     expect(step(big, 600)).toEqual(one)
     expect(catchUp(big, 600_000)).toEqual(step(big, 600))
@@ -523,7 +523,7 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
    *  cash and coal topped up, and the given machine fleet (empty = the workers-only arm) */
   const forge = (n: number, fleet: { harvester: readonly number[]; seeder: readonly number[] }, split: readonly CropId[] = ['pumpkin']): GameState => {
     const s = forgePlots(end, n, tierFor(n), split, 1_000_000)
-    const machines = { harvester: [...fleet.harvester], seeder: [...fleet.seeder], carry: { harvest: 0, plant: 0, maint: 0 } }
+    const machines = { harvester: [...fleet.harvester], seeder: [...fleet.seeder], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] }
     return { ...s, run: { ...s.run, fields: { ...s.run.fields, machines } } }
   }
   /** steady-state net cash/h at `n` tiles with `fleet` — 1 h of warm-up, then 2 h measured */

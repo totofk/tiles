@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MineDropId } from '../core/balance'
+import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MachineKind, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import { PLAIN_LISTING, listingSeedFor } from '../core/listings'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
@@ -36,7 +36,7 @@ import {
 } from '../core/state'
 import { step } from '../core/step'
 
-export const SAVE_VERSION = 35
+export const SAVE_VERSION = 36
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -315,8 +315,12 @@ type SaveV32 = { version: 32; savedAtMs: number; state: { meta: MetaV34; run: Ru
 type RunV33 = Omit<RunState, 'survey'>
 type SaveV33 = { version: 33; savedAtMs: number; state: { meta: MetaV34; run: RunV33 } }
 type SaveV34 = { version: 34; savedAtMs: number; state: { meta: MetaV34; run: RunState } }
-type SaveV35 = { version: 35; savedAtMs: number; state: GameState }
-export type Save = SaveV35
+/** v35 (frozen here: batch 36.8 added the hired-rigs array and the rig-fee accumulator to the live Machines) */
+type MachinesV35 = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number } }
+type RunV35 = Omit<RunState, 'fields'> & { fields: Omit<Fields, 'machines'> & { machines: MachinesV35 } }
+type SaveV35 = { version: 35; savedAtMs: number; state: { meta: MetaState; run: RunV35 } }
+type SaveV36 = { version: 36; savedAtMs: number; state: GameState }
+export type Save = SaveV36
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -939,15 +943,24 @@ function migrateV34(save: SaveV34): SaveV35 {
   return { version: 35, savedAtMs: save.savedAtMs, state: { meta: liveMeta(meta), run: { ...run, renown } } }
 }
 
+// v35 → v36 (batch 36.8): the hired-rig array starts empty and the fee accumulator at 0. Nothing granted, nothing
+// taken away (a migration never takes value away, never grants a rig).
+function migrateV35(save: SaveV35): SaveV36 {
+  const { meta, run } = save.state
+  const machines = { ...run.fields.machines, rigs: [] as MachineKind[], carry: { ...run.fields.machines.carry, rigFee: 0 } }
+  return { version: 36, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: { ...run.fields, machines } } } }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 35) return data as SaveV35
+  if (data.version === 36) return data as SaveV36
+  if (data.version === 35) return migrateV35(data as SaveV35)
   const v34 = toV34(data)
-  return v34 && migrateV34(v34)
+  return v34 && migrateV35(migrateV34(v34))
 }
 
 /** v1 … v34 up to v34; null for anything else */

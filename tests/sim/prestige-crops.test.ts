@@ -378,7 +378,7 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
         ...base.run,
         licenses: [...crops],
         lifetime: { ...base.run.lifetime, harvests },
-        fields: { ...base.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0 } } },
+        fields: { ...base.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] } },
       },
     }
   }
