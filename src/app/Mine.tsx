@@ -168,6 +168,7 @@ function Forge({ state, act }: { state: GameState; act: Act }) {
           <small>
             Tray {tray} / {FORGE_TRAY}
           </small>
+          {!collect.ok && tray > 0 && <small>{shortReason(collect)}</small>}
         </button>
       </div>
     </div>
@@ -604,13 +605,22 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
         )}
       </div>
       <div className="mine-vein">
-        <span>
-          Vein Lv{run.vein.level}: {dropText(run.vein.level, run.masteredTiers.length, run.favours.aim)}
-        </span>
+        {/* batch 36.7: the label and each drop are their own spans, so the drop line wraps per item, not mid-word */}
+        <span className="vein-label">Vein Lv{run.vein.level}: </span>
+        <div className="vein-drops">
+          {dropText(run.vein.level, run.masteredTiers.length, run.favours.aim)
+            .split(' · ')
+            .map((d, i) => (
+              <span key={d} className="vein-drop">
+                {i > 0 && ' '}
+                {d}
+              </span>
+            ))}
+        </div>
         {/* batch 34: the ⭐ Seam survey's aim, free to change — Off or one ore the vein drops */}
         {run.favours.seam && (
-          <div className="mine-furnace-actions" role="group" aria-label="Seam aim">
-            {SEAM_EMOJI} Seam:
+          <div className="mine-furnace-actions seam-row" role="group" aria-label="Seam aim">
+            <span>{SEAM_EMOJI} Seam:</span>
             {[null, ...ORE_IDS.filter((ore) => (veinDrops(run.vein.level)[ore] ?? 0) > 0)].map((ore) => (
               <button key={ore ?? 'off'} aria-pressed={run.favours.aim === ore} onClick={() => act((s) => setSeamAim(s, ore))}>
                 {ore ? ITEMS[ore].emoji : 'Off'}

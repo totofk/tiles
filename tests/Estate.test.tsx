@@ -220,6 +220,9 @@ describe('the 🚜 Estate stop (batch 27, task 143; the map since batch 30)', ()
   it('Fill tank moves storage coal into the tank; the smart valve row builds the valve', () => {
     const s = { ...base, run: { ...base.run, cash: 1e6, inventory: { ...base.run.inventory, coal: 7, goldBar: 9 }, fields: { ...base.run.fields, tank: 0 }, workshop: { ...base.run.workshop, built: true, valve: false } } }
     const t = setup(s)
+    // batch 36.7: the heading is a styled .expand-h and the Fill tank row is a boxed card
+    expect(document.querySelector('h3.expand-h')!.textContent).toBe('Expand')
+    expect(screen.getByRole('button', { name: 'Fill' }).closest('.recipe-row')!.className).toBe('recipe-row recipe-row-boxed')
     expect(screen.getByText(`+7 ${ITEMS.coal.emoji} from storage`)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Fill' }))
     expect([t.cur.run.fields.tank, t.cur.run.inventory.coal]).toEqual([7 * TANK_UNITS_PER_COAL, 0])

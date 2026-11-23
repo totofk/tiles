@@ -91,7 +91,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
       <div className="recipe-wrap">
         <div className="recipe-grid">
           <div className="group">
-            <h3>Expand</h3>
+            <h3 className="expand-h">Expand</h3>
             {pumpPrice && (
               <div className="recipe-row">
                 <span>
@@ -104,7 +104,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                 </button>
               </div>
             )}
-            <div className="recipe-row">
+            <div className="recipe-row recipe-row-boxed">
               <span>
                 {`${TANK_EMOJI} Fill tank`}
                 <small>{`+${Math.max(0, Math.min(room, run.inventory.coal ?? 0))} ${ITEMS.coal.emoji} from storage`}</small>

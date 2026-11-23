@@ -115,6 +115,17 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
     expect(css).toMatch(/\.worker-plan\s*{[^}]*text-overflow: ellipsis/s)
     expect(css).toMatch(/\.worker-hire\s*{[^}]*grid-column: 1 \/ 3/s)
   })
+
+  it('task 243: Estate Expand heading + boxed Fill tank + machines card gap; the vein drop line is a per-drop grid; the Seam row is one flex line', () => {
+    expect(css).toMatch(/\.expand-h\s*{[^}]*font-size: 15px;[^}]*margin: 0;/s)
+    expect(css).toMatch(/\.recipe-row-boxed\s*{[^}]*border: 1px solid #eee;[^}]*background: #faf8f4;/s)
+    expect(css).toMatch(/\.estate-machines\s*{[^}]*margin-top: var\(--s4\);/s)
+    expect(css).toMatch(/\.vein-drops\s*{[^}]*grid-template-columns: repeat\(auto-fill, minmax\(84px, max-content\)\);/s)
+    expect(css).toMatch(/\.vein-drop\s*{[^}]*white-space: nowrap/s)
+    expect(css).toMatch(/\.seam-row\s*{[^}]*display: flex;[^}]*gap: var\(--s1\) var\(--s2\);/s)
+    expect(css).toMatch(/\.mine-furnace-actions button\[aria-pressed='true'\]\s*{[^}]*background: #c8e6c9;/s)
+    expect(css).toMatch(/\.mine-dig\s*{[^}]*padding-bottom: var\(--s1\);/s)
+  })
 })
 
 describe('app.css Estate map (batch 30)', () => {

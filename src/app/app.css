@@ -897,7 +897,25 @@ button:disabled::after {
 .map-pin[aria-pressed='false'] {
   opacity: 0.6;
 }
-/* the machines group, closed until opened (the chevron comes from the details marker) */
+/* batch 36.7: the Expand heading sits tight above its recipe rows (the group gap is enough), and the Fill tank row is
+   a boxed card of its own */
+.expand-h {
+  font-size: 15px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+}
+.recipe-row-boxed {
+  padding: var(--s2);
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background: #faf8f4;
+}
+/* the machines group, closed until opened (the chevron comes from the details marker); batch 36.7: it sits a card gap
+   below the Expand recipes */
+.estate-machines {
+  margin-top: var(--s4);
+}
 .estate-machines > summary {
   display: flex;
   align-items: center;
@@ -1191,6 +1209,7 @@ button:disabled::after {
   flex-direction: column;
   align-items: center;
   font-weight: 600;
+  padding-bottom: var(--s1);
 }
 /* smaller and tighter to the corner than on a tile, so the ⛏️ pop ends above the button's second line (≥ 19 px down) */
 .mine-dig > .cell-pop {
@@ -1226,6 +1245,15 @@ button:disabled::after {
   flex-direction: column;
   gap: 2px;
   font-size: 14px;
+}
+/* batch 36.7: the drop line is a grid of its own cells — one drop per cell, so a narrow column wraps between drops */
+.vein-drops {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, max-content));
+  gap: 2px var(--s2);
+}
+.vein-drop {
+  white-space: nowrap;
 }
 .mine-vein-next {
   font-size: 12px;
@@ -1561,6 +1589,21 @@ details > summary:focus-visible {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: var(--s2);
+}
+/* batch 36.7: the ⭐ Seam aim row is one flex line (label + Off/ore buttons), the active aim reads pressed */
+.seam-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s1) var(--s2);
+}
+.seam-row > span {
+  font-size: 14px;
+}
+.mine-furnace-actions button[aria-pressed='true'] {
+  background: #c8e6c9;
+  border-color: #2e7d32;
+  font-weight: 600;
 }
 .furnace-line {
   display: flex;

@@ -88,7 +88,16 @@ describe('Mine panel', () => {
 
   it('at the last vein level (Lv4) shows only the current table, gold in it', () => {
     setup({ vein: { level: 4, progress: 0, rock: 'goldOre' }, pickaxe: { tier: 'iron', durability: 100 } })
-    expect(text()).toContain(`Vein Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${ITEMS.goldOre.emoji} Gold ore 8 %`)
+    // batch 36.7: each drop is its own .vein-drop cell, joined by spaces (the old ' · ' separators are gone)
+    expect(text()).toContain(`Vein Lv4: ${STONE} Stone 50 % ⚫ Coal 20 % ${ORE} Copper ore 12 % ${ITEMS.ironOre.emoji} Iron ore 10 % ${ITEMS.goldOre.emoji} Gold ore 8 %`)
+    expect(document.querySelector('.mine-vein .vein-label')!.textContent).toBe('Vein Lv4: ')
+    expect([...document.querySelectorAll('.mine-vein .vein-drops .vein-drop')].map((d) => d.textContent!.trim())).toEqual([
+      `${STONE} Stone 50 %`,
+      `⚫ Coal 20 %`,
+      `${ORE} Copper ore 12 %`,
+      `${ITEMS.ironOre.emoji} Iron ore 10 %`,
+      `${ITEMS.goldOre.emoji} Gold ore 8 %`,
+    ])
     expect(screen.queryByText(/^Lv5: /)).toBeNull()
     expect(screen.queryByText(/coming/)).toBeNull()
   })
@@ -645,6 +654,10 @@ describe('batch 36.2: the 🔨 Forge card', () => {
     setup({ listing: ironHills, furnace: built, forge: { ...forge, job: 'toolbox', progress: 300, tray: { toolbox: 10 } } })
     expect(screen.getByText('Tray full')).toBeTruthy()
     expect(screen.getByRole('button', { name: /^Collect\s*Tray/ }).textContent).toBe('CollectTray 10 / 10')
+    cleanup()
+    // batch 36.7: a full bag shows the short reason on the Collect button itself
+    setup({ listing: ironHills, furnace: built, forge: { ...forge, job: 'toolbox', progress: 300, tray: { toolbox: 1 } }, inventory: { stone: 20 } })
+    expect(screen.getByRole('button', { name: /^Collect\s*Tray/ }).textContent).toBe('CollectTray 1 / 10storage full')
   })
 })
 
