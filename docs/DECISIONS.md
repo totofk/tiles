@@ -1504,3 +1504,14 @@ Hermes's calls (Toon may reject by number; dispatched as written):
     the fresh-player guard into `tests/sim/early.test.ts` (the fresh ladder).
 15. Refine fix: plan heading emoji 🧑‍🌾 (Unicode 12.1) replaced by 🚜; `estateText.ts` anchors moved +8 by batch 36.7
     (`fleetTilesPerHour` :164, `estateBottleneck` :181).
+
+## Batch 36.8.1 refined (2026-11-23, honest rig "adds" + compact fee; save stays v36)
+Source: Hermes's live check of 36.8 on Toon's migrated save — both rig rows read "adds ≈💰44.483M/h" while PIN36.8
+measured ≈💰3.8M/h gross per seeder rig. Go: Toon "ปล่อย 36.8.1". Worker: GLM glm-5.3 via z.ai.
+- **Overturns** Batch 36.8 refined call 6 ("adds ≈💰/h = 1,800 × marginal for both kinds"): from 36.8.1 the row shows
+  the steady-state gain of ONE more rig — the extra tiles/h the whole fleet can then sow and reap, capped by the wet
+  land, × the best crop's profit per sown tile — and names the limit when that is 0.
+- Hermes's calls: (1) steady-state estimate only, backlogs of empty/ready plots are not counted (the sim shows them
+  clearing within hours); (2) `fieldsMarginalIncomePerHour` keeps its value so no payback label or sim pin moves;
+  (3) fee and adds use `approx()` (300k, 1.2M), sign-on keeps `price()` (3M); (4) the maxed row drops the "next"
+  part and keeps the adds part for context; (5) the CHANGELOG test learns a third version part for "36.8.1".
