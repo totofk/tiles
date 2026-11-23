@@ -1,5 +1,6 @@
 {
   "enabledPlugins": {
-    "tokeneconomizer@tokeneconomizer": true
+    "tokeneconomizer@tokeneconomizer": true,
+    "superdesign@superdesign": true
   }
 }
