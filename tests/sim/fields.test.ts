@@ -18,7 +18,8 @@ import {
   pumpCost,
   workerActionTicks,
 } from '../../src/core/balance'
-import { catchUp } from '../../src/save/serialize'
+import { catchUp, deserialize } from '../../src/save/serialize'
+import v35 from '../fixtures/save-v35.json?raw'
 import { bagCount } from '../../src/core/mining'
 import { createInitialState, createMachines, type GameState } from '../../src/core/state'
 import { step } from '../../src/core/step'
@@ -923,3 +924,33 @@ function certRun(s0: GameState, maxMinutes: number, items = true) {
  * batch 32 (task 172c scenario B): a loaded save hires one miner and assigns it, then 2 game-hours pass with no player.
  * drops = vein items added to storage, summed per tick (the ore loader's takes are not subtracted); 💰 = cash earned
  */
+
+describe('batch 36.8: hired rigs on the v35 fixture', () => {
+  /** Toon's live v35 save with `rigs` seeder rigs set directly (the sign-on is NOT paid — the pin measures throughput;
+   *  the REAL fee tick runs) and 16 game-h stepped; net cash/h and the unsown wet plots at the end */
+  const rigNet = (rigs: number) => {
+    const { state } = deserialize(v35)!
+    const start: GameState = {
+      ...state,
+      run: { ...state.run, fields: { ...state.run.fields, machines: { ...state.run.fields.machines, rigs: Array.from({ length: rigs }, () => 'seeder' as const) } } },
+    }
+    const end = step(start, 16 * HOUR_TICKS)
+    return { netPerHour: (end.run.cash - start.run.cash) / 16, unsown: fieldsOverview(end.run).emptyWet }
+  }
+
+  it('PIN36.8: 2 seeder rigs lift net cash/h > 1.3x, 4 beat 2, and the fee-adjusted gain flattens', () => {
+    const zero = rigNet(0)
+    const two = rigNet(2)
+    const four = rigNet(4)
+    console.log('PIN36.8', JSON.stringify({
+      net0: Math.round(zero.netPerHour), unsown0: zero.unsown,
+      net2: Math.round(two.netPerHour), unsown2: two.unsown,
+      net4: Math.round(four.netPerHour), unsown4: four.unsown,
+    }))
+    // calculator bands (calc-rigs-2026-11-23), gross of fees: 13.83M / 21.48M / 24.90M per h; the real fee ladder
+    // lands the nets lower (2 rigs −0.9M/h, 4 rigs −3.0M/h) — the DIRECTIONS stay hard
+    expect(two.netPerHour).toBeGreaterThan(zero.netPerHour * 1.3)
+    expect(four.netPerHour).toBeGreaterThan(two.netPerHour)
+    expect(four.netPerHour - two.netPerHour).toBeLessThan(two.netPerHour - zero.netPerHour)
+  }, 300_000)
+})

@@ -7,6 +7,7 @@ import { buyTool, pressTool, toolTargets } from '../../src/core/tools'
 import {
   ACTION_ENERGY_COST,
   OFFLINE_CAP_TICKS,
+  RIG_SIGN_ON,
   barTicks,
   certificateCost,
   cropSeedCost,
@@ -43,6 +44,7 @@ import {
   mineBench,
   runBot,
   runCropBot,
+  withBatch13,
   withoutMarket,
 } from './bot'
 
@@ -697,4 +699,34 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
     expect(bars(after)).toBeGreaterThanOrEqual(allowed)
     expect(runtimeMs).toBeLessThan(3000)
   })
+})
+
+describe('batch 36.8: the fresh-player rig guard (the full ladder, 40 game-h)', () => {
+  it('PIN36.8fresh: the ladder bot never holds the rig-1 sign-on before tick 144,000 (40 game-h)', () => {
+    let max = 0
+    withBatch13(() =>
+      runBot(true, {
+        ticks: 40 * HOUR_TICKS,
+        licenses: LICENSE_ORDER,
+        crops: PLANT_ORDER,
+        ladder: true,
+        copperTools: true,
+        workers: true,
+        furnace: true,
+        planter: true,
+        iron: true,
+        ironTools: true,
+        gold: true,
+        sprinklers: true,
+        fields: true,
+        buyTools: true,
+        onTick: (s) => {
+          if (s.run.tick <= 144_000) max = Math.max(max, s.run.cash)
+        },
+      }),
+    )
+    // calculator calc-rigs-2026-11-23: 💰2.1M max held at 40 h — a fresh player cannot reach rig 1 (💰3M sign-on)
+    console.log('PIN36.8fresh', JSON.stringify({ maxCashHeld: Math.round(max), rig1: RIG_SIGN_ON[0] }))
+    expect(max).toBeLessThan(RIG_SIGN_ON[0])
+  }, 300_000)
 })
