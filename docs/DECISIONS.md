@@ -1454,3 +1454,53 @@ Hermes's calls (Toon may reject by number; dispatched as written):
 7. Refine fixes to the child draft: CHANGELOG line shortened to 169 code points (draft had 181 > the 180 cap);
    `rerollSoil` grep after the move expects 2 files (EstateMap.tsx Field sheet keeps its own Reroll).
 - **Out of scope:** clerk takes every order + hired rigs (batch 36.8, save bump), any core/economy change.
+
+## Batch 36.8 refined (2026-11-23, the clerk takes every order + hired rigs for the Estate fleet; save v35 → v36)
+Sources: Toon's feedback round 2026-11-23 (Hermes drafts outside the repo: `feedback-2026-11-23-decisions.md` round 1
+item 2 "the clerk only takes mine goods" and round 2 "more machines for a big fast estate", both accepted;
+`rigs-calculator-2026-11-23.md` run on Toon's own v35 save: the empty plots are seeder capacity, 5,400 vs ≈15,600
+tiles/h demand). Rig questions Q1–Q4 answered with Hermes's recommendations (1,800 tiles/h per rig; one shared fee
+ladder; no certificate; sowing order unchanged). Plan drafted by a Hermes child on 7d6af4bd, re-anchored on aa821b8a.
+Go: Toon 2026-11-23 13:24 "ปล่อย 36.7 เสร็จแล้ว ต่อ 36.8 เลย"; reject-list of calls 1–6 (36.7) answered "ไม่มีข้อค้าน";
+calls below were sent the same day and are dispatched as written. Worker: GLM glm-5.3 via z.ai.
+- **Overturns** DECISIONS.md:551-552 "Only the player accepts them": from 36.8 the 📋 clerk accepts every order the
+  run can produce, estate contracts included. The field flip stays the Manager's job; the clerk never changes a crop.
+- **Fixture:** `tests/fixtures/save-v35.json` = Toon's live v35 save (TILES1 code, CRC d6aa8458 verified, credential
+  grep clean), decoded JSON as-is.
+
+Hermes's calls (Toon may reject by number; dispatched as written):
+1. `clerkTakes` = `orderPool(run).includes(good)`, so the clerk also takes FORGE goods (sword/medal orders) —
+   your words named licensed crops, furnace bars and estate contracts; forge goods are in the same "can produce"
+   pool, so they came along for free.
+2. Pre-Tractor the clerk now accepts any LICENSED crop order, not only the crop currently planted / set as
+   "Crop to plant" (today's rule) — the run can produce any licensed crop, so the same principle widens it.
+3. Rig state is a hire-order array `rigs: MachineKind[]`: the shared fee ladder renumbers by COUNT, so
+   returning a middle rig lowers the fee of every rig hired after it, and "newest" (auto-return) = the last
+   entry; the UI's per-kind Return removes the newest rig OF THAT kind.
+4. Unpaid fee rule: when a whole 💰1 of fee is due and cash is 0, ONE rig is returned per tick (not all at
+   once) and the still-owed part is capped at 💰1 and paid when cash returns — the debt never grows, cash never
+   goes negative, worst case stays bounded by the 8 h offline cap.
+5. A rig works through the same plot counters as owned machine tiers (machines first, workers fill the gap) and
+   banks nothing while idle — but its management fee accrues every tick held, idle or working, live or offline.
+6. The UI's "adds ≈💰X/h" is 1,800 × the payback label's marginal (`fieldsMarginalIncomePerHour`) for BOTH
+   kinds, derived once in `rigView` — for a harvester rig when reaping is not the bottleneck it reads as an
+   upper estimate (its real value is capped by reaping demand, per the calculator: +0.27M/h at the cap).
+7. Gate is the Tractor plus owning that kind's Mk1, NO new certificate (your Q3 answer, verified in code as
+   `fields.unlocked` + `machines[kind].includes(1)`).
+8. The sim pin injects rigs into the fixture WITHOUT paying the sign-on (it measures throughput; the real fee
+   tick runs), and its cash/h bands (13.83M / 21.48M / 24.90M gross of fees) are Hermes's from the calculator —
+   the worker re-pins bands with a cause, the directions (up to 2, flattening by 4) stay hard.
+9. Fresh-player guard = the ladder bot's max cash held before 40 game-h stays under the first sign-on (measured
+   💰2.1M < 💰3M) — reuses the existing ladder run, no new bot knob.
+10. No new lifetime counters (fees paid, rigs hired/returned) and no Stats row this batch — minimal save shape;
+    a Stats line can ride a later batch.
+11. UI: the rows live in a new "Hired rigs" group INSIDE the existing closed Machines card (no new panel, no
+    chip-order change in the capacity strip); two buttons share one row via a small `.rig-actions` flex span.
+12. Worker model GLM glm-5.3 with `--max-turns 300` (expect one resume leg) instead of Opus — the batch is fully
+    anchored so judgment weight is low, sim wall time dominates, and the Max quota stays free.
+13. DECISIONS.md:551-552 ("Only the player accepts them") is overturned by a new "Batch 36.8" DECISIONS entry
+    line; the old entry text itself is never rewritten (append-only convention).
+14. The rig sim pin went into `tests/sim/fields.test.ts` (the fleet/machines system) rather than mine-estate;
+    the fresh-player guard into `tests/sim/early.test.ts` (the fresh ladder).
+15. Refine fix: plan heading emoji 🧑‍🌾 (Unicode 12.1) replaced by 🚜; `estateText.ts` anchors moved +8 by batch 36.7
+    (`fleetTilesPerHour` :164, `estateBottleneck` :181).
