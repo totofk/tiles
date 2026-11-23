@@ -1435,3 +1435,22 @@ Hermes's calls (Toon may reject by number; dispatched on the 16:29 go with these
 - **Open, not in this batch (Toon's call):** the 🌰 Ancient fruit button is missing from the phone / tablet /
   collapsed-panel Shop seeds list (`src/app/Shop.tsx:105` loops `CROP_IDS` only), found in 36.4's live check.
 - **Renumbered:** none. Batch 36.6 = tasks 234–238, save v35. This is the last batch of the 36 series.
+
+## Batch 36.7 refined (2026-11-23, the approved Farm-panel mockup; UI-only, save stays v35)
+Sources: Toon's feedback round 2026-11-23 (Hermes drafts outside the repo: `feedback-2026-11-23-decisions.md` round 1
+items 3–8 accepted, "feedback รอบสองผมรับหมด … รอบแรก ผมน่าจะรับหมด"; 36.6 carried items accepted "รับตามคุณแนะนำ") and
+the Superdesign mockup v2 (draft a0c30eed-fa01-412d-9d97-8c18bc34c6d4) Toon OK'd. Plan drafted by a Hermes child on
+863b021c; anchors re-checked on the same commit.
+Go: Toon 2026-11-23 13:24 "ปล่อย 36.7 เสร็จแล้ว ต่อ 36.8 เลย" (no reject numbers sent → calls 1–6 dispatched as written).
+Worker: GLM glm-5.3 via z.ai (UI-only, every CSS rule and string fixed in the plan, no sim, start of the Max week).
+
+Hermes's calls (Toon may reject by number; dispatched as written):
+1. HUD clock hidden under 768 px so the top bar is one line at 375 (task 244).
+2. Manager row shows a short plan ("4 crops → 3 orders"); the full plan moves to the row's ⓘ (task 240).
+3. Soil traits card defaults closed and is not remembered in `tiles.ui` (task 242).
+4. Sale preview is 3 columns only at 2560/3440 (panel caps at 456 px); one column below (task 241).
+5. Only the order ✕ moves; the order card's line order stays the game's, not the mockup's (task 239).
+6. Expand gets no ⓘ (no Estate sibling heading has one) (task 243).
+7. Refine fixes to the child draft: CHANGELOG line shortened to 169 code points (draft had 181 > the 180 cap);
+   `rerollSoil` grep after the move expects 2 files (EstateMap.tsx Field sheet keeps its own Reroll).
+- **Out of scope:** clerk takes every order + hired rigs (batch 36.8, save bump), any core/economy change.
