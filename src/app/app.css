@@ -275,6 +275,13 @@ body {
     font-size: 15px;
     margin: var(--s2) 0 var(--s1);
   }
+  /* batch 36.7: card-to-card space — sibling cards in the Farm tab sit 16 px apart (the chip→tab-bar gap
+     and Orders→Tools come from their own margins) */
+  .farm-tab > details + details,
+  .farm-tab > details + div,
+  .farm-tab > section + details {
+    margin-top: var(--s4);
+  }
 }
 
 button {
@@ -1453,6 +1460,13 @@ details > summary:focus-visible {
   border: 1px solid #2e7d32;
   border-radius: 8px;
 }
+/* batch 36.7: the card keeps a fixed top-right 44×44 slot for the ✕ in every state */
+.order-row.order-offer,
+.order-row.order-accepted,
+.order-row.order-ready {
+  position: relative;
+  padding-right: calc(44px + var(--s2));
+}
 .order-badge {
   margin-left: var(--s1);
   padding: 1px 6px;
@@ -1474,11 +1488,15 @@ details > summary:focus-visible {
   border-color: #2e7d32;
   font-weight: 600;
 }
-/* the ✕ sits at the row end, 16 px from the primary (8 gap + 8 margin) with a 44 px hit area */
+/* the ✕ is pinned to the card's top-right 44×44 px corner, so it never moves when Accept/Deliver or the
+   progress bar appears (batch 36.7, feedback item 8) */
 .order-x {
+  position: absolute;
+  top: 0;
+  right: 0;
   min-width: 44px;
   min-height: 44px;
-  margin-left: var(--s2);
+  margin: 0;
   padding: 0;
   border: none;
   background: none;
@@ -2105,6 +2123,7 @@ details > summary:focus-visible {
 .legacy-chip {
   min-height: 44px;
   width: 100%;
+  margin-top: var(--s2);
   margin-bottom: var(--s2);
 }
 /* 📊 Stats "Save": the feedback card's column; Import armed turns red like Reset */

@@ -78,6 +78,23 @@ describe('app.css beds layout (batch 25, re-pinned batch 27)', () => {
   })
 })
 
+describe('app.css Farm panel rhythm (batch 36.7)', () => {
+  it('task 239: sibling cards in the Farm tab sit 16 px apart; the chip clears the tab bar above it', () => {
+    expect(css).toMatch(
+      /\.farm-tab > details \+ details,\s*\.farm-tab > details \+ div,\s*\.farm-tab > section \+ details\s*\{[^}]*margin-top: var\(--s4\);/s,
+    )
+    expect(css).toMatch(/\.legacy-chip\s*{[^}]*margin-top: var\(--s2\);/s)
+  })
+
+  it('task 239: the order ✕ is pinned to the card top-right — every state pads a 44 px + s2 slot for it', () => {
+    expect(css).toMatch(/\.order-x\s*{[^}]*position: absolute;[^}]*top: 0;[^}]*right: 0;/s)
+    expect(css).toMatch(
+      /\.order-row\.order-offer,\s*\.order-row\.order-accepted,\s*\.order-row\.order-ready\s*\{[^}]*position: relative;[^}]*padding-right: calc\(44px \+ var\(--s2\)\);/s,
+    )
+    expect(css).not.toMatch(/\.order-x\s*\{[^}]*margin-left/s)
+  })
+})
+
 describe('app.css Estate map (batch 30)', () => {
   it('a row is a 56 px chip + five 52 px cells with 5 px gaps = 341 px, and the rows grid columns are 341 px', () => {
     expect(css).toMatch(/\.map-row\s*{[^}]*grid-template-columns: 56px repeat\(5, 52px\);[^}]*gap: 5px;/s)
