@@ -114,8 +114,12 @@ describe('placeTip', () => {
     // 10 crops + wood + furnace + noticeboard + tile + 9 tools + 3 copper tools, 10 pouch rows + auto-buy, 4 upgrades + storage + vein
     expect(rows).toHaveLength(10 + 16 + 11 + 6)
     for (const r of rows) {
-      expect(r.querySelectorAll('.info-btn')).toHaveLength(1)
-      expect(r.querySelector('.tip')?.textContent?.length).toBeGreaterThan(20)
+      // batch 36.7 (task 241): pouch rows carry no ⓘ — the tip sits at the "Seed pouch" heading instead
+      expect(r.querySelectorAll('.info-btn')).toHaveLength(r.closest('.pouch-grid') ? 0 : 1)
+      if (!r.closest('.pouch-grid')) expect(r.querySelector('.tip')?.textContent?.length).toBeGreaterThan(20)
     }
+    // one ⓘ per heading: "Seed pouch" ("Crop to plant" lives in the Farm tab, not here)
+    expect(container.querySelectorAll('.h-with-info .info-btn')).toHaveLength(1)
+    expect(container.querySelector('.h-with-info')!.querySelector('.tip')!.textContent!.length).toBeGreaterThan(20)
   })
 })

@@ -1785,6 +1785,19 @@ details > summary:focus-visible {
 .item-grid-wrap {
   container-type: inline-size;
 }
+/* batch 36.7 (task 241): a heading with its ONE ⓘ beside it */
+.h-with-info {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+.h-with-info h2 {
+  margin: var(--s2) 0 var(--s1);
+}
+/* the seed pouch drops the ⓘ column the Mine list keeps: name | ×count | Buy ×1 | Buy ×10 */
+.pouch-grid {
+  grid-template-columns: minmax(0, 1fr) auto 64px 64px;
+}
 .item-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto 64px 64px; /* name | count | extra | btn | btn */
@@ -1820,6 +1833,25 @@ details > summary:focus-visible {
     grid-area: b1;
   }
   .item-row > :nth-child(5) {
+    grid-area: b2;
+  }
+  /* batch 36.7: the pouch has no extra cell — name+count on line 1, the two Buys under them */
+  .pouch-grid .item-row {
+    grid-template-columns: minmax(0, 1fr) 64px 64px;
+    grid-template-areas:
+      'name count'
+      'b1 b2';
+  }
+  .pouch-grid .item-row > :nth-child(1) {
+    grid-area: name;
+  }
+  .pouch-grid .item-row > :nth-child(2) {
+    grid-area: count;
+  }
+  .pouch-grid .item-row > :nth-child(3) {
+    grid-area: b1;
+  }
+  .pouch-grid .item-row > :nth-child(4) {
     grid-area: b2;
   }
 }
@@ -1901,6 +1933,7 @@ details > summary:focus-visible {
   align-items: center;
   padding: 0;
   font-size: 13px;
+  white-space: nowrap; /* batch 36.7: "Buy ×10" never wraps at any width or price */
 }
 .item-row > button small {
   font-size: 12px;
@@ -2142,17 +2175,25 @@ details > summary:focus-visible {
   font-size: 13px;
   line-height: 1.4;
 }
-/* 🏆 Sell the farm: the Gain / Lost / Kept preview columns (batch 36.6) between Next farm and the button — one
-   column at 375, three from ~600 px */
+/* 🏆 Sell the farm: the Gain / Lost / Kept preview columns (batch 36.6) between Next farm and the button —
+   batch 36.7: one column up to 1440, three equal columns from 419 px of panel width (2560/3440) */
 .shop > h3,
 .sell-cols h3 {
   margin: 10px 0 2px;
   font-size: 13px;
 }
+.sell-cols-wrap {
+  container-type: inline-size;
+}
 .sell-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-  gap: 0.5rem 1rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s2) var(--s3);
+}
+@container (min-width: 419px) {
+  .sell-cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .sell-list {
   margin: 0;

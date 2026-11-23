@@ -97,10 +97,25 @@ describe('Shop seeds', () => {
     expect(pouchRow(/Corn/)!.textContent).toContain('×0')
   })
 
-  it('batch 24.1: the seed pouch renders through the shared grid inside its wrapper, 5 cells per row', () => {
+  it('batch 24.1: the seed pouch renders through the shared grid inside its wrapper — 4 cells per row since batch 36.7 (no per-row ⓘ)', () => {
     setup({ cash: 50, licenses: ['radish', 'chilli'] })
     expect(document.querySelector('.shop .item-grid-wrap .item-grid')).toBeTruthy()
-    for (const row of document.querySelectorAll('.shop .item-row')) expect(row.children).toHaveLength(5)
+    for (const row of document.querySelectorAll('.shop .item-row')) expect(row.children).toHaveLength(4)
+  })
+
+  it('batch 36.7: the 🌰 joins the Shop seeds list without a Farm tab — held or still selected; never with one', () => {
+    setup({ seeds: { ancientFruit: 2 } })
+    const ancient = btn(/🌰 Ancient fruit/) as HTMLButtonElement
+    expect(ancient.textContent).toBe('🌰 Ancient fruitseeds 2not sold — dig for 🦴 seeds')
+    expect(ancient.getAttribute('aria-pressed')).toBe('false')
+    expect(ancient.closest('.shop-row')!.querySelectorAll('button:not(.info-btn)')[0]!.textContent).toMatch(/^🥔 Potato/)
+    cleanup()
+    setup({})
+    expect(screen.queryByRole('button', { name: /🌰 Ancient fruit/ })).toBeNull()
+    cleanup()
+    const s = createInitialState()
+    render(<Shop state={{ ...s, run: { ...s.run, seeds: { ancientFruit: 1 } } }} act={() => {}} cropId="radish" onSelectCrop={() => {}} farmTab />)
+    expect(screen.queryByRole('button', { name: /🌰 Ancient fruit/ })).toBeNull()
   })
 
   it('batch 22: the four new crops come from the same table — seed tag with trend, license buy adds a pouch row', () => {

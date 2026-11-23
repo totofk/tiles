@@ -417,7 +417,7 @@ describe('layout content', () => {
     onTestFinished(() => void Reflect.deleteProperty(window, 'matchMedia'))
     render(<App />)
     const panel = within(document.querySelector<HTMLElement>('.panel')!)
-    const picker = panel.getByRole('heading', { name: 'Crop to plant' }).nextElementSibling!
+    const picker = panel.getByRole('heading', { name: 'Crop to plant' }).closest('.h-with-info')!.nextElementSibling!
     const crops = [...picker.querySelectorAll('button')].map((b) => b.textContent!)
     expect([crops.length, crops[0]!.startsWith('🥔 Potato')]).toEqual([1, true])
     const dig = panel.getByRole('button', { name: /Dig for seeds/ })

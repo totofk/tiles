@@ -25,11 +25,14 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   const { run, meta } = state
   return (
     <>
-      <h2>Seed pouch</h2>
-      {/* batch 24.1: one shared grid for repeated rows — name | count | ⓘ | Buy ×1 | Buy ×10; the columns live
-          on the container, rows are subgrids; the wrap is the container the two-line mode queries */}
+      {/* batch 36.7: ONE ⓘ beside the heading — the rows themselves carry none */}
+      <div className="h-with-info">
+        <h2>Seed pouch</h2>
+        <Info text={TIPS.pouch} />
+      </div>
+      {/* batch 24.1: one shared grid for repeated rows; batch 36.7: the pouch drops the ⓘ column (4 cells) */}
       <div className="item-grid-wrap">
-        <div className="item-grid">
+        <div className="item-grid pouch-grid">
         {run.licenses.map((id) => (
           <div key={id} className="item-row">
             <span className="item-name">
@@ -39,9 +42,6 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
               </span>
             </span>
             <span className="item-count">×{run.seeds[id] ?? 0}</span>
-            <span className="item-extra">
-              <Info text={TIPS.pouch} />
-            </span>
             {[1, 10].map((n) => (
               // batch 31.1 (task 166d): a manual buy of another crop's seeds also makes it the crop to plant
               <button
@@ -69,9 +69,6 @@ export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
               <span className="item-label">🦴 Ancient seed</span>
             </span>
             <span className="item-count">×{run.seeds[ANCIENT_CROP] ?? 0}</span>
-            <span className="item-extra">
-              <Info text={TIPS.ancient} />
-            </span>
             <span />
             <span />
           </div>
@@ -163,7 +160,10 @@ export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked
       <LegacyChip state={state} openBank={openBank} />
       <Orders state={state} act={act} flashSlot={clerkSlot} />
       <Tools state={state} act={act} cropId={cropId} stacked open={ui.toolsOpen} onToggle={toggleTools} />
-      <h2>Crop to plant</h2>
+      <div className="h-with-info">
+        <h2>Crop to plant</h2>
+        <Info text={TIPS.plantPick} />
+      </div>
       <div className="shop-row">
         {CROP_IDS.filter((id) => run.licenses.includes(id)).map((id) => (
           <button key={id} className={id === cropId ? 'selected' : ''} aria-pressed={id === cropId} title={renownTitle(state, id)} onClick={() => onSelectCrop(id)}>

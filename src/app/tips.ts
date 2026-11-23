@@ -56,6 +56,7 @@ export const UPGRADE_TIPS: Record<UpgradeId, string> = {
 
 export const TIPS = {
   pouch: 'Seeds you hold for planting; each planting uses one. Ten at once cost the same per seed as one.',
+  plantPick: "The crop your taps, tools and workers plant. seeds N is your pouch; the price line is today's market factor.",
   ancient: 'Dug up, never sold in a shop. Plant it like any seed; each harvest gives it back.',
   autoBuy: 'When the pouch is empty, planting buys one seed for you at the normal price. Turn it off to plant only seeds you hold.',
   mineLicense: 'Opens the mine: spend spare energy on stone while crops grow. A one-time cost.',

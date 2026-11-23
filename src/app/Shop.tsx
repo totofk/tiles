@@ -30,7 +30,7 @@ import { BOARD_EMOJI } from '../core/data/orders'
 import { buyOrderBoard, orderBoardUnlocked } from '../core/orders'
 import { priceText } from './Mine'
 import { price } from './fmt'
-import { CROPS, CROP_IDS, type CropId } from '../core/data/crops'
+import { ANCIENT_CROP, CROPS, CROP_IDS, type CropId } from '../core/data/crops'
 import { DISTRICTS, districtSells } from '../core/data/districts'
 import { ITEMS, ITEM_IDS } from '../core/data/items'
 import { TOOLS, TOOL_JOBS, type ToolJob } from '../core/data/tools'
@@ -154,6 +154,17 @@ export function Shop({ state, cropId, onSelectCrop, act, farmTab = false, ui, op
             </Item>
           )
         })}
+        {/* batch 36.7 (task 241): the 🌰 joins the Shop's seed list where there is no Farm tab (same guard as
+            Farm's list) — held or still the crop to plant; never sold, so no license branch */}
+        {!farmTab && ((run.seeds[ANCIENT_CROP] ?? 0) > 0 || cropId === ANCIENT_CROP) && (
+          <Item tip={CROP_TIPS.ancientFruit}>
+            <button className={cropId === ANCIENT_CROP ? 'selected' : ''} aria-pressed={cropId === ANCIENT_CROP} onClick={() => onSelectCrop(ANCIENT_CROP)}>
+              {CROP_EMOJI[ANCIENT_CROP]} {CROPS[ANCIENT_CROP].name}
+              <small>seeds {run.seeds[ANCIENT_CROP] ?? 0}</small>
+              <small>not sold — dig for 🦴 seeds</small>
+            </button>
+          </Item>
+        )}
       </div>
 
       {!farmTab && <SeedPouch state={state} act={act} />}

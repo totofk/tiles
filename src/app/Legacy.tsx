@@ -219,6 +219,8 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
           {rerollsLeft ? `🔄 Reroll ${STAR_EMOJI}${rerollStars} · ${meta.listingRerolls}/${LISTING_REROLL_MAX}` : `🔄 Reroll · ${LISTING_REROLL_MAX}/${LISTING_REROLL_MAX}`}
         </button>
       </div>
+      {/* batch 36.7: the wrap is the container the 3-column mode queries (panel width, not viewport) */}
+      <div className="sell-cols-wrap">
       <div className="sell-cols">
         <div>
           <h3>Gain</h3>
@@ -252,6 +254,7 @@ export function SellCard({ state, act, sell }: { state: GameState; act: Act; sel
             <li>Renown — every crop's points</li>
           </ul>
         </div>
+      </div>
       </div>
       {open ? (
         <button className={armed ? 'reset armed' : 'reset'} disabled={gain < 1} onClick={press}>
