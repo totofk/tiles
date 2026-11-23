@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '36.8', date: '2026-11-23', line: "The order clerk now takes every order you can make, and the Estate Workshop hires extra rigs: more sowing/reaping power for a sign-on fee plus a management cost per hour." },
   { batch: '36.7', date: '2026-11-23', line: "🌾 Farm panel: the order ✕ stays top-right, worker rows on one grid, Hire with the workers, boxed Fill tank, one ⓘ per heading, a soil traits card, 3-column sale preview." },
   { batch: '36.6', date: '2026-11-23', line: "🏅 Renown now carries over a sale and climbs 5 tiers 🥉🥈🥇🏅🏆 (higher tiers grow faster, covering 4 fields per crop). 5 new Legacy keeps; Fast crops and Rich harvest go to Lv 10." },
   { batch: '36.5', date: '2026-11-23', line: "🧭 Soil survey (⭐ Favours): level 1 gives each home bed a soil trait, level 2 each field, level 3 makes every trait 1.5× stronger. Reroll one for ⭐; traits last until you sell." },

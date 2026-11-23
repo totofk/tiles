@@ -88,7 +88,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
 
 ## Tasks (245–250)
 
-- [ ] 245. **Save v36 and the rig shape (no mechanic yet).** Commit this task FIRST.
+- [x] 245. **Save v36 and the rig shape (no mechanic yet).** Commit this task FIRST.
   - `src/core/state.ts:212` `Machines` gains `rigs: MachineKind[]` (hire order, newest last: the Nth entry pays
     the Nth price on the ONE shared ladder across both kinds) and `carry` gains `rigFee: number`;
     `createMachines()` (`state.ts:418-420`) returns `{ harvester: [], seeder: [], carry: { harvest: 0, plant: 0,
@@ -115,7 +115,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
     `tests/save.test.ts:303` (serialize round-trip → `{ version: 36, … }`), `:579` (`toBe(36)`), `:1119`
     (`expect(SAVE_VERSION).toBe(36)`), and `tests/App.test.tsx:489` → "Will migrate v15 → v36".
 
-- [ ] 246. **The clerk takes every order the run can produce (core).** This overturns DECISIONS.md:551-552
+- [x] 246. **The clerk takes every order the run can produce (core).** This overturns DECISIONS.md:551-552
   ("Only the player accepts them") — the DECISIONS "Batch 36.8" entry says so in one line.
   - `src/core/orders.ts:302-306`: `clerkTakes(run, good)` body becomes `orderPool(run).includes(good)` (keep the
     private function and its call site `:316`; rewrite the doc comment: "every good the run can produce —
@@ -138,7 +138,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
     `tests/sim/furnace-iron.test.ts:42, :463` clerk: 0; `tests/sim/market-orders.test.ts:381` clerk: 0;
     `tests/sim/mine-estate.test.ts` contractRun `bot.ts:1345-1360` is scripted). Do NOT re-run or re-pin sims here.
 
-- [ ] 247. **Hired rigs: balance numbers, hire/return, the fee tick (core).**
+- [x] 247. **Hired rigs: balance numbers, hire/return, the fee tick (core).**
   - `src/core/balance.ts` after `machineMaintPerHour` (`:485-487`), all named:
     - `RIG_TILES_PER_HOUR = 1800` — one hired rig of either kind (T1 class; feel knob).
     - `RIG_SIGN_ON = [3_000_000, 6_000_000, 12_000_000, 24_000_000, 48_000_000]` — non-refundable sign-on; the
@@ -183,7 +183,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
     fee is payable, debt capped at 1, cash never negative; `step(s, 600)` identity with rigs held; the rig's
     1,800 tiles/h flows through `carry.plant`/`carry.harvest` like a machine tier.
 
-- [ ] 248. **Rigs UI: a rigs row per kind in the Estate Workshop machines card (src/app only).**
+- [x] 248. **Rigs UI: a rigs row per kind in the Estate Workshop machines card (src/app only).**
   - `src/app/Estate.tsx`: inside `<details className="estate-machines">` (`:133`), after the Machines group
     (`:137-160`), one more `<div className="group">` with `<h3>Hired rigs</h3>` and ONE row per kind, rendered
     only when that kind's tier 1 is owned (`run.fields.machines[kind].includes(1)` — the hire gate; pre-Tractor
@@ -205,7 +205,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
     ADD the `.rig-actions` pin. `tests/estateText.test.ts`: `fleetTilesPerHour` with `rigs: ['seeder']` adds
     1800 to seeder only.
 
-- [ ] 249. **Sim pins: the v35 fixture forward with rigs, and the fresh-player guard.**
+- [x] 249. **Sim pins: the v35 fixture forward with rigs, and the fresh-player guard.**
   - `tests/sim/fields.test.ts` (the fleet system), new describe `batch 36.8: hired rigs on the v35 fixture`:
     import `save-v35.json?raw` + `deserialize` (the mine-estate pattern, `tests/sim/mine-estate.test.ts:29-31`),
     set `fields.machines.rigs` directly on the start state (sign-on NOT paid — the pin measures throughput; the
@@ -223,7 +223,7 @@ tier (max 1 per tier, today's rule). The clerk never flips a field's crop — th
     number exists (see 246). If a `pnpm test` sim number still moves, find the cause BEFORE re-pinning (a moved
     pin with no mechanism named is a blocker, not a re-pin).
 
-- [ ] 250. **CHANGELOG + report.**
+- [x] 250. **CHANGELOG + report.**
   - `src/app/changelog.ts`: ONE entry at the TOP, verbatim (≤ 180 code points):
     `{ batch: '36.8', date: '<today, YYYY-MM-DD>', line: "The order clerk now takes every order you can make, and the Estate Workshop hires extra rigs: more sowing/reaping power for a sign-on fee plus a management cost per hour." }`
     (the line is 170 code points — Python `len()`, under the 180 cap; re-count if you reword it.)
@@ -244,3 +244,49 @@ every re-pinned pin old → new with cause, anything jsdom could not verify) at 
 Out of scope: field sowing order (fields.ts:279-287 stays exactly as-is — rigs do NOT change which field sows
 first), UI layout beyond the rigs row, mine changes, renown, any change to `orderPool` / order pricing, the
 Manager's plan, machine tier prices, a rig certificate, per-kind fee ladders.
+
+## Batch 36.8 results
+
+Tests before → after: 1348 passed / 8 expected fail + 3 known-flake timeouts (1359, 73 files) → 1370 passed / 7
+expected fail (1377, 73 files; the 3 Monte-Carlo flakes passed this time). No sim pin outside this batch's own
+moved; no fixture touched; `SAVE_VERSION` 35 → 36.
+
+- 245 `a93e1b56` — save v36: `SAVE_VERSION` 36, frozen `MachinesV35`/`RunV35`, `migrateV35` adds `rigs: []` +
+  `carry.rigFee` 0 chained on every branch of `migrate()`; `Machines` gains `rigs: MachineKind[]` + `carry.rigFee`;
+  all version pins bumped; every fixture v1…v35 lands on v36, the v35 fixture migrates with everything else
+  deep-equal (`asV35Run` strips the new keys for the old-fixture comparisons).
+- 246 `8d73329b` — `clerkTakes` = `orderPool(run)`: the clerk accepts every producible good (estate contracts, mold
+  bars, forge goods, any licensed crop pre-Tractor). Orders tests pin the widened gates; the batch 29 Tractor
+  target re-pins to the crop offer.
+- 247 `8b4f088` — rigs core: the four balance constants + `rigSignOn`/`rigFeePerHour`/`rigTilesPerHour`;
+  `hireRig`/`returnRig`; the fee tick inside `machinesAct` (every tick held, paid whole, one rig returned per tick
+  at cash 0 with the debt capped at 💰1); `MAX_RIGS`/`NO_RIGS` in `ActionError` + `ERROR_TEXT`;
+  `fleetTilesPerTick`/`fleetTilesPerHour` count rigs; `rigView` for the UI; 8 unit tests.
+- 248 `5a3c6f8` — the `Hired rigs` group inside the Estate Machines details, one `.recipe-row` per kind with
+  tier-1 owned; numbers from ONE `rigView` call; `.rig-actions` flex rule + appCss pin; Estate/estateText tests.
+- 249 `a751fa0` — PIN36.8 on the v35 fixture (16 game-h, rigs set directly): nets **13.81M / 20.49M / 21.83M**
+  cash/h at 0 / 2 / 4 seeder rigs (calculator gross 13.83 / 21.48 / 24.90 minus the 0.9M and 3.0M fee ladders),
+  unsown wet plots 41 / 1 / 0; all three directions hold. Fresh guard (full batch-13 ladder, 40 game-h): max cash
+  held **2,123,349** < `RIG_SIGN_ON[0]` 3M (calculator 2.1M — a fresh player cannot reach rig 1).
+- 250 — CHANGELOG 36.8 entry at the top (170 code points) + this report.
+
+New UI strings: `Hired rigs`; `🌾 Harvester rigs · {count}/5` and `🌱 Seeder rigs · {count}/5`;
+`+1800 tiles/h each · next 💰{sign-on} sign-on + 💰{fee}/h · adds ≈💰{income}/h`; buttons `Hire` / `Return`;
+`ERROR_TEXT`: `Rig limit reached (5)`, `No rig of this kind hired`.
+
+### Deviations
+
+- Save scenario B re-pins (246, with cause): the v27 fixture's clerk now accepts its licensed-crop contracts
+  (potato) — `fullTicks` 1105 → **104** of 3600, and storage is no longer pinned full at the end (was an expected
+  fail at 120/120, now ends 114/120). Mechanism: completed contracts reroll into item offers the clerk delivers
+  out of storage, so kept coal no longer pins the bag full. Unit tests, not sims — no sim assigns a clerk.
+- The rigs row at the shared 5-rig cap drops the `next 💰… sign-on + 💰…/h` segment (there is no next rig;
+  `rigSignOn(5)` is off the ladder) and shows `+1800 tiles/h each · adds ≈💰…/h` only. The plan's string is
+  verbatim below the cap; no test pins the maxed string.
+- jsdom could not verify the rigs row layout at 375 px and 1024 px (no real browser this batch): the
+  `.rig-actions` flex line is pinned as CSS text only (`.recipe-row .rig-actions { display: flex; gap: 8px; }`),
+  and the row reuses the `.recipe-row` subgrid whose 299 px two-line fallback applies as for every recipe row.
+- The `it.fails` batch-28 gap guard and the relics Monte-Carlo flakes were unchanged this batch (all passed).
+- The fresh guard needed `withBatch13` (the FIELDS_LADDER config runs under the batch-13 economy); without it the
+  pre-batch-13 bot crawls and the max-cash measure is meaningless (measured 183). Wrapped, it matches the
+  calculator's 💰2.1M.
