@@ -2,17 +2,17 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { TANK_UNITS_PER_COAL, pivotCost, pumpCost, pumpFieldCap, tankCapCoal } from '../src/core/balance'
+import { RIG_FEE_PER_HOUR, RIG_MAX, TANK_UNITS_PER_COAL, pivotCost, pumpCost, pumpFieldCap, rigSignOn, rigTilesPerHour, tankCapCoal } from '../src/core/balance'
 import { CROPS } from '../src/core/data/crops'
 import { ITEMS } from '../src/core/data/items'
-import { fieldsOverview, fieldsPlantable, nextReapTarget, nextSowTarget, pivotsOwned } from '../src/core/fields'
+import { fieldsOverview, fieldsPlantable, nextReapTarget, nextSowTarget, pivotsOwned, rigView } from '../src/core/fields'
 import type { FieldTraitId } from '../src/core/data/soil'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { Estate, EstateBar } from '../src/app/Estate'
 import { EstateMap } from '../src/app/EstateMap'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { cropOptionText, estateCropIncomePerHour, fleetTilesPerHour } from '../src/app/estateText'
-import { approx } from '../src/app/fmt'
+import { approx, price } from '../src/app/fmt'
 import { priceTag } from '../src/app/marketText'
 import { priceText } from '../src/app/Mine'
 import type { UiState } from '../src/app/uiState'
@@ -530,5 +530,38 @@ describe('batch 36.6: the renown badge on the chip and the field sheet line', ()
     setup(chilli(0, 2))
     fireEvent.click(chip(/^Field 1 ·/))
     expect(screen.getByRole('dialog').textContent).not.toContain('covers')
+  })
+})
+
+describe('batch 36.8: the Hired rigs group in the Machines card', () => {
+  const withMachines = (machines: GameState['run']['fields']['machines'], fields: Field[]) =>
+    withFields(fields, { cash: 1e9, fields: { ...base.run.fields, machines } })
+
+  it('is absent without a kind\'s Mk1 (the hire gate), and pre-Tractor the Estate renders nothing', () => {
+    render(<Estate state={withMachines(createMachines(), [field([plot('radish', 1e9)])])} act={() => {}} ui={ui} />)
+    expect(screen.queryByText('Hired rigs')).toBeNull()
+    cleanup()
+    const fresh = render(<Estate state={createInitialState()} act={() => {}} ui={ui} />)
+    expect(fresh.container.textContent).toBe('')
+  })
+
+  it('with Mk1 owned: the row shows 0/5, the sign-on + fee from balance, Return disabled at 0; the tier-less kind shows no row', () => {
+    const s = withMachines({ ...createMachines(), harvester: [1] }, [field([plot('radish', 1e9)])])
+    const view = rigView(s, 'harvester')
+    render(<Estate state={s} act={() => {}} ui={ui} />)
+    expect(screen.getByText(`🌾 Harvester rigs · 0/${RIG_MAX}`)).toBeTruthy()
+    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(0))} sign-on + 💰${price(RIG_FEE_PER_HOUR * 1)}/h · adds ≈💰${price(view.addedPerHour)}/h`)).toBeTruthy()
+    expect(screen.queryByText(/Seeder rigs/)).toBeNull()
+    expect((screen.getByRole('button', { name: 'Hire' }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: 'Return' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('after two hires the label reads 2/5 and the next sign-on is the ladder\'s third price', () => {
+    const s = withMachines({ ...createMachines(), harvester: [1], rigs: ['harvester', 'harvester'] }, [field([plot('radish', 1e9)])])
+    const view = rigView(s, 'harvester')
+    render(<Estate state={s} act={() => {}} ui={ui} />)
+    expect(screen.getByText(`🌾 Harvester rigs · 2/${RIG_MAX}`)).toBeTruthy()
+    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(2))} sign-on + 💰${price(RIG_FEE_PER_HOUR * 3)}/h · adds ≈💰${price(view.addedPerHour)}/h`)).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Return' }) as HTMLButtonElement).disabled).toBe(false)
   })
 })

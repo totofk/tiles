@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, tankCapCoal } from '../src/core/balance'
+import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machineCost, marketFactor, pivotCost, plotCost, pumpCost, rigTilesPerHour, tankCapCoal } from '../src/core/balance'
 import { CROPS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { approx, price } from '../src/app/fmt'
@@ -68,6 +68,10 @@ describe('estateText (batch 27, task 143; plots since batch 28)', () => {
     expect(nextReadyText(7200)).toBe('2h')
     expect(fleetTilesPerHour({ ...createMachines(), harvester: [1, 2] }, 'harvester')).toBeGreaterThan(0)
     expect(fleetTilesPerHour(createMachines(), 'seeder')).toBe(0)
+    // batch 36.8: a hired rig adds its 1800 tiles/h to its OWN kind only
+    const withRigs = { ...createMachines(), seeder: [1], rigs: ['seeder' as const] }
+    expect(fleetTilesPerHour(withRigs, 'seeder')).toBe(fleetTilesPerHour({ ...createMachines(), seeder: [1] }, 'seeder') + rigTilesPerHour())
+    expect(fleetTilesPerHour(withRigs, 'harvester')).toBe(0)
   })
 
   it('bottleneck 1: pressure off with growing plots → Fill tank, or mine coal with none in storage — before a dry field', () => {

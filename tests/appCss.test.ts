@@ -132,6 +132,10 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
     expect(css).toMatch(/@container \(max-width: 79px\)\s*\{[^@]*\.cell-tree \.cell-label\s*\{[^}]*position: static;[^}]*clip-path: none;[^}]*font-size: 11px;/s)
     expect(css).toMatch(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.hud > \.hud-clock\s*\{[^}]*display: none;/s)
   })
+
+  it('batch 36.8: the rigs row actions sit on one flex line', () => {
+    expect(css).toMatch(/\.recipe-row \.rig-actions\s*{[^}]*display: flex;[^}]*gap: 8px;/s)
+  })
 })
 
 describe('app.css Estate map (batch 30)', () => {

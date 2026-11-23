@@ -1483,6 +1483,10 @@ details > summary:focus-visible {
 .recipe-row .recipe-price {
   white-space: nowrap;
 }
+.recipe-row .rig-actions {
+  display: flex;
+  gap: 8px;
+}
 .owned-badge {
   text-align: center;
   color: #2e7d32;

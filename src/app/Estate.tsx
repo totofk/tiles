@@ -1,5 +1,6 @@
 import {
   FIELD_PRESSURE,
+  RIG_MAX,
   TANK_UNITS_PER_COAL,
   machineCost,
   machineMaintPerHour,
@@ -7,13 +8,14 @@ import {
   machineTilesPerHour,
   pumpCost,
   pumpFieldCap,
+  rigTilesPerHour,
   tankCapCoal,
   valveCost,
 } from '../core/balance'
 import { ITEMS } from '../core/data/items'
 import { isOffer } from '../core/orders'
 import type { GameState, Offer } from '../core/state'
-import { buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPressure, fillTank, reapNext, sowNext } from '../core/fields'
+import { buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPressure, fillTank, hireRig, reapNext, returnRig, rigView, sowNext } from '../core/fields'
 import { EstateMap, ORDER_EMOJI } from './EstateMap'
 import { price } from './fmt'
 import { goodEmoji } from './Orders'
@@ -72,6 +74,8 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
   const pressure = fieldsPressure(run)
   const fill = fillTank(state)
   const room = Math.floor((tankCapCoal(pump) * TANK_UNITS_PER_COAL - run.fields.tank) / TANK_UNITS_PER_COAL)
+  // the rigs rows appear only for kinds whose Mk1 is owned (the hire gate); at the shared 5-rig cap there is no "next"
+  const rigKinds = (['harvester', 'seeder'] as const).filter((kind) => run.fields.machines[kind].includes(1))
   return (
     <div className="estate">
       <div className="capacity-strip" role="group" aria-label="Fields at a glance">
@@ -159,6 +163,31 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                 }),
               )}
             </div>
+            {rigKinds.length > 0 && (
+              <div className="group">
+                <h3>Hired rigs</h3>
+                {rigKinds.map((kind) => {
+                  const view = rigView(state, kind)
+                  const hire = hireRig(state, kind)
+                  return (
+                    <div className="recipe-row" key={kind}>
+                      <span>
+                        {`${kind === 'harvester' ? HARVESTER_EMOJI : SEEDER_EMOJI} ${MACHINE_NAMES[kind]} rigs · ${view.count}/${RIG_MAX}`}
+                        <small>{`+${rigTilesPerHour()} tiles/h each${view.maxed ? '' : ` · next 💰${price(view.signOn)} sign-on + 💰${price(view.feePerHour)}/h`} · adds ≈💰${price(view.addedPerHour)}/h`}</small>
+                      </span>
+                      <span className="rig-actions">
+                        <button disabled={!hire.ok} title={hire.ok ? undefined : ERROR_TEXT[hire.error]} onClick={() => act((s) => hireRig(s, kind))}>
+                          Hire
+                        </button>
+                        <button disabled={view.count === 0} onClick={() => act((s) => returnRig(s, kind))}>
+                          Return
+                        </button>
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </details>
