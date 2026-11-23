@@ -15,6 +15,7 @@ import { Modal } from './Modal'
 import { Orders } from './Orders'
 import { BADGE_TABS, availableKeys, isBadgeTab, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
+import { SoilTraits } from './SoilTraits'
 import { Surface } from './Surface'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
@@ -208,6 +209,7 @@ export default function App() {
                       <Orders state={state} act={act} card flashSlot={clerkSlot} />
                       <Workers state={state} act={act} worked={worked} />
                       <Workshop state={state} act={act} />
+                      <SoilTraits state={state} act={act} />
                       <Fields state={state} onOpen={openEstate} />
                     </>
                   )}
@@ -233,6 +235,7 @@ export default function App() {
                 <Orders state={state} act={act} card flashSlot={clerkSlot} />
                 <Workers state={state} act={act} worked={worked} />
                 <Workshop state={state} act={act} />
+                <SoilTraits state={state} act={act} />
                 <Fields state={state} onOpen={openEstate} />
               </>
             )}
@@ -287,6 +290,7 @@ export default function App() {
           <Orders state={state} act={act} card flashSlot={clerkSlot} />
           <Workers state={state} act={act} worked={worked} />
           <Workshop state={state} act={act} />
+          <SoilTraits state={state} act={act} />
         </Modal>
       )}
     </main>

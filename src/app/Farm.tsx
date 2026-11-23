@@ -14,6 +14,7 @@ import { LegacyChip } from './Legacy'
 import { HAND_EMOJI, badgeText, priceTag, renownTitle } from './marketText'
 import { Orders } from './Orders'
 import type { PanelProps } from './panelTabs'
+import { SoilTraits } from './SoilTraits'
 import { TIPS } from './tips'
 import { Tools } from './Tools'
 import type { Act } from './useGame'
@@ -186,6 +187,7 @@ export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked
       <DigSeeds state={state} act={act} />
       <Workers state={state} act={act} worked={worked} />
       <Workshop state={state} act={act} />
+      <SoilTraits state={state} act={act} />
       <Fields state={state} onOpen={openEstate} />
     </section>
   )
