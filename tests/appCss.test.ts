@@ -93,6 +93,15 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
     )
     expect(css).not.toMatch(/\.order-x\s*\{[^}]*margin-left/s)
   })
+  it('task 240: worker rows share one subgrid — name | − n + (144 px) | ⓘ (20 px) — with a 299 px two-line fallback', () => {
+    expect(css).toMatch(/\.workers \.group\s*{[^}]*container-type: inline-size/s)
+    expect(css).toMatch(/\.worker-group\s*{[^}]*grid-template-columns: minmax\(0, 1fr\) 144px 20px/s)
+    expect(css).toMatch(/\.worker-row\s*{[^}]*grid-column: 1 \/ -1;[^}]*grid-template-columns: subgrid/s)
+    expect(css).toMatch(/@container \(max-width: 299px\)\s*{[^}]*\.worker-row\s*{[^}]*grid-template-areas:\s*'name info'\s*'controls info';/s)
+    expect(css).toMatch(/\.worker-controls\s*{[^}]*display: flex/s)
+    expect(css).toMatch(/\.worker-plan\s*{[^}]*text-overflow: ellipsis/s)
+    expect(css).toMatch(/\.worker-hire\s*{[^}]*grid-column: 1 \/ 3/s)
+  })
 })
 
 describe('app.css Estate map (batch 30)', () => {

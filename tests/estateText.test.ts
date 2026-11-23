@@ -3,7 +3,7 @@ import { TANK_UNITS_PER_COAL, cropGrowTicks, cropSeedCost, cropSellPrice, machin
 import { CROPS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Plot } from '../src/core/state'
 import { approx, price } from '../src/app/fmt'
-import { cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanText, nextReadyText, plotCellView } from '../src/app/estateText'
+import { cropOptionText, estateBottleneck, estateCropIncomePerHour, estateIncomePerHour, fleetTilesPerHour, ghostRowPrice, managerPlanShort, managerPlanText, nextReadyText, plotCellView } from '../src/app/estateText'
 import { fieldsCropIncomePerHour, nextReapTarget, nextSowTarget, pressuredCycle } from '../src/core/fields'
 import { CROP_EMOJI } from '../src/app/FarmGrid'
 import { priceText } from '../src/app/Mine'
@@ -173,6 +173,14 @@ describe('batch 29: managerPlanText', () => {
     const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false, stars: 2 }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true, stars: 4 }]
     const withOrder = { ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } }
     expect(managerPlanText(withOrder)).toBe(`${R} ×1 field → order 2 · ${R} rest`)
+  })
+  it('batch 36.7 managerPlanShort: the row line counts fields and orders, " · rest" when any field is unmanaged', () => {
+    expect(managerPlanShort(radishReady(at({ fields: [{ ...field([empty()]), pinned: true }] })))).toBe('no wet fields to manage')
+    expect(managerPlanShort(radishReady(at({ fields: [field([empty()], null), field([empty()], null)] })))).toBe('0 crops → 0 orders · rest')
+    const s = radishReady(at({ fields: [field([empty()], null), field([empty()], null)] }))
+    const offers = [{ good: 'coal' as const, count: 3, done: 0, tier: 1, accepted: false, stars: 2 }, { good: 'radish' as const, count: 30, done: 0, tier: 2, accepted: true, stars: 4 }]
+    const withOrder = { ...s, run: { ...s.run, orders: { ...s.run.orders, unlocked: true, offers } } }
+    expect(managerPlanShort(withOrder)).toBe('1 crop → 1 order · rest')
   })
 })
 

@@ -5,7 +5,7 @@ import type { CounterId, GameState } from '../core/state'
 import { assignWorker, buyCertificate, freeWorkers, hireUnlocked, hireWorker, workerUnpaid, type WorkTouch } from '../core/workers'
 import { isIrrigated } from '../core/workshop'
 import { noMine } from '../core/wetlands'
-import { managerPlanText } from './estateText'
+import { managerPlanShort, managerPlanText } from './estateText'
 import { price } from './fmt'
 import { Info } from './Info'
 import { HAND_PICKED } from './marketText'
@@ -57,22 +57,26 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
   const name = WORKER_JOB_LABEL[job].split(' ')[1]
   // batch 26: with every owned tile under a sprinkler there is nothing left to water — the row says so
   const nothingToWater = job === 'water' && run.tiles.length > 0 && run.tiles.every((_, i) => isIrrigated(run, i))
+  // batch 36.7: the plan small is one ellipsised line; the full plan moves to the row's ⓘ
+  const hasPlan = job === 'manager' && run.workers.assigned.manager > 0 && run.fields.unlocked
   return (
     <div className="worker-row">
       <span>
         {dot} {WORKER_JOB_LABEL[job]}
         {nothingToWater && <small>nothing to water — reassign</small>}
-        {job === 'manager' && run.workers.assigned.manager > 0 && run.fields.unlocked && <small>{managerPlanText(state)}</small>}
+        {hasPlan && <small className="worker-plan">{managerPlanShort(state)}</small>}
       </span>
-      <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
-        −
-      </button>
-      <span className="worker-n">{run.workers.assigned[job]}</span>
-      <button aria-label={`One more on ${name}`} disabled={!assignWorker(state, job, 1).ok} onClick={() => act((s) => assignWorker(s, job, 1))}>
-        +
-      </button>
-      {workerUnpaid(state, job) && <span className="unpaid">unpaid</span>}
-      <Info text={jobTip(job)} />
+      <span className="worker-controls">
+        <button aria-label={`One less on ${name}`} disabled={!assignWorker(state, job, -1).ok} onClick={() => act((s) => assignWorker(s, job, -1))}>
+          −
+        </button>
+        <span className="worker-n">{run.workers.assigned[job]}</span>
+        <button aria-label={`One more on ${name}`} disabled={!assignWorker(state, job, 1).ok} onClick={() => act((s) => assignWorker(s, job, 1))}>
+          +
+        </button>
+        {workerUnpaid(state, job) && <span className="unpaid">unpaid</span>}
+      </span>
+      <Info text={hasPlan ? `${WORKER_TIPS.manager} Plan: ${managerPlanText(state)}` : jobTip(job)} />
     </div>
   )
 }
@@ -89,8 +93,8 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
         {worked.length > 0 && ` · ${worked.length} working`}
         {WORKER_JOBS.some((job) => workerUnpaid(state, job)) && <span className="unpaid">unpaid</span>}
       </summary>
-      {/* batch 24: the job rows are one group, hiring another over a divider */}
-      <div className="group">
+      {/* batch 36.7 (task 240): job rows AND the hire row share one group grid — name | controls | ⓘ */}
+      <div className="group worker-group">
         {/* batch 34: the Stoker's certificate is bought in ⭐ Favours, so its row shows only once owned */}
         {/* batch 36.3: a no-mine run has no ore or mine work */}
         {WORKER_JOBS.filter(
@@ -99,17 +103,15 @@ export function Workers({ state, act, worked = [] }: { state: GameState; act: Ac
         ).map((job) => (
           <JobRow key={job} state={state} act={act} job={job} active={worked.some((w) => w.job === job)} />
         ))}
-      </div>
-      {hireUnlocked(run) && (
-        <div className="group">
+        {hireUnlocked(run) && (
           <div className="worker-row">
-            <button disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
+            <button className="worker-hire" disabled={!hireWorker(state).ok} onClick={() => act(hireWorker)}>
               👷 Hire worker <small>{pool >= workerPoolCap(run) ? 'pool full' : `💰${price(workerHireCost(pool, meta))}`}</small>
             </button>
             <Info text={TIPS.hire} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </details>
   )
 }

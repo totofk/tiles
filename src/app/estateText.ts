@@ -93,6 +93,14 @@ export function managerPlanText(state: GameState): string {
   return parts.length > 0 ? parts.join(' · ') : 'no wet fields to manage'
 }
 
+/** the 💼 Manager row's ONE-line plan (batch 36.7): "4 crops → 3 orders · rest" — the full plan sits in the row's ⓘ */
+export function managerPlanShort(state: GameState): string {
+  const { contracts, rest } = managerPlan(state)
+  if (contracts.length === 0 && rest.length === 0) return 'no wet fields to manage'
+  const fields = contracts.reduce((n, c) => n + c.fields.length, 0)
+  return `${fields} crop${fields === 1 ? '' : 's'} → ${contracts.length} order${contracts.length === 1 ? '' : 's'}${rest.length > 0 ? ' · rest' : ''}`
+}
+
 /** the sum of the field rows' ≈💰/h: the time-to-afford divisor */
 export function estateIncomePerHour(state: GameState): number {
   return state.run.fields.list.reduce((sum, _, k) => sum + estateCropIncomePerHour(state, k), 0)
