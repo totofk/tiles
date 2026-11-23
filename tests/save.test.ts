@@ -1621,11 +1621,14 @@ describe('save v28: bars Keep N and auto-buy wood (batch 35.2)', () => {
     expect(tankCapCoal(end.run.fields.pump)).toBe(400)
     // re-pinned batch 36.6 task 235 (was 399.4 tank coal, 1125 full ticks): the save's renown (chilli 🏅, strawberry
     // 🥇 …) grows its home crops 10–15 % faster (399.5 / 1195); task 236: its 12 chilli chips share the bonus 4/12
-    expect(fullTicks).toBe(1105)
+    // re-pinned batch 36.8 task 246 (was 1105 full ticks): clerkTakes = orderPool — the save's clerk now accepts its
+    // licensed-crop contracts (potato); completed contracts reroll into item offers the clerk delivers out of storage
+    expect(fullTicks).toBe(104)
   })
 
-  // Σ Keep N of the save's own Sell-on-dig kinds (200) + bars (30) = 230 > 120: kept coal refills storage (Deviations)
-  it.fails('scenario B: storage is no longer full at the end — measured 120 / 120', () => {
+  // batch 36.8 task 246: with the clerk taking contracts too, completed orders reroll into item offers it delivers
+  // from the bag, so kept coal no longer pins storage full (was it.fails at 120 / 120; now ends 114 / 120)
+  it('scenario B: storage is no longer full at the end — measured 114 / 120', () => {
     const { end } = scenarioB()
     expect(bagCount(end.run)).toBeLessThan(end.run.bagCapacity)
   })

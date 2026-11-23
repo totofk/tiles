@@ -424,9 +424,9 @@ describe('order clerk (worker job)', () => {
     expect(once.run.inventory.coal).toBe(0)
     expect(once.run.counters.orders).toBe(1)
     expect(once.run.lifetime.wagesPaid).toBe(workerWage(meta, 'clerk'))
-    // next action: lemon is neither planted nor "Crop to plant" → skipped; the fresh slot-1 offer is checked next
-    const plantedLemon = { ...once, run: { ...once.run, plantCrop: 'lemon' as const, tick: 5 } }
-    const twice = workersAct(plantedLemon)
+    // next action: batch 36.8 — "the farm grows" = licensed crops, so the lemon licence decides (plantCrop alone no longer does)
+    const licensedLemon = { ...once, run: { ...once.run, licenses: [...once.run.licenses, 'lemon' as const], tick: 5 } }
+    const twice = workersAct(licensedLemon)
     expect(twice.run.orders.offers[0]).toMatchObject({ good: 'lemon', accepted: true })
   })
 
@@ -435,6 +435,22 @@ describe('order clerk (worker job)', () => {
     expect(clerkTarget(s)).toBe(0)
     const once = workersAct(s)
     expect([once.run.inventory.coal, (once.run.orders.offers[0] as Offer).done, once.run.counters.orders]).toEqual([0, 2, 0])
+  })
+
+  it('batch 36.8: takes a mold-bar offer and a forge-good offer the run can make (furnace + the default copper mold, forge built)', () => {
+    // vein 2 drops copper ore → with the furnace built and its default copper mold, 🥉 and the 🔧 (its recipe's bar) are in the pool
+    const works = { mineLicense: true, vein: { level: 2, progress: 0, rock: 'stone' as const }, furnace: { ...init.run.furnace, built: true } }
+    expect(clerkTarget(clerkFarm([offer({ good: 'copperBar', accepted: false })], works))).toBe(0)
+    const forging = { ...works, forge: { ...init.run.forge, built: true } }
+    expect(clerkTarget(clerkFarm([offer({ good: 'toolbox', accepted: false })], forging))).toBe(0)
+  })
+
+  it('batch 36.8: with a contract accepted the clerk only ever delivers — it never touches fields.list crops', () => {
+    const fields = { ...init.run.fields, unlocked: true, list: [{ pivot: true, crop: 'radish' as const, pinned: false, plots: [{ crop: 'radish' as const, readyTick: 50 }] }] }
+    const s = clerkFarm([offer({ good: 'radish', count: 5, accepted: true })], { fields, inventory: {} })
+    expect(clerkTarget(s)).toBe(-1)
+    expect(workersAct(s)).toBe(s)
+    expect(s.run.fields.list[0].crop).toBe('radish')
   })
 
   it('idles unpaid with nothing to do, never discards, and never accepts what the farm does not grow', () => {
@@ -452,9 +468,10 @@ describe('order clerk (worker job)', () => {
     const idle = clerkFarm([offer({ good: 'lemon', accepted: false }), offer({ good: 'coal', count: 3, accepted: true })], { inventory: {} })
     expect(clerkTarget(idle)).toBe(-1)
     expect(workerActivity(idle)).toEqual([])
-    const accept = clerkFarm([offer({ good: 'lemon', accepted: false })], { plantCrop: 'lemon' })
-    expect(clerkTarget(accept)).toBe(0)
-    expect(workerActivity(accept)).toEqual([{ job: 'clerk', slot: 0 }])
+    // batch 36.8 delta (c): pre-Tractor any LICENSED crop qualifies — radish planted nowhere and not "Crop to plant"
+    const licensed = clerkFarm([offer({ good: 'radish', accepted: false })], { plantCrop: undefined })
+    expect(clerkTarget(licensed)).toBe(0)
+    expect(workerActivity(licensed)).toEqual([{ job: 'clerk', slot: 0 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the clerk, harvest workers, accepted crop orders and the market', () => {
@@ -556,11 +573,12 @@ describe('batch 29: 🚜 estate contracts', () => {
     expect(orderPerMinute(before, 'lemon')).toBe(home('lemon'))
   })
 
-  it('the clerk accepts no crop offer after the Tractor, still accepts an item offer; before the Tractor it accepts the crop', () => {
+  it('batch 36.8: an estate contract (a licensed crop, after the Tractor) is the clerk target; an item offer still is; before the Tractor unchanged', () => {
     const run = { mineLicense: true, vein: { level: 1, progress: 0, rock: 'stone' as const }, plantCrop: 'radish' as const }
     const crop = offer({ good: 'radish', accepted: false })
-    expect(clerkTarget(estate(run, [crop]))).toBe(-1)
-    expect(clerkTarget(estate(run, [crop, offer({ good: 'coal', accepted: false })]))).toBe(1)
+    // re-pinned batch 36.8 (was -1 / 1): clerkTakes = orderPool(run) — licensed crops qualify with the Fields unlocked
+    expect(clerkTarget(estate(run, [crop]))).toBe(0)
+    expect(clerkTarget(estate(run, [offer({ good: 'coal', accepted: false })]))).toBe(0)
     const before = estate(run, [crop])
     expect(clerkTarget({ ...before, run: { ...before.run, fields: { ...before.run.fields, unlocked: false } } })).toBe(0)
   })

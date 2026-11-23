@@ -299,11 +299,10 @@ export function rerollOrders(state: GameState): ActionResult {
   return pay(state, { cash: orderRerollCash(orders.rerolls) }, { rngState, orders: { ...orders, offers, rerolls: orders.rerolls + 1 } })
 }
 
-/** goods the clerk accepts: a crop planted on a tile or set as "Crop to plant" (never a contract: only the player
- * accepts those), or an item the current vein drops */
+/** goods the clerk accepts: every good the run can produce — licensed crops (contracts included), vein items the
+ * pickaxe mines, mold bars, forge goods (batch 36.8 overturned "only the player accepts contracts") */
 function clerkTakes(run: RunState, good: OrderGood): boolean {
-  if (isCropGood(good)) return !run.fields.unlocked && (run.plantCrop === good || run.tiles.some((t) => t.cropId === good))
-  return (veinDrops(run.vein.level)[good] ?? 0) > 0
+  return orderPool(run).includes(good)
 }
 
 /** the slot the clerk's next action touches (deliver first, else accept); -1 = nothing to do */
