@@ -8,10 +8,10 @@ const plan = ['../docs/PLAN.md', '../docs/archive/PLAN-history.md']
   .map((f) => readFileSync(new URL(f, import.meta.url), 'utf8'))
   .join('\n')
 
-/** "24.1" → [24, 1], "24" → [24, 0] — so 24.1 sorts after 24 */
-function parts(batch: string): [number, number] {
-  const [major, minor] = batch.split('.')
-  return [Number(major), Number(minor ?? 0)]
+/** "24.1" → [24, 1, 0], "36.8.1" → [36, 8, 1] — missing parts are 0, so 24.1 sorts after 24 */
+function parts(batch: string): [number, number, number] {
+  const [major, minor, patch] = batch.split('.')
+  return [Number(major), Number(minor ?? 0), Number(patch ?? 0)]
 }
 
 describe('CHANGELOG data (batch 24.2, task 133)', () => {
@@ -28,7 +28,7 @@ describe('CHANGELOG data (batch 24.2, task 133)', () => {
       expect(CHANGELOG[i].date <= CHANGELOG[i - 1].date).toBe(true)
       const a = parts(CHANGELOG[i - 1].batch)
       const b = parts(CHANGELOG[i].batch)
-      expect(b[0] < a[0] || (b[0] === a[0] && b[1] < a[1])).toBe(true)
+      expect(b[0] < a[0] || (b[0] === a[0] && b[1] < a[1]) || (b[0] === a[0] && b[1] === a[1] && b[2] < a[2])).toBe(true)
     }
   })
 

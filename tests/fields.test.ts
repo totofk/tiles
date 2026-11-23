@@ -20,6 +20,7 @@ import {
   pumpFieldCap,
   pumpMaxTiers,
   reapPlotEnergy,
+  RIG_TILES_PER_HOUR,
   rigFeePerHour,
   rigSignOn,
   seedDropChance,
@@ -50,6 +51,7 @@ import {
   reapNext,
   reapPlot,
   returnRig,
+  rigAdds,
   setFieldCrop,
   sowNext,
   sowPlot,
@@ -58,7 +60,8 @@ import {
 import { CROP_IDS, type CropId } from '../src/core/data/crops'
 import { createInitialState, createMachines, type Field, type GameState, type Machines, type Plot } from '../src/core/state'
 import { step } from '../src/core/step'
-import { catchUp } from '../src/save/serialize'
+import { catchUp, deserialize } from '../src/save/serialize'
+import v35 from './fixtures/save-v35.json?raw'
 
 const init = createInitialState()
 const LEMON = cropGrowTicks('pumpkin', init.meta, 0) // 360
@@ -802,5 +805,43 @@ describe('batch 36.2: PIN36d supply lists on estate income', () => {
     expect(Math.abs(base.ironHills - 1)).toBeLessThanOrEqual(0.005)
     expect(renowned.orchardValley).toBeGreaterThanOrEqual(0.7)
     expect(renowned.ironHills).toBeGreaterThanOrEqual(0.7)
+  })
+})
+
+describe('batch 36.8.1: rigAdds — what one more rig really adds', () => {
+  const harvestedSlower = withFields(
+    Array.from({ length: 100 }, () => field([empty()])),
+    {},
+    { machines: fleet({ harvester: [1], seeder: [1, 2] }) }, // 5,400 seeder vs 1,800 harvester tiles/h
+  )
+  const landCovered = withFields([field([empty()])], {}, { machines: fleet({ harvester: [1, 2, 3], seeder: [1, 2] }) })
+
+  it("on the v35 fixture: a seeder rig adds 💰2.3M–5.3M/h (PIN36.8's ≈3.8M gross per rig ± 40 %); a harvester rig adds 0, seeders are the limit", () => {
+    const { state } = deserialize(v35)!
+    const seeder = rigAdds(state, 'seeder')
+    const harvester = rigAdds(state, 'harvester')
+    console.log('rigAdds v35', JSON.stringify({ seeder: seeder.perHour, harvester: harvester.perHour }))
+    expect(seeder.perHour).toBeGreaterThanOrEqual(2_300_000)
+    expect(seeder.perHour).toBeLessThanOrEqual(5_300_000)
+    expect(harvester).toEqual({ perHour: 0, limit: 'seeder' }) // that save: 5,400 seeder vs 12,600 harvester tiles/h
+  })
+
+  it('harvesters slower: a harvester rig adds > 0, a seeder rig adds 0 / harvesters are the limit', () => {
+    expect(rigAdds(harvestedSlower, 'harvester').perHour).toBeGreaterThan(0)
+    expect(rigAdds(harvestedSlower, 'seeder')).toEqual({ perHour: 0, limit: 'harvester' })
+  })
+
+  it('both kinds fast enough to cover the land: 0 / the land is the limit', () => {
+    expect(rigAdds(landCovered, 'seeder')).toEqual({ perHour: 0, limit: 'land' })
+    expect(rigAdds(landCovered, 'harvester')).toEqual({ perHour: 0, limit: 'land' })
+  })
+
+  it('never exceeds RIG_TILES_PER_HOUR × the best crop\'s profit per tile', () => {
+    // perTile = marginal × cycle ÷ 3600 ≤ marginal (every pressured cycle ≤ 720 ticks), so the marginal bounds it
+    for (const s of [deserialize(v35)!.state, harvestedSlower, landCovered]) {
+      for (const kind of ['seeder', 'harvester'] as const) {
+        expect(rigAdds(s, kind).perHour).toBeLessThanOrEqual(RIG_TILES_PER_HOUR * fieldsMarginalIncomePerHour(s))
+      }
+    }
   })
 })

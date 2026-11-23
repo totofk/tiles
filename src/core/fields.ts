@@ -595,17 +595,19 @@ export function machinesAct(state: GameState): GameState {
 
 /**
  * The rigs row's ONE read (batch 36.8): this kind's held count, whether the shared 5-rig limit is reached, the NEXT
- * hire's sign-on, the next rig's own fee per hour (300k × the held count + 1), and the ≈💰/h one more 1,800 tiles/h
- * lets through (the same marginal the payback label uses, whichever kind unblocks it).
+ * hire's sign-on, the next rig's own fee per hour (300k × the held count + 1), and what one more rig really adds
+ * (batch 36.8.1, `rigAdds`) — or which part of the flow is the limit when that is 0.
  */
-export function rigView(state: GameState, kind: MachineKind): { count: number; maxed: boolean; signOn: number; feePerHour: number; addedPerHour: number } {
+export function rigView(state: GameState, kind: MachineKind): { count: number; maxed: boolean; signOn: number; feePerHour: number; addedPerHour: number; limit: 'seeder' | 'harvester' | 'land' | 'crop' | null } {
   const rigs = state.run.fields.machines.rigs
+  const adds = rigAdds(state, kind)
   return {
     count: rigs.filter((k) => k === kind).length,
     maxed: rigs.length >= RIG_MAX,
     signOn: rigSignOn(rigs.length),
     feePerHour: RIG_FEE_PER_HOUR * (rigs.length + 1),
-    addedPerHour: RIG_TILES_PER_HOUR * fieldsMarginalIncomePerHour(state),
+    addedPerHour: adds.perHour,
+    limit: adds.limit,
   }
 }
 
@@ -615,17 +617,44 @@ export function rigView(state: GameState, kind: MachineKind): { count: number; m
  * with that tile selling (the live glut plus one tile's steady glut).
  */
 export function fieldsMarginalIncomePerHour(state: GameState): number {
+  return bestFieldTile(state)?.perHour ?? 0
+}
+
+/** the crop `fieldsMarginalIncomePerHour` picks: the best 💰/h per standing tile with its profit per sown tile and
+ * pressured cycle (ties keep the first crop, as the old Math.max loop did) */
+function bestFieldTile(state: GameState): { perHour: number; perTile: number; cycle: number } | null {
   const { run, meta } = state
-  let best = 0
+  let best: { perHour: number; perTile: number; cycle: number } | null = null
   for (const crop of CROP_IDS) {
     if (!fieldsPlantable(run, crop)) continue
     const renown = cropRenownGrow(run, crop, cropFieldCount(run, crop))
     const cycle = Math.ceil(cropGrowTicks(crop, meta, run.upgrades.fertilizer, run.listing.soil, renown) / FIELD_PRESSURE)
     const glut = run.market[crop] + marketSteadyGlut(1, cycle)
     const price = Math.round(cropSellPrice(crop, meta, run.upgrades.sellPrice, run.listing.district) * marketFactor(crop, glut, cropFloor(run, crop)))
-    best = Math.max(best, ((price - cropSeedCost(crop, meta)) * 3600) / cycle)
+    const perTile = price - cropSeedCost(crop, meta)
+    const perHour = (perTile * 3600) / cycle
+    if (!best || perHour > best.perHour) best = { perHour, perTile, cycle }
   }
   return best
+}
+
+/** What ONE more rig of this kind adds (batch 36.8.1): the extra tiles/h the fleet can then sow AND reap —
+ * min(demand, seeder, harvester) with this kind's side up by 1,800, minus the same flow without it — × the best
+ * crop's profit per sown tile, floored at 0. A steady-state estimate: backlogs of ready / empty plots are not
+ * counted. `limit` names the 0 case: 'crop' = nothing plantable, 'land' = the wet plots are already covered,
+ * otherwise the OTHER machine kind (the slower side of the flow).
+ */
+export function rigAdds(state: GameState, kind: MachineKind): { perHour: number; limit: 'seeder' | 'harvester' | 'land' | 'crop' | null } {
+  const best = bestFieldTile(state)
+  if (!best) return { perHour: 0, limit: 'crop' }
+  const m = state.run.fields.machines
+  const s = fleetTilesPerTick(m, 'seeder') * 3600
+  const h = fleetTilesPerTick(m, 'harvester') * 3600
+  const demand = (wetTiles(state.run.fields) * 3600) / best.cycle
+  const flow = (a: number, b: number) => Math.min(demand, a, b)
+  const gain = (kind === 'seeder' ? flow(s + RIG_TILES_PER_HOUR, h) : flow(s, h + RIG_TILES_PER_HOUR)) - flow(s, h)
+  const perHour = Math.max(0, Math.floor(gain * best.perTile))
+  return { perHour, limit: perHour > 0 ? null : demand <= Math.min(s, h) ? 'land' : kind === 'seeder' ? 'harvester' : 'seeder' }
 }
 
 /** the "~X h" payback label: the next plot's price ÷ its ten tiles' marginal income (0 when nothing is plantable yet) */

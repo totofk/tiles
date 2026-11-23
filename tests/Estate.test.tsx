@@ -536,6 +536,16 @@ describe('batch 36.6: the renown badge on the chip and the field sheet line', ()
 describe('batch 36.8: the Hired rigs group in the Machines card', () => {
   const withMachines = (machines: GameState['run']['fields']['machines'], fields: Field[]) =>
     withFields(fields, { cash: 1e9, fields: { ...base.run.fields, machines } })
+  /** the adds phrase as Estate.tsx renders it (batch 36.8.1): the honest ≈💰/h, or which part is the limit */
+  const addsText = (view: ReturnType<typeof rigView>) =>
+    view.addedPerHour > 0
+      ? `adds ≈💰${approx(view.addedPerHour)}/h`
+      : {
+          seeder: 'adds nothing now: seeders are the limit',
+          harvester: 'adds nothing now: harvesters are the limit',
+          land: 'adds nothing now: every wet plot is covered',
+          crop: 'adds nothing now: no crop to plant',
+        }[view.limit ?? 'crop']
 
   it('is absent without a kind\'s Mk1 (the hire gate), and pre-Tractor the Estate renders nothing', () => {
     render(<Estate state={withMachines(createMachines(), [field([plot('radish', 1e9)])])} act={() => {}} ui={ui} />)
@@ -550,7 +560,8 @@ describe('batch 36.8: the Hired rigs group in the Machines card', () => {
     const view = rigView(s, 'harvester')
     render(<Estate state={s} act={() => {}} ui={ui} />)
     expect(screen.getByText(`🌾 Harvester rigs · 0/${RIG_MAX}`)).toBeTruthy()
-    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(0))} sign-on + 💰${price(RIG_FEE_PER_HOUR * 1)}/h · adds ≈💰${price(view.addedPerHour)}/h`)).toBeTruthy()
+    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(0))} sign-on + 💰${approx(RIG_FEE_PER_HOUR * 1)}/h · ${addsText(view)}`)).toBeTruthy()
+    expect(screen.getByText(/💰300k\/h/)).toBeTruthy()
     expect(screen.queryByText(/Seeder rigs/)).toBeNull()
     expect((screen.getByRole('button', { name: 'Hire' }) as HTMLButtonElement).disabled).toBe(false)
     expect((screen.getByRole('button', { name: 'Return' }) as HTMLButtonElement).disabled).toBe(true)
@@ -561,7 +572,7 @@ describe('batch 36.8: the Hired rigs group in the Machines card', () => {
     const view = rigView(s, 'harvester')
     render(<Estate state={s} act={() => {}} ui={ui} />)
     expect(screen.getByText(`🌾 Harvester rigs · 2/${RIG_MAX}`)).toBeTruthy()
-    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(2))} sign-on + 💰${price(RIG_FEE_PER_HOUR * 3)}/h · adds ≈💰${price(view.addedPerHour)}/h`)).toBeTruthy()
+    expect(screen.getByText(`+${rigTilesPerHour()} tiles/h each · next 💰${price(rigSignOn(2))} sign-on + 💰${approx(RIG_FEE_PER_HOUR * 3)}/h · ${addsText(view)}`)).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Return' }) as HTMLButtonElement).disabled).toBe(false)
   })
 })

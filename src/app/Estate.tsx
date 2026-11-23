@@ -17,7 +17,7 @@ import { isOffer } from '../core/orders'
 import type { GameState, Offer } from '../core/state'
 import { buyMachine, buyPlot, buyPump, fieldsOverview, fieldsPressure, fillTank, hireRig, reapNext, returnRig, rigView, sowNext } from '../core/fields'
 import { EstateMap, ORDER_EMOJI } from './EstateMap'
-import { price } from './fmt'
+import { approx, price } from './fmt'
 import { goodEmoji } from './Orders'
 import { priceText } from './Mine'
 import type { UiState } from './uiState'
@@ -33,6 +33,16 @@ const HARVESTER_EMOJI = '🌾' // Unicode 6
 const TANK_EMOJI = '⛽' // Unicode 5.2
 const MACHINE_NAMES = { harvester: 'Harvester', seeder: 'Seeder' } as const
 const MACHINE_VERBS = { harvester: 'harvests', seeder: 'plants' } as const
+/** the rigs row's adds phrase (batch 36.8.1): the honest ≈💰/h, or which part of the flow is the limit */
+const rigAddsText = (view: ReturnType<typeof rigView>): string =>
+  view.addedPerHour > 0
+    ? `adds ≈💰${approx(view.addedPerHour)}/h`
+    : {
+        seeder: 'adds nothing now: seeders are the limit',
+        harvester: 'adds nothing now: harvesters are the limit',
+        land: 'adds nothing now: every wet plot is covered',
+        crop: 'adds nothing now: no crop to plant',
+      }[view.limit ?? 'crop']
 
 /**
  * The phone Estate stop's tool bar (batch 27, task 144; plots since batch 28): Sow / Reap / ＋ Plot where the 🧰 Tools
@@ -173,7 +183,7 @@ export function Estate({ state, act, ui, lot }: { state: GameState; act: Act; ui
                     <div className="recipe-row" key={kind}>
                       <span>
                         {`${kind === 'harvester' ? HARVESTER_EMOJI : SEEDER_EMOJI} ${MACHINE_NAMES[kind]} rigs · ${view.count}/${RIG_MAX}`}
-                        <small>{`+${rigTilesPerHour()} tiles/h each${view.maxed ? '' : ` · next 💰${price(view.signOn)} sign-on + 💰${price(view.feePerHour)}/h`} · adds ≈💰${price(view.addedPerHour)}/h`}</small>
+                        <small>{`+${rigTilesPerHour()} tiles/h each${view.maxed ? '' : ` · next 💰${price(view.signOn)} sign-on + 💰${approx(view.feePerHour)}/h`} · ${rigAddsText(view)}`}</small>
                       </span>
                       <span className="rig-actions">
                         <button disabled={!hire.ok} title={hire.ok ? undefined : ERROR_TEXT[hire.error]} onClick={() => act((s) => hireRig(s, kind))}>
