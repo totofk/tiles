@@ -11,6 +11,7 @@ import {
   machineCost,
   machineMaxTiers,
   machineTilesPerHour,
+  rigTilesPerHour,
   pivotCost,
   plotCost,
   plotTiles,
@@ -160,9 +161,9 @@ export function plotCellView(state: GameState, k: number, j: number): PlotCellVi
   return { kind: 'growing', emoji, pct, label: `${at} · ${name} ${Math.round(pct * 100)} % · ripe in ${nextReadyText(left)}${tail}`, marker, ordered: false }
 }
 
-/** the fleet's whole tiles per hour over the owned tiers (0 with no machine) */
+/** the fleet's whole tiles per hour over the owned tiers and hired rigs (0 with no machine) */
 export function fleetTilesPerHour(machines: Machines, kind: 'harvester' | 'seeder'): number {
-  return machines[kind].reduce((rate, tier) => rate + machineTilesPerHour(kind, tier), 0)
+  return machines[kind].reduce((rate, tier) => rate + machineTilesPerHour(kind, tier), 0) + machines.rigs.filter((k) => k === kind).length * rigTilesPerHour()
 }
 
 /** the cheapest tier of `max` not in `owned` (branch 3/4 always enter with none owned, so this is tier 1) */

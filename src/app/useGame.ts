@@ -56,6 +56,8 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   BAD_SLOT: 'No order in that slot',
   NO_STARS: `Not enough ${STAR_EMOJI}`,
   REROLL_MAX: 'No rerolls left this sale',
+  MAX_RIGS: 'Rig limit reached (5)',
+  NO_RIGS: 'No rig of this kind hired',
   BAD_CHOICE: 'That listing changed — pick again',
   NOT_SOLD_HERE: 'Not sold in this district',
   BED_BUSY: 'Harvest that bed first',

@@ -7,6 +7,9 @@ import { fail, nextRandom, withRun, type ActionResult } from './actions'
 import { spendEnergy } from './relics'
 import {
   FIELD_PRESSURE,
+  RIG_FEE_PER_HOUR,
+  RIG_MAX,
+  RIG_TILES_PER_HOUR,
   TANK_UNITS_PER_COAL,
   cropGrowTicks,
   cropSeedCost,
@@ -27,6 +30,8 @@ import {
   pumpCost,
   pumpFieldCap,
   reapPlotEnergy,
+  rigFeePerHour,
+  rigSignOn,
   seedKeepChance,
   SURVEY_FIELDS_LEVEL,
   tankCapCoal,
@@ -381,6 +386,27 @@ export function buyMachine(state: GameState, kind: MachineKind, tier: number): A
   })
 }
 
+// Hired rigs (batch 36.8): extra units rented by the hour once the kind's tier 1 is owned — no certificate beyond the
+// Tractor (Toon's Q3 answer). The sign-on is non-refundable and pays into the ONE shared ladder across both kinds (the
+// Nth rig of either kind pays the Nth price). Order: LOCKED, MAX_RIGS, NO_CASH (from pay).
+export function hireRig(state: GameState, kind: MachineKind): ActionResult {
+  const { run } = state
+  const m = run.fields.machines
+  if (!run.fields.unlocked || !m[kind].includes(1)) return fail('LOCKED')
+  if (m.rigs.length >= RIG_MAX) return fail('MAX_RIGS')
+  return pay(state, { cash: rigSignOn(m.rigs.length) }, { fields: { ...run.fields, machines: { ...m, rigs: [...m.rigs, kind] } } })
+}
+
+// Free; nothing paid is taken back. The NEWEST rig of the kind goes first (the last `kind` entry in the hire order).
+// Order: NO_RIGS.
+export function returnRig(state: GameState, kind: MachineKind): ActionResult {
+  const { run } = state
+  const rigs = run.fields.machines.rigs
+  const at = rigs.lastIndexOf(kind)
+  if (at < 0) return fail('NO_RIGS')
+  return withRun(state, { fields: { ...run.fields, machines: { ...run.fields.machines, rigs: rigs.filter((_, i) => i !== at) } } })
+}
+
 /** `run` with the Fields' shared tile counter (machines.carry) changed */
 const withCarry = (run: RunState, carry: Partial<Machines['carry']>): RunState => ({
   ...run,
@@ -482,9 +508,9 @@ export function fillTank(state: GameState, max = Infinity): ActionResult {
 
 // ─── Machines (batch 19) ───────────────────────────────────────────────────────────────────────────────────────
 
-/** the fleet's whole tiles per tick (3600 ticks per hour), summed over the owned tiers */
+/** the fleet's whole tiles per tick (3600 ticks per hour), summed over the owned tiers and hired rigs */
 function fleetTilesPerTick(machines: Machines, kind: MachineKind): number {
-  return machines[kind].reduce((rate, tier) => rate + machineTilesPerHour(kind, tier) / 3600, 0)
+  return machines[kind].reduce((rate, tier) => rate + machineTilesPerHour(kind, tier) / 3600, 0) + machines.rigs.filter((k) => k === kind).length * (RIG_TILES_PER_HOUR / 3600)
 }
 
 /** flat maintenance cash per tick for the owned tiers of this kind */
@@ -506,7 +532,7 @@ export function machinesAct(state: GameState): GameState {
   const { run } = state
   const f = run.fields
   const m = f.machines
-  if (!f.unlocked || (m.harvester.length === 0 && m.seeder.length === 0)) return state
+  if (!f.unlocked || (m.harvester.length === 0 && m.seeder.length === 0 && m.rigs.length === 0)) return state
   const carry = { ...m.carry }
   const size = plotTiles()
   let s = state
@@ -525,6 +551,23 @@ export function machinesAct(state: GameState): GameState {
       }
       if (carry.maint >= 1) working = false
       carry.maint = Math.min(carry.maint, 1)
+    }
+  }
+  // the rigs' management fee: every tick held, working or idle, paid whole like the maint; a whole 💰1 due at cash 0
+  // returns the newest rig instead (Civ VI disband rule) — the debt never grows past 1 and accrual uses the lower count
+  let rigList = m.rigs
+  if (rigList.length > 0) {
+    carry.rigFee += rigFeePerHour(rigList.length) / 3600
+    if (carry.rigFee >= 1) {
+      const paid = Math.min(Math.floor(carry.rigFee), s.run.cash)
+      if (paid > 0) {
+        carry.rigFee -= paid
+        s = { ...s, run: { ...s.run, cash: s.run.cash - paid } }
+      }
+      if (carry.rigFee >= 1) {
+        rigList = rigList.slice(0, -1)
+        carry.rigFee = Math.min(carry.rigFee, 1)
+      }
     }
   }
   if (working && ready > 0) {
@@ -546,8 +589,24 @@ export function machinesAct(state: GameState): GameState {
       } else carry.plant = size // NO_SEEDS / NO_CASH: hold one plot, retry when it clears
     }
   }
-  if (s === state && carry.harvest === m.carry.harvest && carry.plant === m.carry.plant && carry.maint === m.carry.maint) return state
-  return { ...s, run: { ...s.run, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry } } } }
+  if (s === state && carry.harvest === m.carry.harvest && carry.plant === m.carry.plant && carry.maint === m.carry.maint && carry.rigFee === m.carry.rigFee && rigList === m.rigs) return state
+  return { ...s, run: { ...s.run, fields: { ...s.run.fields, machines: { ...s.run.fields.machines, carry, rigs: rigList } } } }
+}
+
+/**
+ * The rigs row's ONE read (batch 36.8): this kind's held count, whether the shared 5-rig limit is reached, the NEXT
+ * hire's sign-on, the next rig's own fee per hour (300k × the held count + 1), and the ≈💰/h one more 1,800 tiles/h
+ * lets through (the same marginal the payback label uses, whichever kind unblocks it).
+ */
+export function rigView(state: GameState, kind: MachineKind): { count: number; maxed: boolean; signOn: number; feePerHour: number; addedPerHour: number } {
+  const rigs = state.run.fields.machines.rigs
+  return {
+    count: rigs.filter((k) => k === kind).length,
+    maxed: rigs.length >= RIG_MAX,
+    signOn: rigSignOn(rigs.length),
+    feePerHour: RIG_FEE_PER_HOUR * (rigs.length + 1),
+    addedPerHour: RIG_TILES_PER_HOUR * fieldsMarginalIncomePerHour(state),
+  }
 }
 
 /**

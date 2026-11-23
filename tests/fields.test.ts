@@ -20,6 +20,8 @@ import {
   pumpFieldCap,
   pumpMaxTiers,
   reapPlotEnergy,
+  rigFeePerHour,
+  rigSignOn,
   seedDropChance,
   tankCapCoal,
   workerActionTicks,
@@ -39,6 +41,7 @@ import {
   fieldsPlantAction,
   fieldsPlantable,
   fillTank,
+  hireRig,
   machinesAct,
   pinField,
   pivotsOwned,
@@ -46,6 +49,7 @@ import {
   plotState,
   reapNext,
   reapPlot,
+  returnRig,
   setFieldCrop,
   sowNext,
   sowPlot,
@@ -554,6 +558,84 @@ describe('buyMachine', () => {
     expect(r.run.fields.machines.harvester).toEqual([1])
     expect(r.run.cash).toBe(1e6 - machineCost('harvester', 1, init.meta).cash)
     expect(buyMachine(r, 'harvester', 1)).toEqual({ ok: false, error: 'ALREADY_OWNED' })
+  })
+})
+
+describe('batch 36.8: hired rigs (hire, return, the fee tick)', () => {
+  /** an idle fleet holder: the plot grows (nothing ready, nothing empty), so no maint and no work — only the fee runs */
+  const rigRun = (machines: Partial<Machines>, extra: Partial<GameState['run']> = {}) =>
+    withFields([field([lemon(9999)])], { cash: 60_000_000, ...extra }, { machines: fleet(machines) })
+
+  it('hire gate: LOCKED before the Tractor and without the kind\'s tier 1; tier 1 alone is enough — no certificate', () => {
+    expect(hireRig(init, 'harvester')).toEqual({ ok: false, error: 'LOCKED' })
+    expect(hireRig(rigRun({ seeder: [1] }), 'harvester')).toEqual({ ok: false, error: 'LOCKED' })
+    const bare = withFields([field([lemon(9999)])], {
+      cash: 10_000_000,
+      workers: { pool: 0, assigned: { plant: 0, water: 0, harvest: 0, ore: 0, fuel: 0, mine: 0, clerk: 0, manager: 0, stoker: 0 }, certificates: [] },
+    }, { machines: fleet({ harvester: [1] }) })
+    const hired = ok(hireRig(bare, 'harvester'))
+    expect([hired.run.fields.machines.rigs, hired.run.cash]).toEqual([['harvester'], 10_000_000 - rigSignOn(0)])
+  })
+
+  it('the ONE shared ladder (the 2nd rig of the other kind pays RIG_SIGN_ON[1]); MAX_RIGS at 5 combined; no refund on return', () => {
+    expect([rigSignOn(0), rigSignOn(1), rigFeePerHour(1), rigFeePerHour(5)]).toEqual([3_000_000, 6_000_000, 300_000, 4_500_000])
+    const two = ok(hireRig(ok(hireRig(rigRun({ harvester: [1], seeder: [1] }), 'harvester')), 'seeder'))
+    expect([two.run.fields.machines.rigs, two.run.cash]).toEqual([['harvester', 'seeder'], 60_000_000 - rigSignOn(0) - rigSignOn(1)])
+    expect(hireRig(rigRun({ harvester: [1], rigs: ['seeder', 'seeder', 'harvester', 'seeder', 'seeder'] }), 'harvester')).toEqual({ ok: false, error: 'MAX_RIGS' })
+    const back = ok(returnRig(two, 'harvester'))
+    expect([back.run.fields.machines.rigs, back.run.cash]).toEqual([['seeder'], two.run.cash])
+  })
+
+  it('returnRig removes the NEWEST rig of that kind only; NO_RIGS with none of it held', () => {
+    const s = rigRun({ harvester: [1], seeder: [1], rigs: ['harvester', 'seeder', 'harvester'] })
+    expect(ok(returnRig(s, 'harvester')).run.fields.machines.rigs).toEqual(['harvester', 'seeder'])
+    expect(ok(returnRig(s, 'seeder')).run.fields.machines.rigs).toEqual(['harvester', 'harvester'])
+    expect(returnRig(rigRun({ harvester: [1] }), 'seeder')).toEqual({ ok: false, error: 'NO_RIGS' })
+  })
+
+  it('the fee accrues on an IDLE fleet (nothing to sow or reap) and is paid whole while cash lasts: 300k per rig-hour', () => {
+    const hour = step(rigRun({ harvester: [1], rigs: ['harvester'] }), 3600)
+    const spent = 60_000_000 - hour.run.cash
+    expect(spent).toBeGreaterThanOrEqual(rigFeePerHour(1) - 1) // the sub-💰1 residue stays banked in carry.rigFee
+    expect(spent).toBeLessThanOrEqual(rigFeePerHour(1))
+    expect(hour.run.fields.machines.carry.rigFee).toBeGreaterThanOrEqual(0)
+    expect(hour.run.fields.machines.carry.rigFee).toBeLessThan(1)
+    expect([hour.run.fields.machines.carry.maint, hour.run.fields.machines.rigs]).toEqual([0, ['harvester']])
+  })
+
+  it('the fee runs during offline catch-up exactly as live (catchUp steps the same tick)', () => {
+    const s = rigRun({ harvester: [1], rigs: ['harvester'] })
+    const live = step(s, 3600)
+    expect(catchUp(s, 3600_000)).toEqual({ ...live, run: { ...live.run, loan: s.run.loan } })
+  })
+
+  it('auto-return at cash 0: one rig per tick, the debt caps at 💰1, cash never goes negative; payable again stops it', () => {
+    const broke = rigRun({ harvester: [1], seeder: [1], rigs: ['harvester', 'seeder', 'harvester', 'seeder', 'harvester'] }, { cash: 0 })
+    const t1 = step(broke, 1)
+    expect([t1.run.fields.machines.rigs.length, t1.run.cash, t1.run.fields.machines.carry.rigFee]).toEqual([4, 0, 1])
+    expect(step(broke, 3).run.fields.machines.rigs.length).toBe(2)
+    const gone = step(broke, 6)
+    expect([gone.run.fields.machines.rigs, gone.run.fields.machines.carry.rigFee]).toEqual([[], 1]) // the capped marker never grows
+    // exactly the hour's fee in cash (rig 5 pays 4.5M/h → 1250/tick) is payable and keeps the whole fleet
+    const paid = step({ ...broke, run: { ...broke.run, cash: 1250 } }, 1)
+    expect([paid.run.fields.machines.rigs.length, paid.run.cash]).toEqual([5, 0])
+  })
+
+  it('purity: step(s, 600) is 600 single steps with rigs held, fee and all', () => {
+    const s = rigRun({ harvester: [1], seeder: [1], rigs: ['seeder', 'harvester'] })
+    let once = s
+    for (let i = 0; i < 600; i++) once = step(once, 1)
+    expect(step(s, 600)).toEqual(once)
+  })
+
+  it('a hired rig works through the same carry counters as an owned tier: Mk1 + a rig of the kind works like the next tier up', () => {
+    const rigSow = withFields([field([empty(), empty(), empty()])], { cash: 1_000_000 }, { machines: fleet({ seeder: [1], rigs: ['seeder'] }) })
+    const mk2Sow = withFields([field([empty(), empty(), empty()])], { cash: 1_000_000 }, { machines: fleet({ seeder: [2] }) })
+    expect(step(rigSow, 20).run.fields.list[0].plots.map((p) => p.crop)).toEqual(['pumpkin', 'pumpkin', null])
+    expect(step(rigSow, 20).run.fields.machines.carry.plant).toBe(step(mk2Sow, 20).run.fields.machines.carry.plant)
+    const rigReap = withFields([field([lemon(50), lemon(40), lemon(9999)])], { tick: 100, cash: 1_000_000 }, { machines: fleet({ harvester: [1], rigs: ['harvester'] }) })
+    const mk2Reap = withFields([field([lemon(50), lemon(40), lemon(9999)])], { tick: 100, cash: 1_000_000 }, { machines: fleet({ harvester: [2] }) })
+    expect(step(rigReap, 10).run.fields.list[0].plots).toEqual(step(mk2Reap, 10).run.fields.list[0].plots)
   })
 })
 

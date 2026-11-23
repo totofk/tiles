@@ -86,6 +86,8 @@ export type ActionError =
   | 'NO_CROP'
   | 'PUMP_FULL'
   | 'REROLL_MAX'
+  | 'MAX_RIGS'
+  | 'NO_RIGS'
   | 'BAD_CHOICE'
   | 'NOT_SOLD_HERE'
   | 'BED_BUSY'

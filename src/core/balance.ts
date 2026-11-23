@@ -486,6 +486,30 @@ export function machineMaintPerHour(tier: number): number {
   return MACHINE_MAINT[tier - 1]!
 }
 
+// Hired rigs (batch 36.8): extra seeder/harvester units rented by the hour. One rig of either kind works
+// RIG_TILES_PER_HOUR tiles/h through the same carry counters as an owned tier. The sign-on is non-refundable and the
+// Nth rig of EITHER kind pays RIG_SIGN_ON[N-1] (one shared ladder, ×2 per rig); the fee is per live hour × rig number
+// (n rigs = 300k × n(n+1)/2: 0.3M / 0.9M / 1.8M / 3.0M / 4.5M per h), owed working or idle.
+export const RIG_TILES_PER_HOUR = 1800
+export const RIG_SIGN_ON = [3_000_000, 6_000_000, 12_000_000, 24_000_000, 48_000_000]
+export const RIG_FEE_PER_HOUR = 300_000
+export const RIG_MAX = 5
+
+/** the NEXT hire's non-refundable sign-on when `count` rigs are already held (one shared ladder across both kinds) */
+export function rigSignOn(count: number): number {
+  return RIG_SIGN_ON[count]!
+}
+
+/** the total management fee per live hour for `count` rigs held: rig n pays RIG_FEE_PER_HOUR × n */
+export function rigFeePerHour(count: number): number {
+  return (RIG_FEE_PER_HOUR * count * (count + 1)) / 2
+}
+
+/** tiles per hour one hired rig of either kind reaps / plants */
+export function rigTilesPerHour(): number {
+  return RIG_TILES_PER_HOUR
+}
+
 export function machineCost(kind: MachineKind, tier: number, meta: MetaState): Price {
   return scalePrice(MACHINE_COSTS[kind][tier - 1]!, meta)
 }
