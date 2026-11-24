@@ -1541,3 +1541,17 @@ Worker: GLM glm-5.3 via z.ai.
 - R12. Model: GLM (z.ai) with --max-turns 300 and an expected resume leg, because it is early in the Max week
   (leftover-quota rule); switch to Opus only on Toon's word. 7 tasks is above GLM's 3–4 comfort, so the brief
   fixes every number and name above.
+
+## Batch 37.1 refined (2026-11-24, floor grid 4 × 4; save v37 → v38)
+Source: Toon in Discord thread 1573749154092679272 after batch 37 shipped: "4x4 ดีกว่า 4x3 มันน้อยไปบวกไม่สมมาตรแฮะ" and
+"desktop mine slot มันเล็กไปนะ". Overrides the 4 × 3 grid of the mine-revise design (m1-plan-design P2). Go: "ปล่อย 37.1
+เลย" (2026-11-24). Worker: GLM glm-5.3 via z.ai.
+Hermes's calls:
+1. Only FLOOR_ROWS changes (3 → 4); rows still open top-down; ladder uniform over 16. Expected rocks to the ladder 6.5 → 8.5
+   (computed, (N + 1) / 2); the Fields pace is measured by PIN37a against 12a1851's 8.41 h, ±20 % guard.
+2. Migration APPENDS a 4th row to the saved floor (rolled from the floor's own stream) instead of re-rolling it, so no
+   rock progress is lost and the ladder/found state stays as the player left it (a found ladder in rows 1–3 stays found;
+   an unfound one is still in rows 1–3 on that one floor).
+3. The desktop rock-slot size (≈ 96 px at ≥ 1024) ships here because it is the same grid CSS; the 3-section layout is a
+   separate UI batch.
+4. CHANGELOG line (81 code points, Hermes's wording).
