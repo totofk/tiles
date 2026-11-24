@@ -172,6 +172,17 @@ const VEIN_DROPS: ReadonlyArray<Partial<Record<ItemId, number>>> = [
 /** the kinds a vein drops: the 🧺 Ore sorting rows */
 export const MINE_DROP_IDS = ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre'] as const satisfies ReadonlyArray<ItemId>
 export type MineDropId = (typeof MINE_DROP_IDS)[number]
+// batch 37: a zone = FLOORS_PER_ZONE floors sharing one drop table (zone index = the old vein level)
+export const FLOORS_PER_ZONE = 5
+// batch 37: the floor grid the player mines (rock index = row × FLOOR_COLS + col)
+export const FLOOR_COLS = 4
+export const FLOOR_ROWS = 3
+/** batch 37: the bottom of the mine (the gold zone's last floor) */
+export const MINE_BOTTOM_FLOOR = FLOORS_PER_ZONE * VEIN_DROPS.length
+/** batch 37: each floor deeper into a zone adds this share of every ore's weight (stone absorbs it) */
+export const FLOOR_ORE_GRADIENT = 0.05
+/** batch 37: a new run's floor grid rng stream seed */
+export const FLOOR_SEED = 0x51f1a2b3
 // every convenience costs some of what it eases, priced in what is in surplus at that stage (DECISIONS 'Batch 28.2')
 const ORE_SORT_ITEMS: Record<MineDropId, number> = { stone: 30, coal: 15, copperOre: 15, ironOre: 15, goldOre: 10 }
 // cash part = 0.5 h of the batch-16 ladder bot's income in its first hour on vein Lv3 (PLAN.md "Batch 28.2 results"):
@@ -1183,6 +1194,38 @@ export function veinWeights(level: number, mastered: number, aim: OreId | null =
 /** price to unlock Sell on dig for one kind: some of that kind plus the cash part */
 export function oreSortUnlockCost(kind: MineDropId, meta: MetaState): Price {
   return scalePrice({ [kind]: ORE_SORT_ITEMS[kind], cash: ORE_SORT_CASH }, meta)
+}
+
+/** batch 37: the zone a floor belongs to (0 … VEIN_DROPS.length − 1); floors 1 … 5 are zone 0 */
+export function floorZone(n: number): number {
+  return Math.min(Math.floor((n - 1) / FLOORS_PER_ZONE), VEIN_DROPS.length - 1)
+}
+
+/** batch 37: a zone's first floor (its checkpoint once the seal is broken) */
+export function zoneFirstFloor(z: number): number {
+  return FLOORS_PER_ZONE * z + 1
+}
+
+/** batch 37: the floor whose ladder leads into zone z (z ≥ 1) */
+export function sealFloor(z: number): number {
+  return FLOORS_PER_ZONE * z
+}
+
+/** batch 37: the weights a floor's rocks roll from: the zone's veinWeights with every ore × (1 + gradient × floors
+ * into the zone), stone absorbing the change (coal unchanged, as mastery). A zone's first floor = its veinWeights. */
+export function floorWeights(n: number, mastered: number, aim: OreId | null = null): Partial<Record<ItemId, number>> {
+  const zone = floorZone(n)
+  const weights = veinWeights(zone, mastered, aim)
+  const gain = 1 + FLOOR_ORE_GRADIENT * (n - zoneFirstFloor(zone))
+  let gained = 0
+  for (const ore of ORE_IDS) {
+    const w = weights[ore]
+    if (!w) continue
+    weights[ore] = w * gain
+    gained += weights[ore]! - w
+  }
+  if (weights.stone !== undefined) weights.stone -= gained
+  return weights
 }
 
 export function oreSortVeinLevel(): number {

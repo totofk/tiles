@@ -1,6 +1,9 @@
 import { addLifetime, fail, isAmount, nextRandom, withRun, type ActionError, type ActionResult } from './actions'
 import {
   ACTION_ENERGY_COST,
+  FLOOR_COLS,
+  FLOOR_ROWS,
+  floorWeights,
   isSellable,
   itemSellPrice,
   keepNCost,
@@ -30,7 +33,7 @@ import {
 import { ITEMS, ITEM_IDS, PICKAXE_TIERS, type BarId, type ItemId, type OreId, type PickaxeTier } from './data/items'
 import { noMine } from './wetlands'
 import { spendEnergy } from './relics'
-import type { GameState, Pickaxe, RunState } from './state'
+import type { FloorRock, GameState, Pickaxe, RunState } from './state'
 
 // Mining actions cost no energy except dig (the mine action). Every item, wood included, takes one storage slot.
 
@@ -61,6 +64,21 @@ function pickDrop(weights: Partial<Record<ItemId, number>>, r: number): ItemId {
     if (x < 0) return id
   }
   return ids[ids.length - 1]
+}
+
+/** batch 37: roll a fresh floor grid — FLOOR_COLS × FLOOR_ROWS rocks from the floor's weights, then hide the ⬇️
+ * ladder under one of them (uniform). Consumes FLOOR_COLS × FLOOR_ROWS + 1 draws from the floor's own stream. */
+export function rollFloor(n: number, mastered: number, aim: OreId | null, rng: number): { rocks: FloorRock[]; ladder: number; rng: number } {
+  const weights = floorWeights(n, mastered, aim)
+  const rocks: FloorRock[] = []
+  let stream = rng
+  for (let i = 0; i < FLOOR_COLS * FLOOR_ROWS; i++) {
+    const [r, next] = nextRandom(stream)
+    rocks.push({ kind: pickDrop(weights, r), hits: 0, broken: false })
+    stream = next
+  }
+  const [r, next] = nextRandom(stream)
+  return { rocks, ladder: Math.floor(r * (FLOOR_COLS * FLOOR_ROWS)), rng: next }
 }
 
 export function buyMineLicense(state: GameState): ActionResult {

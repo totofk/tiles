@@ -1,10 +1,12 @@
-import { BAG_CAPACITY_START, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, renownStartSeeds, startTiles, type MachineKind, type MineDropId } from './balance'
+import { BAG_CAPACITY_START, FLOOR_SEED, INITIAL_RNG_SEED, STARTING_CASH, STAR_CARRY_CAP, energyMax, orderStartSlots, renownStartSeeds, startTiles, type MachineKind, type MineDropId } from './balance'
 import { ALL_CROP_IDS, STARTING_CROP, type CropId } from './data/crops'
 import type { DistrictId } from './data/districts'
 import type { RelicId } from './data/relics'
 import type { FieldTraitId, HomeTraitId } from './data/soil'
 // state ↔ listings is a cycle of bindings used at call time only
 import { PLAIN_LISTING, type Listing } from './listings'
+// state → mining is a call-time-only cycle too (mining imports only types from here)
+import { rollFloor } from './mining'
 import type { BarId, ForgeGoodId, ForgeRecipeId, ItemId, OreId, PickaxeTier } from './data/items'
 import type { MilestoneId } from './data/milestones'
 import type { ToolJob } from './data/tools'
@@ -48,6 +50,10 @@ export type RunState = {
   storageLevel: number
   /** rock = what the current rock drops (rolled when the previous one broke); progress = hits into it */
   vein: { level: number; progress: number; rock: ItemId }
+  /** batch 37: the floor grid the player mines; the vein above stays the mine workers' rock */
+  floor: FloorState
+  /** batch 37: the zone the mine workers dig (null = the deepest zone, vein.level) */
+  minerZone: number | null
   /** 🧺 Ore sorting per vein drop: a missing kind is locked; 'sell' sells it the moment it is dug */
   oreSort: Partial<Record<MineDropId, 'keep' | 'sell'>>
   /** 🧺 Keep N bought (batch 32) */
@@ -111,6 +117,13 @@ export type RunState = {
   /** batch 36.5: the 🧭 soil survey — ⭐ levels bought this run, a trait per home bed and per rolled Estate field */
   survey: Survey
 }
+
+/** batch 37: one rock of the player's floor grid */
+export type FloorRock = { kind: ItemId; hits: number; broken: boolean }
+
+/** batch 37: the floor the player stands on — a FLOOR_COLS × FLOOR_ROWS grid (ladder = the rock hiding the ⬇️),
+ * its own mulberry32 stream (never run.rngState), the deepest floor ever reached and whether the ladder is found */
+export type FloorState = { n: number; deepest: number; rocks: FloorRock[]; ladder: number; found: boolean; rng: number }
 
 /** batch 36.5: level 0–3; beds always 4 entries (bed k = tiles 6k…6k+5, one sprinkler socket); a field entry exists
  * only once that field's trait is rolled (shorter than fields.list before Lv2), so read it through survey.ts helpers */
@@ -344,6 +357,8 @@ export function createFreshRun(meta: MetaState, carry?: RunCarry): RunState {
     bagCapacity: BAG_CAPACITY_START,
     storageLevel: 0,
     vein: { level: 0, progress: 0, rock: 'stone' },
+    floor: { n: 1, deepest: 1, found: false, ...rollFloor(1, 0, null, FLOOR_SEED) },
+    minerZone: null,
     oreSort: {},
     keepN: false,
     oreKeep: {},

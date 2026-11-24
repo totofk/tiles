@@ -1,5 +1,5 @@
 // Pure: no DOM, no wall clock. The caller passes savedAtMs and elapsedMs in.
-import { OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MachineKind, type MineDropId } from '../core/balance'
+import { FLOORS_PER_ZONE, OFFLINE_CAP_TICKS, START_TILES, TANK_UNITS_PER_COAL, cropSeedCost, cropSellPrice, energyMax, fieldPlots, itemSellPrice, multiplier, orderTierStars, pickaxeDurability, plotTiles, pumpFieldCap, sellPrice, tankCapCoal, type MachineKind, type MineDropId } from '../core/balance'
 import { CROP_IDS, type CropId } from '../core/data/crops'
 import { PLAIN_LISTING, listingSeedFor } from '../core/listings'
 import type { ItemId, OreId, PickaxeTier } from '../core/data/items'
@@ -35,8 +35,9 @@ import {
   type Favours,
 } from '../core/state'
 import { step } from '../core/step'
+import { rollFloor } from '../core/mining'
 
-export const SAVE_VERSION = 36
+export const SAVE_VERSION = 37
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -46,7 +47,7 @@ type CropIdV32 = 'potato' | 'radish' | 'corn' | 'eggplant' | 'pumpkin' | 'tomato
 /** up to v32: no dig-find / relic lifetime counters */
 type LifetimeV32 = Omit<Lifetime, 'shardsFound' | 'starDustFound' | 'ancientSeedsFound' | 'relicsEver'>
 /** a v32 run: the live run without the finds, relics, reserve and survey, with the old lifetime and the 10-crop market */
-type RunV32 = Omit<RunState, 'finds' | 'relics' | 'energyReserve' | 'survey' | 'lifetime' | 'market'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
+type RunV32 = Omit<RunV36, 'finds' | 'relics' | 'energyReserve' | 'survey' | 'lifetime' | 'market'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
 const CROP_IDS_V26: readonly CropIdV26[] = ['radish', 'chilli', 'pumpkin', 'lemon', 'tomato', 'corn', 'grape', 'strawberry']
 /** up to v26: no fields grants, no dig-find / relic counters (batch 36.4) */
 type LifetimeV26 = Omit<Lifetime, 'fieldsGranted' | 'shardsFound' | 'starDustFound' | 'ancientSeedsFound' | 'relicsEver'>
@@ -300,7 +301,7 @@ type SaveV26 = { version: 26; savedAtMs: number; state: { meta: MetaV34; run: Ru
 /** v29: before the sale listings (batch 36.1) */
 type MetaV29 = Omit<MetaV34, 'listingSeed' | 'listingRerolls' | 'districtsPlayed'>
 /** v30: before the tree bed and the forge (batch 36.2); the old lifetime, the 10-crop market and no finds/relics/reserve/survey are frozen here (batches 36.4/36.5) */
-type RunV30 = Omit<RunState, 'tree' | 'forge' | 'lifetime' | 'market' | 'finds' | 'relics' | 'energyReserve' | 'survey'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
+type RunV30 = Omit<RunV36, 'tree' | 'forge' | 'lifetime' | 'market' | 'finds' | 'relics' | 'energyReserve' | 'survey'> & { lifetime: LifetimeV32; market: Record<CropIdV32, number> }
 type RunV29 = Omit<RunV30, 'listing'>
 /** v28: fractional ⭐ kept in starsFrac, offers paid ⭐ per production-minute, rerolls free of a counter */
 type RunV28 = Omit<RunV29, 'orders'> & { orders: Omit<Orders, 'rerolls'>; starsFrac: number }
@@ -312,15 +313,18 @@ type SaveV30 = { version: 30; savedAtMs: number; state: { meta: MetaV34; run: Ru
 type SaveV31 = { version: 31; savedAtMs: number; state: { meta: MetaV34; run: RunV32 } }
 type SaveV32 = { version: 32; savedAtMs: number; state: { meta: MetaV34; run: RunV32 } }
 /** v33: the live run without the survey (batch 36.5) */
-type RunV33 = Omit<RunState, 'survey'>
+type RunV33 = Omit<RunV36, 'survey'>
 type SaveV33 = { version: 33; savedAtMs: number; state: { meta: MetaV34; run: RunV33 } }
-type SaveV34 = { version: 34; savedAtMs: number; state: { meta: MetaV34; run: RunState } }
+type SaveV34 = { version: 34; savedAtMs: number; state: { meta: MetaV34; run: RunV36 } }
 /** v35 (frozen here: batch 36.8 added the hired-rigs array and the rig-fee accumulator to the live Machines) */
 type MachinesV35 = { harvester: number[]; seeder: number[]; carry: { harvest: number; plant: number; maint: number } }
-type RunV35 = Omit<RunState, 'fields'> & { fields: Omit<Fields, 'machines'> & { machines: MachinesV35 } }
+type RunV35 = Omit<RunV36, 'fields'> & { fields: Omit<Fields, 'machines'> & { machines: MachinesV35 } }
 type SaveV35 = { version: 35; savedAtMs: number; state: { meta: MetaState; run: RunV35 } }
-type SaveV36 = { version: 36; savedAtMs: number; state: GameState }
-export type Save = SaveV36
+/** v36 (frozen here: batch 37 gave the run the player's floor grid and the miners' zone pick) */
+type RunV36 = Omit<RunState, 'floor' | 'minerZone'>
+type SaveV36 = { version: 36; savedAtMs: number; state: { meta: MetaState; run: RunV36 } }
+type SaveV37 = { version: 37; savedAtMs: number; state: GameState }
+export type Save = SaveV37
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -951,16 +955,30 @@ function migrateV35(save: SaveV35): SaveV36 {
   return { version: 36, savedAtMs: save.savedAtMs, state: { meta, run: { ...run, fields: { ...run.fields, machines } } } }
 }
 
+// v36 → v37 (batch 37): the player's floor starts at the new zone's first floor — vein.level × 5 + 1, deepest = that
+// floor, the ladder unfound, the miners on Deepest (null). The grid rolls from a seed COPIED from run.rngState, so
+// the run's own stream never advances. Nothing granted, nothing taken away; the vein is untouched.
+function migrateV36(save: SaveV36): SaveV37 {
+  const { run } = save.state
+  const n = FLOORS_PER_ZONE * run.vein.level + 1
+  return {
+    version: 37,
+    savedAtMs: save.savedAtMs,
+    state: { meta: save.state.meta, run: { ...run, floor: { n, deepest: n, found: false, ...rollFloor(n, run.masteredTiers.length, run.favours.aim, run.rngState) }, minerZone: null } },
+  }
+}
+
 type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknown; run?: { tiles?: unknown } } }
 
 /** brings any known version up to the current Save; null for unknown or future versions */
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 36) return data as SaveV36
-  if (data.version === 35) return migrateV35(data as SaveV35)
+  if (data.version === 37) return data as SaveV37
+  if (data.version === 36) return migrateV36(data as SaveV36)
+  if (data.version === 35) return migrateV36(migrateV35(data as SaveV35))
   const v34 = toV34(data)
-  return v34 && migrateV35(migrateV34(v34))
+  return v34 && migrateV36(migrateV35(migrateV34(v34)))
 }
 
 /** v1 … v34 up to v34; null for anything else */
