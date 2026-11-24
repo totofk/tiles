@@ -122,16 +122,11 @@ describe('batch 36.1: listing soil', () => {
     // re-pinned batch 37 (plain 8.24→8.44 h; rootsFast left the loop): the diving hand press; task 255b sells stone
     // for the wooden-floor wood and task 255c adds the general repair reserve (plain 8.44→8.41 h; rootsFast is back
     // in the loop at 9.34 h = +11 %, berryFast 9.39 h)
+    // re-pinned batch 37.1 (plain 8.41→8.32 h, berryFast 9.39→9.33, rootsFast 9.34): 16 rocks per floor — more ore
+    // per floor lifts the bot's income; the fruitVegFast_rootsSlow 20-h it.fails is deleted (it reaches at 7.44 h:
+    // the higher mine income keeps cash above 0 at the 2nd hire, so the old bot deadlock no longer fires)
     for (const name of ['berryFast_fruitVegSlow', 'rootsFast_fruitVegSlow']) expect(Math.abs(hours[name]!.hours! / plain - 1)).toBeLessThanOrEqual(0.2)
   }, 300_000) // 4 ladder runs to the Tractor, ~8 s alone
-
-  // measured: the bot hires its 2nd water worker at 0.44 h, cash hits 💰0, the unpaid workers stop and the bot never
-  // waters by hand while a water worker is assigned — a bot deadlock (a player waters or unassigns), not a soil rule
-  // (PLAN.md "Batch 36.1 results" Deviations)
-  it.fails('PIN36a: fruit-veg fast / roots slow reaches the Fields unlock — measured: not within 20 game-h', () => {
-    const h = unlockHours().fruitVegFast_rootsSlow.hours
-    expect(h).not.toBeNull()
-  }, 300_000)
 
   // task 255b guard, PIN37c-style for the rootsFast soil: the wooden-floor wood must fit the bag — when it would not,
   // the bot sells stone for the room; without that rule buyWood failed every tick and mines froze at 7,012 (6.5→20 h).
@@ -321,7 +316,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // now sells stone for room before buyWood in the !sharp branch, and that branch fired in the forge's source run
     // re-pinned task 255c (was [46617, 81935, 81935, 82090, 81877]): the general repair reserve — the source run's
     // keeps now hold copper/iron bars, ore and coal for blunt-tier repairs, so `end` moves
-    expect(lemon).toEqual([46182, 83525, 83525, 83446, 83449])
+    // re-pinned batch 37.1 (was [46182, 83525, 83525, 83446, 83449]): 16 rocks per floor (FLOOR_ROWS 3 → 4) — more
+    // ore per floor before the re-roll shifts the ladder bot's `end`
+    expect(lemon).toEqual([46609, 83004, 83004, 82929, 83101])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -336,7 +333,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 37 (was [77304, 66926]): the diving hand press — see early.test.ts
     // re-pinned task 255b (was [75693, 65197]): same source-run move as the lemon row (sell-stone-for-room in !sharp)
     // re-pinned task 255c (was [77198, 66609]): the general repair reserve moves `end` again (see the lemon row)
-    expect(mixed).toEqual([77155, 66171])
+    // re-pinned batch 37.1 (was [77155, 66171]): 16 rocks per floor (FLOOR_ROWS 3 → 4) — more ore per floor before the
+    // re-roll shifts the ladder bot's `end` (see the lemon row)
+    expect(mixed).toEqual([77751, 66741])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -386,7 +385,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 36.6 task 235 (was [974, 11]): the T2+ home grow bonus ([984, 11]); task 236: the Estate grow bonus
     // re-pinned batch 37 (was [986, 11]): the diving hand press — see early.test.ts
     // re-pinned task 255c (was [996, 11]): the general repair reserve moves `end` (the repair smelts burn coal)
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([974, 12])
+    // re-pinned batch 37.1 (was [974, 12]): 16 rocks per floor — the miner's coal and the furnace's burn shift
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([982, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -828,10 +828,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // floor and grow bonus 4/20, so the top of the curve drops; 100 tiles (2 fields) gain the Estate grow bonus
     // re-pinned batch 37 (285→284, 649→655): the diving hand press — see early.test.ts
     // re-pinned task 255c (81→82 / 284→283, 655→649, 599→603): the general repair reserve moves `end`
+    // re-pinned batch 37.1 (82→80 / 283→284, 649→650, 603→602): 16 rocks per floor moves the source run's `end`
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [82, 283],
-      [81, 649],
-      [82, 603],
+      [80, 284],
+      [80, 650],
+      [80, 602],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
     // re-pinned batch 28 (was null / 1.6 / 68.1 / null at 300 tiles); batch 28.1 (was 0.8 / 17.8 / 276.7 / 153.6);
@@ -848,9 +849,11 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // re-pinned task 255c (489.2 → 220.9): the reserve shifts the ladder bot's `end`, and this marginal is
     // incomeAt(h12) − incomeAt(h1) — two near-equal forged incomes, so their small difference doubles (511 → 1132
     // at 💰250,000 / delta) and the payback halves; the curve rows above move < 1 %
+    // re-pinned batch 37.1 (220.9 → null): 16 rocks per floor moves `end` again — the same two near-equal forged
+    // incomes flip sign (delta 1132 → −73), so harvester2 adds nothing at 300 tiles (no payback)
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', 0.4],
-      ['harvester2', 220.9],
+      ['harvester2', null],
       // re-pinned batch 35 (was 4545.5): crop re-ladder: potato start, carrot licence 💰25 — harvester3 adds nothing at
       // 300 tiles now (no payback)
       ['harvester3', null],

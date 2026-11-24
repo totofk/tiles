@@ -131,7 +131,8 @@ describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
     // re-pinned batch 35 (was 💰14,470/h): crop re-ladder: potato start, carrot licence 💰25 — the cash part stays 💰6,500
     // re-pinned batch 37 (was 💰14,192/h): the diving hand press — see early.test.ts; the rule's cash part stays 💰7,000
     // re-pinned task 255c (was 💰13,786/h): the reserve shifts the ladder bot's first vein-Lv3 hour — see early.test.ts
-    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 13753, cash: 6500 })
+    // re-pinned batch 37.1 (was 💰13,753/h): 16 rocks per floor — see early.test.ts; the rule's cash part stays 💰7,000
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 13647, cash: 6500 })
     for (const kind of MINE_DROP_IDS) {
       expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
       expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
@@ -632,9 +633,10 @@ describe('batch 29: manager', () => {
  */
 
 describe('batch 37: the ladder bot dives — floors (PIN37a/b/c)', () => {
-  // the parent's numbers: Fields unlock 8.24 h measured on 60e7168 (this session, plain soil); Hermes's probe on
-  // e9590304 gave 7.65 h. Seal rungs 0.23 / 0.50 / 1.51 / 4.44 h are Hermes's e9590304 values.
-  const PARENT_FIELDS_H = 8.24
+  // the parent's numbers: Fields unlock 8.41 h (batch 37's final plain value, 12a1851; 8.24 on 60e7168 before it);
+  // Hermes's probe on e9590304 gave 7.65 h. Seal rungs 0.23 / 0.50 / 1.51 / 4.44 h are Hermes's e9590304 values.
+  // batch 37.1 re-bases the parent to 8.41 (task 260): the 4×4 grid itself moves the measured run, not the baseline
+  const PARENT_FIELDS_H = 8.41
   const PARENT_SEAL_H: Record<string, number> = { veinLv1: 0.23, veinLv2: 0.5, veinLv3: 1.51, veinLv4: 4.44 }
   let memo: { ladderTicks: ReturnType<typeof runBot>['ladderTicks']; fieldsAt: number | undefined; sealH: Record<string, number | null>; stalledAt: number | null } | null = null
   /** one plain-soil ladder run of 20 game-hours, shared by all three pins */

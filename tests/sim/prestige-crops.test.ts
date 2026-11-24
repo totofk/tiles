@@ -167,12 +167,14 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 37 (was 1.69): the diving hand press — see early.test.ts
     // re-pinned task 255c (was 1.73): the reserve un-wedges run 1's iron tier, so its field unlock comes sooner and
     // the plain/vault gap narrows (run 1's harvester3 also 105.8 → 105.5 below)
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.67)
+    // re-pinned batch 37.1 (was 1.67): 16 rocks per floor lifts every run's mine income — see early.test.ts
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.71)
     // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
     // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2); task
     // 236 (was 1.24): the Estate grow bonus / 4-field share
     // re-pinned task 255c (was 1.42): the sold-run replay shifts with the reserve — see early.test.ts
-    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.45)
+    // re-pinned batch 37.1 (was 1.45): 16 rocks per floor — see early.test.ts
+    expect(Math.round((run1Fields / run2Fields) * 100) / 100).toBe(1.43)
   })
 
   // batch 34 (task 187 scenario A-carry): run 2 started with the ⭐50 a sale now carries — the ladder bot buys no
@@ -219,7 +221,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // bonus; task 236: the Estate grow bonus / 4-field share ([124.1, 123.4]); task 237: the deed buy order (the keeps act)
     // re-pinned batch 37 (was [124.1, 123.1]): the diving hand press — see early.test.ts
     // re-pinned task 255c (was [124.6, 123.5]): the reserve shifts the sold-run replays — see early.test.ts
-    expect(h).toEqual([124.5, 123.9])
+    // re-pinned batch 37.1 (was [124.5, 123.9]): 16 rocks per floor — see early.test.ts
+    expect(h).toEqual([124.5, 123.6])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -310,7 +313,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 37 (was [0.49, 0.56, 0.34, 0.37]): the diving hand press — see early.test.ts
     // re-pinned task 255c (was [0.51, 0.56, 0.33, 0.38]): the reserve shifts the run's sell pattern — the income at
     // grape's unlock rises 45.5k → 48.7k and strawberry's 57.9k → 75.7k (PIN22), so their h-ratios drop
-    expect(band.map((b) => b.h)).toEqual([0.51, 0.56, 0.31, 0.29])
+    // re-pinned batch 37.1 (was [0.51, 0.56]): 16 rocks per floor — tomato's income rises to 💰14,266 and lemon's to
+    // 💰18,589 at unlock, so their h-ratios drop (PIN22)
+    expect(band.map((b) => b.h)).toEqual([0.49, 0.54, 0.31, 0.29])
     for (const b of band) expect(b.h).toBeLessThanOrEqual(1.5)
   })
 
@@ -371,7 +376,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // keeps act)
     // re-pinned batch 37 (was [105.5, 74.3]): the diving hand press — see early.test.ts
     // re-pinned task 255c (was [105.8, 74.6]): the reserve un-wedges run 1's iron tier — see early.test.ts
-    expect(h).toEqual([105.5, 74.6])
+    // re-pinned batch 37.1 (was [105.5, 74.6]): 16 rocks per floor — see early.test.ts
+    expect(h).toEqual([105.6, 74.5])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

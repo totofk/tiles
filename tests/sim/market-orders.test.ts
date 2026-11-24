@@ -200,12 +200,13 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     // re-pinned batch 35 (was 7014 / 6468 off, 6839 / 6468 on, market-on storage Lv2 951): crop re-ladder: potato
     // start, carrot licence 💰25
     // re-pinned batch 37 (was 5356 / 6713): the diving hand press — the bar chain comes sooner (see early.test.ts)
-    expect(ladder.finalCash.before).toBe(6697)
-    expect(ladder.mineCertificate.before).toBe(6601)
+    // re-pinned batch 37.1 (was 6697 / 6601 off, 5444 / 6601 on): 16 rocks per floor — see early.test.ts
+    expect(ladder.finalCash.before).toBe(7171)
+    expect(ladder.mineCertificate.before).toBe(6592)
     // re-pinned batch 37 (was 5738): the diving hand press — see early.test.ts
-    expect(ladder.finalCash.after).toBe(5444)
+    expect(ladder.finalCash.after).toBe(6505)
     // re-pinned batch 37 (was 6626): the diving hand press — see early.test.ts
-    expect(ladder.mineCertificate.after).toBe(6601)
+    expect(ladder.mineCertificate.after).toBe(6592)
     // re-pinned batch 37 (was 1269): the diving hand press — see early.test.ts
     expect(ladderOn.ladderTicks.storageLv2).toBe(1251)
   })
@@ -223,7 +224,8 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     // re-pinned batch 35 (was [34, ['certMine', 6468], ironPickaxe 1221]): crop re-ladder: potato start, carrot licence
     // 💰25 — two more rows (the potato milestones), the longest gap 21.5 game-min, under the cap
     // re-pinned batch 37 (was ['certMine', 6713], ironPickaxe gap 1290): the diving hand press — still 21 game-min, under the cap
-    expect([reached.length, reached.at(-1), longest]).toEqual([36, ['certMine', 6601], { id: 'ironPickaxe', gap: 1263 }])
+    // re-pinned batch 37.1 (was ['certMine', 6601], ironPickaxe gap 1263): 16 rocks per floor — see early.test.ts
+    expect([reached.length, reached.at(-1), longest]).toEqual([36, ['certMine', 6592], { id: 'ironPickaxe', gap: 1266 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
@@ -306,19 +308,22 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     // the water and plant certificates sooner
     // re-pinned batch 37 (was plant 80.7, water 27.5, harvest 58.6 / 59.6, ore 40.6 / 50.6, fuel 60.6, mine 85.6 / 116):
     // the diving hand press — see early.test.ts
+    // re-pinned batch 37.1 (was plant 81.5, water 29.1, harvest 58.5, ore 41.4 / 51.6, fuel 61.4 / 61.6, mine 86.5 /
+    // 116.7): 16 rocks per floor — see early.test.ts
     expect(certificates).toEqual({
-      plant: { unlocked: 52.5, bought: 81.5 },
-      water: { unlocked: 17.2, bought: 29.1 },
-      harvest: { unlocked: 58.5, bought: 58.7 },
-      ore: { unlocked: 41.4, bought: 51.6 },
-      fuel: { unlocked: 61.4, bought: 61.6 },
-      mine: { unlocked: 86.5, bought: 116.7 },
+      plant: { unlocked: 52.5, bought: 79.6 },
+      water: { unlocked: 17.2, bought: 31.1 },
+      harvest: { unlocked: 58.2, bought: 58.7 },
+      ore: { unlocked: 39.6, bought: 49.6 },
+      fuel: { unlocked: 59.6, bought: 59.6 },
+      mine: { unlocked: 84.7, bought: 114.8 },
     })
     // re-pinned batch 33 (was mine bought 104.7; [13529, certPlant 764]): molds: every kind smelts at once — the iron
     // mold's 💰6,500 comes before the iron pickaxe and the mine certificate
     // re-pinned batch 35 (was [5818, ironPickaxe 1206]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was [6181, ironPickaxe gap 1221]): the diving hand press — see early.test.ts
-    expect([ladder.finalCash, longest]).toEqual([6055, { id: 'ironPickaxe', gap: 1215 }])
+    // re-pinned batch 37.1 (was [6055, ironPickaxe gap 1215]): 16 rocks per floor — see early.test.ts
+    expect([ladder.finalCash, longest]).toEqual([5932, { id: 'ironPickaxe', gap: 1209 }])
   })
 
   it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {
