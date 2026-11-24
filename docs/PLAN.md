@@ -223,9 +223,9 @@ bars Keep N into milestone upgrades (open item, own decision).
   301.2→308.1, :320 veinPhase {33.2,14601}→{30.4,16012}, :333 goldPhase {102.9,17340,8}→{108.2,16570,7}, :342
   84467→84018, :477 gaps→[24.2,23.8,0.1,21.4,1.4,38.4], :480 incomes→[22290,26272,29555], :482 564749→559499, :503
   0.298→0.305; fields.test.ts :320 [77304,66926]→[75693,65197], :828 harvester2 null→489.2. rootsFast left the PIN36a
-  ±20 % loop (measured at 20 h: 💰145,805 = 14× the price, 7,012 mines, energy 10 — slow, not stalled) and joined
-  fruitVegFast as a measured it.fails. No blocker fired: no stall, no negative cash/items, no migration key loss, no
-  storage-capacity price guard.
+  ±20 % loop and joined fruitVegFast as a measured it.fails — a WRONG ruling, caught by Hermes's verify (see 255b/255c
+  below: it was stalled, not slow; the 20-h numbers 💰145,805, 7,012 mines, energy 10 were the stall's frozen state).
+  No blocker fired: no stall, no negative cash/items, no migration key loss, no storage-capacity price guard.
 - 256 (d3bfa6d): Mine card UI — 1399/8 unchanged, +13 jsdom tests (125 green across the six touched files). Five old
   vein tests re-pinned to the seal UI (same prices), Dig → ⛏️ Mine next, the flash on .mine-miners, Upgrades zone span,
   badges vein@ at a found floor-5 seal (breakSeal ok), WorkersCard 'Iron zone' gate, FavoursSection seam lock, stats
@@ -237,12 +237,51 @@ bars Keep N into milestone upgrades (open item, own decision).
 - 258 (this commit): results + ticks; final counts 1412 total = 1399 passed + 8 expected fail + 5 load flakes (relics
   PIN36l ×2, PIN36o, two App badge tests — all 5 s timeouts at 5–20 s under the full suite, all green on the quiet
   rerun, same class as the task-255 PIN36l flake).
+- 255b (0af31b5): the rootsFast stall was real — Hermes's verify: counters.mines frozen at 7,012 from 6.5 h to 20 h,
+  bag 49/50, and the bot sold stone only at an exactly-full bag, so buyWood failed every tick and mineOnce returned
+  false forever. Fix: in the !sharp branch the bot sells stone for the room before buyWood (bagCount + need >
+  bagCapacity); new PIN37c-style guard in fields.test.ts — unlockHours() tracks a mine-stall per soil (counters.mines
+  must rise in every 2-game-h window once mining starts), RED (rootsFast's mineStall true on the unfixed bot) → GREEN.
+  Re-pins (the !sharp sell fired in other source runs): fields PIN18b lemon [46995, 82325, 82325, 82316, 82562]→[46617,
+  81935, 81935, 82090, 81877], mixed [75693, 65197]→[77198, 66609]; tools-workshop incomeAfter 29555→31697, finalCash
+  559499→593341, coal 480→651. Sim scope 158 + 5 expected fail; lint, build, tsc -b --force clean; dist deleted.
+- 255c (e0df57e): the second freeze, traced — verdict (a) BOT policy bug, not a game soft lock. With 255b in, mining
+  resumed but the ladder froze at the veinLv4 seal for 18 h: copper bars smelted frozen at 65 from 2 h — the mold
+  never loaded, because the veinLv3/4 goal keeps dropped copperOre and smeltCoalJobs loads a mold only when the keep
+  lists its kind — so the blunt copper tier had no bars banked to repair, the wooden pickaxe stayed the only sharp
+  tier, and ironOre (ROCK_PICKAXE tier 'copper') came back as stone. The game path was always open (copper ore needs
+  no pickaxe tier; mold, coal, furnace present), so no game rule or balance number moved. Fix: repairReserveShort(s,
+  kind) generalizes batch 21/32's goldReserveShort to every pickaxe tier (short while the tier is owned, banked bars
+  (bag + its mold's tray) under its repair cost, and a sharp tier can still mine the repairing ore — the batch-32
+  canMine rule kept), mergeReserve max-merges the reserve chain into the goal keep, and keepOf(g) wraps every keep
+  read in mineOnce (surplus selling + the smelt signal); gold keeps stay with repairSafe's own goals. The copper-only
+  twin first regressed plain (fields unlock null at 20 h — the iron twin of the same wedge at the goldPickaxe goal),
+  which forced the general form. rootsFast is back in the PIN36a ±20 % loop (its 20-h it.fails deleted): plain
+  8.44→8.41 h, rootsFast 9.34 h = +11 %, berryFast 9.39 h; PIN37a 8.41 h (parent 8.24, inside ±20 %), PIN37b
+  0.23/0.50/1.51/4.44 h unchanged, PIN37c and the 255b mineStall guard green. Every moved sim number re-pinned
+  old → new, one cause — the reserve shifts the runs' sell/smelt pattern: fields PIN18b lemon →[46182, 83525, 83525,
+  83446, 83449], mixed →[77155, 66171], PIN18e [996, 11]→[974, 12], PIN19b curve [[81, 284], [81, 655], [81,
+  599]]→[[82, 283], [81, 649], [82, 603]], harvester2 489.2→220.9 (incomeAt(h12) − incomeAt(h1), two near-equal
+  forged incomes on the shifted `end`: difference 511→1132 at 💰250,000); early batch-7 cash 5546→5591, sales
+  453→475 (rngState and every other counter unchanged — a sell choice, not a PRNG move); tools-workshop batch-16
+  steps →[243.5, 244.6, 274.1, 324, 351.1, 383.4], gaps →[1.1, 29.5, 49.9, 27.1, 32.3], firstGoldBar 308.1→312,
+  vein phase {30.4, 16012}→{30.6, 16152}, gold phase {108.2, 16570}→{109.3, 16426}, cash-part 0.468→0.464, finalCash
+  84018→87061; batch-17 steps →[379.6, 401, 423.6, 424.1, 443.9, 444.2, 484.4], gaps →[21.5, 22.6, 0.5, 19.8, 0.3,
+  40.2], incomes →[22450, 27398, 31850], finalCash 593341→597148, workshop part 0.381→0.379, sprinkler part
+  0.305→0.292, coal [651, 7]→[648, 7]; mine-estate ORE_SORT 13786→13753; prestige speedup 1.73→1.67 and 1.42→1.45,
+  sold-run harvester3 [124.6, 123.5]→[124.5, 123.9], band →[0.51, 0.56, 0.31, 0.29] (grape 45.5k→48.7k, strawberry
+  57.9k→75.7k income at unlock), run1 harvester3 [105.8, 74.6]→[105.5, 74.6]. Final counts 1412 total = 1404 passed +
+  7 expected fail + 1 load flake (PIN28perf-class, 2,371 ms under the full suite, green on the quiet rerun — same
+  class as PIN36l/o). Gates: lint clean, build clean, tsc -b --force clean after rm of the two stale tsbuildinfo;
+  dist deleted.
 
 ### Deviations
 
 - Full-suite run once (450 s) + quiet reruns of the flaked files; per-iteration test runs used `pnpm test <files>`
   (the script is `vitest run` and forwards file filters) instead of the full suite each time — the full suite stayed
-  the gate before every commit.
+  the gate before every commit. Same pattern in the 255b/255c leg (11 file-scoped runs in sim-logs/255c-run*.txt);
+  the flake class extended to PIN28perf (2.7–3.4 s under the parallel sim scope, 2,371 ms under the full suite —
+  green on every quiet single-file rerun).
 - The blocked-at-floor-25 line reads "The way down is blocked — deeper zones come later" (plan sketched it with an
   ellipsis); the seal/price/flavour copy elsewhere is as pinned.
 - Unverified UI widths: the 4×44 px grid + 3 gaps vs the 344 px column at 375 is pinned only in app.css text
