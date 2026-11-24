@@ -25,12 +25,22 @@ import {
   mineHits,
   moistureDrainPerTick,
   digSeedDrop,
+  FLOOR_COLS,
+  FLOOR_ORE_GRADIENT,
+  FLOORS_PER_ZONE,
+  FLOOR_ROWS,
+  floorWeights,
+  floorZone,
+  MINE_BOTTOM_FLOOR,
   multiplier,
   oreBar,
   pickaxeDurability,
   preserveChance,
+  sealFloor,
   tileCost,
   upgradeCost,
+  veinWeights,
+  zoneFirstFloor,
 } from '../src/core/balance'
 import { buySeeds } from '../src/core/actions'
 import { buyWood } from '../src/core/mining'
@@ -226,6 +236,36 @@ describe('batch 36.3: PIN36i the barge never buys below sell', () => {
         const meta: MetaState = { ...base, upgrades: { ...base.upgrades, sellPrice: sellDeed, cost: costDeed } }
         for (let level = 0; level <= 30; level++)
           for (const id of BARGE_ITEMS) expect(bargePrice(id, meta, level)).toBeGreaterThan(itemSellPrice(id, meta, level))
+      }
+  })
+})
+
+describe('batch 37: floor numbers (zones of 5 floors)', () => {
+  it('the constants: a 4×3 grid, 5 floors per zone, bottom 25, gradient 0.05', () => {
+    expect([FLOOR_COLS, FLOOR_ROWS, FLOORS_PER_ZONE, MINE_BOTTOM_FLOOR, FLOOR_ORE_GRADIENT]).toEqual([4, 3, 5, 25, 0.05])
+    expect(MINE_BOTTOM_FLOOR).toBe(FLOORS_PER_ZONE * 5)
+  })
+
+  it('floorZone: 1/5 stone, 6 coal, 21/25 gold, clamped past the bottom', () => {
+    expect([1, 5, 6, 21, 25].map(floorZone)).toEqual([0, 0, 1, 4, 4])
+    expect(floorZone(99)).toBe(4)
+  })
+
+  it('zone first floors 5z+1 and seal floors 5z', () => {
+    expect([0, 1, 2, 3, 4].map(zoneFirstFloor)).toEqual([1, 6, 11, 16, 21])
+    expect([1, 2, 3, 4].map(sealFloor)).toEqual([5, 10, 15, 20])
+  })
+
+  it("a zone's first floor (21) keeps the old vein table exactly; floor 25's ores × 1.2", () => {
+    expect(floorWeights(21, 2, null)).toEqual(veinWeights(4, 2, null))
+    expect(floorWeights(25, 0, null).goldOre).toBeCloseTo(0.08 * 1.2, 12)
+  })
+
+  it('stone absorbs the gradient: no weight goes negative on any floor, even mastered 3 with an aim', () => {
+    for (let n = 1; n <= MINE_BOTTOM_FLOOR; n++)
+      for (const aim of [null, ...ORE_IDS] as const) {
+        const weights = floorWeights(n, 3, aim)
+        for (const id of Object.keys(weights) as ItemId[]) expect(weights[id]!).toBeGreaterThanOrEqual(0)
       }
   })
 })
