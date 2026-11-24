@@ -1555,3 +1555,26 @@ Hermes's calls:
 3. The desktop rock-slot size (≈ 96 px at ≥ 1024) ships here because it is the same grid CSS; the 3-section layout is a
    separate UI batch.
 4. CHANGELOG line (81 code points, Hermes's wording).
+
+## Batch 38 refined (2026-11-24, the 3-section screen; UI only, save stays v38)
+Source: Toon in Discord thread 1573749154092679272 (2026-11-24): "main เราจะแบ่ง screen section เป็น 3 ส่วน — detail info
+energy bar / game main view … สามแทป (farm/estate/mine) / side menu (mobile hamburger menu) … farm info, shop, upgrade,
+bank". Superdesign mockups approved ("โอ้ผมว่าโอเคนะ"): project bed5c4f3-35b4-4cd4-909e-28b8ea913085, mobile draft
+47b495d7-659d-462c-9a52-26f1dadd9a1f, desktop draft e7e09d5e-0901-43d9-9cf2-0e244c323968 (version 2). The mockup is the
+structure; the game's tokens and components stay (no mockup CSS imported). Go: "ปล่อย 38" with no rejections, so
+Hermes's calls below ship as written. Worker: GLM glm-5.3 via z.ai.
+- C1. Desktop shows ONE main view at a time too (as the approved mockup): Mine and Farm are no longer side by side.
+- C2. The 🌾 Farm menu tab exists at every width; the phone 📋 Orders · Workers · Workshop sheet goes away.
+- C3. Tools (Water/Harvest/Plant… bar) + the "Planting:" line stay beside the grid on the Farm main view, not in the menu
+  (playfield actions; the mockup did not draw the phone Farm view).
+- C4. The drawer uses the same tab row as the desktop menu (icons, the open tab named), not the mockup's accordion list —
+  one component, and a long Shop list does not sit under four collapsed rows.
+- C5. Tablets (768–1023) get the desktop's tab row above the main view + the phone's drawer.
+- C6. Desktop menu always open; the 1024–1439 collapse toggle goes (the main view already has the width).
+- C7. Surface's "both stops at once" mode on very wide columns goes; Farm and Estate are separate tabs everywhere.
+- C8. HUD unchanged (wages/rates stay in the HUD on ≥ 768 and in the 👷 title on phones); the mockup's Bank sub-line is
+  not built.
+- C9. No new ⚙️ Settings tab (reset / data stay where they are today).
+- C10. Mine content centred at max 760 px on desktop.
+- C11. Locked-row style: grayscale + 0.7 opacity (est.), tuned in Hermes's live check.
+- C12. Worker GLM (z.ai), --max-turns 300, resume leg expected; UI batches ran fine on GLM (36.7).

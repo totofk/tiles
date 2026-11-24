@@ -52,7 +52,7 @@ no branch ceremony yet).
 
 ## Archive
 Finished batches live in `docs/archive/PLAN-history.md`: every batch plan, `## Batch N results` and `### Deviations`
-for batches 1–37, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
+for batches 1–37.1, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
 `PLAN.md:N` citation from before 2026-11-14 points at the same line there. References like PLAN.md "Batch 24 results"
 in tests and `docs/DECISIONS.md` resolve there too.
 
@@ -63,132 +63,79 @@ cites, or `grep -n '^## Batch N'` and read that range.
 New batch plans are appended below, and workers write `## Batch N results` + `### Deviations` at the end of this file.
 After a batch is pushed, Hermes moves its plan and results to the end of the archive.
 
-## Batch 37.1 — ⛏️ The floor grid becomes 4 × 4 (tasks 259–261, save v37 → v38)
+## Batch 38 — 🖥️ Three sections: top bar, one main view (🌱 Farm / 🚜 Estate / ⛏️ Mine), side menu (tasks 262–267, save stays v38)
 
-Why: Toon after batch 37 (Discord thread 1573749154092679272, 2026-11-24): "4x4 ดีกว่า 4x3 มันน้อยไปบวกไม่สมมาตรแฮะ"
-(4 × 3 is too few rocks and not symmetric). Rows still open one at a time, top first; the ladder still hides under one
-rock, uniform. Expected rocks broken to find it = (N + 1) / 2 = 6.5 → 8.5 (computed). No other rule or number changes.
+Why: Toon (2026-11-24): the screen is three parts — the existing top bar (energy, cash, ⭐, workers); one game main view
+with tabs Farm / Estate / Mine; a side menu (☰ on phones) holding the old tabs: farm info (what to plant, orders,
+workers…), 🛒 Shop, ⬆️ Upgrades, 🏦 Bank, 📊 Stats. Today the three are mixed: the phone tab bar holds 6 entries (main
+views + menu pages), tablets show Mine + Farm side by side with a slide-over, desktop shows Mine | Farm | panel at once,
+and the Estate is a "stop" inside the Farm column. Playtest question: is one big main view + a menu easier to read and
+play than three columns? Also gives the Mine its width: the rock slots reach 96 px at 1440 (today 69 px, live check
+after 37.1).
 
-Hard guards (blockers: record under `### Deviations` and stop, never tune): PIN37a Fields unlock within ±20 % of the
-parent 12a1851's 8.41 h; the rootsFast/berryFast PIN36a loop stays green; PIN37c and the mineStall guard stay green;
-no negative cash/items; every fixture migrates; a migration never takes value away (no rock progress lost).
+Hard guards (blockers: record under `### Deviations` and stop): no game rule, balance number or save change
+(SAVE_VERSION stays 38; src/core and src/save untouched); every action reachable today stays reachable at 375 / 768 /
+1024 / 1440 (list them in the results); no sideways scroll at 375; every tappable control ≥ 44 px; emoji ≤ Unicode 11.
 
-Anchors: measured on 12a1851 (origin/main after batch 37). Context: `docs/DECISIONS.md` "Batch 37.1 refined".
+Anchors: measured on ca1d5e3 (origin/main after batch 37.1). Context: `docs/DECISIONS.md` "Batch 38 refined".
 
-## Tasks (259–261)
+## Words
+main view = the one playfield on screen (🌱 Farm = the home grid, 🚜 Estate = the fields surface, ⛏️ Mine, or 🌊 River on
+a Wetlands run); menu = the side menu (today's panel); main tabs = the three view buttons.
 
-- [x] 259. **Save v38: the current floor gains its 4th row.** Commit FIRST.
-  - `src/core/balance.ts:179` `FLOOR_ROWS = 3` → `4` (`FLOOR_COLS` stays 4). `rollFloor` (src/core/mining.ts:81–93),
-    `openRow` (:245–250), `mineRock` (:259–300) and Mine.tsx read the constants — grep every literal `12` that means
-    "rocks per floor" in src/ and tests/ and replace it with `FLOOR_COLS * FLOOR_ROWS`.
-  - `src/save/serialize.ts`: SAVE_VERSION 37 → 38 (:40); freeze `RunV37`/`SaveV37` (today `SaveV37 = {…state:
-    GameState}` :326 — freeze the floor shape as 12 rocks); `migrateV37` after `migrateV36` (:961): KEEP the 12 saved
-    rocks exactly (kind, hits, broken), the ladder index, `found`, `n`, `deepest`; APPEND 4 rocks rolled from the
-    floor's own `floor.rng` with `floorWeights(n, run.masteredTiers.length, run.favours.aim)` (the same draw
-    `rollFloor` makes) and store the advanced `floor.rng`; `run.rngState` and `run.vein` untouched. Edge: if all 12
-    were broken the 4 new rocks are the open row (correct by `openRow`). Chain migrateV37 on every branch of `migrate`
-    (:974–981).
-  - Fixture `tests/fixtures/save-v37.json` is ALREADY committed (the v36 fixture migrated and re-saved by the live v37
-    build D4nGeh8p: floor 21, 12 rocks, vein Lv4). Never edit tests/fixtures. Tests: it lands on v38 with its 12 rocks
-    deep-equal + 4 appended unbroken rocks, ladder/found/n unchanged; a hand-built v37 save with hits on rocks keeps
-    every hit; every fixture v1…v37 lands on v38 with 16 rocks; same input → same 4 rocks.
-  - Re-pins: round trip 38, future 39 (tests/save.test.ts:598–599), `SAVE_VERSION` 38 (:1141), App "Will migrate v15 →
-    v38" (tests/App.test.tsx:489), balance pin [4, 4, 5, 25, 0.05] (tests/balance.test.ts:245), every
-    `toHaveLength(12)` on a floor → 16 (tests/mining.test.ts:752/:848/:882, tests/save.test.ts:1885/:1900), the
-    Mine.test.tsx hand-built floor helper (:38) → 16 kinds.
-- [x] 260. **Ladder pin + sims.** tests/mining.test.ts:759–762 "mean rocks to the ladder 6.5 ± 0.3" → 8.5 ± 0.3
-  (2,000 seeds). Run `pnpm test`; every moved sim number: re-pin old → new with the one cause (16 rocks per floor:
-  more presses per floor before the ⬇️, more ore per floor). PIN37a: set `PARENT_FIELDS_H` (tests/sim/mine-estate.test.ts
-  :637) to 8.41 (12a1851) and report the new value; PIN37b seal hours reported old → new. A guard failure = blocker.
-- [x] 261. **UI + CHANGELOG + results.** The grid shows 4 rows (CSS `.floor-grid` app.css:1233–1245 — rows from the
-  constant, no fixed 3-row height; each rock ≥ 44 × 44 at 375; at ≥ 1024 the rock slots grow to ≈ 96 px squares
-  with the ore emoji ≈ 40 px and the hit counter on its own line under the emoji, grid centred ≈ 408 px wide — Toon:
-  "desktop mine slot มันเล็กไปนะ"). Status line "Row 1/4". jsdom: 16 cells, rows 2–4 disabled on a fresh floor, the
-  class names exist in app.css. CHANGELOG: ONE entry at the top of `CHANGELOG` (src/app/changelog.ts), exactly:
-  `⛏️ Mine floors are now 4×4: 16 rocks per floor, and bigger rocks on wide screens.` Then `## Batch 37.1 results` +
-  `### Deviations` at the true end of docs/PLAN.md (tests before → after, SHAs per task, PIN37a/b old → new, every
-  re-pin with cause, the v37 fixture's v38 check, unverified widths).
+## Tasks (262–267)
 
-Not in this batch: the 3-section screen layout (its own UI batch after Toon approves the Superdesign mockups).
+- [ ] 262. **UI state: one main view.** `src/app/uiState.ts:8–14`: `View = 'farm' | 'estate' | 'mine'` (the old 'panel'
+  view is gone). `parseUi`: an old `view: 'panel'` → `'farm'`; an old `stop: 'estate'` with `view: 'farm'` → view
+  `'estate'`. `stop` and `collapsed` leave UiState (a stored value is ignored, never an error). New transient App state
+  `menuOpen` (not saved, starts closed). tests/uiState.test.ts: every old shape parses (pin each mapping).
+- [ ] 263. **App layout (src/app/App.tsx:53–298 + app.css :29–289).**
+  - Markup order: `.top` (HUD + ☰ button + banners), `.main-tabs` (the three main tabs), the main view (only the
+    selected one is rendered: `<FarmGrid>` with the planting line + Tools for 🌱 Farm, `<Surface>` on the Estate stop
+    for 🚜 Estate, `<Mine>` for ⛏️ Mine), `<aside className="menu">` (today's `.panel`, renamed), toast.
+  - 🚜 Estate tab exists only after the Tractor (`state.run.fields.unlocked`); before it the bar shows 🌱 Farm and ⛏️
+    Mine. A remembered 'estate' without the Tractor shows Farm. On a Wetlands run the Mine tab reads `🌊 River` (as
+    App.tsx:139). The Tractor's first-time pull-back (Surface.tsx `pulledBack`) now switches the main tab to Estate.
+  - Phones (< 768): main tabs = the fixed bottom bar (`.tabbar`, 3 or 2 buttons, today's style); ☰ at the right end of
+    the top bar; the menu is a drawer from the right, `width: min(85vw, 380px)`, over a dimmed scrim (`.menu-scrim`, a
+    tap closes), ✕ in the drawer head (≥ 44 × 44), Esc closes. The top bar stays one row (rates and clock are already
+    hidden < 768, app.css:143–149).
+  - Tablets (768–1023): main tabs as a tab row at the top of the main view (`.main-tabs`, like the desktop mockup's
+    segmented control); ☰ + the same drawer (today's slide-over rules :202–234 move to `.menu`).
+  - Desktop (≥ 1024): two columns `minmax(0, 1fr) clamp(300px, 26vw, 480px)` (main | menu), the menu always open, no ☰,
+    no collapse toggle (`.panel-toggle` and `.panel-collapsed` rules :253–263 deleted). The main view's content is
+    centred with `max-width: 760px` for ⛏️ Mine (cards do not stretch to 1000 px); the Farm grid and Estate keep their
+    own sizing (`.farm-fit`, container queries).
+  - The 📋 sheet (App.tsx:50–51, :199–206, :288–295) and the `!farmTab` fallbacks (:185–243: planting line + Tools in
+    the farm column on phones, Orders / Workers / Workshop / SoilTraits / Fields / DigSeeds under the grid) are deleted:
+    the menu's 🌾 Farm tab now exists at every width (`farmTab` true everywhere; PANEL_TABS keeps 🌾 Farm, App stops
+    filtering it, App.tsx:69).
+  - Tools placement (C3): the planting line + Tools bar stay with the grid on the 🌱 Farm main view at every width; the
+    menu's 🌾 Farm tab drops `<Tools>` (Farm.tsx:163) and keeps LegacyChip, Orders, crop picker, seed pouch, DigSeeds,
+    Workers, Workshop, SoilTraits, Fields.
+  - Surface (src/app/Surface.tsx): its stop comes from the main tab (no internal stop buttons), the `both` mode
+    (:44–78, both stops at once on a wide column) is removed; the FLIP between the stops stays for the tab switch.
+    `openEstate` (App.tsx:42–45) = select the Estate main tab (+ close the drawer).
+- [ ] 264. **Badges (App.tsx:72–89, badges.ts).** `onScreen`: shop / upgrades / farm = the menu is visible (desktop
+  always; else `menuOpen`) and that menu tab is selected; mine = the Mine main view is selected. Dots: on each menu tab
+  (as today, `.badge-dot` at the ICON's top-right corner, not over the label) and on the ☰ when any menu tab has news;
+  the Mine main tab carries the mine dot. jsdom pins: dot on ☰ while closed, cleared after opening that tab.
+- [ ] 265. **Mockup leftovers as rules (Hermes's v2 review).**
+  (a) the drop-odds line (`.vein-drops`, app.css :1290–1297 area) wraps whole items, never `14 / %`, no sideways scroll
+  at 375; (b) locked rows (`.rock-off`) keep the ore readable: replace `opacity: 0.45` with `filter: grayscale(0.6);
+  opacity: 0.7` (est.) so ⚫ coal is not a grey disc; (c) the last control of every main view clears the bottom bar
+  (`.app` padding-bottom stays `calc(var(--tabbar-h) + var(--s4))`, check the Mine elevator row at 375); (d) the order
+  card ✕ and every ⓘ get a 44 × 44 hit area (padding, not a bigger glyph); (e) Mine.tsx:701 "needs a {pickaxe}" → "needs
+  an {iron…}" (article by the first letter); (f) no invented content: no version footer, no clock in the menu.
+- [ ] 266. **Tests.** tests/App.test.tsx is the big one (grep `view: 'panel'`, `panel-collapsed`, `panel-toggle`,
+  `Shop` buttons, the 📋 sheet); farmTab props in DigSeeds / BankTab / Shop / StatsPanel tests become `true`. New jsdom
+  pins: phone shows 3 (or 2) main tabs and ☰; ☰ opens the drawer with the 5 menu tabs; ✕ / scrim / Esc close it;
+  selecting Estate renders Surface on the Estate stop; Estate tab absent before the Tractor; River label on Wetlands; the
+  Farm main view has the grid + Tools and no Orders card; the menu's Farm tab has Orders and no Tools. No browser: list
+  unverified widths under Deviations — Hermes sweeps 375 / 768 / 1024 / 1440 / 2560 / 3440 live.
+- [ ] 267. **CHANGELOG + results.** ONE entry at the top of `CHANGELOG` (src/app/changelog.ts), exactly:
+  `🖥️ New screen: one main view with 🌱 Farm, 🚜 Estate and ⛏️ Mine tabs; Shop, Upgrades, Bank and Stats moved to the side menu (☰ on phones).`
+  (137 code points, Hermes counted; cap 180.) Then `## Batch 38 results` + `### Deviations` at the true end of docs/PLAN.md
+  (tests before → after, SHAs, every moved test with why, the reachability list per width).
 
-## Batch 37.1 results
-
-- 259 (2d23f7a): save v38 + the 4×4 core. 1412 → 1414 total (1404 passed + 7 expected fail + 1 flake →
-  1408 passed + 6 expected fail, no flake). FLOOR_ROWS 3 → 4 (balance.ts:179) is the only balance number
-  that moved; every literal "12 rocks" in src/ and tests/ now reads FLOOR_COLS × FLOOR_ROWS; rollRocks(n,
-  mastered, aim, rng, count) is split out of rollFloor so the migration rolls exactly 4 rocks from the
-  floor's own stream. SAVE_VERSION 37 → 38 with the frozen v37 shape (RocksV37 = 12-tuple; migrateV36
-  keeps rolling the historical 12-rock grid, so the chained v36 → v37 → v38 path lands on 16 rocks);
-  migrateV37 appends the 4 rocks from floor.rng with floorWeights(n, run.masteredTiers.length,
-  run.favours.aim) and keeps the 12 saved rocks, the ladder, found, n, deepest, run.rngState and
-  run.vein exactly; chained on every migrate() branch (v38 direct, v37, v36, v35, v34). The v37 fixture
-  (tests/fixtures/save-v37.json, never edited) lands on v38 with rocks[0..11] deep-equal + 4 appended
-  unbroken (rng advanced, run.rngState and run.vein untouched); a hand-built v37 save with hits keeps
-  every hit; every fixture v1…v37 lands on 16 rocks; same input → same 4 rocks. Re-pins: round-trip 38 /
-  future 39 (save.test.ts), SAVE_VERSION 38, App "Will migrate v15 → v38", balance pin [4, 4, 5, 25,
-  0.05], every toHaveLength(12) on a floor → 16, Mine.test 16 cells + "Row 1/4" + rows 2–4
-  aria-disabled. The ladder pin moved with this commit (6.5 → 8.5 ± 0.3, (N+1)/2 over 16 rocks) so both
-  commits are green.
-- 260 (f087194): the ladder pin re-verified (2,000 seeds) and every moved sim number re-pinned old → new
-  with the one cause — 16 rocks per floor (FLOOR_ROWS 3 → 4): more ore per floor, so bars and the copper
-  pickaxe come sooner and the source runs' `end` moves, shifting every downstream sell/smelting choice.
-  early: batch-7 pin object (veinLv1 786→936, furnace 1089→1113, storageLv2 1227→1251, veinLv2 1539→1548,
-  firstBar 1659→1746, copperPickaxe 1905→2022), finalCash 5591→5663, sales 475→469 (rngState and every
-  other counter unchanged — a sell choice), batch-7.1 order [1905, 2235, 2433, 2673]→[2022, 2313, 2562,
-  2790], finalCash 6101→5786, batch-8 harvestCertificate 991→997, [finalCash, wages] [3702, 390]→[3564,
-  393]. furnace-iron: batch-9/10/11 ladder objects (firstBar 1495→1480 … plantCertificate 4438→4423),
-  worker/final tuples ([14243, 920, 81, 83]→[14754, 919, 81, 82], [14389, 1024, 69]→[14853, 1027, 70],
-  [6697, 1159, 113, 15]→[7171, 1173, 119, 15]), batch-11 steps {4486/4738/5336/5520/6001/6601}→{4489/
-  4726/5321/5510/5992/6592}, batch-10 offline gains (967→1297, [71055, 3555, 711]→[70969, 3551, 710],
-  idle/unstaffed [1, 4994, 28]/[0, 4669, 23]→[0, 4861, 23] — seedless again), batch-11 offline [601, 32, 5,
-  71337, 3603]→[531, 36, 5, 71133, 3607]. fields: PIN18b lemon [46609, 83004, 83004, 82929, 83101],
-  mixed [77155, 66171]→[77751, 66741], PIN18e coal [974, 12]→[982, 11], PIN19b curve, harvester2
-  marginal 220.9 → null (incomeAt(h12) − incomeAt(h1) flips sign, delta 1132 → −73), PIN36a loop
-  re-pinned (plain 8.41→8.32 h, berryFast 9.39→9.33, rootsFast 9.34). market-orders: batch-11 replay
-  (finalCash 6697→7171 off / 5444→6505 on, mineCertificate 6601→6592, ironPickaxe gap 1263→1266),
-  batch-13 certificates (mine 86.5/116.7 → 84.7/114.8 etc.), [6055, gap 1215]→[5932, 1209].
-  mine-estate: ORE_SORT incomePerHour 13753→13647 (the rule's cash part stays 💰7,000) and
-  PARENT_FIELDS_H 8.24→8.41 (12a1851's final plain value — the 4×4 grid moves the measured run, not the
-  baseline). prestige-crops: speedups 1.67→1.71 and 1.45→1.43, PIN28_1b [124.5, 123.9]→[124.5, 123.6],
-  PIN22 band [0.51, 0.56, 0.31, 0.29]→[0.49, 0.54, 0.31, 0.29], PIN28_1c [105.5, 74.6]→[105.6, 74.5].
-  tools-workshop: batch-15 phase 86.6→88.8 min at 💰19,755→19,641/h (43→44 bars, mine certificate
-  116.7→114.8 min), batch-16 firstGoldBar 312→310.1, vein phase 30.6→30.7 min at 💰16,152→16,288/h,
-  gold phase 109.3→110.4 min at 💰16,426→16,375/h, finalCash 87061→86810; batch-17 incomes [22450, 27398,
-  31850]→[23040, 26857, 31700], finalCash 597148→597180, cash parts 0.379→0.369 / 0.292→0.298 /
-  0.464→0.46, coal [648, 7]→[639, 7].
-- 261 (7bf8a34): the rock buttons split into .rock-emoji over .rock-hits (a flex column) so the hit
-  counter sits under the ore emoji; app.css keeps the 44 px base cells (4 × 44 + 3 × 4 = 188 px fits the
-  344 px Mine column at 375) and adds @media (min-width: 1024px): repeat(4, 96px), gap 8, min-height
-  96 px, 40 px emoji, 14 px counter (4 × 96 + 3 × 8 = 408 px, centred). Rows stay driven by the buttons
-  (FLOOR_COLS × FLOOR_ROWS), the status line "Row N/4" is unchanged, and the ⚡ Mine-next hint keeps its
-  "🪨 0/3" spacing (rockLabel + hits — only the grid cells are two spans). jsdom: the cell textContent
-  loses the old space (`🪨0/3`), .rock-emoji/.rock-hits assert the split, and the appCss pin requires
-  repeat(4, 44px), the new classes and the ≥1024 media query. CHANGELOG: the batch 37.1 line at the top,
-  verbatim, 81 code points.
-- results (this commit): ticks + this section. Final gates: 73 files, 1408 passed + 6 expected fail (no
-  flake), lint clean, build clean (95 modules), tsc -b --force clean after rm of the two stale
-  tsbuildinfo, dist deleted, purity grep clean over src/core + src/save (storage.ts:26 the only known
-  wallClock).
-
-Guards: PIN37a Fields unlock 8.32 h vs parent 8.41 h (−1.1 %, inside ±20 %) green; the PIN36a soil loop
-green (berryFast +12.1 %, rootsFast +12.3 %); PIN37b seal hours 0.23/0.50/1.51/4.44 → 0.24/0.43/1.56/
-4.26 h; PIN37c and the 255b mineStall guard false/null everywhere; no negative cash or items; every
-fixture migrates to v38 with no rock progress lost. No blocker fired.
-
-### Deviations
-
-- 259 and 260 were developed together and split at commit time: the ladder pin and every sim re-pin
-  landed in 259's commit so each commit is green; 260's commit re-verifies the ladder (2,000 seeds) and
-  carries the re-pin diffs + the PARENT_FIELDS_H re-base.
-- The PIN36a fruitVegFast_rootsSlow 20-h it.fails was deleted: with 16 rocks per floor the run reaches
-  at 7.44 h (the higher mine income keeps cash above 0 at the 2nd water hire, so the documented batch-36
-  bot deadlock no longer fires) — the expected-fail had nothing left to fail at. Expected-fail count
-  7 → 6.
-- Unverified UI widths: the 44 px base cells and the ≥1024 96 px cells are pinned only in app.css text
-  and jsdom, not in a browser; no visual pass at 375/1024/1440 (no browser in this batch; Hermes sweeps
-  those live).
-- Per-iteration runs were file-scoped (npx vitest run tests/sim/…); the full suite stayed the gate
-  before each commit and ran green twice with no flake (batch 37 ended with one PIN28perf-class flake).
-- Tooling: `node [...line].length` for the 81 code points (as batch 37); the lowfat git wrapper trims
-  even redirected output, so full commit messages were read via `command git cat-file`; compound Bash
-  commands and glob `rm` were permission-gated — single-purpose commands only.
+Not in this batch: the wages line moving into the menu's Bank row (mockup idea, C8), a ⚙️ Settings tab (C9), M2.
