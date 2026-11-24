@@ -112,12 +112,13 @@ body {
   flex: 1;
   min-width: 0;
   display: flex;
-  gap: var(--s2);
+  gap: var(--s1);
 }
-/* one line per tab, so the icon stays beside its label and all five fit the drawer's width */
+/* one line per tab, so the icon stays beside its label and all five fit the drawer's width; never under the 44 px
+   touch floor (5 × 44 + 4 × 4 + the ✕ fits the 319 px drawer at 375) */
 .menu-tabs button {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 44px;
   padding: 0 var(--s1);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -608,8 +609,17 @@ button:disabled::after {
 .mini-lot {
   position: relative;
   display: grid;
+  /* two beds a row on phones, all four in one row from 768 px (batch 38: the Estate stop is ~700–1000 px wide there;
+     one bed a row left a ~860 × 390 px hole beside the lot) */
+  grid-template-columns: repeat(2, max-content);
+  justify-content: start;
   gap: var(--s1);
   padding: var(--s1);
+}
+@media (min-width: 768px) {
+  .mini-lot {
+    grid-template-columns: repeat(4, max-content);
+  }
 }
 .mini-lot .bed {
   grid-template-columns: repeat(3, 40px);
