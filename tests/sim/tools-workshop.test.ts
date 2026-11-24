@@ -310,17 +310,21 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // sits between vein Lv4 and the gold pickaxe (gap 48.3 min, under the cap)
     // re-pinned batch 35 (was [231.4, 232.7, 262.3, 310.5, 336.8, 369.6]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was [233.9, 235.6, 267, 313.2, 338.2, 369.9]): the diving hand press — see early.test.ts
-    expect(steps.map((x) => minute(x))).toEqual([243.1, 244.3, 273.5, 320.1, 347, 381.7])
+    // re-pinned task 255c (was [243.1, 244.3, 273.5, 320.1, 347, 381.7]): the general repair reserve keeps copper
+    // and iron bars smelting through the gold ladder — see early.test.ts
+    expect(steps.map((x) => minute(x))).toEqual([243.5, 244.6, 274.1, 324, 351.1, 383.4])
     // re-pinned batch 37 (was [1.8, 31.4, 46.2, 25, 31.7]): the diving hand press — see early.test.ts
-    expect(gaps.map((g) => minute(g))).toEqual([1.2, 29.3, 46.6, 26.9, 34.7])
+    // re-pinned task 255c (was [1.2, 29.3, 46.6, 26.9, 34.7]): the general repair reserve — see early.test.ts
+    expect(gaps.map((g) => minute(g))).toEqual([1.1, 29.5, 49.9, 27.1, 32.3])
     // re-pinned batch 35 (was first gold bar 298.5, vein phase 30.8 min at 💰16,219/h, gold phase 107.3 min at
     // 💰16,729/h 7 bars/h, cash 87048): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was 301.2): the diving hand press — see early.test.ts
-    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(308.1)
+    // re-pinned task 255c (was 308.1): the general repair reserve — see early.test.ts
+    expect(minute(ladder.ladderTicks.firstGoldBar!)).toBe(312)
     expect({ minutes: minute(veinPhase.done - veinPhase.start), incomePerHour: Math.round(veinIncomePerHour), cash: veinUpgradeCost(3, end.meta)!.cash }).toEqual({
       // re-pinned batch 37 (was 33.2 min at 💰14,601/h): the diving hand press — see early.test.ts
-      minutes: 30.4,
-      incomePerHour: 16012,
+      minutes: 30.6,
+      incomePerHour: 16152,
       cash: 7500,
     })
     expect({
@@ -331,7 +335,7 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
       barsPerHour: Math.round(barsPerHour),
       toolCash: toolTierCost(3, end.meta).cash,
       // re-pinned batch 37 (was 102.9 min at 💰17,340/h, 8 bars/h): the diving hand press — see early.test.ts
-    }).toEqual({ minutes: 108.2, incomePerHour: 16570, barsNeeded: 13, barsSmelted: 13, barsPerHour: 7, toolCash: 10000 })
+    }).toEqual({ minutes: 109.3, incomePerHour: 16426, barsNeeded: 13, barsSmelted: 13, barsPerHour: 7, toolCash: 10000 })
     // re-pinned batch 32 (was [1.984, 27.933]; 1.978 in task 168, gold 600 durability): 6.234 with carry-over — 8 hits
     // break ~3 vein-Lv4 rocks per press, and the mastered tier lifts the ore weights; pumpkin 29.153 with the gold
     // sickle's seed drops (task 172)
@@ -340,7 +344,8 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // re-pinned batch 32 (was 81827; 74044 in task 168, 86511 in task 170): gold 600 repairs, carry-over, seed drops
     // re-pinned batch 36.6 task 235 (was 84717): the T2+ home grow bonus
     // re-pinned batch 37 (was 84467): the diving hand press — see early.test.ts
-    expect(ladder.finalCash).toBe(84018)
+    // re-pinned task 255c (was 84018): the general repair reserve — see early.test.ts
+    expect(ladder.finalCash).toBe(87061)
   })
 
   it('climbs the gold ladder in order: storage Lv4 → vein Lv4 → gold pickaxe → gold sickle → gold dibber; every step ≤ 60 game-minutes', () => {
@@ -358,7 +363,8 @@ describe('batch 16: gold ladder — vein Lv4, gold pickaxe, gold sickle and dibb
     // re-pinned batch 33 (was 0.5): molds: every kind smelts at once — the vein-phase income is 💰16,219/h, 0.462 h
     // re-pinned batch 35 (was 0.462): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was 0.514): the diving hand press — see early.test.ts
-    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.468)
+    // re-pinned task 255c (was 0.468): the reserve lifts the vein-phase income a touch — see early.test.ts
+    expect(Math.round((veinCash / veinIncomePerHour) * 1000) / 1000).toBe(0.464)
     expect(veinCash / veinIncomePerHour).toBeLessThanOrEqual(1.5)
     expect(toolCash % 500).toBe(0)
     expect(toolCash / incomePerHour).toBeGreaterThanOrEqual(0.5)
@@ -483,19 +489,23 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // workshop's start, then the sprinklers' mixed bars smelt in parallel and the steps come closer together
     // re-pinned batch 35 (was [376.1, 396.6, 420.8, 420.8, 443.3, 444.2, 479.9]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was [370.3, 392, 413.9, 414.2, 437.2, 438.1, 473.9]): the diving hand press — see early.test.ts
-    expect(steps.map((x) => minute(x))).toEqual([377.4, 401.5, 425.3, 425.4, 446.8, 448.2, 486.6])
+    // re-pinned task 255c (was [377.4, 401.5, 425.3, 425.4, 446.8, 448.2, 486.6]): the general repair reserve — see early.test.ts
+    expect(steps.map((x) => minute(x))).toEqual([379.6, 401, 423.6, 424.1, 443.9, 444.2, 484.4])
     // re-pinned batch 37 (was [21.8, 21.8, 0.3, 23, 0.9, 35.8]): the diving hand press — see early.test.ts
-    expect(gaps.map((g) => minute(g))).toEqual([24.2, 23.8, 0.1, 21.4, 1.4, 38.4])
+    // re-pinned task 255c (was [24.2, 23.8, 0.1, 21.4, 1.4, 38.4]): the general repair reserve — see early.test.ts
+    expect(gaps.map((g) => minute(g))).toEqual([21.5, 22.6, 0.5, 19.8, 0.3, 40.2])
     // re-pinned batch 35 (was incomes [21539, 26421, 28430], cash 540267): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 235 (incomeAfter was 28612): the T2+ home grow bonus
     // re-pinned batch 37 (was [22160, 26835, 29573]): the diving hand press — see early.test.ts
     // re-pinned task 255b (incomeAfter was 29555): the wooden-floor wood must fit the bag — the sell-stone-for-room
     // rule fired in this run's !sharp branch and moved the post-workshop income window
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22290, 26272, 31697])
+    // re-pinned task 255c (was [22290, 26272, 31697]): the general repair reserve — see early.test.ts
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22450, 27398, 31850])
     // re-pinned batch 36.6 task 235 (was 545928): the T2+ home grow bonus
     // re-pinned batch 37 (was 564749): the diving hand press — see early.test.ts
     // re-pinned task 255b (was 559499): the same !sharp sale in the source run nets +6 % cash by the end
-    expect(ladder.finalCash).toBe(593341)
+    // re-pinned task 255c (was 593341): the general repair reserve — see early.test.ts
+    expect(ladder.finalCash).toBe(597148)
   })
 
   it('climbs in order: workshop → sprinklers 1–2 → tiles 13 → sprinkler 3 → tiles 19 → sprinkler 4, every step ≤ 60 game-minutes', () => {
@@ -514,10 +524,12 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // and the bed-phase 💰26,421/h
     // re-pinned batch 35 (was 0.395): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 37 (was 0.384): the diving hand press — see early.test.ts
-    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.381)
+    // re-pinned task 255c (was 0.381): the reserve lifts the gold-phase income — see early.test.ts
+    expect(Math.round((prices.workshop / goldIncome) * 1000) / 1000).toBe(0.379)
     expect(prices.workshop / goldIncome).toBeLessThanOrEqual(1.5)
     // re-pinned batch 37 (was 0.298): the diving hand press — see early.test.ts
-    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.305)
+    // re-pinned task 255c (was 0.305): the reserve lifts the bed-phase income — see early.test.ts
+    expect(Math.round((prices.sprinkler / income) * 1000) / 1000).toBe(0.292)
     expect(prices.sprinkler / income).toBeLessThanOrEqual(1.5)
   })
 
@@ -534,7 +546,8 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 36.6 task 235 (was [482, 7]): the T2+ home grow bonus
     // re-pinned batch 37 (was [473, 7]): the diving hand press — see early.test.ts
     // re-pinned task 255b (was [480, 7]): the same !sharp sale in the source run — the coal window measures 651/h
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([651, 7])
+    // re-pinned task 255c (was [651, 7]): the reserve shifts the source run's coal window — see early.test.ts
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([648, 7])
     expect(r.furnaceCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 

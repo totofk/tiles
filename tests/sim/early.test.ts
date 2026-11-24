@@ -467,13 +467,15 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
   it('pins the Batch 7 results (ticks, final cash, counters, PRNG state)', () => {
     expect(t).toEqual({ storageLv1: 486, veinLv1: 786, furnace: 1089, storageLv2: 1227, veinLv2: 1539, firstBar: 1659, copperPickaxe: 1905 })
     // re-pinned batch 37 (was 5527): the diving hand press — see the batch-7 pin's comment above
-    expect(summary.finalCash).toBe(5546)
+    // re-pinned task 255c (was 5546): the copper repair reserve keeps the pickaxe's bars smelting, so the surplus
+    // sells shift (sales 453 → 475 below; rngState and every other counter unchanged — a sell choice, not a PRNG move)
+    expect(summary.finalCash).toBe(5591)
     // re-pinned batch 37 (was 881303612): the diving hand press — see the batch-7 pin's comment above
     expect(summary.rngState).toBe(3589562786)
     // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
     // re-pinned batch 35 (was harvests 107, sales 467, mines 447, waters 525, plants 116): crop re-ladder
     // re-pinned batch 37 (was sales 436): the diving hand press — see the batch-7 pin's comment above
-    expect(summary.counters).toEqual({ harvests: 116, sales: 453, mines: 433, digs: 0, waters: 526, plants: 125, bars: 5, orders: 0, contractsByHand: 0 })
+    expect(summary.counters).toEqual({ harvests: 116, sales: 475, mines: 433, digs: 0, waters: 526, plants: 125, bars: 5, orders: 0, contractsByHand: 0 })
   })
 })
 

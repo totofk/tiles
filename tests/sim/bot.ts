@@ -30,6 +30,7 @@ import {
   mineLicenseCost,
   pickaxeCraftCost,
   pickaxeRepairCost,
+  rockPickaxe,
   smeltFuel,
   smeltOre,
   fuelTicks,
@@ -253,7 +254,10 @@ function smeltCoalJobs(s: GameState, keep: Price, capped: boolean): ActionResult
   let r: ActionResult = { ok: false, error: 'NOTHING_TO_DO' }
   for (const kind of ORE_IDS) {
     const { inventory, furnace } = s.run
-    if (!furnace.molds[kind] || (keep[kind] === undefined && !(kind === 'goldOre' && goldReserveShort(s)))) continue
+    // any tier smelting for its repair reserve too, whatever the goal's keep says (batch 21 gold, task 255c copper
+    // and iron: a blunt tier repairs only with bars; an unbanked reserve keeps the mold loading)
+    const reserve = repairReserveShort(s, kind)
+    if (!furnace.molds[kind] || (keep[kind] === undefined && !reserve)) continue
     const fuel = smeltFuel('coal', kind)
     const room = furnaceTrayCap(furnace.levels.tray) - inMold(s, kind)
     if (!capped) {
@@ -362,6 +366,16 @@ const PLANT_LADDER: Goal[] = [
     keep: keepBars(certificateCost('plant', createInitialState().meta).copperBar!),
   },
 ]
+
+/** task 255c: a repair-reserve chain max-merged into a goal's keep — the reserve's bars, ore and coal are not extras */
+const mergeReserve = (k: Price, chain: Price): Price => ({
+  ...k,
+  copperBar: Math.max(k.copperBar ?? 0, chain.copperBar ?? 0),
+  ironBar: Math.max(k.ironBar ?? 0, chain.ironBar ?? 0),
+  copperOre: Math.max(k.copperOre ?? 0, chain.copperOre ?? 0),
+  ironOre: Math.max(k.ironOre ?? 0, chain.ironOre ?? 0),
+  coal: Math.max(k.coal ?? 0, chain.coal ?? 0),
+})
 
 /** keep `bars` iron bars plus the iron ore and coal to smelt the ones not yet in storage or the iron mold */
 const keepIronBars =
@@ -524,12 +538,19 @@ const WORKSHOP_ON_GOALS = WORKSHOP_LADDER.slice(GOLD_LADDER.length)
  * the batch 19 machines lesson, now applied from the workshop on: the reserve smelts before any goal ore
  */
 
-const goldReserveShort = (s: GameState): boolean => {
-  const banked = (s.run.inventory.goldBar ?? 0) + inMold(s, 'goldOre')
-  // batch 32: only while a sharp iron or gold pickaxe can mine gold ore (the old "gold in hand"); with none, a furnace
-  // held on gold for a reserve nothing can mine wedges the run (every rack tier blunt, 🥇0)
-  const canMineGold = (s.run.rack.iron ?? 0) > 0 || (s.run.rack.gold ?? 0) > 0
-  return s.run.rack.gold !== undefined && canMineGold && banked < pickaxeRepairCost('gold', s.meta).goldBar!
+/** task 255c: the general pickaxe repair reserve (batch 21 gold, 255c copper and iron): a tier repairs only with its
+ * bars, so once blunt with none banked the ore that tier could mine stays stone and the ladder wedges on the next
+ * goal — rootsFast froze at the veinLv4 seal with the copper tier blunt (copper bars smelted frozen at 65 from 2 h),
+ * and the copper fix's re-run of plain froze one rung later: the iron tier blunt at the gold pickaxe, gold ore
+ * unmineable. Short while the tier is owned, its banked bars (bag + its mold's tray) are under its repair cost, and
+ * a sharp tier can still mine the repairing ore (the gold canMine rule, batch 32 — a reserve nothing can mine wedges
+ * the run instead). */
+const repairReserveShort = (s: GameState, kind: OreId): boolean => {
+  const tier = kind === 'copperOre' ? 'copper' : kind === 'ironOre' ? 'iron' : 'gold'
+  const need = rockPickaxe(kind)
+  const sharpEnough = !need || PICKAXE_TIERS.slice(PICKAXE_TIERS.indexOf(need)).some((t) => (s.run.rack[t] ?? 0) > 0)
+  const banked = (s.run.inventory[`${tier}Bar`] ?? 0) + inMold(s, kind)
+  return s.run.rack[tier] !== undefined && sharpEnough && banked < pickaxeRepairCost(tier, s.meta)[`${tier}Bar`]!
 }
 
 /** the next piece of land: the pivot of the first dry field holding plots, else the next plot */
@@ -845,10 +866,19 @@ function runBot(
     // the pinned runs only check storage; saveForStorage keeps its stone (and stops mining when storage is full)
     // until it buys storage level 1, then vein level 1
     if (buyStorage(s).ok) storageAffordable ??= tick
+    // task 255c: while a copper or iron repair reserve is short, the goal's keep also lists it — the banked bars and
+    // the ore+coal to smelt them are not extras to sell (the gold repairSafe precedent, batch 21; gold keeps stay
+    // with repairSafe's own goals)
+    const keepOf = (g: Goal | undefined): Price => {
+      let k = g?.keep(s) ?? { cash: 0 }
+      if (repairReserveShort(s, 'copperOre')) k = mergeReserve(k, keepBars(pickaxeRepairCost('copper', s.meta).copperBar!)(s))
+      if (repairReserveShort(s, 'ironOre')) k = mergeReserve(k, keepIronBars(pickaxeRepairCost('iron', s.meta).ironBar!)(s))
+      return k
+    }
     // when the bag is full, sell only what the goal does not need; true when it stays full (stop mining)
     const sellSurplus = (goal: Goal | undefined): boolean => {
       if (bagCount(s.run) < s.run.bagCapacity) return false
-      const keep: Price = { ...(goal?.keep(s) ?? { cash: 0 }) }
+      const keep: Price = { ...keepOf(goal) }
       // batch 18: an hour of the Fields' coal stays too (batch 28: the pivoted plots' tank burn; machines runs too)
       if (fields || machines)
         keep.coal = Math.max(keep.coal ?? 0, hourOfBurn(s) - Math.floor(s.run.fields.tank / TANK_UNITS_PER_COAL))
@@ -882,7 +912,7 @@ function runBot(
         if (assigned.ore === 0) {
           // the keep's ore field is also the signal of what to smelt (batch 33: every mold it lists at once; batch 21:
           // the gold mold also while the repair reserve is unbanked, whatever the goal's keep says)
-          tryAct(smeltCoalJobs(s, next!.keep(s), gold), null)
+          tryAct(smeltCoalJobs(s, keepOf(next), gold), null)
           // batch 17: ready bars need bag room before they can be collected — sell the surplus first, or the dig below
           // refills every freed slot and the last bar never leaves the tray (the sprinkler keeps have no surplus)
           if (sprinklers && Object.values(s.run.furnace.molds).some((m) => m.ready > 0)) sellSurplus(next)
@@ -1416,7 +1446,6 @@ export {
   contractRun,
   forgePlots,
   fuelForOre,
-  goldReserveShort,
   hourOfBurn,
   inMold,
   ironLadder,

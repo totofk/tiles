@@ -130,7 +130,8 @@ describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
     // re-pinned batch 33 (was 14227): molds: every kind smelts at once — the vein-Lv3 hour now includes the iron mold's wait
     // re-pinned batch 35 (was 💰14,470/h): crop re-ladder: potato start, carrot licence 💰25 — the cash part stays 💰6,500
     // re-pinned batch 37 (was 💰14,192/h): the diving hand press — see early.test.ts; the rule's cash part stays 💰7,000
-    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 13786, cash: 6500 })
+    // re-pinned task 255c (was 💰13,786/h): the reserve shifts the ladder bot's first vein-Lv3 hour — see early.test.ts
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 13753, cash: 6500 })
     for (const kind of MINE_DROP_IDS) {
       expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
       expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
