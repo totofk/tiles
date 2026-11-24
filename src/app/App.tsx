@@ -75,6 +75,8 @@ export default function App() {
       return fresh.some((t) => seen[t].length > u.seen[t].length) ? { ...u, seen } : u
     })
   const dot = (t: string) => badge(t) && <span className="badge-dot" aria-hidden="true" />
+  // task 264: the ☰ carries a dot while any menu-only tab has news (the ⛏️ Mine tab has its own on the main bar)
+  const menuNews = badge('shop') || badge('upgrades') || badge('farm')
 
   // batch 21: the ▲▼ trend arrows need to know which price tag was last on screen; batch 27: the
   // Estate view's row tags count too. Only licensed crops with the tag actually rendered get recorded.
@@ -156,6 +158,7 @@ export default function App() {
         {!desktop && (
           <button className="menu-btn" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
             ☰
+            {menuNews && <span className="badge-dot" aria-hidden="true" />}
           </button>
         )}
         {banner && (

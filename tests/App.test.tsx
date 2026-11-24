@@ -248,6 +248,17 @@ describe('badge dot on the menu tabs (jsdom = phone, drawer closed)', () => {
     render(<App />)
     expect(panelTab(/Upgrades/).textContent).toBe('⬆️ Upgrades')
   })
+
+  it('task 264: the ☰ carries a dot while any menu tab has news; opening that tab clears it', () => {
+    render(<App />)
+    // fresh game: only ⬆️ Upgrades holds news — the ☰ mirrors it while the drawer is closed
+    expect(hasDot(menuBtn())).toBe(true)
+    openMenu()
+    // the drawer opens on the 🌾 Farm tab: ⬆️ Upgrades is still unseen, so the ☰ keeps its dot
+    expect(hasDot(menuBtn())).toBe(true)
+    fireEvent.click(panelTab(/Upgrades/))
+    expect(hasDot(menuBtn())).toBe(false)
+  })
 })
 
 describe('persisted UI state (tiles.ui)', () => {
