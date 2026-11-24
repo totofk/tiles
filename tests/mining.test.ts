@@ -746,20 +746,20 @@ describe('batch 37: floors', () => {
   const stones = () => Array.from({ length: FLOOR_COLS * FLOOR_ROWS }, () => ({ kind: 'stone' as const, hits: 0, broken: false }))
   const grid = (n: number, ladder: number, found = false, rng = 7) => ({ n, deepest: n, rocks: stones(), ladder, found, rng })
 
-  it('rollFloor is deterministic from its seed: the same grid and ladder, 12 fresh rocks, the stream advances', () => {
+  it('rollFloor is deterministic from its seed: the same grid and ladder, 16 fresh rocks, the stream advances', () => {
     const a = rollFloor(1, 0, null, 42)
     expect(rollFloor(1, 0, null, 42)).toEqual(a)
-    expect(a.rocks).toHaveLength(12)
+    expect(a.rocks).toHaveLength(16)
     expect(a.rocks.every((r) => r.hits === 0 && !r.broken)).toBe(true)
     expect(a.ladder).toBeGreaterThanOrEqual(0)
-    expect(a.ladder).toBeLessThan(12)
+    expect(a.ladder).toBeLessThan(16)
     expect(a.rng).not.toBe(42)
   })
 
-  it('over 2,000 seeds the mean rocks broken to find the ladder mining in order is 6.5 ± 0.3', () => {
+  it('over 2,000 seeds the mean rocks broken to find the ladder mining in order is 8.5 ± 0.3', () => {
     let sum = 0
     for (let seed = 1; seed <= 2000; seed++) sum += rollFloor(1, 0, null, seed).ladder + 1
-    expect(Math.abs(sum / 2000 - 6.5)).toBeLessThanOrEqual(0.3)
+    expect(Math.abs(sum / 2000 - 8.5)).toBeLessThanOrEqual(0.3)
   })
 
   it('rows open in order: a row-1 rock is BAD_TILE while row 0 stands; clearing row 0 opens row 1 and closes row 0', () => {
@@ -794,8 +794,8 @@ describe('batch 37: floors', () => {
   it('an emptied floor re-rolls in place (same n, found stays found — R4) and the leftover hits keep going', () => {
     // gold = 8 hits: breaks the last two stones (2 + 2), the emptied grid re-rolls, 4 hits break 2 fresh rocks
     const rocks = stones()
-    for (let k = 0; k < 10; k++) rocks[k].broken = true
-    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: { tier: 'gold', durability: 600 }, floor: { ...grid(1, 10), rocks } })
+    for (let k = 0; k < 14; k++) rocks[k].broken = true
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: { tier: 'gold', durability: 600 }, floor: { ...grid(1, 14), rocks } })
     const next = okState(mineRock(s))
     expect(next.run.floor.n).toBe(1)
     expect(next.run.floor.found).toBe(true)
@@ -808,9 +808,9 @@ describe('batch 37: floors', () => {
 
   it('by hand the grid re-rolls without touching run.rngState (the floor keeps its own stream, R2)', () => {
     const rocks = stones()
-    for (let k = 0; k < 11; k++) rocks[k].broken = true
-    rocks[11].hits = 1
-    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: null, floor: { ...grid(1, 11), rocks } })
+    for (let k = 0; k < 15; k++) rocks[k].broken = true
+    rocks[15].hits = 1
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: null, floor: { ...grid(1, 15), rocks } })
     const next = okState(mineRock(s))
     expect(next.run.rngState).toBe(s.run.rngState)
     expect(next.run.floor.rocks.every((r) => !r.broken)).toBe(true)
@@ -845,7 +845,7 @@ describe('batch 37: floors', () => {
     expect(mineRock(sealed).ok).toBe(true)
     const next = okState(descend(miner({ floor: grid(2, 3, true), vein: vein0 })))
     expect([next.run.floor.n, next.run.floor.deepest, next.run.floor.found]).toEqual([3, 3, false])
-    expect(next.run.floor.rocks).toHaveLength(12)
+    expect(next.run.floor.rocks).toHaveLength(16)
     expect(next.run.rngState).toBe(sealed.run.rngState)
   })
 
@@ -879,7 +879,7 @@ describe('batch 37: floors', () => {
     const s = miner({ floor: grid(9, 3, true), bagCapacity: 100, vein: vein1 })
     const next = okState(rideElevator(s, 0))
     expect([next.run.floor.n, next.run.floor.deepest, next.run.floor.found]).toEqual([1, 9, false])
-    expect(next.run.floor.rocks).toHaveLength(12)
+    expect(next.run.floor.rocks).toHaveLength(16)
     expect([next.run.energy, next.run.rngState]).toEqual([s.run.energy, s.run.rngState])
   })
 

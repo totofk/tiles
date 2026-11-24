@@ -174,9 +174,9 @@ export const MINE_DROP_IDS = ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre'
 export type MineDropId = (typeof MINE_DROP_IDS)[number]
 // batch 37: a zone = FLOORS_PER_ZONE floors sharing one drop table (zone index = the old vein level)
 export const FLOORS_PER_ZONE = 5
-// batch 37: the floor grid the player mines (rock index = row × FLOOR_COLS + col)
+// batch 37: the floor grid the player mines (rock index = row × FLOOR_COLS + col); batch 37.1: 3 rows → 4 (4×4)
 export const FLOOR_COLS = 4
-export const FLOOR_ROWS = 3
+export const FLOOR_ROWS = 4
 /** batch 37: the bottom of the mine (the gold zone's last floor) */
 export const MINE_BOTTOM_FLOOR = FLOORS_PER_ZONE * VEIN_DROPS.length
 /** batch 37: each floor deeper into a zone adds this share of every ore's weight (stone absorbs it) */

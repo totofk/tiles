@@ -78,19 +78,27 @@ function pickDrop(weights: Partial<Record<ItemId, number>>, r: number): ItemId {
   return ids[ids.length - 1]
 }
 
-/** batch 37: roll a fresh floor grid — FLOOR_COLS × FLOOR_ROWS rocks from the floor's weights, then hide the ⬇️
- * ladder under one of them (uniform). Consumes FLOOR_COLS × FLOOR_ROWS + 1 draws from the floor's own stream. */
-export function rollFloor(n: number, mastered: number, aim: OreId | null, rng: number): { rocks: FloorRock[]; ladder: number; rng: number } {
+/** batch 37.1: `count` fresh rocks from the floor's weights, one nextRandom draw each — the per-rock draw rollFloor
+ * makes (the save v37 → v38 migration appends the 4th row with it). Consumes `count` draws. */
+export function rollRocks(n: number, mastered: number, aim: OreId | null, rng: number, count: number): { rocks: FloorRock[]; rng: number } {
   const weights = floorWeights(n, mastered, aim)
   const rocks: FloorRock[] = []
   let stream = rng
-  for (let i = 0; i < FLOOR_COLS * FLOOR_ROWS; i++) {
+  for (let i = 0; i < count; i++) {
     const [r, next] = nextRandom(stream)
     rocks.push({ kind: pickDrop(weights, r), hits: 0, broken: false })
     stream = next
   }
-  const [r, next] = nextRandom(stream)
-  return { rocks, ladder: Math.floor(r * (FLOOR_COLS * FLOOR_ROWS)), rng: next }
+  return { rocks, rng: stream }
+}
+
+/** batch 37: roll a fresh floor grid — FLOOR_COLS × FLOOR_ROWS rocks (or `count`: the save migrations roll the frozen
+ * grid size of the version they build) from the floor's weights, then hide the ⬇️ ladder under one of them (uniform).
+ * Consumes count + 1 draws from the floor's own stream. */
+export function rollFloor(n: number, mastered: number, aim: OreId | null, rng: number, count = FLOOR_COLS * FLOOR_ROWS): { rocks: FloorRock[]; ladder: number; rng: number } {
+  const rolled = rollRocks(n, mastered, aim, rng, count)
+  const [r, next] = nextRandom(rolled.rng)
+  return { rocks: rolled.rocks, ladder: Math.floor(r * count), rng: next }
 }
 
 export function buyMineLicense(state: GameState): ActionResult {
@@ -256,8 +264,8 @@ export function openRow(rocks: FloorRock[]): number {
 // as stone (minedRock), as in dig. Carry-over: leftover hits go to the next unbroken rock of the open row left to
 // right, then into the next row once it opens — one press can clear a row. Breaking the ladder rock sets found (its
 // item still drops). A drop that hits full storage leaves its rock unbroken at full progress and the remaining hits
-// are lost. When all 12 rocks break, the floor re-rolls in place from floor.rng (same n; found stays found, R4) and
-// the leftover hits continue on the fresh grid.
+// are lost. When all FLOOR_COLS × FLOOR_ROWS rocks break, the floor re-rolls in place from floor.rng (same n; found
+// stays found, R4) and the leftover hits continue on the fresh grid.
 export function mineRock(state: GameState, i?: number): ActionResult {
   const { run } = state
   if (!run.mineLicense) return fail('NO_MINE_LICENSE')

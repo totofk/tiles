@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
 import type { Act } from '../src/app/useGame'
-import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
+import { FLOOR_COLS, FLOOR_ROWS, itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { price } from '../src/app/fmt'
 import { createFields, createFurnace, createInitialState, type FloorState, type GameState, type Pickaxe } from '../src/core/state'
@@ -35,22 +35,22 @@ function setup({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pick
 }
 const text = () => document.body.textContent ?? ''
 const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' as const, durability })
-/** a hand-built floor: `kinds` = one ItemId for all 12 rocks, or the 12 kinds themselves */
+/** a hand-built floor: `kinds` = one ItemId for all 16 rocks, or the 16 kinds themselves */
 const floorOf = (n: number, kinds: ItemId | readonly ItemId[], ladder = 0, found = false): FloorState => ({
   n,
   deepest: n,
-  rocks: (typeof kinds === 'string' ? Array.from({ length: 12 }, () => kinds) : [...kinds]).map((kind) => ({ kind, hits: 0, broken: false })),
+  rocks: (typeof kinds === 'string' ? Array.from({ length: FLOOR_COLS * FLOOR_ROWS }, () => kinds) : [...kinds]).map((kind) => ({ kind, hits: 0, broken: false })),
   ladder,
   found,
   rng: 123,
 })
-/** 12 kinds with `first` in cell 0, `rest` everywhere else */
-const kinds12 = (first: ItemId, rest: ItemId = 'stone') => [first, ...Array.from({ length: 11 }, () => rest)]
+/** 16 kinds with `first` in cell 0, `rest` everywhere else */
+const kinds16 = (first: ItemId, rest: ItemId = 'stone') => [first, ...Array.from({ length: FLOOR_COLS * FLOOR_ROWS - 1 }, () => rest)]
 
 describe('Mine panel', () => {
   it('batch 37: floor 1 status + the zone drop line (the old Lv0 table); no coming-teaser', () => {
     setup({})
-    expect(document.querySelector('.floor-status')!.textContent).toBe('Floor 1 · Row 1/3 · ⛏️ 12 left · ⬇️ not found')
+    expect(document.querySelector('.floor-status')!.textContent).toBe('Floor 1 · Row 1/4 · ⛏️ 16 left · ⬇️ not found')
     expect(document.querySelector('.mine-vein .vein-label')!.textContent).toBe(`Floor 1 · ${STONE} Stone zone: `)
     expect([...document.querySelectorAll('.mine-vein .vein-drops .vein-drop')].map((d) => d.textContent!.trim())).toEqual([`${STONE} Stone 100 %`])
     expect(screen.queryByText(/coming/)).toBeNull()
@@ -116,7 +116,7 @@ describe('Mine panel', () => {
   })
 
   it('shows the target rock and its hits: a copper rock takes 3, a half-hit one is cracked', () => {
-    setup({ floor: floorOf(1, kinds12('copperOre')), pickaxe: wooden() })
+    setup({ floor: floorOf(1, kinds16('copperOre')), pickaxe: wooden() })
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${ORE} 0/3`)
     expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${ORE} 0/3`)
     cleanup()
@@ -400,12 +400,12 @@ describe('Mine panel', () => {
   })
 
   it('an iron rock shows "as stone" with stone hits below a copper pickaxe, its own 4 hits with one', () => {
-    setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: floorOf(16, kinds12('ironOre')), pickaxe: wooden() })
+    setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: floorOf(16, kinds16('ironOre')), pickaxe: wooden() })
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
     expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${IRON_ORE} as ${STONE} 0/2`)
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
     cleanup()
-    const g = floorOf(16, kinds12('ironOre'))
+    const g = floorOf(16, kinds16('ironOre'))
     setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: { ...g, rocks: g.rocks.map((r, i) => (i === 0 ? { ...r, hits: 3 } : r)) }, pickaxe: { tier: 'copper', durability: 200 } })
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
   })
@@ -723,11 +723,28 @@ describe('batch 36.3: the 🌊 River view (Wetlands, no mine)', () => {
 })
 
 describe('batch 37: floors', () => {
-  it('the grid renders 12 cells; rows past the open row are dimmed and inert; a tap mines that rock', () => {
+  it('the grid renders 16 cells; rows past the open row are dimmed and inert; a tap mines that rock', () => {
     const t = setup({ floor: floorOf(1, 'stone'), pickaxe: wooden() })
     const cells = [...document.querySelectorAll('.floor-grid button')] as HTMLButtonElement[]
-    expect(cells).toHaveLength(12)
-    expect(cells.map((c) => c.getAttribute('aria-disabled'))).toEqual([null, null, null, null, 'true', 'true', 'true', 'true', 'true', 'true', 'true', 'true'])
+    expect(cells).toHaveLength(16)
+    expect(cells.map((c) => c.getAttribute('aria-disabled'))).toEqual([
+      null,
+      null,
+      null,
+      null,
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+      'true',
+    ])
     fireEvent.click(cells[0]!)
     t.rerender()
     // wooden hits 2 = stone's 2, so one press breaks (and pays) the rock

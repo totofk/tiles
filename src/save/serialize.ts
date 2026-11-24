@@ -17,6 +17,8 @@ import {
   type Counters,
   type Field,
   type Fields,
+  type FloorRock,
+  type FloorState,
   type GameState,
   type Lifetime,
   type Loan,
@@ -35,9 +37,9 @@ import {
   type Favours,
 } from '../core/state'
 import { step } from '../core/step'
-import { rollFloor } from '../core/mining'
+import { rollFloor, rollRocks } from '../core/mining'
 
-export const SAVE_VERSION = 37
+export const SAVE_VERSION = 38
 
 // Past shapes are frozen here, never derived from the live RunState, so a later field cannot leak into them.
 /** v18–v26's eight crops in their licence order (frozen here: batch 35 re-laddered the live CROP_IDS) */
@@ -323,8 +325,14 @@ type SaveV35 = { version: 35; savedAtMs: number; state: { meta: MetaState; run: 
 /** v36 (frozen here: batch 37 gave the run the player's floor grid and the miners' zone pick) */
 type RunV36 = Omit<RunState, 'floor' | 'minerZone'>
 type SaveV36 = { version: 36; savedAtMs: number; state: { meta: MetaState; run: RunV36 } }
-type SaveV37 = { version: 37; savedAtMs: number; state: GameState }
-export type Save = SaveV37
+/** v37 (frozen here: batch 37.1 grew the floor grid from 12 rocks to the live FLOOR_COLS × FLOOR_ROWS): 12 rocks */
+type RocksV37 = [FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock, FloorRock]
+type FloorV37 = Omit<FloorState, 'rocks'> & { rocks: RocksV37 }
+/** a v37 run: the live run with the 12-rock floor grid frozen above */
+type RunV37 = Omit<RunState, 'floor'> & { floor: FloorV37 }
+type SaveV37 = { version: 37; savedAtMs: number; state: { meta: MetaState; run: RunV37 } }
+type SaveV38 = { version: 38; savedAtMs: number; state: GameState }
+export type Save = SaveV38
 /** the v16–v23 gold pickaxe's max durability (frozen here: batch 32 made it 600) */
 const GOLD_DURABILITY_V23 = 6500
 /** the v16–v20 pipe coverage per tier (frozen here: the live balance has pumps since v21) */
@@ -957,14 +965,31 @@ function migrateV35(save: SaveV35): SaveV36 {
 
 // v36 → v37 (batch 37): the player's floor starts at the new zone's first floor — vein.level × 5 + 1, deepest = that
 // floor, the ladder unfound, the miners on Deepest (null). The grid rolls from a seed COPIED from run.rngState, so
-// the run's own stream never advances. Nothing granted, nothing taken away; the vein is untouched.
+// the run's own stream never advances. 12 rocks = the v37 grid size, frozen here (batch 37.1 grew the live grid to
+// 4 × 4; the v37 → v38 migration appends the row). Nothing granted, nothing taken away; the vein is untouched.
 function migrateV36(save: SaveV36): SaveV37 {
   const { run } = save.state
   const n = FLOORS_PER_ZONE * run.vein.level + 1
+  const { rocks, ladder, rng } = rollFloor(n, run.masteredTiers.length, run.favours.aim, run.rngState, 12)
   return {
     version: 37,
     savedAtMs: save.savedAtMs,
-    state: { meta: save.state.meta, run: { ...run, floor: { n, deepest: n, found: false, ...rollFloor(n, run.masteredTiers.length, run.favours.aim, run.rngState) }, minerZone: null } },
+    state: { meta: save.state.meta, run: { ...run, floor: { n, deepest: n, rocks: rocks as RocksV37, ladder, found: false, rng }, minerZone: null } },
+  }
+}
+
+// v37 → v38 (batch 37.1): the floor grid grows to 4 × 4 — the 12 saved rocks (kind, hits, broken), the ladder index,
+// found, n and deepest stay exactly as the player left them, and 4 rocks APPEND, rolled from the floor's own stream
+// with the same weights rollFloor draws per rock (the advanced stream is stored; run.rngState and run.vein untouched).
+// Nothing granted, nothing taken away: a floor with all 12 broken gets the 4 new rocks as its open row (openRow).
+function migrateV37(save: SaveV37): SaveV38 {
+  const { run } = save.state
+  const { floor } = run
+  const { rocks, rng } = rollRocks(floor.n, run.masteredTiers.length, run.favours.aim, floor.rng, 4)
+  return {
+    version: 38,
+    savedAtMs: save.savedAtMs,
+    state: { meta: save.state.meta, run: { ...run, floor: { ...floor, rocks: [...floor.rocks, ...rocks], rng } } },
   }
 }
 
@@ -974,11 +999,12 @@ type RawSave = { version?: unknown; savedAtMs?: unknown; state?: { meta?: unknow
 function migrate(data: RawSave): Save | null {
   // shape every version shares, checked before migrating so a migration never reads a missing field
   if (typeof data.savedAtMs !== 'number' || !data.state?.meta || !Array.isArray(data.state.run?.tiles)) return null
-  if (data.version === 37) return data as SaveV37
-  if (data.version === 36) return migrateV36(data as SaveV36)
-  if (data.version === 35) return migrateV36(migrateV35(data as SaveV35))
+  if (data.version === 38) return data as SaveV38
+  if (data.version === 37) return migrateV37(data as SaveV37)
+  if (data.version === 36) return migrateV37(migrateV36(data as SaveV36))
+  if (data.version === 35) return migrateV37(migrateV36(migrateV35(data as SaveV35)))
   const v34 = toV34(data)
-  return v34 && migrateV36(migrateV35(migrateV34(v34)))
+  return v34 && migrateV37(migrateV36(migrateV35(migrateV34(v34))))
 }
 
 /** v1 … v34 up to v34; null for anything else */

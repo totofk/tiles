@@ -241,8 +241,8 @@ describe('batch 36.3: PIN36i the barge never buys below sell', () => {
 })
 
 describe('batch 37: floor numbers (zones of 5 floors)', () => {
-  it('the constants: a 4×3 grid, 5 floors per zone, bottom 25, gradient 0.05', () => {
-    expect([FLOOR_COLS, FLOOR_ROWS, FLOORS_PER_ZONE, MINE_BOTTOM_FLOOR, FLOOR_ORE_GRADIENT]).toEqual([4, 3, 5, 25, 0.05])
+  it('the constants: a 4×4 grid, 5 floors per zone, bottom 25, gradient 0.05', () => {
+    expect([FLOOR_COLS, FLOOR_ROWS, FLOORS_PER_ZONE, MINE_BOTTOM_FLOOR, FLOOR_ORE_GRADIENT]).toEqual([4, 4, 5, 25, 0.05])
     expect(MINE_BOTTOM_FLOOR).toBe(FLOORS_PER_ZONE * 5)
   })
 
