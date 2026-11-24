@@ -1234,12 +1234,17 @@ button:disabled::after {
 }
 .floor-grid {
   display: grid;
-  grid-template-columns: repeat(4, 44px);
+  /* fluid square rocks that never outgrow the card (the desktop Mine column is only ~210–300 px wide):
+     up to 72 px on phones, 96 px from 1024 px */
+  grid-template-columns: repeat(4, minmax(44px, 72px));
   gap: 4px;
   justify-content: center;
+  container-type: inline-size;
 }
 .floor-grid button {
   min-height: 44px;
+  min-width: 0;
+  aspect-ratio: 1;
   padding: 2px;
   display: flex;
   flex-direction: column;
@@ -1247,28 +1252,25 @@ button:disabled::after {
   justify-content: center;
   line-height: 1.1;
 }
+/* emoji scale with the grid's width: 16 px at the 44 px floor, ≈ 37 px at the 408 px desktop cap */
 .rock-emoji {
-  font-size: 16px;
+  font-size: clamp(16px, 9cqi, 40px);
+}
+/* "as ⛰️" (a rock the pickaxe is too weak for) stays small on its own line so it never covers the ore emoji */
+.rock-as {
+  display: block;
+  font-size: 11px;
 }
 .rock-hits {
-  font-size: 11px;
+  font-size: clamp(11px, 3.4cqi, 14px);
 }
 .rock-off {
   opacity: 0.45;
 }
 @media (min-width: 1024px) {
   .floor-grid {
-    grid-template-columns: repeat(4, 96px);
+    grid-template-columns: repeat(4, minmax(44px, 96px));
     gap: 8px;
-  }
-  .floor-grid button {
-    min-height: 96px;
-  }
-  .rock-emoji {
-    font-size: 40px;
-  }
-  .rock-hits {
-    font-size: 14px;
   }
 }
 /* batch 37: the miners' line holds the ⛏️ flash + pop now the Mine button no longer does (R5) */
