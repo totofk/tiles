@@ -12,11 +12,12 @@ import {
   upgradeUnlocked,
   veinMaxLevel,
   veinUpgradeCost,
+  sealFloor,
 } from '../core/balance'
 import { STAR_EMOJI } from '../core/data/orders'
 import { UPGRADES, type UpgradeId } from '../core/data/upgrades'
 import { favoursVisible } from '../core/favours'
-import { buyStorage, dropText, upgradeVein } from '../core/mining'
+import { buyStorage } from '../core/mining'
 import { noMine } from '../core/wetlands'
 import type { GameState, MetaState } from '../core/state'
 import { Favours } from './Favours'
@@ -57,7 +58,6 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
   const cap = run.bagCapacity
   const veinCost = veinUpgradeCost(run.vein.level, meta)
   const vein = run.vein.level
-  const mastered = run.masteredTiers.length
   const river = noMine(run)
   return (
     <>
@@ -75,14 +75,11 @@ function MineUpgrades({ state, act }: { state: GameState; act: Act }) {
         </Item>
         {!river && (
           <Item tip={TIPS.vein}>
-            <button disabled={!upgradeVein(state).ok} onClick={() => act(upgradeVein)}>
-              ⛏️ Vein Lv {vein}/{veinMaxLevel()}
-              <small>
-                {veinCost
-                  ? `${dropText(vein, mastered, run.favours.aim)} → ${dropText(vein + 1, mastered, run.favours.aim)} · ${priceText(veinCost)}`
-                  : `${dropText(vein, mastered, run.favours.aim)} · max`}
-              </small>
-            </button>
+            {/* batch 37: info only — the seal itself is broken in the mine, so no button here */}
+            <span className="upgrade-vein-info">
+              ⛏️ Zone {vein}/{veinMaxLevel()}
+              <small>{veinCost ? `next seal at floor ${sealFloor(vein + 1)}: ${priceText(veinCost)}` : 'the deepest zone'}</small>
+            </span>
           </Item>
         )}
       </div>

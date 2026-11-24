@@ -1,4 +1,4 @@
-import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap } from '../core/balance'
+import { certificateCost, certificateUnlock, workerHireCost, workerPoolCap, ZONE_NAMES } from '../core/balance'
 import { TOOLS, type ToolJob } from '../core/data/tools'
 import { HIDDEN_JOBS, WORKER_JOBS, type WorkerJob } from '../core/data/workers'
 import type { CounterId, GameState } from '../core/state'
@@ -37,7 +37,7 @@ function JobRow({ state, act, job, active = false }: { state: GameState; act: Ac
       job === 'fuel' && noMine(run)
         ? !run.fields.unlocked && 'unlocks with the 🚜 Fields'
         : run.counters[counter] < at && `${GATE_LABEL[counter] ?? counter} ${run.counters[counter]}/${at}`,
-      run.vein.level < vein && `vein Lv${vein}`,
+      run.vein.level < vein && `${ZONE_NAMES[vein]} zone`,
       toolLevel < tool && `needs ${WORKER_JOB_EMOJI[job]} ${TOOLS[job as ToolJob].names[tool - 1]} (tool Lv${tool})`,
       itemCount > run.bagCapacity && `needs 📦 ${itemCount} storage`,
     ]

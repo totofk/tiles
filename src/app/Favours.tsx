@@ -10,6 +10,8 @@ import {
   STAR_CARRY_CAP,
   upgradeMaxLevel,
   workerPoolCap,
+  ZONE_NAMES,
+  ZONE_ORE,
 } from '../core/balance'
 import { BUNKHOUSE_EMOJI, MIST_EMOJI, SEAM_EMOJI } from '../core/data/favours'
 import { ITEMS } from '../core/data/items'
@@ -62,7 +64,7 @@ function lockText(run: RunState, lock: FavourLock): string {
     case 'slot':
       return `needs ore slot Lv${levelFor(oreSlotCap, 2 * smeltOre() * next)}`
     case 'vein':
-      return `needs vein Lv${seamVeinLevel()}`
+      return `needs the ${ITEMS[ZONE_ORE[seamVeinLevel()]].emoji} ${ZONE_NAMES[seamVeinLevel()]} zone`
     case 'stoker':
       return 'needs the fuel certificate'
     case 'fields':

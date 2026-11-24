@@ -101,7 +101,7 @@ describe('batch 34: the ⭐ Favours section of ⬆️ Upgrades', () => {
     expect(rowOf(/Fine mist/).querySelector('small')!.textContent).toBe('needs fertilizer Lv5')
     expect(rowOf(/Sell price/).querySelector('small')!.textContent).toBe('needs sell price Lv5')
     expect(rowOf(/Furnace speed/).querySelector('small')!.textContent).toBe('needs a furnace')
-    expect(rowOf(/Seam survey/).querySelector('small')!.textContent).toBe('needs vein Lv3')
+    expect(rowOf(/Seam survey/).querySelector('small')!.textContent).toBe(`needs the ${ITEMS.ironOre.emoji} Iron zone`)
     expect((rowOf(/Seam survey/) as HTMLButtonElement).disabled).toBe(true)
     expect(rowOf(/Soil survey/).querySelector('small')!.textContent).toBe('a trait for each home bed · ⭐80')
     expect((rowOf(/Soil survey/) as HTMLButtonElement).disabled).toBe(true)

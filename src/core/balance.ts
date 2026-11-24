@@ -1201,6 +1201,10 @@ export function floorZone(n: number): number {
   return Math.min(Math.floor((n - 1) / FLOORS_PER_ZONE), VEIN_DROPS.length - 1)
 }
 
+/** batch 37: zone z's name and its ore (the zone's emoji = the ore's), zone index = the old vein level */
+export const ZONE_NAMES = ['Stone', 'Coal', 'Copper', 'Iron', 'Gold'] as const
+export const ZONE_ORE: readonly ItemId[] = ['stone', 'coal', 'copperOre', 'ironOre', 'goldOre']
+
 /** batch 37: a zone's first floor (its checkpoint once the seal is broken) */
 export function zoneFirstFloor(z: number): number {
   return FLOORS_PER_ZONE * z + 1

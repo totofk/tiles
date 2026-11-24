@@ -49,14 +49,22 @@ function addItems(run: RunState, id: ItemId, n: number): RunState['inventory'] {
   return { ...run.inventory, [id]: (run.inventory[id] ?? 0) + n }
 }
 
-/** "⛰️ Stone 80 % · ⚫ Coal 20 %" for a vein level with `mastered` tiers' ore bonus and the Seam aim (the weights dig
- * rolls from) */
-export function dropText(level: number, mastered: number, aim: OreId | null = null): string {
-  const drops = veinWeights(level, mastered, aim)
-  const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
-  return ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0)
-    .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((drops[id] ?? 0) / total) * 100)} %`)
+/** "⛰️ Stone 80 % · ⚫ Coal 20 %" — the shared rendering of a weights table */
+function weightsText(weights: Partial<Record<ItemId, number>>): string {
+  const total = ITEM_IDS.reduce((sum, id) => sum + (weights[id] ?? 0), 0)
+  return ITEM_IDS.filter((id) => (weights[id] ?? 0) > 0)
+    .map((id) => `${ITEMS[id].emoji} ${ITEMS[id].name} ${Math.round(((weights[id] ?? 0) / total) * 100)} %`)
     .join(' · ')
+}
+
+/** the miners' vein table: `mastered` tiers' ore bonus and the Seam aim (the weights dig rolls from) */
+export function dropText(level: number, mastered: number, aim: OreId | null = null): string {
+  return weightsText(veinWeights(level, mastered, aim))
+}
+
+/** batch 37: the floor's own table — the zone's base lifted by the floor's ore gradient (the weights rocks roll from) */
+export function floorDropText(n: number, mastered: number, aim: OreId | null = null): string {
+  return weightsText(floorWeights(n, mastered, aim))
 }
 
 /** weighted pick; r in [0, 1) */

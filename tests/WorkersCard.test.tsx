@@ -211,15 +211,15 @@ describe('👷 Workers card', () => {
     expect(within(plant).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.copperBar.emoji}⁠10 💰⁠300`)
   })
 
-  it('the mine row shows only the gates still missing, one line each: mines n/200, vein Lv3; its certificate is in iron bars', () => {
+  it('the mine row shows only the gates still missing, one line each: mines n/200, the iron zone; its certificate is in iron bars', () => {
     const mineRow = () => screen.getByText('⛏️ Mine').closest('.worker-row') as HTMLElement
     const gates = () => [...mineRow().querySelectorAll('span:first-child > small')].map((e) => e.textContent)
     setup({ vein: { level: 1, progress: 0, rock: 'stone' } }, { mines: 10 })
-    expect(gates()).toEqual(['mines 10/200', 'vein Lv3'])
+    expect(gates()).toEqual(['mines 10/200', 'Iron zone'])
     expect(within(mineRow()).getByRole('button', { name: /Certificate/ }).textContent).toBe(`Certificate ${ITEMS.ironBar.emoji}⁠5 💰⁠500`)
     cleanup()
     setup({ vein: { level: 2, progress: 0, rock: 'stone' } }, { mines: 682 })
-    expect(gates()).toEqual(['vein Lv3'])
+    expect(gates()).toEqual(['Iron zone'])
     cleanup()
     setup({ vein: { level: 3, progress: 0, rock: 'stone' } }, { mines: 150 })
     expect(gates()).toEqual(['mines 150/200'])
@@ -308,7 +308,7 @@ describe('worker targets on the grid (task 60)', () => {
     expect(where('cell-flash')).toEqual([])
   })
 
-  it('in the app the Mine button flashes on the tick a mine worker presses it, and stops a tick later', () => {
+  it("in the app the miners' line flashes on the tick a mine worker presses it, and stops a tick later", () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date', 'performance'] })
     const miner: GameState = {
       ...s,
@@ -323,14 +323,15 @@ describe('worker targets on the grid (task 60)', () => {
     }
     localStorage.setItem(SAVE_KEY, serialize(miner, Date.now()))
     render(<App />)
-    const dig = () => document.querySelector('.mine-dig')!
-    expect(dig().classList.contains('mine-flash')).toBe(false)
+    // batch 37: the ⛏️ flash moved off the button to the miners' line (R5)
+    const line = () => document.querySelector('.mine-miners')!
+    expect(line().classList.contains('mine-flash')).toBe(false)
     // tick 0 is a worker tick: the first step presses Mine
     act(() => void vi.advanceTimersByTime(1000))
-    expect(dig().classList.contains('mine-flash')).toBe(true)
-    expect(dig().querySelector('.cell-pop')!.textContent).toBe('⛏️')
+    expect(line().classList.contains('mine-flash')).toBe(true)
+    expect(line().querySelector('.cell-pop')!.textContent).toBe('⛏️')
     act(() => void vi.advanceTimersByTime(1000))
-    expect(dig().classList.contains('mine-flash')).toBe(false)
+    expect(line().classList.contains('mine-flash')).toBe(false)
   })
 })
 

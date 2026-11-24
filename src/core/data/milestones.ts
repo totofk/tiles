@@ -79,10 +79,11 @@ export const MILESTONES: readonly Milestone[] = [
   { id: 'hire4', label: '4 workers', when: (r) => r.workers.pool >= 4 },
   { id: 'hire6', label: '6 workers', when: (r) => r.workers.pool >= 6 },
   { id: 'mineLicense', label: 'Mine license', when: (r) => r.mineLicense },
-  { id: 'vein1', label: 'Vein Lv1', when: (r) => r.vein.level >= 1 },
-  { id: 'vein2', label: 'Vein Lv2', when: (r) => r.vein.level >= 2 },
-  { id: 'vein3', label: 'Vein Lv3', when: (r) => r.vein.level >= 3 },
-  { id: 'vein4', label: 'Vein Lv4', when: (r) => r.vein.level >= 4 },
+  // batch 37: the ids stay vein1-4 (R10), the labels name the zone the seal opens
+  { id: 'vein1', label: '⚫ Coal zone', when: (r) => r.vein.level >= 1 },
+  { id: 'vein2', label: '🔶 Copper zone', when: (r) => r.vein.level >= 2 },
+  { id: 'vein3', label: '🔷 Iron zone', when: (r) => r.vein.level >= 3 },
+  { id: 'vein4', label: '🌟 Gold zone', when: (r) => r.vein.level >= 4 },
   { id: 'furnace', label: 'Furnace', when: (r) => r.furnace.built },
   // batch 17: the workshop itself, the first machine, the smart valve
   { id: 'workshop', label: 'Workshop', when: (r) => r.workshop.built },

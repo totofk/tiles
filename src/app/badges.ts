@@ -8,7 +8,7 @@ import { TILE_CAP, licenseCost, mineLicenseCost, tileCost, toolMaxLevel, toolUnl
 import { buildFurnace } from '../core/furnace'
 import { buildWorkshop } from '../core/workshop'
 import { unlockFields } from '../core/fields'
-import { bestPickaxeTier, buyStorage, craftPickaxe, upgradeVein } from '../core/mining'
+import { bestPickaxeTier, breakSeal, buyStorage, craftPickaxe } from '../core/mining'
 import type { GameState } from '../core/state'
 import { buyToolTier, buyTool } from '../core/tools'
 import { buyCertificate, certificateUnlocked } from '../core/workers'
@@ -53,7 +53,7 @@ export function availableKeys(state: GameState): Record<BadgeTab, string[]> {
   if (run.mineLicense) {
     upgrades.push('mine')
     if (buyStorage(state).ok) upgrades.push(`storage@${run.storageLevel}`)
-    if (upgradeVein(state).ok) upgrades.push(`vein@${run.vein.level}`)
+    if (breakSeal(state).ok) upgrades.push(`vein@${run.vein.level}`)
   } else if (noMine(run) && buyStorage(state).ok) upgrades.push(`storage@${run.storageLevel}`)
 
   // batch 31.1 (task 166a): the 🌱 Farm and ⛏️ Mine nav items — certificates (unlocked, then affordable), the order

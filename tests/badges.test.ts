@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { availableKeys } from '../src/app/badges'
+import { FLOOR_SEED } from '../src/core/balance'
+import { rollFloor } from '../src/core/mining'
 import { createInitialState, type GameState } from '../src/core/state'
 
 const withRun = (run: Partial<GameState['run']>): GameState => {
@@ -30,7 +32,14 @@ describe('availableKeys', () => {
 
   it('affordable licenses, tiles and upgrade levels carry their level, so the next level is news again', () => {
     const s = createInitialState()
-    const rich = withRun({ cash: 3e4, mineLicense: true, inventory: { stone: 30 }, upgrades: { ...s.run.upgrades, energyMax: 3 } })
+    // batch 37: the vein badge is the breakable seal — standing on floor 5 with the ladder found
+    const rich = withRun({
+      cash: 3e4,
+      mineLicense: true,
+      inventory: { stone: 30 },
+      upgrades: { ...s.run.upgrades, energyMax: 3 },
+      floor: { n: 5, deepest: 5, found: true, ...rollFloor(5, 0, null, FLOOR_SEED) },
+    })
     const keys = availableKeys(rich)
     // batch 35: the 10-crop ladder; chilli (💰32,000) is above this 💰30,000
     expect(keys.shop).toEqual(['license:radish', 'license:corn', 'license:eggplant', 'license:pumpkin', 'license:tomato', 'license:lemon', 'license:grape', 'license:strawberry', 'tile:9'])

@@ -14,6 +14,7 @@ import {
   seedKeepChance,
   sellPriceFactor,
   waterMoisture,
+  ZONE_NAMES,
 } from './balance'
 import { CROPS, CROP_IDS } from './data/crops'
 import { duration, held } from './fmt'
@@ -23,7 +24,7 @@ import { STAR_EMOJI } from './data/orders'
 import { TOOLS, TOOL_JOBS, tierName, type ToolJob } from './data/tools'
 import { UPGRADES } from './data/upgrades'
 import { listingText } from './listings'
-import { dropText, expectedUses, heldPickaxe, pickaxePreserve } from './mining'
+import { dropText, expectedUses, heldPickaxe, minerZone, pickaxePreserve } from './mining'
 import { relicRegenFactor } from './relics'
 import type { CounterId, GameState, RunState } from './state'
 import { toolCount } from './tools'
@@ -124,7 +125,7 @@ export function stats(state: GameState): Stats {
       const label = `${job[0].toUpperCase()}${job.slice(1)} tier`
       return { label, value: TIER_EFFECT[job](tier), source: tierName(job, tier) }
     }),
-    { label: 'Drop table', value: dropText(run.vein.level, run.masteredTiers.length), source: `Vein Lv${run.vein.level}` },
+    { label: 'Drop table', value: dropText(minerZone(run), run.masteredTiers.length), source: `${ZONE_NAMES[minerZone(run)]} zone` },
     {
       label: 'Workers',
       value: `${pool} hired · ${freeWorkers(run)} free`,
@@ -170,7 +171,7 @@ export function feedbackSummary(state: GameState): string {
     `tools ${TOOL_JOBS.map((job) => `${job} Lv${run.tools[job]} tier ${run.toolTier[job]}`).join(', ')}`,
     `pickaxe ${pickaxe ? `${pickaxe.tier} ${pickaxe.durability}` : 'none'}`,
     `workers ${workers.pool} (${SHOWN_JOBS.map((job) => `${job} ${workers.assigned[job]}`).join(', ')})`,
-    `vein Lv${run.vein.level}`,
+    `${ZONE_NAMES[minerZone(run)]} zone · deepest floor ${run.floor.deepest}`,
     `furnace ${furnace.built ? `${furnace.smart ? 'smart' : 'plain'} fire Lv${furnace.levels.fireCap} batch Lv${furnace.levels.batch} speed Lv${furnace.levels.speed} molds ${ORE_IDS.filter((ore) => furnace.molds[ore]).map((ore) => ore.replace('Ore', '')).join('+')}` : 'none'}`,
     `played ${duration(run.tick)}`,
   ].join(' · ')

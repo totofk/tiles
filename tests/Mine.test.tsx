@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Mine } from '../src/app/Mine'
@@ -6,7 +7,8 @@ import type { Act } from '../src/app/useGame'
 import { itemSellPrice, oreSortUnlockCost, pickaxeDurability } from '../src/core/balance'
 import { ITEMS } from '../src/core/data/items'
 import { price } from '../src/app/fmt'
-import { createFields, createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
+import { createFields, createFurnace, createInitialState, type FloorState, type GameState, type Pickaxe } from '../src/core/state'
+import type { ItemId } from '../src/core/data/items'
 
 afterEach(cleanup)
 const built = { ...createFurnace(), built: true }
@@ -16,6 +18,7 @@ const ORE = ITEMS.copperOre.emoji
 const BAR = ITEMS.copperBar.emoji
 const IRON_ORE = ITEMS.ironOre.emoji
 const IRON_BAR = ITEMS.ironBar.emoji
+const GOLD_ORE = ITEMS.goldOre.emoji
 
 /** `pickaxe` = that one tier on the rack, in hand; the run fields otherwise */
 function setup({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pickaxe }) {
@@ -32,84 +35,94 @@ function setup({ pickaxe, ...run }: Partial<GameState['run']> & { pickaxe?: Pick
 }
 const text = () => document.body.textContent ?? ''
 const wooden = (durability = pickaxeDurability('wooden')) => ({ tier: 'wooden' as const, durability })
+/** a hand-built floor: `kinds` = one ItemId for all 12 rocks, or the 12 kinds themselves */
+const floorOf = (n: number, kinds: ItemId | readonly ItemId[], ladder = 0, found = false): FloorState => ({
+  n,
+  deepest: n,
+  rocks: (typeof kinds === 'string' ? Array.from({ length: 12 }, () => kinds) : [...kinds]).map((kind) => ({ kind, hits: 0, broken: false })),
+  ladder,
+  found,
+  rng: 123,
+})
+/** 12 kinds with `first` in cell 0, `rest` everywhere else */
+const kinds12 = (first: ItemId, rest: ItemId = 'stone') => [first, ...Array.from({ length: 11 }, () => rest)]
 
 describe('Mine panel', () => {
-  it('shows the current vein with % and the next level greyed with its cost; the vein ends at Lv4 (no teaser)', () => {
+  it('batch 37: floor 1 status + the zone drop line (the old Lv0 table); no coming-teaser', () => {
     setup({})
-    expect(text()).toContain(`Vein Lv0: ${STONE} Stone 100 %`)
-    expect(screen.getByText(`Lv1: ${STONE} Stone 80 % · ⚫ Coal 20 % — ${STONE}⁠25 💰⁠100`)).toBeTruthy()
+    expect(document.querySelector('.floor-status')!.textContent).toBe('Floor 1 · Row 1/3 · ⛏️ 12 left · ⬇️ not found')
+    expect(document.querySelector('.mine-vein .vein-label')!.textContent).toBe(`Floor 1 · ${STONE} Stone zone: `)
+    expect([...document.querySelectorAll('.mine-vein .vein-drops .vein-drop')].map((d) => d.textContent!.trim())).toEqual([`${STONE} Stone 100 %`])
     expect(screen.queryByText(/coming/)).toBeNull()
   })
 
-  it('the next vein level has an Upgrade button, disabled with the reason until it is affordable', () => {
-    setup({ cash: 100, inventory: { stone: 24 } })
-    const upgrade = () => screen.getByRole('button', { name: /^Upgrade vein to Lv1/ }) as HTMLButtonElement
-    expect(upgrade().disabled).toBe(true)
+  it('batch 37: the seal to zone 1: Break seal is disabled with the reason until it is affordable, then opens floor 6', () => {
+    const at = { cash: 100, inventory: { stone: 24 }, floor: floorOf(5, 'stone', 11, true) }
+    setup(at)
+    const seal = () => screen.getByRole('button', { name: /^Break seal/ }) as HTMLButtonElement
+    expect(screen.getByText(/^🔒 Seal to floor 6/).textContent).toBe(`🔒 Seal to floor 6 · ⚫ Coal zone: ${STONE}⁠25 💰⁠100`)
     // 25 stone cannot fit the starting 20 slots: the reason names the storage to buy
-    expect(upgrade().textContent).toBe('Upgrade vein to Lv1 — Needs 📦 25 storage')
+    expect(seal().textContent).toBe('Break seal — Needs 📦 25 storage')
+    expect(seal().disabled).toBe(true)
     cleanup()
-    setup({ cash: 100, inventory: { stone: 24 }, bagCapacity: 30 })
-    expect(upgrade().textContent).toBe('Upgrade vein to Lv1 — Not enough items')
+    setup({ ...at, bagCapacity: 30 })
+    expect(seal().textContent).toBe('Break seal — Not enough items')
     cleanup()
-    const affordable = setup({ cash: 100, inventory: { stone: 25 } })
-    fireEvent.click(upgrade())
-    expect(affordable.get().run.vein.level).toBe(1)
-    affordable.rerender()
-    expect(screen.queryByRole('button', { name: /^Upgrade vein to Lv1/ })).toBeNull()
-    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ })).toBeTruthy()
+    const t = setup({ cash: 100, inventory: { stone: 25 }, floor: floorOf(5, 'stone', 11, true) })
+    fireEvent.click(seal())
+    t.rerender()
+    expect(t.get().run.vein.level).toBe(1)
+    expect(t.get().run.floor.n).toBe(6)
+    // the next seal is floor 10, not here
+    expect(screen.queryByRole('button', { name: /^Break seal/ })).toBeNull()
   })
 
-  it('vein Lv2 is copper ore and needs the furnace: the Upgrade button says so until it is built', () => {
-    const rich = { cash: 1e3, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: { level: 1, progress: 0, rock: 'stone' as const } }
+  it('batch 37: zone 2 (copper) needs the furnace: the seal says so until it is built', () => {
+    const rich = { cash: 1e3, inventory: { stone: 30, coal: 10 }, bagCapacity: 40, vein: { level: 1, progress: 0, rock: 'stone' as const }, floor: floorOf(10, 'stone', 11, true) }
     setup(rich)
-    expect(screen.getByText(/^Lv2: /).textContent).toBe(`Lv2: ${STONE} Stone 65 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % — ${STONE}⁠30 ⚫⁠10 💰⁠200`)
-    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }).textContent).toBe('Upgrade vein to Lv2 — Build the furnace first')
+    expect(screen.getByText(/^🔒 Seal to floor 11/).textContent).toBe(`🔒 Seal to floor 11 · ${ORE} Copper zone: ${STONE}⁠30 ⚫⁠10 💰⁠200`)
+    expect(screen.getByRole('button', { name: /^Break seal/ }).textContent).toBe('Break seal — Build the furnace first')
     cleanup()
     setup({ ...rich, furnace: built })
-    expect((screen.getByRole('button', { name: /^Upgrade vein to Lv2/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByRole('button', { name: /^Break seal/ }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('vein Lv4 needs the iron pickaxe: the row shows the gold table and price, the button says so over copper', () => {
-    const GOLD_ORE = ITEMS.goldOre.emoji
-    const lv3 = { cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const } }
+  it('batch 37: zone 4 (gold) needs the iron pickaxe: the seal shows the gold price and says so over copper', () => {
+    const lv3 = { cash: 7500, inventory: { stone: 45, ironBar: 8 }, bagCapacity: 60, furnace: built, vein: { level: 3, progress: 0, rock: 'stone' as const }, floor: floorOf(20, 'stone', 11, true) }
     setup({ ...lv3, pickaxe: { tier: 'copper', durability: 100 } })
-    expect(screen.getByText(/^Lv4: /).textContent).toBe(
-      `Lv4: ${STONE} Stone 50 % · ⚫ Coal 20 % · ${ORE} Copper ore 12 % · ${ITEMS.ironOre.emoji} Iron ore 10 % · ${GOLD_ORE} Gold ore 8 % — ${STONE}⁠45 ${IRON_BAR}⁠8 💰⁠7,500`,
-    )
-    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }).textContent).toBe('Upgrade vein to Lv4 — Needs the iron pickaxe')
+    expect(screen.getByText(/^🔒 Seal to floor 21/).textContent).toBe(`🔒 Seal to floor 21 · ${GOLD_ORE} Gold zone: ${STONE}⁠45 ${IRON_BAR}⁠8 💰⁠7,500`)
+    expect(screen.getByRole('button', { name: /^Break seal/ }).textContent).toBe('Break seal — Needs the iron pickaxe')
     cleanup()
     const t = setup({ ...lv3, pickaxe: { tier: 'iron', durability: 100 } })
-    fireEvent.click(screen.getByRole('button', { name: /^Upgrade vein to Lv4/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Break seal/ }))
     t.rerender()
     expect(t.get().run.vein.level).toBe(4)
-    // the gold pickaxe is offered once the vein drops gold ore (never at Lv3)
+    expect(t.get().run.floor.n).toBe(21)
+    // the gold pickaxe is offered once the zone drops gold ore (never at zone 3)
     expect(screen.getByRole('button', { name: /^Craft gold pickaxe/ }).textContent).toBe(`Craft gold pickaxe (${ITEMS.goldBar.emoji}⁠5 💰⁠500) — Not enough items`)
   })
 
-  it('at the last vein level (Lv4) shows only the current table, gold in it', () => {
-    setup({ vein: { level: 4, progress: 0, rock: 'goldOre' }, pickaxe: { tier: 'iron', durability: 100 } })
-    // batch 36.7: each drop is its own .vein-drop cell, joined by spaces (the old ' · ' separators are gone)
-    expect(text()).toContain(`Vein Lv4: ${STONE} Stone 50 % ⚫ Coal 20 % ${ORE} Copper ore 12 % ${ITEMS.ironOre.emoji} Iron ore 10 % ${ITEMS.goldOre.emoji} Gold ore 8 %`)
-    expect(document.querySelector('.mine-vein .vein-label')!.textContent).toBe('Vein Lv4: ')
+  it('batch 37: floor 21 shows the gold zone table (the old Lv4 numbers); no fifth-zone teaser', () => {
+    setup({ vein: { level: 4, progress: 0, rock: 'goldOre' }, pickaxe: { tier: 'iron', durability: 100 }, floor: floorOf(21, 'stone') })
+    expect(document.querySelector('.mine-vein .vein-label')!.textContent).toBe(`Floor 21 · ${GOLD_ORE} Gold zone: `)
     expect([...document.querySelectorAll('.mine-vein .vein-drops .vein-drop')].map((d) => d.textContent!.trim())).toEqual([
       `${STONE} Stone 50 %`,
       `⚫ Coal 20 %`,
       `${ORE} Copper ore 12 %`,
-      `${ITEMS.ironOre.emoji} Iron ore 10 %`,
-      `${ITEMS.goldOre.emoji} Gold ore 8 %`,
+      `${IRON_ORE} Iron ore 10 %`,
+      `${GOLD_ORE} Gold ore 8 %`,
     ])
-    expect(screen.queryByText(/^Lv5: /)).toBeNull()
     expect(screen.queryByText(/coming/)).toBeNull()
   })
 
-  it('shows the current rock type and its hits: a copper rock takes 3', () => {
-    setup({ vein: { level: 2, progress: 2, rock: 'copperOre' } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${ORE} cracked 2/3`)
-  })
-
-  it('shows a crack on a half-mined stone', () => {
-    setup({ vein: { level: 0, progress: 1, rock: 'stone' } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${STONE} cracked 1/2`)
+  it('shows the target rock and its hits: a copper rock takes 3, a half-hit one is cracked', () => {
+    setup({ floor: floorOf(1, kinds12('copperOre')), pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${ORE} 0/3`)
+    expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${ORE} 0/3`)
+    cleanup()
+    const g = floorOf(1, 'stone')
+    setup({ floor: { ...g, rocks: g.rocks.map((r, i) => (i === 0 ? { ...r, hits: 1 } : r)) }, pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${STONE} cracked 1/2`)
   })
 
   it('shows "~N more uses" from the current durability, mastery level + xp, and the badge only once mastered', () => {
@@ -127,10 +140,10 @@ describe('Mine panel', () => {
     expect(screen.getByText('Mastered ✓ +5 % durability · +10 % ore · all pickaxes')).toBeTruthy()
   })
 
-  it('batch 32: the pickaxe group renders between Dig and the vein: rack, status, craft row (unowned offered tiers only), mastery', () => {
-    setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' }, rack: { wooden: 0, copper: 120 }, selectedPickaxe: 'copper', masteredTiers: ['wooden'], mastery: { wooden: 400 } })
+  it('batch 32: the pickaxe group renders between Mine next and the vein: rack, status, craft row (unowned offered tiers only), mastery', () => {
+    setup({ furnace: built, vein: { level: 3, progress: 0, rock: 'stone' }, rack: { wooden: 0, copper: 120 }, selectedPickaxe: 'copper', masteredTiers: ['wooden'], mastery: { wooden: 400 }, floor: floorOf(16, 'stone') })
     const section = document.querySelector('.mine')!
-    const dig = screen.getByRole('button', { name: /Dig/ })
+    const dig = screen.getByRole('button', { name: /Mine next/ })
     const pickaxes = section.querySelector('.mine-pickaxe-group')!
     const vein = section.querySelector('.mine-vein')!
     expect(dig.compareDocumentPosition(pickaxes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -364,36 +377,37 @@ describe('Mine panel', () => {
     ])
   })
 
-  it('vein Lv3 row: iron ore 10 %, priced for storage Lv3, and a hint while the pickaxe is too weak for iron', () => {
-    const lv2 = { cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' as const } }
+  it('the seal to zone 3 (iron): priced for storage Lv3, and a hint while the pickaxe is too weak for iron', () => {
+    const lv2 = { cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' as const }, floor: floorOf(15, 'stone', 11, true) }
     setup({ ...lv2, bagCapacity: 40, inventory: { stone: 35, copperBar: 5 }, pickaxe: wooden() })
-    expect(screen.getByText(/^Lv3: /).textContent).toBe(
-      `Lv3: ${STONE} Stone 55 % · ⚫ Coal 20 % · ${ORE} Copper ore 15 % · ${IRON_ORE} Iron ore 10 % — ${STONE}⁠40 ${BAR}⁠5 💰⁠400`,
-    )
-    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ }).textContent).toBe('Upgrade vein to Lv3 — Needs 📦 45 storage')
+    expect(screen.getByText(/^🔒 Seal to floor 16/).textContent).toBe(`🔒 Seal to floor 16 · ${IRON_ORE} Iron zone: ${STONE}⁠40 ${BAR}⁠5 💰⁠400`)
+    expect(screen.getByRole('button', { name: /^Break seal/ }).textContent).toBe('Break seal — Needs 📦 45 storage')
     expect(screen.getByText(/needs a copper pickaxe/).textContent).toBe(`${IRON_ORE} Iron ore needs a copper pickaxe or better, else it is mined as ${STONE} stone`)
     cleanup()
     const t = setup({ ...lv2, bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: { tier: 'copper', durability: 200 } })
     expect(screen.queryByText(/needs a copper pickaxe/)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Break seal/ }))
+    t.rerender()
     expect(t.get().run.vein.level).toBe(3)
+    expect(t.get().run.floor.n).toBe(16)
   })
 
-  it('batch 13: iron is open to everyone: on vein Lv2 the Lv3 upgrade and the iron hint show, no locked-level teaser', () => {
-    setup({ cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: wooden() })
-    expect(screen.getByRole('button', { name: /^Upgrade vein to Lv3/ })).toBeTruthy()
+  it('batch 13: iron is open to everyone: on zone 2 the zone-3 seal and the iron hint show, no locked-level teaser', () => {
+    setup({ cash: 400, furnace: built, vein: { level: 2, progress: 0, rock: 'stone' }, floor: floorOf(15, 'stone', 11, true), bagCapacity: 50, inventory: { stone: 40, copperBar: 5 }, pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /^Break seal/ })).toBeTruthy()
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
     expect(screen.queryByText(/— coming/)).toBeNull()
   })
 
   it('an iron rock shows "as stone" with stone hits below a copper pickaxe, its own 4 hits with one', () => {
-    const rock = { level: 3, progress: 0, rock: 'ironOre' as const }
-    setup({ vein: rock, pickaxe: wooden() })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
+    setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: floorOf(16, kinds12('ironOre')), pickaxe: wooden() })
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
+    expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${IRON_ORE} as ${STONE} 0/2`)
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
     cleanup()
-    setup({ vein: { ...rock, progress: 3 }, pickaxe: { tier: 'copper', durability: 200 } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
+    const g = floorOf(16, kinds12('ironOre'))
+    setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: { ...g, rocks: g.rocks.map((r, i) => (i === 0 ? { ...r, hits: 3 } : r)) }, pickaxe: { tier: 'copper', durability: 200 } })
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${IRON_ORE} cracked 3/4`)
   })
 
   it('iron pickaxe: offered from vein Lv3 over a copper one, crafted from iron bars, repaired with iron bars', () => {
@@ -431,21 +445,26 @@ describe('Mine panel', () => {
     expect(screen.getByRole('button', { name: `Blunt iron pickaxe — repair (${IRON_BAR}⁠2)` })).toBeTruthy()
   })
 
-  it('a mine worker press flashes the Mine button and pops ⛏️; nothing otherwise', () => {
+  it("a mine worker press flashes the miners' line and pops ⛏️; no line without a mine worker", () => {
     const s = createInitialState()
-    const state: GameState = { ...s, run: { ...s.run, mineLicense: true } }
+    const workers = { ...s.run.workers, assigned: { ...s.run.workers.assigned, mine: 1 } }
+    const state: GameState = { ...s, run: { ...s.run, mineLicense: true, workers } }
     const { rerender } = render(<Mine state={state} act={() => {}} />)
-    const dig = () => screen.getByRole('button', { name: /Dig/ })
-    expect(dig().classList.contains('mine-flash')).toBe(false)
-    expect(dig().querySelector('.cell-pop')).toBeNull()
+    const line = () => document.querySelector('.mine-miners')!
+    expect(line().classList.contains('mine-flash')).toBe(false)
+    expect(line().querySelector('.cell-pop')).toBeNull()
     rerender(<Mine state={state} act={() => {}} minerActed />)
-    expect(dig().classList.contains('mine-flash')).toBe(true)
-    expect(dig().querySelector('.cell-pop')!.textContent).toBe('⛏️')
+    expect(line().classList.contains('mine-flash')).toBe(true)
+    expect(line().querySelector('.cell-pop')!.textContent).toBe('⛏️')
+    cleanup()
+    const noWorker: GameState = { ...s, run: { ...s.run, mineLicense: true } }
+    render(<Mine state={noWorker} act={() => {}} />)
+    expect(document.querySelector('.mine-miners')).toBeNull()
   })
 
   it('when storage is full, sells the stone from the panel and keeps the wood and the coal (it fuels the Fields tank)', () => {
     const t = setup({ cash: 0, inventory: { stone: 15, coal: 3, wood: 2 } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('Storage is full')
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain('Storage is full')
     const value = 15 * itemSellPrice('stone', t.get().meta, 0)
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} 💰${value}$`) }))
     t.rerender()
@@ -489,7 +508,7 @@ describe('Mine panel', () => {
 
   it('batch 24: "Sell all when full" never sells bars — they pay for upgrades (own-row buttons only)', () => {
     const t = setup({ cash: 0, inventory: { stone: 15, copperBar: 5 } })
-    expect(screen.getByRole('button', { name: /Dig/ }).textContent).toContain('Storage is full')
+    expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain('Storage is full')
     const value = 15 * itemSellPrice('stone', t.get().meta, 0)
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Sell all ${STONE} 💰${value}$`) }))
     t.rerender()
@@ -696,9 +715,81 @@ describe('batch 36.3: the 🌊 River view (Wetlands, no mine)', () => {
     cleanup()
     setup({ listing: wetlands, inventory: { stone: 2 } })
     expect(screen.getByRole('heading', { level: 2 }).textContent).toMatch(/^⛏️ Mine/)
-    expect(screen.getByRole('button', { name: /Dig/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Mine next/ })).toBeTruthy()
     const grid = document.querySelector('.item-grid-wrap')!
     const barge = document.querySelector('.mine-barge')!
     expect(grid.compareDocumentPosition(barge) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('batch 37: floors', () => {
+  it('the grid renders 12 cells; rows past the open row are dimmed and inert; a tap mines that rock', () => {
+    const t = setup({ floor: floorOf(1, 'stone'), pickaxe: wooden() })
+    const cells = [...document.querySelectorAll('.floor-grid button')] as HTMLButtonElement[]
+    expect(cells).toHaveLength(12)
+    expect(cells.map((c) => c.getAttribute('aria-disabled'))).toEqual([null, null, null, null, 'true', 'true', 'true', 'true', 'true', 'true', 'true', 'true'])
+    fireEvent.click(cells[0]!)
+    t.rerender()
+    // wooden hits 2 = stone's 2, so one press breaks (and pays) the rock
+    expect(t.get().run.floor.rocks[0]!.broken).toBe(true)
+    expect(t.get().run.inventory.stone).toBe(1)
+    fireEvent.click(cells[8]!)
+    t.rerender()
+    expect(t.get().run.floor.rocks[8]!.broken).toBe(false)
+    expect(t.get().run.floor.rocks[8]!.hits).toBe(0)
+  })
+
+  it('⬇️ Down appears only with the ladder found and descends one floor (deepest follows)', () => {
+    setup({ floor: floorOf(1, 'stone', 5) })
+    expect(screen.queryByRole('button', { name: /^⬇️ Down/ })).toBeNull()
+    cleanup()
+    const t = setup({ floor: floorOf(3, 'stone', 5, true) })
+    fireEvent.click(screen.getByRole('button', { name: /^⬇️ Down to floor 4/ }))
+    t.rerender()
+    expect(t.get().run.floor.n).toBe(4)
+    expect(t.get().run.floor.deepest).toBe(4)
+  })
+
+  it('the ↕️ elevator rides to each built zone checkpoint and marks the current one pressed', () => {
+    const t = setup({ vein: { level: 2, progress: 0, rock: 'stone' }, floor: floorOf(11, 'stone') })
+    const buttons = () => [...screen.getByRole('group', { name: 'Elevator' }).querySelectorAll('button')]
+    expect(buttons().map((b) => b.textContent)).toEqual(['Floor 1', 'Floor 6', 'Floor 11'])
+    expect(buttons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'false', 'true'])
+    fireEvent.click(buttons()[1]!)
+    t.rerender()
+    expect(t.get().run.floor.n).toBe(6)
+    expect(screen.getByRole('group', { name: 'Elevator' }).querySelectorAll('button')[1]!.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('floor 25 is the bottom: the way down is blocked, no seal, no Down', () => {
+    setup({ vein: { level: 4, progress: 0, rock: 'goldOre' }, floor: floorOf(25, 'stone', 5, true) })
+    expect(screen.getByText(/The way down is blocked/).textContent).toBe('The way down is blocked — deeper zones come later')
+    expect(screen.queryByRole('button', { name: /^⬇️ Down/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Break seal/ })).toBeNull()
+  })
+
+  it("the miners' line: Deepest default, the zone picker follows setMinerZone, their rock shown", () => {
+    const base = createInitialState().run.workers
+    const t = setup({
+      vein: { level: 2, progress: 1, rock: 'copperOre' },
+      workers: { ...base, assigned: { ...base.assigned, mine: 1 } },
+      pickaxe: { tier: 'copper', durability: 200 },
+    })
+    expect(document.querySelector('.mine-miners span')!.textContent).toBe(`⛏️ Miners: ${ORE} Copper zone (floor 11) · ${ORE} cracked 1/3`)
+    const select = screen.getByLabelText('Miner zone') as HTMLSelectElement
+    expect([...select.options].map((o) => o.textContent)).toEqual(['Deepest', `${STONE} Stone zone`, '⚫ Coal zone', `${ORE} Copper zone`])
+    fireEvent.change(select, { target: { value: '1' } })
+    t.rerender()
+    expect(t.get().run.minerZone).toBe(1)
+    expect(document.querySelector('.mine-miners span')!.textContent).toContain(`⚫ Coal zone (floor 6)`)
+  })
+
+  it('appCss pin: the floor classes exist with 44 px cells (four 44 px columns + gaps fit the 375 px column)', () => {
+    // jsdom turns import.meta.url into http://…, so read by cwd path (vitest runs from the repo root)
+    const css = readFileSync('src/app/app.css', 'utf8')
+    expect(css).toContain('.floor-status')
+    expect(css).toContain('.floor-grid')
+    expect(css).toContain('.upgrade-vein-info')
+    expect(css).toContain('min-height: 44px')
   })
 })

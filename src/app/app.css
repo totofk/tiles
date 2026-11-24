@@ -1224,8 +1224,35 @@ button:disabled::after {
   font-weight: 600;
   padding-bottom: var(--s1);
 }
-/* smaller and tighter to the corner than on a tile, so the ⛏️ pop ends above the button's second line (≥ 19 px down) */
-.mine-dig > .cell-pop {
+/* batch 37: the floor line and the 4×3 rock grid — 44 px thumb targets; 4 × 44 + 3 gaps = 188 px, fits the 344 px
+   Mine column at 375. Rows past the open row and broken rocks are dimmed non-buttons. */
+.floor-status {
+  margin: 0;
+  font-size: 14px;
+}
+.floor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 44px);
+  gap: 4px;
+}
+.floor-grid button {
+  min-height: 44px;
+  font-size: 12px;
+  padding: 2px;
+}
+.rock-off {
+  opacity: 0.45;
+}
+/* batch 37: the miners' line holds the ⛏️ flash + pop now the Mine button no longer does (R5) */
+.mine-miners {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-size: 14px;
+}
+/* smaller and tighter to the corner than on a tile, so the ⛏️ pop ends above the line's text (≥ 19 px down) */
+.mine-miners > .cell-pop {
   top: 2px;
   right: 2px;
   font-size: 14px;
@@ -2039,6 +2066,13 @@ details > summary:focus-visible {
   grid-template-columns: minmax(0, 1fr);
 }
 .shop-row button {
+  padding: var(--s2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+/* batch 37: the zone row is info-only (the seal is broken in the mine), laid out like the button it replaced */
+.upgrade-vein-info {
   padding: var(--s2);
   display: flex;
   flex-direction: column;

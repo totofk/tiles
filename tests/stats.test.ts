@@ -53,7 +53,7 @@ describe('stats(state)', () => {
       { label: 'Water tier', value: 'waters to 1 (×1 moist time)', source: 'basic' },
       { label: 'Harvest tier', value: '0 % double harvest · 0 % seed', source: 'basic' },
       { label: 'Plant tier', value: '0 % seed kept', source: 'basic' },
-      { label: 'Drop table', value: `${ITEMS.stone.emoji} Stone 100 %`, source: 'Vein Lv0' },
+      { label: 'Drop table', value: `${ITEMS.stone.emoji} Stone 100 %`, source: 'Stone zone' },
       { label: 'Workers', value: '0 hired · 0 free', source: 'plant 0 · water 0 · harvest 0 · ore 0 · fuel 0 · mine 0 · clerk 0 · manager 0 · stoker 0' },
     ])
   })
@@ -153,7 +153,7 @@ describe('stats(state)', () => {
       label: 'Drop table',
       // batch 32: the run's 1 mastered tier lifts copper ore ×1.1 (16.5 %) and stone gives up the 1.5 points
       value: `${ITEMS.stone.emoji} Stone 64 % · ⚫ Coal 20 % · ${ITEMS.copperOre.emoji} Copper ore 17 %`,
-      source: 'Vein Lv2',
+      source: 'Copper zone',
     })
   })
 })
@@ -163,7 +163,7 @@ describe('feedbackSummary(state)', () => {
     expect(feedbackSummary(createInitialState())).toBe(
       `cash ${STARTING_CASH} · licenses potato · tools` +
         ' water Lv0 tier 0, harvest Lv0 tier 0, plant Lv0 tier 0 · pickaxe none · ' +
-        'workers 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0, clerk 0, manager 0, stoker 0) · vein Lv0 · furnace none · played 0m 00s',
+        'workers 0 (plant 0, water 0, harvest 0, ore 0, fuel 0, mine 0, clerk 0, manager 0, stoker 0) · Stone zone · deepest floor 1 · furnace none · played 0m 00s',
     )
   })
 
@@ -182,7 +182,7 @@ describe('feedbackSummary(state)', () => {
       },
     }
     const shown = feedbackSummary(state)
-    expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0, clerk 0, manager 0, stoker 0) · vein Lv2')
+    expect(shown).toContain('workers 3 (plant 1, water 1, harvest 1, ore 0, fuel 0, mine 0, clerk 0, manager 0, stoker 0) · Copper zone · deepest floor 1')
     expect(shown).toContain('pickaxe copper 120 · ')
     expect(shown).toContain('furnace smart fire Lv1 batch Lv2 speed Lv0 molds copper · played 1h 02m 05s')
   })

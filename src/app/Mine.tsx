@@ -8,6 +8,11 @@ import {
   forgeCost,
   FUEL_IDS,
   FURNACE_UPGRADE_IDS,
+  FLOOR_COLS,
+  FLOOR_ROWS,
+  floorWeights,
+  floorZone,
+  MINE_BOTTOM_FLOOR,
   barTicks,
   batchBars,
   fireCapTicks,
@@ -37,9 +42,13 @@ import {
   pickaxeRepairCost,
   rockHits,
   rockPickaxe,
+  sealFloor,
   veinDrops,
   veinUpgradeCost,
   woodCost,
+  zoneFirstFloor,
+  ZONE_NAMES,
+  ZONE_ORE,
   MINE_DROP_IDS,
   oreSortUnlockCost,
   oreSortVeinLevel,
@@ -56,23 +65,28 @@ import { addFuel, setAutoBuyWood, buyFurnaceUpgrade, buyMold, collectAll, collec
 import {
   activePickaxe,
   bagCount,
+  breakSeal,
   buyKeepN,
   buyMineLicense,
   buyWood,
   craftPickaxe,
-  dig,
-  dropText,
+  descend,
   expectedUses,
+  floorDropText,
   heldPickaxe,
   minedRock,
+  mineRock,
+  minerZone,
+  openRow,
   repairPickaxe,
+  rideElevator,
   selectPickaxe,
   sellItem,
   setBarKeep,
+  setMinerZone,
   setOreKeep,
   setOreSort,
   unlockOreSort,
-  upgradeVein,
 } from '../core/mining'
 import type { Furnace as FurnaceState, GameState, Mold } from '../core/state'
 import { Bar } from './Bar'
@@ -84,6 +98,8 @@ import { ERROR_TEXT, FIRE_EMOJI, MINE_EMOJI, type Act } from './useGame'
 /** pickaxe tiers above wooden map 1:1 to an ore; the vein at this level drops it */
 type OreTier = 'copper' | 'iron' | 'gold'
 const tierVein = (tier: OreTier, level: number) => (veinDrops(level)[`${tier}Ore`] ?? 0) > 0
+/** batch 37: "🔶 Copper zone" — the zone's ore emoji + its name */
+const zoneTag = (z: number) => `${ITEMS[ZONE_ORE[z]].emoji} ${ZONE_NAMES[z]} zone`
 /** what "sell all" sells when storage is full; wood stays for crafting and repairs, bars pay for upgrades (batch 24) */
 /** the 🧺 keep-up-to stepper's step */
 const KEEP_STEP = 10
@@ -470,25 +486,35 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
     )
   }
   // the core actions double as "can I?" checks, so the disabled reason is the action's own error
-  const digCheck = dig(state)
+  const mineCheck = mineRock(state)
   const active = activePickaxe(run)?.tier ?? null
   const hits = mineHits(active)
   const repair = repairPickaxe(state)
-  const cracked = run.vein.progress > 0
-  // a rock the pickaxe in hand is too weak for is mined as stone: show it as "🔷 as ⛰️" with stone's hits
-  const minedAs = minedRock(run.vein.rock, active)
-  const rock = ITEMS[run.vein.rock].emoji + (minedAs === run.vein.rock ? '' : ` as ${ITEMS[minedAs].emoji}`)
+  // the open row's first unbroken rock is the ⛏️ Mine next target; a rock the pickaxe in hand is too weak for is
+  // mined as stone: shown as "🔷 as ⛰️" with stone's hits, as its grid cell does
+  const row = openRow(run.floor.rocks)
+  const target = run.floor.rocks.findIndex((_, k) => k >= row * FLOOR_COLS && k < (row + 1) * FLOOR_COLS && !run.floor.rocks[k].broken)
+  const targetRock = target >= 0 ? run.floor.rocks[target] : null
+  const targetAs = minedRock(targetRock?.kind ?? 'stone', active)
+  const rockLabel = ITEMS[targetRock?.kind ?? 'stone'].emoji + (targetAs === targetRock?.kind ? '' : ` as ${ITEMS[targetAs].emoji}`)
+  // the miners' own rock (the vein), shown on their line as the Dig button used to show it
+  const veinAs = minedRock(run.vein.rock, active)
+  const veinLabel = ITEMS[run.vein.rock].emoji + (veinAs === run.vein.rock ? '' : ` as ${ITEMS[veinAs].emoji}`)
+  // the seal into the next zone costs what the old vein upgrade cost (info-only in ⬆️ Upgrades, broken here)
   const nextVein = veinUpgradeCost(run.vein.level, meta)
-  const veinCheck = upgradeVein(state)
+  const sealCheck = breakSeal(state)
   const veinItems = nextVein ? ITEM_IDS.reduce((n, id) => n + (nextVein[id] ?? 0), 0) : 0
   // items the next level costs beyond what storage holds can never be gathered, so say what to buy instead
-  const veinReason = veinCheck.ok
+  const sealReason = sealCheck.ok
     ? ''
-    : veinCheck.error === 'NOT_ENOUGH_ITEMS' && veinItems > run.bagCapacity
+    : sealCheck.error === 'NOT_ENOUGH_ITEMS' && veinItems > run.bagCapacity
       ? `Needs 📦 ${veinItems} storage`
-      : ERROR_TEXT[veinCheck.error]
-  // rocks of this level or the next that the pickaxe in hand mines as stone (iron ore below a copper pickaxe)
-  const tooHard = ITEM_IDS.filter((id) => (veinDrops(run.vein.level + 1)[id] ?? 0) > 0 && minedRock(id, active) !== id)
+      : ERROR_TEXT[sealCheck.error]
+  // rocks of this floor's table (and the next zone's, which a found seal opens onto) the pickaxe in hand mines as stone
+  const hintWeights = (n: number) => floorWeights(n, run.masteredTiers.length, run.favours.aim)
+  const tooHard = ITEM_IDS.filter(
+    (id) => ((hintWeights(run.floor.n)[id] ?? 0) > 0 || (hintWeights(zoneFirstFloor(run.vein.level + 1))[id] ?? 0) > 0) && minedRock(id, active) !== id,
+  )
   const fullValue = SELL_WHEN_FULL.reduce(
     (sum, id) => sum + (run.inventory[id] ?? 0) * itemSellPrice(id, meta, run.upgrades.sellPrice),
     0,
@@ -531,20 +557,31 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           {line}
         </p>
       ))}
-      <button className={minerActed ? 'mine-dig mine-flash' : 'mine-dig'} disabled={!digCheck.ok} onClick={() => act(dig)}>
-        ⛏️ Dig
+      <p className="floor-status">
+        Floor {run.floor.n} · Row {row + 1}/{FLOOR_ROWS} · ⛏️ {run.floor.rocks.filter((r) => !r.broken).length} left ·{' '}
+        {run.floor.found ? '⬇️ found' : '⬇️ not found'}
+      </p>
+      <div className="floor-grid" role="grid" aria-label="Floor rocks">
+        {run.floor.rocks.map((r, i) => {
+          // rows open in order: everything past the open row is locked; a broken rock is an empty cell
+          const off = r.broken || Math.floor(i / FLOOR_COLS) > row
+          const as = minedRock(r.kind, active)
+          return (
+            <button key={i} className={off ? 'rock-off' : undefined} aria-disabled={off || undefined} onClick={() => act((s) => mineRock(s, i))}>
+              {r.broken ? '' : `${ITEMS[r.kind].emoji}${as === r.kind ? '' : ` as ${ITEMS[as].emoji}`} ${r.hits}/${rockHits(as)}`}
+            </button>
+          )
+        })}
+      </div>
+      <button className="mine-dig" disabled={!mineCheck.ok} onClick={() => act(mineRock)}>
+        ⛏️ Mine next
         <small>
-          {digCheck.ok
-            ? `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${cracked ? `${rock} cracked` : rock} ${run.vein.progress}/${rockHits(minedAs)}`
-            : ERROR_TEXT[digCheck.error]}
+          {mineCheck.ok
+            ? targetRock && `⚡1 → ${hits} hit${hits > 1 ? 's' : ''} · ${targetRock.hits > 0 ? `${rockLabel} cracked` : rockLabel} ${targetRock.hits}/${rockHits(targetAs)}`
+            : ERROR_TEXT[mineCheck.error]}
         </small>
-        {minerActed && (
-          <span className="cell-pop" aria-hidden="true">
-            {MINE_EMOJI}
-          </span>
-        )}
       </button>
-      {!digCheck.ok && digCheck.error === 'BAG_FULL' && fullValue > 0 && (
+      {!mineCheck.ok && mineCheck.error === 'BAG_FULL' && fullValue > 0 && (
         <button onClick={() => act(sellAll)}>
           Sell all {SELL_WHEN_FULL.filter((id) => (run.inventory[id] ?? 0) > 0).map((id) => ITEMS[id].emoji).join(' ')} 💰
           {gain(fullValue)}
@@ -604,11 +641,37 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           </div>
         )}
       </div>
+      {run.floor.found &&
+        (run.floor.n >= MINE_BOTTOM_FLOOR ? (
+          <p className="mine-vein-next">The way down is blocked — deeper zones come later</p>
+        ) : run.floor.n === sealFloor(run.vein.level + 1) ? (
+          <>
+            <span className="mine-vein-next">
+              🔒 Seal to floor {zoneFirstFloor(run.vein.level + 1)} · {zoneTag(run.vein.level + 1)}: {nextVein ? priceText(nextVein) : ''}
+            </span>
+            <button disabled={!sealCheck.ok} onClick={() => act(breakSeal)}>
+              Break seal
+              {!sealCheck.ok && <small> — {sealReason}</small>}
+            </button>
+          </>
+        ) : (
+          <button onClick={() => act(descend)}>⬇️ Down to floor {run.floor.n + 1}</button>
+        ))}
+      <div className="mine-furnace-actions" role="group" aria-label="Elevator">
+        <span>↕️ Elevator:</span>
+        {Array.from({ length: run.vein.level + 1 }, (_, z) => (
+          <button key={z} aria-pressed={run.floor.n === zoneFirstFloor(z)} onClick={() => act((s) => rideElevator(s, z))}>
+            Floor {zoneFirstFloor(z)}
+          </button>
+        ))}
+      </div>
       <div className="mine-vein">
         {/* batch 36.7: the label and each drop are their own spans, so the drop line wraps per item, not mid-word */}
-        <span className="vein-label">Vein Lv{run.vein.level}: </span>
+        <span className="vein-label">
+          Floor {run.floor.n} · {zoneTag(floorZone(run.floor.n))}:{' '}
+        </span>
         <div className="vein-drops">
-          {dropText(run.vein.level, run.masteredTiers.length, run.favours.aim)
+          {floorDropText(run.floor.n, run.masteredTiers.length, run.favours.aim)
             .split(' · ')
             .map((d, i) => (
               <span key={d} className="vein-drop">
@@ -628,17 +691,6 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
             ))}
           </div>
         )}
-        {nextVein && (
-          <>
-            <span className="mine-vein-next">
-              Lv{run.vein.level + 1}: {dropText(run.vein.level + 1, run.masteredTiers.length)} — {priceText(nextVein)}
-            </span>
-            <button disabled={!veinCheck.ok} onClick={() => act(upgradeVein)}>
-              Upgrade vein to Lv{run.vein.level + 1}
-              {!veinCheck.ok && <small> — {veinReason}</small>}
-            </button>
-          </>
-        )}
         {tooHard.map((id) => (
           <span key={id} className="mine-vein-next">
             {ITEMS[id].emoji} {ITEMS[id].name} needs a {PICKAXE_NAMES[rockPickaxe(id)!].toLowerCase()} or better, else it is mined as{' '}
@@ -646,6 +698,32 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           </span>
         ))}
       </div>
+      {/* batch 37: the miners' line — their zone (picker + Deepest) and their rock; the ⛏️ flash pops here (R5) */}
+      {(run.workers.assigned.mine > 0 || run.workers.certificates.includes('mine')) && (
+        <div className={minerActed ? 'mine-miners mine-flash' : 'mine-miners'}>
+          <span>
+            ⛏️ Miners: {zoneTag(minerZone(run))} (floor {zoneFirstFloor(minerZone(run))}) · {run.vein.progress > 0 ? `${veinLabel} cracked` : veinLabel}{' '}
+            {run.vein.progress}/{rockHits(veinAs)}
+          </span>
+          <select
+            aria-label="Miner zone"
+            value={run.minerZone ?? ''}
+            onChange={(e) => act((s) => setMinerZone(s, e.target.value === '' ? null : Number(e.target.value)))}
+          >
+            <option value="">Deepest</option>
+            {Array.from({ length: run.vein.level + 1 }, (_, z) => (
+              <option key={z} value={z}>
+                {zoneTag(z)}
+              </option>
+            ))}
+          </select>
+          {minerActed && (
+            <span className="cell-pop" aria-hidden="true">
+              {MINE_EMOJI}
+            </span>
+          )}
+        </div>
+      )}
       {run.furnace.built ? (
         <Furnace state={state} act={act} smeltActed={smeltActed} />
       ) : (

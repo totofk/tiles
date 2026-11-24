@@ -66,24 +66,25 @@ describe('Mine upgrades in the Upgrades tab', () => {
     const act = vi.fn()
     const state = withRun({ mineLicense: true, cash: 50, inventory: { stone: 20 } })
     render(<Upgrades state={state} act={act} />)
-    const [storage, vein] = row('⛏ Mine')
+    const [storage] = row('⛏ Mine')
     const STONE = ITEMS.stone.emoji
     expect(storage.textContent).toBe(`📦 Storage Lv 0/10Storage 20 → 30 slots · ${STONE}⁠15 💰⁠50`)
     expect(storage.disabled).toBe(false)
-    expect(vein.textContent).toBe(`⛏️ Vein Lv 0/4${STONE} Stone 100 % → ${STONE} Stone 80 % · ⚫ Coal 20 % · ${STONE}⁠25 💰⁠100`)
-    expect(vein.disabled).toBe(true)
+    // batch 37: info only — the seal is broken in the mine, so the zone row is a span with the next seal's price
+    const zone = document.querySelector('.upgrade-vein-info')!
+    expect(zone.textContent).toBe(`⛏️ Zone 0/4next seal at floor 5: ${STONE}⁠25 💰⁠100`)
     fireEvent.click(storage)
     const fn = act.mock.calls[0][0] as (s: GameState) => ReturnType<typeof buyStorage>
     expect(fn(state)).toEqual(buyStorage(state))
   })
 
-  it('maxed storage and vein say "max"', () => {
+  it('maxed storage says "max"; the deepest zone row has no next seal', () => {
     const state = withRun({ mineLicense: true, storageLevel: 10, bagCapacity: 120, vein: { level: 4, progress: 0, rock: 'stone' } })
     render(<Upgrades state={state} act={noop} />)
-    const [storage, vein] = row('⛏ Mine')
+    const [storage] = row('⛏ Mine')
     expect(storage.textContent).toContain('📦 Storage Lv 10/10Storage 120 slots · max')
-    const { stone, copperOre, ironOre, goldOre } = ITEMS
-    expect(vein.textContent).toContain(`${stone.emoji} Stone 50 % · ⚫ Coal 20 % · ${copperOre.emoji} Copper ore 12 % · ${ironOre.emoji} Iron ore 10 % · ${goldOre.emoji} Gold ore 8 % · max`)
+    const zone = document.querySelector('.upgrade-vein-info')!
+    expect(zone.textContent).toBe('⛏️ Zone 4/4the deepest zone')
   })
 })
 
