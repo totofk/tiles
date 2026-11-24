@@ -85,11 +85,11 @@ a Wetlands run); menu = the side menu (today's panel); main tabs = the three vie
 
 ## Tasks (262–267)
 
-- [ ] 262. **UI state: one main view.** `src/app/uiState.ts:8–14`: `View = 'farm' | 'estate' | 'mine'` (the old 'panel'
+- [x] 262. **UI state: one main view.** `src/app/uiState.ts:8–14`: `View = 'farm' | 'estate' | 'mine'` (the old 'panel'
   view is gone). `parseUi`: an old `view: 'panel'` → `'farm'`; an old `stop: 'estate'` with `view: 'farm'` → view
   `'estate'`. `stop` and `collapsed` leave UiState (a stored value is ignored, never an error). New transient App state
   `menuOpen` (not saved, starts closed). tests/uiState.test.ts: every old shape parses (pin each mapping).
-- [ ] 263. **App layout (src/app/App.tsx:53–298 + app.css :29–289).**
+- [x] 263. **App layout (src/app/App.tsx:53–298 + app.css :29–289).**
   - Markup order: `.top` (HUD + ☰ button + banners), `.main-tabs` (the three main tabs), the main view (only the
     selected one is rendered: `<FarmGrid>` with the planting line + Tools for 🌱 Farm, `<Surface>` on the Estate stop
     for 🚜 Estate, `<Mine>` for ⛏️ Mine), `<aside className="menu">` (today's `.panel`, renamed), toast.
@@ -116,26 +116,89 @@ a Wetlands run); menu = the side menu (today's panel); main tabs = the three vie
   - Surface (src/app/Surface.tsx): its stop comes from the main tab (no internal stop buttons), the `both` mode
     (:44–78, both stops at once on a wide column) is removed; the FLIP between the stops stays for the tab switch.
     `openEstate` (App.tsx:42–45) = select the Estate main tab (+ close the drawer).
-- [ ] 264. **Badges (App.tsx:72–89, badges.ts).** `onScreen`: shop / upgrades / farm = the menu is visible (desktop
+- [x] 264. **Badges (App.tsx:72–89, badges.ts).** `onScreen`: shop / upgrades / farm = the menu is visible (desktop
   always; else `menuOpen`) and that menu tab is selected; mine = the Mine main view is selected. Dots: on each menu tab
   (as today, `.badge-dot` at the ICON's top-right corner, not over the label) and on the ☰ when any menu tab has news;
   the Mine main tab carries the mine dot. jsdom pins: dot on ☰ while closed, cleared after opening that tab.
-- [ ] 265. **Mockup leftovers as rules (Hermes's v2 review).**
+- [x] 265. **Mockup leftovers as rules (Hermes's v2 review).**
   (a) the drop-odds line (`.vein-drops`, app.css :1290–1297 area) wraps whole items, never `14 / %`, no sideways scroll
   at 375; (b) locked rows (`.rock-off`) keep the ore readable: replace `opacity: 0.45` with `filter: grayscale(0.6);
   opacity: 0.7` (est.) so ⚫ coal is not a grey disc; (c) the last control of every main view clears the bottom bar
   (`.app` padding-bottom stays `calc(var(--tabbar-h) + var(--s4))`, check the Mine elevator row at 375); (d) the order
   card ✕ and every ⓘ get a 44 × 44 hit area (padding, not a bigger glyph); (e) Mine.tsx:701 "needs a {pickaxe}" → "needs
   an {iron…}" (article by the first letter); (f) no invented content: no version footer, no clock in the menu.
-- [ ] 266. **Tests.** tests/App.test.tsx is the big one (grep `view: 'panel'`, `panel-collapsed`, `panel-toggle`,
+- [x] 266. **Tests.** tests/App.test.tsx is the big one (grep `view: 'panel'`, `panel-collapsed`, `panel-toggle`,
   `Shop` buttons, the 📋 sheet); farmTab props in DigSeeds / BankTab / Shop / StatsPanel tests become `true`. New jsdom
   pins: phone shows 3 (or 2) main tabs and ☰; ☰ opens the drawer with the 5 menu tabs; ✕ / scrim / Esc close it;
   selecting Estate renders Surface on the Estate stop; Estate tab absent before the Tractor; River label on Wetlands; the
   Farm main view has the grid + Tools and no Orders card; the menu's Farm tab has Orders and no Tools. No browser: list
   unverified widths under Deviations — Hermes sweeps 375 / 768 / 1024 / 1440 / 2560 / 3440 live.
-- [ ] 267. **CHANGELOG + results.** ONE entry at the top of `CHANGELOG` (src/app/changelog.ts), exactly:
+- [x] 267. **CHANGELOG + results.** ONE entry at the top of `CHANGELOG` (src/app/changelog.ts), exactly:
   `🖥️ New screen: one main view with 🌱 Farm, 🚜 Estate and ⛏️ Mine tabs; Shop, Upgrades, Bank and Stats moved to the side menu (☰ on phones).`
   (137 code points, Hermes counted; cap 180.) Then `## Batch 38 results` + `### Deviations` at the true end of docs/PLAN.md
   (tests before → after, SHAs, every moved test with why, the reachability list per width).
 
 Not in this batch: the wages line moving into the menu's Bank row (mockup idea, C8), a ⚙️ Settings tab (C9), M2.
+
+## Batch 38 results
+
+- 262 (657a0c2): the view model, TS only. `View = 'farm' | 'estate' | 'mine'`; parseUi maps old `view: 'panel'` →
+  `'farm'` and `{view: 'farm', stop: 'estate'}` → `'estate'`, ignores `stop` / `collapsed`; `menuOpen` is transient
+  App state. App.tsx renders `.top` (HUD + ☰ + banners) / `.main-tabs` / one main view / scrim / `.menu` (the old
+  panel, ✕ below 1024) / toast; Surface takes its stop from the main tab and the Estate pull-back switches the tab.
+  App.test rewritten around the drawer and the main tabs; uiState.test pins every old stored shape;
+  BankTab / StatsPanel / Estate test literals lose `stop` / `collapsed`; WorkersCard / WorkshopCard cards assert the
+  🌾 Farm menu tab. 1414 → 1412 total (1406 passed + 6 expected fail). The CSS layer lands in 263.
+- 263 (a23406c): the CSS layer + the Tools split. app.css: phones keep the fixed bottom `.tabbar` and gain the ☰
+  drawer (`min(85vw, 380px)`, scrim, ✕ 44×44, Esc), 768–1023 a static `.main-tabs` row + drawer, ≥1024 the
+  `minmax(0, 1fr) clamp(300px, 26vw, 480px)` columns with the menu always open (no ☰ / ✕ / scrim, Mine
+  `max-width: 760px`); `.panel`, `.panel-toggle`, `.panel-collapsed`, `.slide-open`, `.sheet-open`,
+  `.stop-switch`, `.fold-strip`, `.surface-both` rules deleted. Farm.tsx drops the `<Tools>` card (C3: the 🧰 Tools
+  bar lives on the 🌱 Farm main view at every width); 6 appCss pins + the App pins (farm view has Tools and no
+  Orders; the menu's 🌾 Farm tab has Orders and no Tools). 1412 → 1417.
+- 264 (a0088a9): the ☰ carries a `.badge-dot` while any menu-only tab (Shop / Upgrades / Farm) has unseen news —
+  the ⛏️ Mine main tab keeps its own dot; jsdom pin: dot while closed → still dotted with the drawer open on 🌾
+  Farm → cleared by opening ⬆️ Upgrades. 1417 → 1418.
+- 265 (70ef9fc): Mine.tsx's too-hard hint picks its article by the pickaxe name ("an iron pickaxe"); `.rock-off`
+  greys (grayscale 0.6, opacity 0.7) instead of ghosting; every ⓘ (`.info-btn`) grows to a 44×44 hit area, the
+  order ✕ already had one. (a) the `.vein-drops` whole-item wrapping was already pinned by batch 36.7 — nothing to
+  change; (c) `.app` keeps `calc(var(--tabbar-h) + var(--s4))` bottom padding (pinned); (f) nothing invented. Mine
+  pin on the gold-zone hint + an appCss pin. 1418 → 1419.
+- 266 (3d94bbc): the last App pin (no Orders card on the Farm main view); the farmTab flips and the drawer /
+  main-tab / Estate / River / badge pins from 266's list landed inside 262's rewrite and 264's pin.
+- 267 (this commit): the CHANGELOG entry at the top, verbatim, 137 code points; ticks + this section.
+
+Final gates: 73 files, 1413 passed + 6 expected fail (1419), no flake; lint clean; build clean (95 modules); the
+full suite ran before every task commit; dist deleted after every build. No `src/core` or `src/save` file was
+touched; SAVE_VERSION stays 38; every sim guard green — **no sim number moved** (UI-only batch, as planned).
+
+Reachability, every action that existed before the batch, per width:
+
+- 375 (phone, drawer closed): HUD + banner dismiss / reload · 🌱 Farm / 🚜 Estate / ⛏️ Mine (🌊 River) main tabs on
+  the fixed bottom bar · tile taps, the planting line and the 🧰 Tools bar on the Farm view · EstateBar Sow / Reap /
+  ＋ Plot on the Estate view · the whole Mine on the Mine view · ☰ → the drawer with 🌾 Farm (LegacyChip, Orders,
+  crop picker, seed pouch + auto-buy, Dig for seeds + the collection book, Workers, Workshop, SoilTraits, Fields →
+  Open Estate), 🛒 Shop, ⬆️ Upgrades, 🏦 Bank, 📊 Stats (feedback + 💾 Data modal) · scrim / Esc / ✕ close the drawer ·
+  keys 1 / 2 switch Farm / Estate. Removed stop-switch, fold-strip, 📋 sheet opener and the panel toggle — each
+  replaced by a main tab or the drawer.
+- 768–1023 (tablet): the same tree, but the main tabs are a static row above the main view and the menu is the same
+  ☰ drawer; keys and Esc unchanged.
+- 1024–1439 (desktop): the menu is the always-open right column (no ☰ / ✕ / scrim); both the main view and every
+  menu tab are on screen at once, the 🧰 Tools bar collapses via its own button (tiles.ui.toolsOpen).
+- ≥ 1440: as desktop; the Mine caps at 760 px and centres, the farm grid and Estate keep their own sizing.
+
+### Deviations
+
+- 262 and 263 split the TS view model from the CSS layer (the batch-37.1 259/260 precedent): the 262 tree is
+  test-green but its `.menu` is unstyled in a real browser — the batch is only visually whole at 263. The 🌾 Farm
+  tab's Tools drop therefore landed in 263, with the layout pins, not in 262.
+- Test count 1414 → 1419 (+5): appCss 20 → 26 (the layout describe + the 265 details pin), uiState 9 → 10 (the
+  old-shape mapping pin), App.test 42 → 40 — the rewrite deleted the panel-collapse, ≥1440-panel, fold-strip and
+  sheet-opener pins (the controls no longer exist) and added the drawer, main-tab, view-mapping, ☰-dot and
+  Tools-split pins; net −2. WorkersCard / WorkshopCard / Mine / BankTab / StatsPanel / Estate / Shop / DigSeeds kept
+  their counts with assertions re-aimed at the new tree.
+- No browser this session — jsdom + CSS pins only: the drawer transform / visibility animation, the scrim dimming,
+  the real 375 / 768 / 1024 / 1440 / 2560 / 3440 layouts, and 265c's check that the Mine elevator row clears the
+  bottom bar at 375 are unverified here; Hermes sweeps those widths live.
+- The 44×44 `.info-btn` makes every `h-with-info` heading row 44 px tall — no design answer existed for that row
+  height, so it follows the tap-target rule (ux-behaviour-default-simplest: none + awaiting design).
