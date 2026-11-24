@@ -489,10 +489,13 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 35 (was incomes [21539, 26421, 28430], cash 540267): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 235 (incomeAfter was 28612): the T2+ home grow bonus
     // re-pinned batch 37 (was [22160, 26835, 29573]): the diving hand press — see early.test.ts
-    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22290, 26272, 29555])
+    // re-pinned task 255b (incomeAfter was 29555): the wooden-floor wood must fit the bag — the sell-stone-for-room
+    // rule fired in this run's !sharp branch and moved the post-workshop income window
+    expect([Math.round(goldIncome), Math.round(income), Math.round(incomeAfter)]).toEqual([22290, 26272, 31697])
     // re-pinned batch 36.6 task 235 (was 545928): the T2+ home grow bonus
     // re-pinned batch 37 (was 564749): the diving hand press — see early.test.ts
-    expect(ladder.finalCash).toBe(559499)
+    // re-pinned task 255b (was 559499): the same !sharp sale in the source run nets +6 % cash by the end
+    expect(ladder.finalCash).toBe(593341)
   })
 
   it('climbs in order: workshop → sprinklers 1–2 → tiles 13 → sprinkler 3 → tiles 19 → sprinkler 4, every step ≤ 60 game-minutes', () => {
@@ -530,7 +533,8 @@ describe('batch 17: workshop ladder — the workshop and a sprinkler on every be
     // re-pinned batch 35 (was [483, 7]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 235 (was [482, 7]): the T2+ home grow bonus
     // re-pinned batch 37 (was [473, 7]): the diving hand press — see early.test.ts
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([480, 7])
+    // re-pinned task 255b (was [480, 7]): the same !sharp sale in the source run — the coal window measures 651/h
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([651, 7])
     expect(r.furnaceCoalPerHour).toBeLessThanOrEqual(r.coalMinedPerHour)
   })
 

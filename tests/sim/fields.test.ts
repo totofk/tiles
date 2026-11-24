@@ -71,13 +71,17 @@ describe('batch 36.1: listing soil', () => {
     fruitVegFast_rootsSlow: { fast: 'fruitVeg', slow: 'roots' },
     berryFast_fruitVegSlow: { fast: 'berry', slow: 'fruitVeg' },
   }
-  let memo: Record<string, number | null> | null = null
-  /** game-hours to the Fields unlock per soil (null = not within 20 h), run once for both pins */
-  const unlockHours = (): Record<string, number | null> =>
+  let memo: Record<string, { hours: number | null; mineStall: boolean }> | null = null
+  /** game-hours to the Fields unlock per soil (null = not within 20 h), run once for all pins; task 255b adds a
+   * PIN37c-style tracker: once the bot is mining, counters.mines must rise in every 2-game-h window */
+  const unlockHours = (): Record<string, { hours: number | null; mineStall: boolean }> =>
     (memo ??= Object.fromEntries(
       Object.entries(soils).map(([name, soil]) => {
         const fresh = createInitialState()
         let end = fresh
+        let lastMines = 0
+        let lastMineMove = 0
+        let mineStall = false
         withBatch13(() =>
           runBot(true, {
             ticks: 20 * HOUR_TICKS,
@@ -95,28 +99,35 @@ describe('batch 36.1: listing soil', () => {
             fields: true,
             buyTools: true,
             initial: { ...fresh, run: { ...fresh.run, listing: { district: 'plain', soil } } },
+            onTick: (s) => {
+              const mines = s.run.counters.mines
+              if (mines !== lastMines) {
+                lastMines = mines
+                lastMineMove = s.run.tick
+              } else if (!mineStall && lastMines > 0 && s.run.tick - lastMineMove > 2 * HOUR_TICKS) mineStall = true
+            },
             onEnd: (s) => (end = s),
           }),
         )
         const at = end.run.milestones.fieldsUnlocked
-        return [name, at === undefined ? null : Math.round((at / HOUR_TICKS) * 100) / 100]
+        return [name, { hours: at === undefined ? null : Math.round((at / HOUR_TICKS) * 100) / 100, mineStall }]
       }),
     ))
 
   it('PIN36a: the shipped ladder bot reaches the Fields unlock on each soil within ±20 % of plain', () => {
     const hours = unlockHours()
     console.log('PIN36a', JSON.stringify(hours))
-    const plain = hours.plain!
+    const plain = hours.plain!.hours!
     expect(plain).toBeGreaterThan(0)
     // re-pinned batch 37 (plain 8.24→8.44 h; rootsFast left the loop — its own it.fails below): the diving hand press
-    for (const name of ['berryFast_fruitVegSlow']) expect(Math.abs(hours[name]! / plain - 1)).toBeLessThanOrEqual(0.2)
+    for (const name of ['berryFast_fruitVegSlow']) expect(Math.abs(hours[name]!.hours! / plain - 1)).toBeLessThanOrEqual(0.2)
   }, 300_000) // 4 ladder runs to the Tractor, ~8 s alone
 
   // measured: the bot hires its 2nd water worker at 0.44 h, cash hits 💰0, the unpaid workers stop and the bot never
   // waters by hand while a water worker is assigned — a bot deadlock (a player waters or unassigns), not a soil rule
   // (PLAN.md "Batch 36.1 results" Deviations)
   it.fails('PIN36a: fruit-veg fast / roots slow reaches the Fields unlock — measured: not within 20 game-h', () => {
-    const h = unlockHours().fruitVegFast_rootsSlow
+    const h = unlockHours().fruitVegFast_rootsSlow.hours
     expect(h).not.toBeNull()
   }, 300_000)
 
@@ -125,8 +136,14 @@ describe('batch 36.1: listing soil', () => {
   // runs behind. Measured at 20 h: cash 💰145,805 (14× the 💰10,000 price), 7,012 mines, 8,155 sales — slow, not
   // stalled (energy 10, still acting); PIN37a on plain soil is the batch-37 guard and it holds (+2.4 %)
   it.fails('PIN36a: roots fast / fruit-veg slow reaches the Fields unlock — measured: not within 20 game-h', () => {
-    const h = unlockHours().rootsFast_fruitVegSlow
+    const h = unlockHours().rootsFast_fruitVegSlow.hours
     expect(h).not.toBeNull()
+  }, 300_000)
+
+  // task 255b guard, PIN37c-style for the rootsFast soil: the wooden-floor wood must fit the bag — when it would not,
+  // the bot sells stone for the room; without that rule buyWood failed every tick and mines froze at 7,012 (6.5→20 h)
+  it('PIN37c (rootsFast): the mine-stall guard — counters.mines rises in every 2-game-h window', () => {
+    expect(unlockHours().rootsFast_fruitVegSlow.mineStall).toBe(false)
   }, 300_000)
 })
 
@@ -305,7 +322,9 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 36.6 task 235 (was [42249, 82167, …]): home renown carries the T2+ grow bonus — `end` moves
     // ([45123, 82704, …]); task 236: the Estate grow bonus / the 4-field share
     // re-pinned batch 37 (was [48091, 83180, 83180, 83180, 83180]): the diving hand press — see early.test.ts
-    expect(lemon).toEqual([46995, 82325, 82325, 82316, 82562])
+    // re-pinned task 255b (was [46995, 82325, 82325, 82316, 82562]): the wooden-floor wood must fit the bag — the bot
+    // now sells stone for room before buyWood in the !sharp branch, and that branch fired in the forge's source run
+    expect(lemon).toEqual([46617, 81935, 81935, 82090, 81877])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -318,7 +337,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 36.6 task 235 (was [77476, 65169] → [76881, 66160]): the T2+ home grow bonus — `end` moves; task
     // 236: the Estate grow bonus / 4-field share
     // re-pinned batch 37 (was [77304, 66926]): the diving hand press — see early.test.ts
-    expect(mixed).toEqual([75693, 65197])
+    // re-pinned task 255b (was [75693, 65197]): same source-run move as the lemon row (sell-stone-for-room in !sharp)
+    expect(mixed).toEqual([77198, 66609])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {

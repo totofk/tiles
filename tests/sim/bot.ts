@@ -911,7 +911,12 @@ function runBot(
       const owned = s.run.rack.wooden !== undefined
       if (bestPickaxeTier(s.run)) swapped = true
       const need = (owned ? pickaxeRepairCost : pickaxeCraftCost)('wooden', s.meta).wood! - (s.run.inventory.wood ?? 0)
-      if (need > 0 && !tryAct(buyWood(s, need), mine)) return false
+      if (need > 0) {
+        // task 255b: the wood must fit the bag — sell stone for the room, else buyWood fails every tick and the bot
+        // stalls (rootsFast froze at 7,012 mines from 6.5 h with the bag at 49/50)
+        if (bagCount(s.run) + need > s.run.bagCapacity) tryAct(sellItem(s, 'stone', s.run.inventory.stone ?? 0), mine)
+        if (!tryAct(buyWood(s, need), mine)) return false
+      }
       if (!tryAct(owned ? repairPickaxe(s, 'wooden') : craftPickaxe(s), mine)) return false
     }
     if (s.run.selectedPickaxe !== (sharp ?? 'wooden')) tryAct(selectPickaxe(s, sharp ?? 'wooden'), null)
