@@ -200,4 +200,10 @@ describe('app.css three-section layout (batch 38)', () => {
     expect(css).not.toContain('.sheet-open')
     expect(css).not.toContain('.surface-both')
   })
+
+  it('task 265: a spent rock is greyed, not ghosted; every ⓘ and the order ✕ carry a 44×44 hit area', () => {
+    expect(css).toMatch(/\.rock-off\s*{[^}]*filter: grayscale\(0\.6\);[^}]*opacity: 0\.7;/s)
+    expect(css).toMatch(/\.info-btn\s*{[^}]*min-height: 44px;[^}]*min-width: 44px;/s)
+    expect(css).toMatch(/\.order-x\s*{[^}]*min-width: 44px;[^}]*min-height: 44px;/s)
+  })
 })

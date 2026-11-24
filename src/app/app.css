@@ -1228,7 +1228,9 @@ button:disabled::after {
   font-size: clamp(11px, 3.4cqi, 14px);
 }
 .rock-off {
-  opacity: 0.45;
+  /* task 265b: greyed rather than ghosted — a spent rock stays readable on the grid */
+  filter: grayscale(0.6);
+  opacity: 0.7;
 }
 @media (min-width: 1024px) {
   .floor-grid {
@@ -2081,8 +2083,9 @@ details > summary:focus-visible {
   padding-inline: 30px;
 }
 .info-btn {
-  min-height: 28px;
-  min-width: 28px;
+  /* task 265d: a 44×44 hit area with the same 16 px glyph (the box grows, not the ⓘ) */
+  min-height: 44px;
+  min-width: 44px;
   padding: 0;
   border: none;
   background: none;

@@ -408,6 +408,8 @@ describe('Mine panel', () => {
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
     expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${IRON_ORE} as ${STONE}0/2`)
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
+    // task 265e: the article follows the name — the next (gold) zone's hint reads "an iron pickaxe"
+    expect(screen.getByText(/needs an iron pickaxe/).textContent).toBe(`${GOLD_ORE} Gold ore needs an iron pickaxe or better, else it is mined as ${STONE} stone`)
     cleanup()
     const g = floorOf(16, kinds16('ironOre'))
     setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: { ...g, rocks: g.rocks.map((r, i) => (i === 0 ? { ...r, hits: 3 } : r)) }, pickaxe: { tier: 'copper', durability: 200 } })

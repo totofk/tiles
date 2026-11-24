@@ -696,12 +696,16 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
             ))}
           </div>
         )}
-        {tooHard.map((id) => (
-          <span key={id} className="mine-vein-next">
-            {ITEMS[id].emoji} {ITEMS[id].name} needs a {PICKAXE_NAMES[rockPickaxe(id)!].toLowerCase()} or better, else it is mined as{' '}
-            {ITEMS.stone.emoji} stone
-          </span>
-        ))}
+        {tooHard.map((id) => {
+          // task 265e: the article follows the name's first letter ("an iron pickaxe", "a copper pickaxe")
+          const pick = PICKAXE_NAMES[rockPickaxe(id)!].toLowerCase()
+          return (
+            <span key={id} className="mine-vein-next">
+              {ITEMS[id].emoji} {ITEMS[id].name} needs {/^[aeiou]/.test(pick) ? 'an' : 'a'} {pick} or better, else it is mined as{' '}
+              {ITEMS.stone.emoji} stone
+            </span>
+          )
+        })}
       </div>
       {/* batch 37: the miners' line — their zone (picker + Deepest) and their rock; the ⛏️ flash pops here (R5) */}
       {(run.workers.assigned.mine > 0 || run.workers.certificates.includes('mine')) && (
