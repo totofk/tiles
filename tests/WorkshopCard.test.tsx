@@ -102,12 +102,13 @@ describe('🔧 Workshop card (batch 26)', () => {
     expect(row(/Smart valve/).textContent).toContain('no idle burn in the Fields')
   })
 
-  it('sits below 👷 Workers in the mobile farm column', () => {
+  it('batch 38: sits in the 🌾 Farm menu tab, below 👷 Workers (the mobile farm column is gone)', () => {
     const s = createInitialState()
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, workshop: { built: true, beds: NO_BEDS, valve: false } } }, Date.now()))
     render(<App />)
-    const farm = document.querySelector<HTMLElement>('.farm')!
-    expect(within(farm).getByText(/🔧 Workshop/)).toBeTruthy()
+    const menu = document.querySelector<HTMLElement>('.menu')!
+    expect(within(menu).getByText(/🔧 Workshop/)).toBeTruthy()
+    expect(menu.textContent!.indexOf('🔧 Workshop')).toBeGreaterThan(menu.textContent!.indexOf('👷 Workers'))
     localStorage.clear()
   })
 })

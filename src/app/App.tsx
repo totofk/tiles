@@ -3,25 +3,18 @@ import { selectCrop } from '../core/actions'
 import { CROPS, type CropId } from '../core/data/crops'
 import { isMature, tapTile } from '../core/tile'
 import { noMine } from '../core/wetlands'
-import { DigSeeds } from './Farm'
 import { EMPTY_FEEDBACK } from './feedback'
-import { Fields } from './Fields'
 import { CROP_EMOJI, FarmGrid } from './FarmGrid'
 import { gain } from './fmt'
 import { Hud } from './Hud'
 import { HAND_PICKED, cropFactor } from './marketText'
 import { Mine } from './Mine'
-import { Modal } from './Modal'
-import { Orders } from './Orders'
 import { BADGE_TABS, availableKeys, isBadgeTab, type BadgeTab } from './badges'
 import { PANEL_TABS, type PanelTabId } from './panelTabs'
-import { SoilTraits } from './SoilTraits'
 import { Surface } from './Surface'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
 import { useGame } from './useGame'
-import { Workers } from './Workers'
-import { Workshop } from './Workshop'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
 const TAP_GUARD_MS = 400
@@ -33,48 +26,43 @@ export default function App() {
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
   const [ui, setUi] = useState(() => loadUi(localStorage))
   useEffect(() => saveUi(localStorage, ui), [ui])
-  const { view, tab, collapsed } = ui
-  const setView = (v: View) => setUi((u) => ({ ...u, view: v }))
-  const setTab = (t: PanelTabId) => setUi((u) => ({ ...u, tab: t }))
-  const setCollapsed = (c: boolean) => setUi((u) => ({ ...u, collapsed: c }))
-  const toggleTools = () => setUi((u) => ({ ...u, toolsOpen: !u.toolsOpen }))
-  // task 143e: the Fields card's Open Estate lands on the 🚜 stop (and the farm view on phones)
-  const openEstate = () => {
-    setUi((u) => ({ ...u, stop: 'estate' }))
-    if (!tabletUp) setView('farm')
+  // batch 27: after the Tractor the Estate is its own main view (batch 38). A first Tractor starts on the
+  // Farm for the pull-back, a welcome-back banner forces the Estate: both override the saved view once
+  const estate = state.run.fields.unlocked
+  const [viewOverride, setViewOverride] = useState<View | null>(() =>
+    !estate ? null : !ui.pulledBack ? 'farm' : banner !== null ? 'estate' : null,
+  )
+  const setView = (v: View) => {
+    setViewOverride(null)
+    setUi((u) => ({ ...u, view: v }))
   }
-  // tablet (768–1023 px) slide-over; a transient overlay, so it always starts closed
-  const [slideOpen, setSlideOpen] = useState(false)
+  const setTab = (t: PanelTabId) => setUi((u) => ({ ...u, tab: t }))
+  const toggleTools = () => setUi((u) => ({ ...u, toolsOpen: !u.toolsOpen }))
+  // a remembered 🚜 Estate without the Tractor shows the Farm (task 263)
+  const view: View = viewOverride ?? (estate || ui.view !== 'estate' ? ui.view : 'farm')
+  // the side menu: a transient drawer on phones and tablets (task 262), always open on desktop
+  const [menuOpen, setMenuOpen] = useState(false)
+  // task 143e: the Fields card's Open Estate selects the 🚜 main view
+  const openEstate = () => {
+    setView('estate')
+    setMenuOpen(false)
+  }
   // the 📊 Stats tab's feedback draft and cooldown, here so a tab switch keeps them (not saved)
   const [feedback, setFeedback] = useState(EMPTY_FEEDBACK)
-  // task 144: phones after the Tractor fold Orders / Workers / Workshop into one 📋 sheet (a transient overlay)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   // a tab is on screen when its content is visible in the current layout (same breakpoints as app.css);
-  // App re-renders every tick, so a resize is picked up within a second
+  // jsdom has no matchMedia, so tests run as phones unless they stub it
   const media = (q: string) => window.matchMedia?.(q).matches ?? false
   const desktop = media('(min-width: 1024px)')
   const tabletUp = media('(min-width: 768px)')
   const phone = !tabletUp
-  // batch 27: after the Tractor the farm column becomes the two-stop Estate surface
-  const estate = state.run.fields.unlocked
-  const farmRef = useRef<HTMLElement>(null)
-  // batch 24: at ≥ 1440 the panel is always open with no toggle; a saved `collapsed` is ignored there (not
-  // overwritten — it still applies at 1024–1439, which keeps the toggle)
-  const wide = media('(min-width: 1440px)')
-  const panelCollapsed = desktop && !wide && collapsed
-  const panelOnScreen = desktop ? !panelCollapsed : media('(min-width: 768px)') ? slideOpen : view === 'panel'
-  // the farm actions sit in the side panel only while it is beside the farm; collapsed, they go back to the farm column
-  const farmTab = desktop && !panelCollapsed
-  const tabs = farmTab ? PANEL_TABS : PANEL_TABS.filter((t) => t.id !== 'farm')
-  // a remembered 🌾 Farm shows 🛒 Shop where there is no Farm tab
-  const shown = tabs.find((t) => t.id === tab) ?? tabs[0]
+  const menuVisible = desktop || menuOpen
+
   const avail = availableKeys(state)
+  const shown = PANEL_TABS.find((t) => t.id === ui.tab) ?? PANEL_TABS[0]
   const open = shown.id
-  // a badge tab's content is on screen: a panel tab while open; batch 31.1 (task 166b) 🌱 Farm / ⛏️ Mine — on phones
-  // while that view is open, wider while the card is shown (the farm cards sit in the 🌾 Farm panel tab beside it)
-  const onScreen = (t: BadgeTab) =>
-    t === 'mine' ? !phone || view === 'mine' : t === 'farm' && (phone || !farmTab) ? !phone || view === 'farm' : panelOnScreen && open === t
+  // a badge tab's content is on screen: a menu tab while that tab is open, ⛏️ Mine while that main view is
+  const onScreen = (t: BadgeTab) => (t === 'mine' ? view === 'mine' : menuVisible && open === t)
   const unseen = (t: BadgeTab) => avail[t].filter((k) => !ui.seen[t].includes(k))
   const badge = (t: string) => isBadgeTab(t) && !onScreen(t) && unseen(t).length > 0
   // showing a tab (or keeping it shown while something new appears) marks what it shows as seen;
@@ -88,12 +76,11 @@ export default function App() {
     })
   const dot = (t: string) => badge(t) && <span className="badge-dot" aria-hidden="true" />
 
-  // batch 21: while price tags are on screen, remember the factor each showed, so the next render trends ▲▼ against
-  // it; deferred past paint (in a timer callback), so this render's arrow is what the player sees, and
-  // equality-guarded, so a quiet tick re-renders nothing. Batch 27: the Estate stop's row tags count too.
-  const estateOn = estate && ui.stop === 'estate' && (tabletUp || view === 'farm')
+  // batch 21: the ▲▼ trend arrows need to know which price tag was last on screen; batch 27: the
+  // Estate view's row tags count too. Only licensed crops with the tag actually rendered get recorded.
+  const estateOn = estate && view === 'estate'
   useEffect(() => {
-    if (!estateOn && (!panelOnScreen || (shown.id !== 'shop' && shown.id !== 'farm'))) return
+    if (!estateOn && (!menuVisible || (shown.id !== 'shop' && shown.id !== 'farm'))) return
     const record = setTimeout(() => {
       setUi((u) => {
         const priceShown = { ...u.priceShown }
@@ -109,11 +96,10 @@ export default function App() {
       })
     }, 0)
     return () => clearTimeout(record)
-  }, [estateOn, panelOnScreen, shown.id, state, setUi])
+  }, [estateOn, menuVisible, shown.id, state, setUi])
 
   // per tile: taps before this performance.now() are ignored, so a double tap at harvest cannot replant
   const guardUntil = useRef<Record<number, number>>({})
-
   const onTap = (i: number) => {
     const now = performance.now()
     if (now < (guardUntil.current[i] ?? 0)) return
@@ -128,34 +114,50 @@ export default function App() {
     )
   }
 
-  // task 132: off-farm worker flashes — the furnace Smelt group (ore/fuel loaders) and the order row the clerk touched
+  // task 132: off-farm worker flashes — the furnace Smelt group (ore/fuel loaders)
   const smeltActed = worked.some((w) => w.job === 'ore' || w.job === 'fuel')
-  const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
-  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport, openEstate, openBank: () => setTab('bank') }
+
+  // batch 38 task 263: the 🌾 Farm menu tab exists at every width
+  const panelProps = { state, act, cropId, onSelectCrop: setCropId, farmTab: true, ui, toggleTools, worked, feedback, setFeedback, reset, sell, exportCode, applyImport, openEstate, openBank: () => setTab('bank') }
   const grid = <FarmGrid state={state} onTap={onTap} acted={acted} act={act} />
+  const planting = (
+    <p className="planting">
+      Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
+    </p>
+  )
+  const tools = <Tools state={state} act={act} cropId={cropId} stacked={desktop} open={ui.toolsOpen} onToggle={toggleTools} />
   const Panel = shown.Panel
-  const mobileTabs = [
-    { label: '🌱 Farm', active: view === 'farm', select: () => setView('farm'), dot: dot('farm') },
-    { label: noMine(state.run) ? '🌊 River' : '⛏️ Mine', active: view === 'mine', select: () => setView('mine'), dot: dot('mine') },
-    ...tabs.map((t) => ({
-      label: t.label,
-      dot: dot(t.id),
-      active: view === 'panel' && shown.id === t.id,
-      select: () => {
-        setView('panel')
-        setTab(t.id)
-      },
-    })),
+  const mainTabs = [
+    { label: '🌱 Farm', active: view === 'farm', dot: null, select: () => setView('farm') },
+    ...(estate ? [{ label: '🚜 Estate', active: view === 'estate', dot: null, select: () => setView('estate') }] : []),
+    {
+      label: noMine(state.run) ? '🌊 River' : '⛏️ Mine',
+      active: view === 'mine',
+      dot: dot('mine'),
+      select: () => setView('mine'),
+    },
   ]
 
+  // Esc closes the drawer (task 263); a dialog (Modal, field sheet) keeps Esc for itself
+  useEffect(() => {
+    if (desktop || !menuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || document.querySelector('[role="dialog"]')) return
+      setMenuOpen(false)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [desktop, menuOpen])
+
   return (
-    <main className={`app${slideOpen ? ' slide-open' : ''}${collapsed && !wide ? ' panel-collapsed' : ''}`} data-view={view}>
+    <main className={`app${menuOpen ? ' menu-open' : ''}`} data-view={view}>
       <div className="top">
         <Hud state={state} rates={rates} />
-        <button className="panel-open" aria-expanded={slideOpen} onClick={() => setSlideOpen(true)}>
-          🛒 Shop
-          {(badge('shop') || badge('upgrades')) && <span className="badge-dot" aria-hidden="true" />}
-        </button>
+        {!desktop && (
+          <button className="menu-btn" aria-label="Open menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>
+            ☰
+          </button>
+        )}
         {banner && (
           <div className="banner" role="status">
             <span>{banner}</span>
@@ -171,82 +173,47 @@ export default function App() {
           </div>
         )}
       </div>
-      <Mine state={state} act={act} minerActed={minerActed} smeltActed={smeltActed} />
-      <section className="farm" ref={farmRef}>
-        {estate ? (
-          <Surface
-            state={state}
-            act={act}
-            ui={ui}
-            setUi={setUi}
-            banner={banner}
-            farmRef={farmRef}
-            phone={phone}
-            planting={
-              !farmTab && (
-                <p className="planting">
-                  Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
-                </p>
-              )
-            }
-            /* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */
-            tools={!farmTab && <Tools state={state} act={act} cropId={cropId} stacked={desktop} />}
-            grid={grid}
-            below={
-              !farmTab && (
-                <>
-                  <DigSeeds state={state} act={act} />
-                  {phone ? (
-                    /* task 144: the three cards fold into the 📋 sheet; DigSeeds and the Fields summary stay */
-                    <>
-                      <button className="sheet-open" onClick={() => setSheetOpen(true)}>
-                        📋 Orders · Workers · Workshop
-                      </button>
-                      <Fields state={state} onOpen={openEstate} />
-                    </>
-                  ) : (
-                    <>
-                      <Orders state={state} act={act} card flashSlot={clerkSlot} />
-                      <Workers state={state} act={act} worked={worked} />
-                      <Workshop state={state} act={act} />
-                      <SoilTraits state={state} act={act} />
-                      <Fields state={state} onOpen={openEstate} />
-                    </>
-                  )}
-                </>
-              )
-            }
-          />
-        ) : (
-          <>
-            {!farmTab && (
-              <>
-                <p className="planting">
-                  Planting: {CROP_EMOJI[cropId]} {CROPS[cropId].name} · seeds {state.run.seeds[cropId] ?? 0}
-                </p>
-                {/* on desktop this is the collapsed-panel fallback: the same stacked rows as the 🌾 Farm tab */}
-                <Tools state={state} act={act} cropId={cropId} stacked={desktop} />
-              </>
-            )}
-            {grid}
-            {!farmTab && (
-              <>
-                <DigSeeds state={state} act={act} />
-                <Orders state={state} act={act} card flashSlot={clerkSlot} />
-                <Workers state={state} act={act} worked={worked} />
-                <Workshop state={state} act={act} />
-                <SoilTraits state={state} act={act} />
-                <Fields state={state} onOpen={openEstate} />
-              </>
-            )}
-          </>
-        )}
-      </section>
-      <aside className="panel">
-        <div className="panel-head">
-          <div className="panel-tabs" role="tablist">
-            {tabs.map((t) => {
-              const [icon, name] = t.label.split(' ')
+      <nav className="tabbar main-tabs" aria-label="Main view">
+        {mainTabs.map((t) => (
+          <button key={t.label} aria-pressed={t.active} onClick={t.select}>
+            {t.label}
+            {t.dot}
+          </button>
+        ))}
+      </nav>
+      {view === 'mine' ? (
+        <Mine state={state} act={act} minerActed={minerActed} smeltActed={smeltActed} />
+      ) : (
+        <section className="farm">
+          {estate ? (
+            <Surface
+              state={state}
+              act={act}
+              ui={ui}
+              setUi={setUi}
+              stop={view === 'estate' ? 'estate' : 'home'}
+              setStop={(s) => setView(s === 'estate' ? 'estate' : 'farm')}
+              phone={phone}
+              planting={planting}
+              tools={tools}
+              grid={grid}
+            />
+          ) : (
+            <>
+              {planting}
+              {tools}
+              {grid}
+            </>
+          )}
+        </section>
+      )}
+      {!desktop && menuOpen && <div className="menu-scrim" aria-hidden="true" onClick={() => setMenuOpen(false)} />}
+      <aside className="menu">
+        <div className="menu-head">
+          <div className="menu-tabs" role="tablist">
+            {PANEL_TABS.map((t) => {
+              const [icon, ...rest] = t.label.split(' ')
+              const name = rest.join(' ')
               return (
                 <button key={t.id} role="tab" aria-selected={shown.id === t.id} title={name} onClick={() => setTab(t.id)}>
                   {icon}
@@ -256,42 +223,18 @@ export default function App() {
               )
             })}
           </div>
-          {!wide && (
-            <button
-              className="panel-toggle"
-              aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
-              aria-expanded={!collapsed}
-              onClick={() => setCollapsed(!collapsed)}
-            >
-              {collapsed ? '‹' : '›'}
+          {!desktop && (
+            <button className="menu-close" aria-label="Close menu" onClick={() => setMenuOpen(false)}>
+              ✕
             </button>
           )}
-          <button className="panel-close" aria-label="Close panel" onClick={() => setSlideOpen(false)}>
-            ✕
-          </button>
         </div>
         <Panel {...panelProps} />
       </aside>
-      <nav className="tabbar">
-        {mobileTabs.map((t) => (
-          <button key={t.label} aria-pressed={t.active} onClick={t.select}>
-            {t.label}
-            {t.dot}
-          </button>
-        ))}
-      </nav>
       {toast && (
         <div className="toast" role="status">
           {toast}
         </div>
-      )}
-      {sheetOpen && (
-        <Modal title="📋 Orders · Workers · Workshop" close={() => setSheetOpen(false)}>
-          <Orders state={state} act={act} card flashSlot={clerkSlot} />
-          <Workers state={state} act={act} worked={worked} />
-          <Workshop state={state} act={act} />
-          <SoilTraits state={state} act={act} />
-        </Modal>
       )}
     </main>
   )

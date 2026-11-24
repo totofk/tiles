@@ -28,19 +28,30 @@ describe('parseUi', () => {
     expect(parseUi(JSON.stringify({ view: 'garden', tab: 'upgrades', collapsed: true }))).toEqual({
       view: 'farm',
       tab: 'upgrades',
-      collapsed: true,
       toolsOpen: true,
-      stop: 'estate',
       pulledBack: false,
       seen: { shop: [], upgrades: [], farm: [], mine: [] },
       priceShown: {},
     })
   })
 
-  it('stop defaults to estate and pulledBack to false; a broken value falls back (batch 27)', () => {
-    expect(parseUi(JSON.stringify({})).stop).toBe('estate')
-    expect(parseUi(JSON.stringify({ stop: 'home' })).stop).toBe('home')
-    expect(parseUi(JSON.stringify({ stop: 'attic' })).stop).toBe('estate')
+  it('batch 38: every old stored shape parses — the Estate stop became a main view, stop and collapsed are ignored', () => {
+    // the old 'panel' view (the phone tab bar's panel pages) reads as 'farm'
+    expect(parseUi(JSON.stringify({ view: 'panel', tab: 'shop' })).view).toBe('farm')
+    // an old `stop: 'estate'` saved while viewing the farm reads as the new 'estate' view
+    expect(parseUi(JSON.stringify({ view: 'farm', stop: 'estate' })).view).toBe('estate')
+    // `stop: 'home'` (the lot) is the farm view, so the mapping is a no-op
+    expect(parseUi(JSON.stringify({ view: 'farm', stop: 'home' })).view).toBe('farm')
+    // a stored stop only upgrades a stored 'farm' view: junk and other views are left alone
+    expect(parseUi(JSON.stringify({ view: 'panel', stop: 'estate' })).view).toBe('farm')
+    expect(parseUi(JSON.stringify({ view: 'mine', stop: 'estate' })).view).toBe('mine')
+    expect(parseUi(JSON.stringify({ view: 'estate', stop: 'home' })).view).toBe('estate')
+    // `collapsed` (the panel collapse, batch 24) is gone with the panel: stored, never an error
+    expect(parseUi(JSON.stringify({ view: 'farm', collapsed: true })).view).toBe('farm')
+    expect(parseUi(JSON.stringify({})).view).toBe('farm')
+  })
+
+  it('pulledBack defaults to false; a broken value falls back (batch 27)', () => {
     expect(parseUi(JSON.stringify({})).pulledBack).toBe(false)
     expect(parseUi(JSON.stringify({ pulledBack: true })).pulledBack).toBe(true)
     expect(parseUi(JSON.stringify({ pulledBack: 'yes' })).pulledBack).toBe(false)
@@ -72,7 +83,7 @@ describe('parseUi', () => {
 describe('loadUi / saveUi', () => {
   it('round-trips through tiles.ui', () => {
     const store = memoryStore()
-    const ui: UiState = { view: 'panel', tab: 'upgrades', collapsed: true, toolsOpen: false, stop: 'home', pulledBack: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'], farm: ['orders'], mine: ['pick:copper'] }, priceShown: { radish: 0.95 } }
+    const ui: UiState = { view: 'estate', tab: 'upgrades', toolsOpen: false, pulledBack: true, seen: { shop: ['tile:9'], upgrades: ['energyMax'], farm: ['orders'], mine: ['pick:copper'] }, priceShown: { radish: 0.95 } }
     saveUi(store, ui)
     expect([...store.data.keys()]).toEqual([UI_KEY])
     expect(loadUi(store)).toEqual(ui)
@@ -95,7 +106,7 @@ describe('loadUi / saveUi', () => {
 describe('separation from the game save', () => {
   it('loadGame and saveGame never touch tiles.ui', () => {
     const store = memoryStore()
-    saveUi(store, { ...DEFAULT_UI, view: 'mine', tab: 'upgrades', collapsed: true })
+    saveUi(store, { ...DEFAULT_UI, view: 'mine', tab: 'upgrades' })
     const before = store.data.get(UI_KEY)
     store.touched.clear()
     saveGame(store, createInitialState(), () => 0)

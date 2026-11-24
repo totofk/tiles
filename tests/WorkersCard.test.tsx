@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../src/app/App'
 import { FarmGrid } from '../src/app/FarmGrid'
+import { UI_KEY } from '../src/app/uiState'
 import { Hud } from '../src/app/Hud'
 import { WORKER_JOB_LABEL, bannerText, pushRate, ratesPerHour, type Act, type RateSample } from '../src/app/useGame'
 import { Workers } from '../src/app/Workers'
@@ -238,9 +239,9 @@ describe('👷 Workers card', () => {
     expect(summary()).toBe('👷 Workers · free 0 / 1unpaid')
   })
 
-  it('sits below the grid in the mobile Farm view', () => {
+  it('batch 38: sits in the 🌾 Farm menu tab (the mobile farm column below the grid is gone)', () => {
     render(<App />)
-    expect(within(document.querySelector<HTMLElement>('.farm')!).getByText(/👷 Workers/)).toBeTruthy()
+    expect(within(document.querySelector<HTMLElement>('.menu')!).getByText(/👷 Workers/)).toBeTruthy()
   })
 
   it('batch 24.1: every job row carries a dot — green pulsing for the jobs that acted, grey for the idle ones; the summary counts working', () => {
@@ -322,6 +323,7 @@ describe('worker targets on the grid (task 60)', () => {
       },
     }
     localStorage.setItem(SAVE_KEY, serialize(miner, Date.now()))
+    localStorage.setItem(UI_KEY, JSON.stringify({ view: 'mine' })) // batch 38: the Mine renders as its own main view
     render(<App />)
     // batch 37: the ⛏️ flash moved off the button to the miners' line (R5)
     const line = () => document.querySelector('.mine-miners')!
