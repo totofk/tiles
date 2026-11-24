@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '37', date: '2026-11-24', line: '⛏️ The mine has floors: find the hidden ⬇️ ladder in each 4×3 grid, break a 🔒 seal to enter each new zone. Your vein level became that zone\'s first floor.' },
   { batch: '36.8.1', date: '2026-11-23', line: 'Hired rigs now show what one more rig really adds: the extra tiles/h your slower machine and wet land allow × profit per tile, or which part is the limit; fees read 💰300k/h.' },
   { batch: '36.8', date: '2026-11-23', line: "The order clerk now takes every order you can make, and the Estate Workshop hires extra rigs: more sowing/reaping power for a sign-on fee plus a management cost per hour." },
   { batch: '36.7', date: '2026-11-23', line: "🌾 Farm panel: the order ✕ stays top-right, worker rows on one grid, Hire with the workers, boxed Fill tank, one ⓘ per heading, a soil traits card, 3-column sale preview." },
