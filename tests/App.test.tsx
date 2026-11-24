@@ -653,6 +653,8 @@ describe('the phone Estate bar (batch 27, task 144; jsdom = a 375 px matchMedia 
     // task 263: the 🧰 Tools bar stays on the 🌱 Farm main view (with the grid); the menu tab has no Tools
     expect(document.querySelector('.farm .tools')).toBeTruthy()
     expect(document.querySelector('.menu .tools')).toBeNull()
+    // the main view holds the grid + Tools only — no Orders card (it lives in the menu's 🌾 Farm tab)
+    expect(farm().queryByText(/Orders/)).toBeNull()
     // Dig for seeds is in the same menu tab now, not below the grid
     expect(menu().getByRole('button', { name: /Dig for seeds/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Close menu' }))
