@@ -10312,3 +10312,86 @@ New UI strings: `Hired rigs`; `🌾 Harvester rigs · {count}/5` and `🌱 Seede
 - The fresh guard needed `withBatch13` (the FIELDS_LADDER config runs under the batch-13 economy); without it the
   pre-batch-13 bot crawls and the max-cash measure is meaningless (measured 183). Wrapped, it matches the
   calculator's 💰2.1M.
+
+## Batch 36.8.1 — 🚜 Honest rig "adds" + compact fee (task 251, save stays v36)
+Source: Hermes's live check of 36.8 (2026-11-23, Toon's v35 save migrated to v36 on bundle BbmDDzer): both rig rows
+read "adds ≈💰44.483M/h", but PIN36.8 measured ≈💰3.8M/h gross per seeder rig on the same save (nets 13.81M → 20.49M
+with 2 rigs, + 0.9M/h fees, ÷ 2). Cause: `rigView` (src/core/fields.ts:601-610) multiplies `RIG_TILES_PER_HOUR` by
+`fieldsMarginalIncomePerHour` (:612-629), which is 💰/h of one STANDING tile (profit × 3600 ÷ cycle) — a rig adds
+1,800 SOWN (or reaped) tiles/h, each worth one crop's profit, and only while the other machine kind and the wet land
+keep up. It also shows a harvester rig as worth as much as a seeder rig on a seeder-bound estate. Second: the fee
+renders with `price()` as "💰300,000/h" beside "💰3M sign-on". Go: Toon "ปล่อย 36.8.1" (2026-11-23).
+
+Rules for this batch: ONE task, one commit. No save change (SAVE_VERSION stays 36), no balance number changes, no
+sim pin moves (no sim reads `rigView`; `fieldsMarginalIncomePerHour` keeps its exact value — the payback label and
+the 8 h sim pin use it). Anchors measured on 0b85e6ad + docs commit; re-grep before editing.
+
+## Tasks (251)
+- [x] 251. Rig "adds" = the extra tiles the fleet can really sow AND reap × profit per sown tile; fee in `approx()`.
+  a. Core (src/core/fields.ts): split the loop of `fieldsMarginalIncomePerHour` (:617-629) into a private
+     `bestFieldTile(state): { perHour: number; perTile: number; cycle: number } | null` — the same crop pick (max
+     perHour, ties keep the first as today), `perTile = price − cropSeedCost` of that crop, `cycle` its pressured
+     ticks — and make `fieldsMarginalIncomePerHour` return `bestFieldTile(state)?.perHour ?? 0` (value unchanged:
+     every existing pin in tests/fields.test.ts :386 / :765-795 must pass untouched).
+  b. Core: new exported `rigAdds(state, kind): { perHour: number; limit: 'seeder' | 'harvester' | 'land' | 'crop' | null }`:
+     `s` / `h` = the seeder / harvester fleet tiles/h (`fleetTilesPerTick(machines, kind) × 3600`, :512-515, rigs
+     included); `demand` = `wetTiles(f) × 3600 ÷ best.cycle` (:71-74 — the tiles/h the pivoted land can take);
+     `flow(s, h) = min(demand, s, h)`; `perHour = (flow with RIG_TILES_PER_HOUR added to this kind − flow(s, h)) ×
+     best.perTile`, rounded down, never below 0. `limit` = null when perHour > 0; else `'crop'` when there is no
+     `bestFieldTile`, `'land'` when `demand ≤ min(s, h)` of this kind's side, otherwise the OTHER kind
+     (`'harvester'` for a seeder rig, `'seeder'` for a harvester rig). Doc comment says it is a steady-state estimate
+     (backlogs of ready / empty plots are not counted).
+  c. `rigView` (:601-610): `addedPerHour` now comes from `rigAdds(state, kind).perHour`; add `limit` to its return.
+     Nothing else in `rigView` changes.
+  d. UI (src/app/Estate.tsx:176): import `approx` beside `price` (:20). The `<small>` text becomes, verbatim:
+     - not maxed: `+${rigTilesPerHour()} tiles/h each · next 💰${price(view.signOn)} sign-on + 💰${approx(view.feePerHour)}/h · ${adds}`
+     - maxed: `+${rigTilesPerHour()} tiles/h each · ${adds}`
+     where `adds` = `adds ≈💰${approx(view.addedPerHour)}/h` when addedPerHour > 0, else by `view.limit`:
+     `'seeder'` → `adds nothing now: seeders are the limit`; `'harvester'` → `adds nothing now: harvesters are the
+     limit`; `'land'` → `adds nothing now: every wet plot is covered`; `'crop'` → `adds nothing now: no crop to plant`.
+  e. Tests:
+     - tests/Estate.test.tsx:548-566: update both text pins to the new strings (`approx(RIG_FEE_PER_HOUR * n)`;
+       their one-radish-plot states will likely read a limit phrase — pin whichever the core returns, by computing
+       the expected string from `rigView`, plus one explicit literal check that "💰300k/h" appears for 0 rigs).
+     - tests/fields.test.ts, new `describe('batch 36.8.1: rigAdds')`: (1) on `tests/fixtures/save-v35.json`
+       (deserialize → v36, rigs empty): the seeder rig adds between 💰2.3M and 💰5.3M/h (PIN36.8's measured
+       ≈💰3.8M/h gross per rig ± 40 %) and log the value; the harvester rig adds 0 with limit `'seeder'` (that save's
+       5,400 seeder vs 12,600 harvester tiles/h). (2) a hand-built state where harvesters are slower: the harvester rig
+       adds > 0, the seeder rig 0 / `'harvester'`. (3) both kinds fast enough to cover the land: 0 / `'land'`.
+       (4) `rigAdds` never exceeds `RIG_TILES_PER_HOUR × perTile` (one-line property over the 3 states).
+     - tests/changelog.test.ts:11-15 + :27-30: `parts()` must accept a third number ("36.8.1" → [36, 8, 1]; missing
+       parts are 0) and the strictly-decreasing check compares all three in order; keep the comment style.
+  f. CHANGELOG: one entry `{ batch: '36.8.1', date: '2026-11-23', line: … }` at the TOP, line verbatim (173 code points):
+     "Hired rigs now show what one more rig really adds: the extra tiles/h your slower machine and wet land allow × profit per tile, or which part is the limit; fees read 💰300k/h."
+  g. Write `## Batch 36.8.1 results` + `### Deviations` at the TRUE END of docs/PLAN.md (test totals before → after,
+     the fixture's seeder / harvester rigAdds values, every new string) and tick 251.
+
+## Batch 36.8.1 results
+Shipped as ONE commit (task 251). Core: `fieldsMarginalIncomePerHour`'s crop loop became the private `bestFieldTile`
+(`{ perHour, perTile, cycle }`, ties keep the first crop as the old `Math.max` loop did) and now returns
+`bestFieldTile(state)?.perHour ?? 0` — value byte-identical, every pre-existing pin untouched. New `rigAdds(state, kind)`:
+`flow = min(demand, seeder tiles/h, harvester tiles/h)` with this kind's side +1,800, minus the flow without, × the best
+crop's `perTile`, floored at 0; `demand = wetTiles × 3600 ÷ best.cycle`; `limit` = null when > 0, else `'crop'` (nothing
+plantable) / `'land'` (`demand ≤ min(s, h)`) / the OTHER machine kind. `rigView.addedPerHour` now comes from `rigAdds`
+and its return gains `limit`. No balance number, no save change (SAVE_VERSION stays 36), no sim pin moved (no sim reads
+`rigView`).
+
+Fixture (save-v35 → v36, rigs empty): seeder rig adds 💰2,413,800/h (PIN36.8's ≈3.8M gross per rig, inside the
+2.3M–5.3M band); harvester rig 0 / `'seeder'` (5,400 seeder vs 12,600 harvester tiles/h). The Estate one-plot states
+(seeder fleet 0) render the seeder-limit phrase.
+
+Tests 1370/7 → **1374 passed | 7 expected fail** (+4: the `batch 36.8.1: rigAdds` describe — v35 fixture band, the
+harvesters-slower state, the land-covered state, the `RIG_TILES_PER_HOUR × perTile` ceiling over all three;
+`fieldsMarginalIncomePerHour` pins at :386/:765-795 pass untouched). Estate pins recomputed from `rigView` + one
+literal `💰300k/h` check; `parts()` in tests/changelog.test.ts takes a third version part and the strictly-decreasing
+check compares all three in order.
+
+New UI strings (Estate Hired rigs `<small>`): `+1800 tiles/h each · next 💰<price> sign-on + 💰<approx>/h · <adds>`
+(not maxed) / `+1800 tiles/h each · <adds>` (maxed), where `<adds>` = `adds ≈💰<approx>/h` or one of:
+`adds nothing now: seeders are the limit` · `adds nothing now: harvesters are the limit` ·
+`adds nothing now: every wet plot is covered` · `adds nothing now: no crop to plant`. Fees render via `approx()`
+(💰300k/h, 💰900k/h), sign-on stays `price()` (💰3M). CHANGELOG 36.8.1 line at the top (173 code points).
+
+### Deviations
+None — no existing pin outside the plan's list moved; `fieldsMarginalIncomePerHour` returns exactly its old value and
+`git ls-files` case check, lint, build, `tsc -b --force` all clean.

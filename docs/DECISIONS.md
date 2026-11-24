@@ -1515,3 +1515,29 @@ measured ≈💰3.8M/h gross per seeder rig. Go: Toon "ปล่อย 36.8.1". 
   clearing within hours); (2) `fieldsMarginalIncomePerHour` keeps its value so no payback label or sim pin moves;
   (3) fee and adds use `approx()` (300k, 1.2M), sign-on keeps `price()` (3M); (4) the maxed row drops the "next"
   part and keeps the adds part for context; (5) the CHANGELOG test learns a third version part for "36.8.1".
+
+## Batch 37 refined (2026-11-24, ⛏️ mine floors = M1 of the mine revise; save v36 → v37)
+Source: the mine-revise design accepted by Toon in Discord thread 1573749154092679272 (2026-11-22/23): depth replaces
+vein levels, 4 × 3 floor grids whose rows open in order, a hidden ladder (uniform, rolled at floor creation), zones of
+5 floors mapped 1:1 onto vein Lv0–4, each zone's first floor SEALED at the old vein price and requirement (keeps the
+4.44 h vein pace and its sinks), +5 %/floor ore gradient inside a zone (est.), bottom at floor 25, free elevator to
+built checkpoints, the miners on their own checkpoint floor. Later batches (not here): M2 monsters/HP/flee/death,
+M3 gear/food/attributes, M4 ⛏️ relic set, M5 miners follow the dive + offline, M6 bonus zones + 💎 set.
+Go: Toon "ปล่อย 37" (2026-11-24) with no rejections, so Hermes's refine calls below ship as written.
+Worker: GLM glm-5.3 via z.ai.
+- R1. Keep `run.vein` as the miners' rock and `vein.level` as "seals broken"; all gates unchanged. Why: the smallest
+  change that keeps decision 29 and the worker/offline income byte-identical.
+- R2. The floor rolls from its own random stream, so no other random sequence moves.
+- R3. The miners keep their rock in progress through migration (decision 28's "rock in progress carries over" now
+  lands on the miners' rock, since the player gets a fresh grid).
+- R4. A found ladder stays found when the floor is mined out and re-rolls.
+- R5. Keep a "⛏️ Mine next" button besides tapping rocks (phone one-thumb play, and the auto-clicking habit).
+- R6. Elevator travel is free and resets the grid (decision 35; M2 adds the full heal on top).
+- R7. Miners' zone picker = built zones + "Deepest" default (decision 35); following the dive is M5.
+- R8. The upgrade tab's vein row becomes info only.
+- R9. Migration note = the CHANGELOG line (no one-time pop-up state).
+- R10. Milestone ids stay `vein1…4`; only labels change (saves keep their milestone ticks).
+- R11. Mine automation as milestones (ore sorting / Keep N / bars Keep N) stays OUT of M1.
+- R12. Model: GLM (z.ai) with --max-turns 300 and an expected resume leg, because it is early in the Max week
+  (leftover-quota rule); switch to Opus only on Toon's word. 7 tasks is above GLM's 3–4 comfort, so the brief
+  fixes every number and name above.
