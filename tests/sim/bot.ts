@@ -43,6 +43,7 @@ import {
   pumpCost,
   pumpFieldCap,
   tankCapCoal,
+  sealFloor,
   sprinklerCost,
   storageCost,
   toolMaxLevel,
@@ -66,12 +67,15 @@ import {
 import {
   bagCount,
   bestPickaxeTier,
+  breakSeal,
   buyMineLicense,
   buyStorage,
   buyWood,
   craftPickaxe,
+  descend,
   dig,
   heldPickaxe,
+  mineRock,
   repairPickaxe,
   selectPickaxe,
   sellItem,
@@ -302,10 +306,10 @@ const rackRung = (tier: PickaxeTier): Pick<Goal, 'done' | 'buy'> => ({
 
 const LADDER: Goal[] = [
   { name: 'storageLv1', done: (s) => s.run.storageLevel >= 1, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
-  { name: 'veinLv1', done: (s) => s.run.vein.level >= 1, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
+  { name: 'veinLv1', done: (s) => s.run.vein.level >= 1, buy: breakSeal, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
   { name: 'furnace', done: (s) => s.run.furnace.built, buy: buildFurnace, keep: (s) => furnaceCost(s.meta) },
   { name: 'storageLv2', done: (s) => s.run.storageLevel >= 2, buy: buyStorage, keep: (s) => storageCost(s.run.storageLevel, s.meta) },
-  { name: 'veinLv2', done: (s) => s.run.vein.level >= 2, buy: upgradeVein, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
+  { name: 'veinLv2', done: (s) => s.run.vein.level >= 2, buy: breakSeal, keep: (s) => veinUpgradeCost(s.run.vein.level, s.meta)! },
   {
     name: 'copperPickaxe',
     ...rackRung('copper'),
@@ -376,7 +380,7 @@ const IRON_LADDER: Goal[] = [
   {
     name: 'veinLv3',
     done: (s) => s.run.vein.level >= 3,
-    buy: upgradeVein,
+    buy: breakSeal,
     // the stone, and the copper bars with the ore and coal to smelt them
     keep: (s) => ({ ...keepBars(veinUpgradeCost(2, IRON_PRICE)!.copperBar!)(s), stone: veinUpgradeCost(2, s.meta)!.stone }),
   },
@@ -452,7 +456,7 @@ const GOLD_LADDER: Goal[] = [
   {
     name: 'veinLv4',
     done: (s) => s.run.vein.level >= 4,
-    buy: upgradeVein,
+    buy: breakSeal,
     // the stone and the iron bars with the ore and coal to smelt them
     keep: (s) => ({ ...keepIronBars(veinUpgradeCost(3, IRON_PRICE)!.ironBar!)(s), stone: veinUpgradeCost(3, s.meta)!.stone }),
   },
@@ -911,7 +915,10 @@ function runBot(
       if (!tryAct(owned ? repairPickaxe(s, 'wooden') : craftPickaxe(s), mine)) return false
     }
     if (s.run.selectedPickaxe !== (sharp ?? 'wooden')) tryAct(selectPickaxe(s, sharp ?? 'wooden'), null)
-    if (!tryAct(dig(s), mine, ACTION_ENERGY_COST)) return false
+    if (!tryAct(mineRock(s), mine, ACTION_ENERGY_COST)) return false
+    // batch 37: dive while above the next zone's seal floor; at the seal floor the bot parks, mines until the ladder
+    // is found and the veinLv goal's breakSeal fires
+    if (s.run.floor.found && s.run.floor.n < sealFloor(s.run.vein.level + 1)) tryAct(descend(s), null)
     m.firstDig ??= tick
     return true
   }

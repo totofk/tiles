@@ -21,6 +21,7 @@ import {
   tankCapCoal,
   workerWage,
   MINE_DROP_IDS,
+  energyMax,
   oreSortUnlockCost,
 } from '../../src/core/balance'
 import { addFuel, buyMold, collectBars, loadOre } from '../../src/core/furnace'
@@ -128,7 +129,8 @@ describe('batch 28.2: ore sorting cash part (rules.batch13 on)', () => {
     expect(Math.max(500, Math.round((0.5 * lv3.income) / 500) * 500)).toBe(7000)
     // re-pinned batch 33 (was 14227): molds: every kind smelts at once — the vein-Lv3 hour now includes the iron mold's wait
     // re-pinned batch 35 (was 💰14,470/h): crop re-ladder: potato start, carrot licence 💰25 — the cash part stays 💰6,500
-    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 14192, cash: 6500 })
+    // re-pinned batch 37 (was 💰14,192/h): the diving hand press — see early.test.ts; the rule's cash part stays 💰7,000
+    expect({ incomePerHour: lv3.income, cash }).toEqual({ incomePerHour: 13786, cash: 6500 })
     for (const kind of MINE_DROP_IDS) {
       expect(MINE_DROP_IDS.every((k) => oreSortUnlockCost(k, meta).cash === cash)).toBe(true)
       expect(oreSortUnlockCost(kind, meta)[kind]!).toBeLessThanOrEqual(lv3.bagCapacity)
@@ -627,3 +629,81 @@ describe('batch 29: manager', () => {
  * 20. Per game-hour: ore mined and bars smelted per kind, the bars' value at the run's sell price (sold or not), and
  * the farm's 💰 (lifetime cash less every sale made here).
  */
+
+describe('batch 37: the ladder bot dives — floors (PIN37a/b/c)', () => {
+  // the parent's numbers: Fields unlock 8.24 h measured on 60e7168 (this session, plain soil); Hermes's probe on
+  // e9590304 gave 7.65 h. Seal rungs 0.23 / 0.50 / 1.51 / 4.44 h are Hermes's e9590304 values.
+  const PARENT_FIELDS_H = 8.24
+  const PARENT_SEAL_H: Record<string, number> = { veinLv1: 0.23, veinLv2: 0.5, veinLv3: 1.51, veinLv4: 4.44 }
+  let memo: { ladderTicks: ReturnType<typeof runBot>['ladderTicks']; fieldsAt: number | undefined; sealH: Record<string, number | null>; stalledAt: number | null } | null = null
+  /** one plain-soil ladder run of 20 game-hours, shared by all three pins */
+  const dive = () =>
+    (memo ??= (() => {
+      const fresh = createInitialState()
+      let end = fresh
+      // PIN37c: a stall = ⚡ pinned full for > 10 game-min while nothing was pressed or bought (any counter or
+      // floor/vein move, or a cash drop = a buy; wages also drop cash, so a wage-paying stall reads as movement —
+      // accepted, a cash-starved stall still trips once the wages stop)
+      let fullFrom: number | null = null
+      let lastSig = ''
+      let prevCash = Number.POSITIVE_INFINITY
+      let lastMove = 0
+      let stalledAt: number | null = null
+      const r = withBatch13(() =>
+        runBot(true, {
+          ticks: 20 * HOUR_TICKS,
+          licenses: LICENSE_ORDER,
+          crops: PLANT_ORDER,
+          ladder: true,
+          copperTools: true,
+          workers: true,
+          furnace: true,
+          planter: true,
+          iron: true,
+          ironTools: true,
+          gold: true,
+          sprinklers: true,
+          fields: true,
+          buyTools: true,
+          initial: { ...fresh, run: { ...fresh.run, listing: { district: 'plain', soil: null } } },
+          onEnd: (s) => (end = s),
+          onTick: (s) => {
+            const run = s.run
+            const sig = [run.counters.mines, run.counters.plants, run.counters.waters, run.counters.harvests, run.counters.digs, run.vein.level, run.floor.n, run.floor.deepest].join()
+            if (sig !== lastSig || run.cash < prevCash) {
+              lastMove = run.tick
+              lastSig = sig
+            }
+            prevCash = run.cash
+            const full = run.energy >= energyMax(run.upgrades.energyMax, s.meta) - 1e-9
+            fullFrom = full ? (fullFrom ?? run.tick) : null
+            if (fullFrom !== null && lastMove < fullFrom && run.tick - fullFrom > 600) stalledAt ??= run.tick
+          },
+        }),
+      )
+      const t = r.ladderTicks
+      const sealH = Object.fromEntries(
+        (['veinLv1', 'veinLv2', 'veinLv3', 'veinLv4'] as const).map((k) => [k, t[k] === undefined ? null : Math.round((t[k]! / HOUR_TICKS) * 100) / 100]),
+      )
+      return { ladderTicks: t, fieldsAt: end.run.milestones.fieldsUnlocked, sealH, stalledAt }
+    })())
+
+  it('PIN37a: the diving ladder bot reaches the Fields unlock within ±20 % of the parent', () => {
+    const at = dive().fieldsAt
+    expect(at).toBeDefined()
+    const h = Math.round(((at! / HOUR_TICKS) * 100)) / 100
+    console.log('PIN37a', JSON.stringify({ fieldsH: h, parentH: PARENT_FIELDS_H }))
+    expect(Math.abs(h / PARENT_FIELDS_H - 1)).toBeLessThanOrEqual(0.2)
+  }, 240_000)
+
+  it('PIN37b: the seal rungs veinLv1–4, reported next to the parent e9590304 values', () => {
+    const sealH = dive().sealH
+    console.log('PIN37b', JSON.stringify({ sealH, parentH: PARENT_SEAL_H }))
+    for (const h of Object.values(sealH)) expect(h).not.toBeNull()
+  }, 240_000)
+
+  it('PIN37c: never stuck > 10 game-min with ⚡ full and nothing bought', () => {
+    console.log('PIN37c', JSON.stringify({ stalledAt: dive().stalledAt }))
+    expect(dive().stalledAt).toBeNull()
+  }, 240_000)
+})

@@ -199,11 +199,15 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
   it('market off replays the pre-market pins (7014 / 6468); market on at depth 240 reaches the mine certificate too (batch 32)', () => {
     // re-pinned batch 35 (was 7014 / 6468 off, 6839 / 6468 on, market-on storage Lv2 951): crop re-ladder: potato
     // start, carrot licence 💰25
-    expect(ladder.finalCash.before).toBe(5356)
-    expect(ladder.mineCertificate.before).toBe(6713)
-    expect(ladder.finalCash.after).toBe(5738)
-    expect(ladder.mineCertificate.after).toBe(6626)
-    expect(ladderOn.ladderTicks.storageLv2).toBe(1269)
+    // re-pinned batch 37 (was 5356 / 6713): the diving hand press — the bar chain comes sooner (see early.test.ts)
+    expect(ladder.finalCash.before).toBe(6697)
+    expect(ladder.mineCertificate.before).toBe(6601)
+    // re-pinned batch 37 (was 5738): the diving hand press — see early.test.ts
+    expect(ladder.finalCash.after).toBe(5444)
+    // re-pinned batch 37 (was 6626): the diving hand press — see early.test.ts
+    expect(ladder.mineCertificate.after).toBe(6601)
+    // re-pinned batch 37 (was 1269): the diving hand press — see early.test.ts
+    expect(ladderOn.ladderTicks.storageLv2).toBe(1251)
   })
 
   it('mining stays below farming with the market on: iron Lv10 on vein Lv3 < 0.9 × 24-tile pumpkin by hand', () => {
@@ -218,7 +222,8 @@ describe('batch 12: crop market — steady state, income before/after, hierarchy
     // mold's wait lands inside the vein Lv3 → iron pickaxe gap (20.4 game-min, under the cap)
     // re-pinned batch 35 (was [34, ['certMine', 6468], ironPickaxe 1221]): crop re-ladder: potato start, carrot licence
     // 💰25 — two more rows (the potato milestones), the longest gap 21.5 game-min, under the cap
-    expect([reached.length, reached.at(-1), longest]).toEqual([36, ['certMine', 6713], { id: 'ironPickaxe', gap: 1290 }])
+    // re-pinned batch 37 (was ['certMine', 6713], ironPickaxe gap 1290): the diving hand press — still 21 game-min, under the cap
+    expect([reached.length, reached.at(-1), longest]).toEqual([36, ['certMine', 6601], { id: 'ironPickaxe', gap: 1263 }])
   })
 
   it('step(s, n) = n × step(s, 1) with the market decaying, milestones recording and workers on', () => {
@@ -299,18 +304,21 @@ describe('batch 13: tool-gated certificates, hand-picked ×1.25, iron open (rule
     // re-pinned batch 35 (was plant 60 / 78.7, water 23.3 / 24.8, harvest 66 / 66, ore 38 / 48.7, fuel 58.7 / 58.7,
     // mine 83.7 / 113.8): crop re-ladder: potato start, carrot licence 💰25 — potato's quick plants and waters unlock
     // the water and plant certificates sooner
+    // re-pinned batch 37 (was plant 80.7, water 27.5, harvest 58.6 / 59.6, ore 40.6 / 50.6, fuel 60.6, mine 85.6 / 116):
+    // the diving hand press — see early.test.ts
     expect(certificates).toEqual({
-      plant: { unlocked: 52.5, bought: 80.7 },
-      water: { unlocked: 17.2, bought: 27.5 },
-      harvest: { unlocked: 58.6, bought: 59.6 },
-      ore: { unlocked: 40.6, bought: 50.6 },
-      fuel: { unlocked: 60.6, bought: 60.6 },
-      mine: { unlocked: 85.6, bought: 116 },
+      plant: { unlocked: 52.5, bought: 81.5 },
+      water: { unlocked: 17.2, bought: 29.1 },
+      harvest: { unlocked: 58.5, bought: 58.7 },
+      ore: { unlocked: 41.4, bought: 51.6 },
+      fuel: { unlocked: 61.4, bought: 61.6 },
+      mine: { unlocked: 86.5, bought: 116.7 },
     })
     // re-pinned batch 33 (was mine bought 104.7; [13529, certPlant 764]): molds: every kind smelts at once — the iron
     // mold's 💰6,500 comes before the iron pickaxe and the mine certificate
     // re-pinned batch 35 (was [5818, ironPickaxe 1206]): crop re-ladder: potato start, carrot licence 💰25
-    expect([ladder.finalCash, longest]).toEqual([6181, { id: 'ironPickaxe', gap: 1221 }])
+    // re-pinned batch 37 (was [6181, ironPickaxe gap 1221]): the diving hand press — see early.test.ts
+    expect([ladder.finalCash, longest]).toEqual([6055, { id: 'ironPickaxe', gap: 1215 }])
   })
 
   it('no stall: no wait between two consecutive milestones is longer than 60 game-minutes', () => {

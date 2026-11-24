@@ -164,7 +164,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 36.6 task 235 (was 1.56 → 1.48): renown carried, start seeds, the T2+ grow bonus; task 236:
     // the Estate grow bonus / 4-field share (1.65); task 237: the deed buy order — the new keeps now act (certificates,
     // mine kit, board) and Fast crops / Rich harvest go past Lv 5
-    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.69)
+    // re-pinned batch 37 (was 1.69): the diving hand press — see early.test.ts
+    expect(Math.round((run1Fields / run3Fields) * 100) / 100).toBe(1.73)
     // re-pinned batch 35 (was 1.4): crop re-ladder: potato start, carrot licence 💰25 (PLAN.md "Batch 35 results" → Deviations)
     // re-pinned batch 36.6 task 234 (was 1.37): the deed buy order (fewer growTime / sellPrice levels in run 2); task
     // 236 (was 1.24): the Estate grow bonus / 4-field share
@@ -213,7 +214,8 @@ describe('batch 20: sell the farm — gate, run 2 speed, deeds arithmetic, the s
     // re-pinned batch 36.6 task 234 (was [105.1, 100.1]): the deed buy order
     // re-pinned batch 36.6 task 235 (was [116.9, 115.5] → [122.4, 121.3]): renown carried, start seeds, the T2+ grow
     // bonus; task 236: the Estate grow bonus / 4-field share ([124.1, 123.4]); task 237: the deed buy order (the keeps act)
-    expect(h).toEqual([124.1, 123.1])
+    // re-pinned batch 37 (was [124.1, 123.1]): the diving hand press — see early.test.ts
+    expect(h).toEqual([124.6, 123.5])
   })
 
   it('a real v17 save at the gate sells, buys its rows, and steps identically in bulk', () => {
@@ -301,7 +303,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // moves; grape and strawberry fall under the floor (0.35 h / 0.38 h)
     // re-pinned batch 35 (was [0.5, 0.54, 0.35, 0.38]): crop re-ladder: potato start, carrot licence 💰25 — these four
     // are now tomato / lemon / grape / strawberry (the same rows); tomato dips to 0.49 h
-    expect(band.map((b) => b.h)).toEqual([0.49, 0.56, 0.34, 0.37])
+    // re-pinned batch 37 (was [0.49, 0.56, 0.34, 0.37]): the diving hand press — see early.test.ts
+    expect(band.map((b) => b.h)).toEqual([0.51, 0.56, 0.33, 0.38])
     for (const b of band) expect(b.h).toBeLessThanOrEqual(1.5)
   })
 
@@ -360,7 +363,8 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     // re-pinned batch 36.6 task 235 (was [108.1, 81.6] → [105.5, 73.4]): renown carried, start seeds, the T2+ grow bonus
     // (run 1 too); task 236: the Estate grow bonus / 4-field share ([105.5, 74.8]); task 237: the deed buy order (the
     // keeps act)
-    expect(h).toEqual([105.5, 74.3])
+    // re-pinned batch 37 (was [105.5, 74.3]): the diving hand press — see early.test.ts
+    expect(h).toEqual([105.8, 74.6])
   })
 
   /** a forged machine-era state from run 1's end: `n` tiles as round-robin cohorts over `crops`, licensed exactly for

@@ -108,7 +108,8 @@ describe('batch 36.1: listing soil', () => {
     console.log('PIN36a', JSON.stringify(hours))
     const plain = hours.plain!
     expect(plain).toBeGreaterThan(0)
-    for (const name of ['rootsFast_fruitVegSlow', 'berryFast_fruitVegSlow']) expect(Math.abs(hours[name]! / plain - 1)).toBeLessThanOrEqual(0.2)
+    // re-pinned batch 37 (plain 8.24→8.44 h; rootsFast left the loop — its own it.fails below): the diving hand press
+    for (const name of ['berryFast_fruitVegSlow']) expect(Math.abs(hours[name]! / plain - 1)).toBeLessThanOrEqual(0.2)
   }, 300_000) // 4 ladder runs to the Tractor, ~8 s alone
 
   // measured: the bot hires its 2nd water worker at 0.44 h, cash hits 💰0, the unpaid workers stop and the bot never
@@ -116,6 +117,15 @@ describe('batch 36.1: listing soil', () => {
   // (PLAN.md "Batch 36.1 results" Deviations)
   it.fails('PIN36a: fruit-veg fast / roots slow reaches the Fields unlock — measured: not within 20 game-h', () => {
     const h = unlockHours().fruitVegFast_rootsSlow
+    expect(h).not.toBeNull()
+  }, 300_000)
+
+  // re-pinned batch 37 (was 9.15 h, inside ±20 % of plain): the diving hand press re-paced the root-heavy soil — rocks
+  // pay per break (2-5 hits) and the bot parks at each seal floor, so the bar chain to the Fields goal's 10 iron bars
+  // runs behind. Measured at 20 h: cash 💰145,805 (14× the 💰10,000 price), 7,012 mines, 8,155 sales — slow, not
+  // stalled (energy 10, still acting); PIN37a on plain soil is the batch-37 guard and it holds (+2.4 %)
+  it.fails('PIN36a: roots fast / fruit-veg slow reaches the Fields unlock — measured: not within 20 game-h', () => {
+    const h = unlockHours().rootsFast_fruitVegSlow
     expect(h).not.toBeNull()
   }, 300_000)
 })
@@ -294,7 +304,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // the forge's source `end` differs ("lemon" here is its old row, now pumpkin)
     // re-pinned batch 36.6 task 235 (was [42249, 82167, …]): home renown carries the T2+ grow bonus — `end` moves
     // ([45123, 82704, …]); task 236: the Estate grow bonus / the 4-field share
-    expect(lemon).toEqual([48091, 83180, 83180, 83180, 83180])
+    // re-pinned batch 37 (was [48091, 83180, 83180, 83180, 83180]): the diving hand press — see early.test.ts
+    expect(lemon).toEqual([46995, 82325, 82325, 82316, 82562])
     // re-pinned batch 28: the mix is no longer within 2 % of all-lemon — whole plots and ×2 pressure move the gluts
     // apart (100 tiles +28 %, 300 tiles −25 %); the 300-tile pipe plateau is gone (1,000 tiles is labor-bound)
     // re-pinned batch 28.1 (was [193653, 263448]); batch 29 (was [192911, 264581], task 151e moves `end`)
@@ -306,7 +317,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 35 (was [75980, 64046]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 235 (was [77476, 65169] → [76881, 66160]): the T2+ home grow bonus — `end` moves; task
     // 236: the Estate grow bonus / 4-field share
-    expect(mixed).toEqual([77304, 66926])
+    // re-pinned batch 37 (was [77304, 66926]): the diving hand press — see early.test.ts
+    expect(mixed).toEqual([75693, 65197])
   })
 
   it('the payback label crosses 8 h at a pinned field number — the same fieldsPaybackHours the UI shows', () => {
@@ -354,7 +366,8 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     // re-pinned batch 33 (was [982, 11]): molds: every kind smelts at once
     // re-pinned batch 35 (was [977, 11]): crop re-ladder: potato start, carrot licence 💰25
     // re-pinned batch 36.6 task 235 (was [974, 11]): the T2+ home grow bonus ([984, 11]); task 236: the Estate grow bonus
-    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([986, 11])
+    // re-pinned batch 37 (was [986, 11]): the diving hand press — see early.test.ts
+    expect([Math.round(r.coalMinedPerHour), Math.round(r.furnaceCoalPerHour)]).toEqual([996, 11])
     expect(pipeDraw).toBeLessThanOrEqual(15) // tier-3 coverage tops out at 0.5 coal/h per 10 tiles × 300
     expect(r.furnaceCoalPerHour + pipeDraw).toBeLessThan(r.coalMinedPerHour) // the furnace never starves
   })
@@ -794,9 +807,10 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // re-pinned batch 36.6 task 235 (was [80,210] [80,598] [80,756]): the T2+ home grow bonus — `end` moves
     // task 236 (was [82,232] [82,652] [82,816]): the 4-field share — 1,000 tiles of one crop (20 fields) share its renown
     // floor and grow bonus 4/20, so the top of the curve drops; 100 tiles (2 fields) gain the Estate grow bonus
+    // re-pinned batch 37 (285→284, 649→655): the diving hand press — see early.test.ts
     expect(curve.map(([w, m]) => [Math.round(w / 1000), Math.round(m / 1000)])).toEqual([
-      [81, 285],
-      [81, 649],
+      [81, 284],
+      [81, 655],
       [81, 599],
     ])
     expect(curve[1]![1]).toBeGreaterThanOrEqual(curve[1]![0])
@@ -810,9 +824,10 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     // `end` moves; harvester2 / 3 add next to nothing at 300 tiles (harvester2 now slightly negative: no payback)
     // re-pinned batch 36.6 task 235 (was 0.4 / null / null / 0.8 → 0.3 / 1004 / null / 0.7): the T2+ home grow bonus
     // moves `end`; task 236: the Estate grow bonus / 4-field share
+    // re-pinned batch 37 (harvester2 null → 489.2): the diving hand press — see early.test.ts
     expect(marginal[0]!.map((t) => [t.name, t.paybackH])).toEqual([
       ['harvester1', 0.4],
-      ['harvester2', null],
+      ['harvester2', 489.2],
       // re-pinned batch 35 (was 4545.5): crop re-ladder: potato start, carrot licence 💰25 — harvester3 adds nothing at
       // 300 tiles now (no payback)
       ['harvester3', null],

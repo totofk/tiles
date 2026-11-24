@@ -203,25 +203,31 @@ describe('batch 9: ladder bot continues to the ore / fuel certificates and the s
     expect(ladderTicks).toEqual({
       // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
       // crop re-ladder: potato start, carrot licence 💰25
+      // re-pinned batch 37 (was veinLv1 890 / furnace 1206 / storageLv2 1269 / veinLv2 1511 / firstBar 1580 /
+      // copperPickaxe 1823 / copper:water 2129 / harvest 2303 / plant 2543 / ore 2723 / fuel 3329 / smart 3923):
+      // the diving hand press — mineRock draws nothing from run.rngState (the grid is pre-rolled on floor.rng)
+      // and the bot parks at each zone's seal floor, where the ore gradient lifts coal, so the bar chain comes sooner
       storageLv1: 486,
-      veinLv1: 890,
-      furnace: 1206,
-      storageLv2: 1269,
-      veinLv2: 1511,
-      firstBar: 1580,
-      copperPickaxe: 1823,
-      'copper:water': 2129,
-      'copper:harvest': 2303,
-      'copper:plant': 2543,
-      oreCertificate: 2723,
-      fuelCertificate: 3329,
-      smart: 3923,
+      veinLv1: 897,
+      furnace: 1140,
+      storageLv2: 1251,
+      veinLv2: 1411,
+      firstBar: 1495,
+      copperPickaxe: 1738,
+      'copper:water': 2020,
+      'copper:harvest': 2218,
+      'copper:plant': 2509,
+      oreCertificate: 2638,
+      fuelCertificate: 3241,
+      smart: 3838,
     })
     // re-pinned batch 35 (was 628 / 628 / 1141 / 643 / 1024): crop re-ladder: potato start, carrot licence 💰25
-    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 1027, firstHire: 517, pool3: 1396 })
+    // re-pinned batch 37 (was harvestCertificate 1027, pool3 1396): the diving hand press — see early.test.ts
+    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 991, firstHire: 517, pool3: 1213 })
     // re-pinned batch 28.1 (was [13900, 898, 80, 80]): the blunt-pickaxe repair collects the tray first
     // re-pinned batch 35 (was [15994, 885, 81, 81]): crop re-ladder: potato start, carrot licence 💰25
-    expect([finalCash, wagesPaid, counters.bars, barsSmelted]).toEqual([12847, 895, 80, 83])
+    // re-pinned batch 37 (was [12847, 895, 80, 83]): the diving hand press — see early.test.ts
+    expect([finalCash, wagesPaid, counters.bars, barsSmelted]).toEqual([14243, 920, 81, 83])
   })
 
   it('each loader gets a worker; mining keeps ore coming, so the fire is never wasted', () => {
@@ -324,7 +330,8 @@ describe('batch 10: 8 h offline from the batch-8 workers ladder end, with one wo
     // re-pinned batch 28.1 (was 1085): the batch 8 end state moved (the blunt-pickaxe repair collects the tray first)
     // re-pinned batch 32 (was 1195): hit carry-over and the sickle's seed roll move the batch 8 end state
     // re-pinned batch 35 (was 965): crop re-ladder: potato start, carrot licence 💰25 (the batch 8 end state moved)
-    expect(base.gain).toBe(1082)
+    // re-pinned batch 37 (was 1082): the diving hand press moves the batch 8 end state again
+    expect(base.gain).toBe(967)
   })
 
   it('a planter keeps the loop running offline: more cash than batch 8, never below 0 (pinned) (re-pinned batch 16: market off)', () => {
@@ -332,7 +339,8 @@ describe('batch 10: 8 h offline from the batch-8 workers ladder end, with one wo
     // re-pinned batch 28.1 (was [69849, 3551, 711])
     // re-pinned batch 32 (was [70009, 3551, 711]): hit carry-over moves the start, the sickle's seed roll the run
     // re-pinned batch 35 (was [70297, 3553, 710]): crop re-ladder: potato start, carrot licence 💰25
-    expect([planted.gain, planted.wages, planted.after.run.lifetime.workerPlants]).toEqual([71409, 3551, 711])
+    // re-pinned batch 37 (was [71409, 3551, 711]): the diving hand press moves the batch 8 end state again
+    expect([planted.gain, planted.wages, planted.after.run.lifetime.workerPlants]).toEqual([71055, 3555, 711])
     expect(planted.lowest).toBeGreaterThanOrEqual(0)
   })
 
@@ -341,9 +349,12 @@ describe('batch 10: 8 h offline from the batch-8 workers ladder end, with one wo
   // re-pinned batch 35 (was [1, 4991, 30]): crop re-ladder: potato start, carrot licence 💰25 — this start's sickle
   // rolls find no seed, so the planter plants nothing and idles
   it('auto-buy off and an empty pouch: the planter plants only the seeds the sickle finds, then idles', () => {
-    expect([idle.after.run.lifetime.workerPlants, idle.after.run.cash, idle.wages]).toEqual([0, 3774, 18])
+    // re-pinned batch 37 (was [0, 3774, 18]): the diving hand press moves the start's seed rolls — the sickle now
+    // finds one seed, so the planter plants it
+    expect([idle.after.run.lifetime.workerPlants, idle.after.run.cash, idle.wages]).toEqual([1, 4994, 28])
     // batch 35: no seed found, so the planter changes nothing — the same run as no planter (was [0, 4886, 25])
-    expect([unstaffed.after.run.lifetime.workerPlants, unstaffed.after.run.cash, unstaffed.wages]).toEqual([0, 3774, 18])
+    // re-pinned batch 37 (was [0, 3774, 18]): the diving hand press — see early.test.ts
+    expect([unstaffed.after.run.lifetime.workerPlants, unstaffed.after.run.cash, unstaffed.wages]).toEqual([0, 4669, 23])
   })
 })
 
@@ -371,23 +382,25 @@ describe('batch 10: ladder bot continues to the plant certificate after the furn
     expect(ladderTicks).toEqual({
       // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
       // crop re-ladder: potato start, carrot licence 💰25
+      // re-pinned batch 37 (the batch-9 pin's comment; plantCertificate was 4523): the diving hand press
       storageLv1: 486,
-      veinLv1: 890,
-      furnace: 1206,
-      storageLv2: 1269,
-      veinLv2: 1511,
-      firstBar: 1580,
-      copperPickaxe: 1823,
-      'copper:water': 2129,
-      'copper:harvest': 2303,
-      'copper:plant': 2543,
-      oreCertificate: 2723,
-      fuelCertificate: 3329,
-      smart: 3923,
-      plantCertificate: 4523,
+      veinLv1: 897,
+      furnace: 1140,
+      storageLv2: 1251,
+      veinLv2: 1411,
+      firstBar: 1495,
+      copperPickaxe: 1738,
+      'copper:water': 2020,
+      'copper:harvest': 2218,
+      'copper:plant': 2509,
+      oreCertificate: 2638,
+      fuelCertificate: 3241,
+      smart: 3838,
+      plantCertificate: 4438,
     })
     // re-pinned batch 35 (was [14976, 984, 69]): crop re-ladder: potato start, carrot licence 💰25
-    expect([finalCash, wagesPaid, end.run.lifetime.workerPlants]).toEqual([13415, 995, 65])
+    // re-pinned batch 37 (was [13415, 995, 65]): the diving hand press — see early.test.ts
+    expect([finalCash, wagesPaid, end.run.lifetime.workerPlants]).toEqual([14389, 1024, 69])
   })
 
   it('the planter gets a worker and plants; nothing goes negative and it never borrows', () => {
@@ -414,20 +427,21 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     expect(older).toEqual({
       // re-pinned batch 35 (was 477 / 666 / 885 / 951 / 1255 / 1386 / 1737 / 1944 / 2151 / 2367 / 2550 / 3147 / 3747):
       // crop re-ladder: potato start, carrot licence 💰25
+      // re-pinned batch 37 (the batch-9 pin's comment; plantCertificate was 4523): the diving hand press
       storageLv1: 486,
-      veinLv1: 890,
-      furnace: 1206,
-      storageLv2: 1269,
-      veinLv2: 1511,
-      firstBar: 1580,
-      copperPickaxe: 1823,
-      'copper:water': 2129,
-      'copper:harvest': 2303,
-      'copper:plant': 2543,
-      oreCertificate: 2723,
-      fuelCertificate: 3329,
-      smart: 3923,
-      plantCertificate: 4523,
+      veinLv1: 897,
+      furnace: 1140,
+      storageLv2: 1251,
+      veinLv2: 1411,
+      firstBar: 1495,
+      copperPickaxe: 1738,
+      'copper:water': 2020,
+      'copper:harvest': 2218,
+      'copper:plant': 2509,
+      oreCertificate: 2638,
+      fuelCertificate: 3241,
+      smart: 3838,
+      plantCertificate: 4438,
     })
     const order = [storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate]
     for (const tick of order) expect(tick).toBeLessThanOrEqual(IRON_TICKS)
@@ -436,17 +450,19 @@ describe('batch 11: ladder bot continues to storage Lv3, vein Lv3, the first iro
     // 247, 20]): molds: every kind smelts at once — the iron mold (🥉10 ⛰️20 💰6,500) replaces the free switch
     expect({ storageLv3, veinLv3, ironMold, firstIronBar, ironPickaxe, mineCertificate }).toEqual({
       // re-pinned batch 35 (was 4410 / 4647 / 5246 / 5385 / 5868 / 6468): crop re-ladder: potato start, carrot licence 💰25
-      storageLv3: 4601,
-      veinLv3: 4823,
-      ironMold: 5474,
-      firstIronBar: 5630,
-      ironPickaxe: 6113,
-      mineCertificate: 6713,
+      // re-pinned batch 37 (was 4601 / 4823 / 5474 / 5630 / 6113 / 6713): the diving hand press — see early.test.ts
+      storageLv3: 4486,
+      veinLv3: 4738,
+      ironMold: 5336,
+      firstIronBar: 5520,
+      ironPickaxe: 6001,
+      mineCertificate: 6601,
     })
     // (task 172: the sickle's seed roll moves these again)
     // re-pinned batch 35 (was [7014, 1167, 143, 16]): crop re-ladder: potato start, carrot licence 💰25 — the mine
     // certificate lands 245 ticks later, so less of the hour is left for the mine worker
-    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([5356, 1114, 95, 14])
+    // re-pinned batch 37 (was [5356, 1114, 95, 14]): the diving hand press — see early.test.ts
+    expect([finalCash, wagesPaid, workerMines, ironBarsSmelted]).toEqual([6697, 1159, 113, 15])
   })
 
   it('the miner gets a worker and mines; nothing goes negative and it never borrows', () => {
@@ -605,7 +621,8 @@ describe('batch 11: 8 h offline from the batch-11 ladder end with the whole chai
     // re-pinned batch 33 (was [871, 42, 8, 72860, 3610]): molds: every kind smelts at once — the ladder end now banks
     // copper bars from the copper mold, so storage starts fuller and the miner stops sooner
     // re-pinned batch 35 (was [346, 27, 3, 72908, 3592]): crop re-ladder: potato start, carrot licence 💰25
-    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([471, 33, 4, 72511, 3609])
+    // re-pinned batch 37 (was [471, 33, 4, 72511, 3609]): the diving hand press moves the batch-11 ladder end
+    expect([minerStop, offline.mines, offline.ironBars, offline.gain, offline.wages]).toEqual([601, 32, 5, 71337, 3603])
   })
 
   it('cash never goes below 0 and step(s, n) = n × step(s, 1) over the whole 8 h', () => {

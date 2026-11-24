@@ -461,13 +461,19 @@ describe('batch 7: ladder bot (four crops, mine-early, keeps what the next goal 
   // a wooden pickaxe's spare hit goes into the next rock, so the same 447 presses break more rocks
   // re-pinned batch 35 (was 477 / 684 / 936 / 1110 / 1350 / 1773 / 2178, rng 1761327770):
   // crop re-ladder: potato start, carrot licence 💰25
+  // re-pinned batch 37 (was furnace 1065, storageLv2 1230, veinLv2 1494, firstBar 1902, copperPickaxe 2346):
+  // the bot dives — mineRock draws nothing from run.rngState (the grid is pre-rolled on floor.rng) and parks
+  // at each zone's seal floor, where the ore gradient lifts coal, so bars and the copper pickaxe come sooner
   it('pins the Batch 7 results (ticks, final cash, counters, PRNG state)', () => {
-    expect(t).toEqual({ storageLv1: 486, veinLv1: 786, furnace: 1065, storageLv2: 1230, veinLv2: 1494, firstBar: 1902, copperPickaxe: 2346 })
-    expect(summary.finalCash).toBe(5527)
-    expect(summary.rngState).toBe(881303612)
+    expect(t).toEqual({ storageLv1: 486, veinLv1: 786, furnace: 1089, storageLv2: 1227, veinLv2: 1539, firstBar: 1659, copperPickaxe: 1905 })
+    // re-pinned batch 37 (was 5527): the diving hand press — see the batch-7 pin's comment above
+    expect(summary.finalCash).toBe(5546)
+    // re-pinned batch 37 (was 881303612): the diving hand press — see the batch-7 pin's comment above
+    expect(summary.rngState).toBe(3589562786)
     // bars (batch 9) = the 5 bars the copper pickaxe took, collected from the tray
     // re-pinned batch 35 (was harvests 107, sales 467, mines 447, waters 525, plants 116): crop re-ladder
-    expect(summary.counters).toEqual({ harvests: 116, sales: 436, mines: 433, digs: 0, waters: 526, plants: 125, bars: 5, orders: 0, contractsByHand: 0 })
+    // re-pinned batch 37 (was sales 436): the diving hand press — see the batch-7 pin's comment above
+    expect(summary.counters).toEqual({ harvests: 116, sales: 453, mines: 433, digs: 0, waters: 526, plants: 125, bars: 5, orders: 0, contractsByHand: 0 })
   })
 })
 
@@ -549,8 +555,9 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
   it('the batch-7 steps are unchanged (copper tools only come after the copper pickaxe)', () => {
     const { firstBar, storageLv1, veinLv1, furnace, storageLv2, veinLv2, copperPickaxe } = t
     // re-pinned batch 35 (the batch-7 pin above): crop re-ladder: potato start, carrot licence 💰25
+    // re-pinned batch 37 (the batch-7 pin above): the diving hand press — see the batch-7 pin's comment
     expect({ storageLv1, veinLv1, furnace, storageLv2, veinLv2, firstBar, copperPickaxe }).toEqual({
-      storageLv1: 486, veinLv1: 786, furnace: 1065, storageLv2: 1230, veinLv2: 1494, firstBar: 1902, copperPickaxe: 2346,
+      storageLv1: 486, veinLv1: 786, furnace: 1089, storageLv2: 1227, veinLv2: 1539, firstBar: 1659, copperPickaxe: 1905,
     })
   })
 
@@ -558,8 +565,10 @@ describe('batch 7.1: ladder bot continues to the three copper farm tools', () =>
   it('buys the three copper tools in order after the copper pickaxe, within the hour (pinned) (final cash re-pinned batch 16: depth 60)', () => {
     const order = [t.copperPickaxe, t['copper:water'], t['copper:harvest'], t['copper:plant']]
     // re-pinned batch 35 (was [2178, 2487, 2760, 3027]): crop re-ladder: potato start, carrot licence 💰25
-    expect(order).toEqual([2346, 2622, 2859, 3093])
-    expect(summary.finalCash).toBe(5666)
+    // re-pinned batch 37 (was [2346, 2622, 2859, 3093]): the diving hand press — see the batch-7 pin's comment
+    expect(order).toEqual([1905, 2235, 2433, 2673])
+    // re-pinned batch 37 (was 5666): the diving hand press — see the batch-7 pin's comment
+    expect(summary.finalCash).toBe(6101)
   })
 
   it('nothing goes negative over 3600 ticks and it never borrows', () => {
@@ -637,10 +646,12 @@ describe('batch 8: ladder bot with workers (certificates and hires when affordab
 
   it('pins the Batch 8 results (worker ticks, final cash, wages) (re-pinned batch 16: market off)', () => {
     // re-pinned batch 35 (was 628 / 628 / 1141 / 643 / 1024): crop re-ladder: potato start, carrot licence 💰25
-    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 1027, firstHire: 517, pool3: 1396 })
+    // re-pinned batch 37 (was harvestCertificate 1027, pool3 1396): the diving hand press — see the batch-7 pin's comment
+    expect(workerTicks).toEqual({ firstCertificate: 733, waterCertificate: 733, harvestCertificate: 991, firstHire: 517, pool3: 1213 })
     // re-pinned batch 28.1 (was [3452, 379]): the blunt copper pickaxe collects its tray bars and repairs at once
     // re-pinned batch 32 (was [3618, 379]): hit carry-over, then the sickle's seed roll
-    expect([finalCash, wagesPaid]).toEqual([2692, 370])
+    // re-pinned batch 37 (was [2692, 370]): the diving hand press — see the batch-7 pin's comment
+    expect([finalCash, wagesPaid]).toEqual([3702, 390])
   })
 
   it('nothing goes negative and it never borrows', () => {
