@@ -16,12 +16,11 @@ import { Orders } from './Orders'
 import type { PanelProps } from './panelTabs'
 import { SoilTraits } from './SoilTraits'
 import { TIPS } from './tips'
-import { Tools } from './Tools'
 import type { Act } from './useGame'
 import { Workers } from './Workers'
 import { Workshop } from './Workshop'
 
-/** seed pouch rows + auto-buy: in 🌾 Farm on desktop, in 🛒 Shop where there is no Farm tab */
+/** seed pouch rows + auto-buy: in the 🌾 Farm menu tab (batch 38: at every width; the Shop never carries it) */
 export function SeedPouch({ state, act }: { state: GameState; act: Act }) {
   const { run, meta } = state
   return (
@@ -152,15 +151,16 @@ export function DigSeeds({ state, act }: { state: GameState; act: Act }) {
   )
 }
 
-/** desktop side-panel tab: everything pressed while farming; the farm column then shows only the grid */
-export function Farm({ state, act, cropId, onSelectCrop, ui, toggleTools, worked, openEstate, openBank }: PanelProps) {
+/** the 🌾 Farm menu tab (batch 38: at every width). The planting line + the 🧰 Tools bar live on the 🌱 Farm
+ *  main view instead (C3); this tab keeps the cards: chip, orders, picker, pouch, dig, workers, workshop,
+ *  soil, fields. */
+export function Farm({ state, act, cropId, onSelectCrop, ui, worked, openEstate, openBank }: PanelProps) {
   const { run } = state
   const clerkSlot = worked.find((w) => w.job === 'clerk' && w.slot !== undefined)?.slot ?? null
   return (
     <section className="farm-tab">
       <LegacyChip state={state} openBank={openBank} />
       <Orders state={state} act={act} flashSlot={clerkSlot} />
-      <Tools state={state} act={act} cropId={cropId} stacked open={ui.toolsOpen} onToggle={toggleTools} />
       <div className="h-with-info">
         <h2>Crop to plant</h2>
         <Info text={TIPS.plantPick} />

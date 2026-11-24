@@ -371,6 +371,9 @@ describe('desktop layout (matchMedia stubbed to ≥ 1024 px)', () => {
     expect(farm().queryByRole('button', { name: /Dig for seeds/ })).toBeNull()
     expect(menu().getByText(/👷 Workers/)).toBeTruthy()
     expect(farm().queryByText(/👷 Workers/)).toBeNull()
+    // task 263: the 🧰 Tools bar belongs to the 🌱 Farm main view alone; the 🌾 Farm menu tab never carries it
+    expect(farm().getByRole('button', { name: '🧰 Tools' })).toBeTruthy()
+    expect(menu().queryByRole('button', { name: '🧰 Tools' })).toBeNull()
   })
 
   it('picking a crop in the menu changes what the farm view plants', () => {
@@ -636,6 +639,9 @@ describe('the phone Estate bar (batch 27, task 144; jsdom = a 375 px matchMedia 
     openMenu()
     const tab = document.querySelector('.menu')!
     for (const card of /Orders|Workers|Workshop/.source.split('|')) expect(tab.textContent).toContain(card)
+    // task 263: the 🧰 Tools bar stays on the 🌱 Farm main view (with the grid); the menu tab has no Tools
+    expect(document.querySelector('.farm .tools')).toBeTruthy()
+    expect(document.querySelector('.menu .tools')).toBeNull()
     // Dig for seeds is in the same menu tab now, not below the grid
     expect(menu().getByRole('button', { name: /Dig for seeds/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Close menu' }))

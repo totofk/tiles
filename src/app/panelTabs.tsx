@@ -14,9 +14,10 @@ import type { UiState } from './uiState'
 import { Upgrades } from './Upgrades'
 import type { Act } from './useGame'
 
-/** farmTab: the 🌾 Farm tab is shown (desktop side panel, expanded); feedback: the 📊 Stats tab's form, held by App;
+/** farmTab: the 🌾 Farm menu tab is shown (batch 38: true at every width; the prop keeps Shop's owned-row
+ * variant); feedback: the 📊 Stats tab's form, held by App;
  * ui: the cosmetic `tiles.ui` state, so the price tags can trend against what they last showed;
- * toggleTools: flips ui.toolsOpen (the 🌾 Farm tab's 🧰 Tools card, batch 24) */
+ * toggleTools: flips ui.toolsOpen (the 🌱 Farm main view's 🧰 Tools bar, batch 24) */
 export type PanelProps = {
   state: GameState
   act: Act
@@ -39,9 +40,9 @@ export type PanelProps = {
 } & Omit<FeedbackProps, 'state'>
 
 /**
- * Side panel tabs, also the panel entries of the mobile tab bar. Adding a tab is one entry here;
- * `tiles.ui` validates the remembered tab against these ids. 🌾 Farm exists only in the desktop side panel
- * (App filters it out elsewhere); the label is "<icon> <name>", split at the first space by App.
+ * The side menu's tabs (batch 38: the menu is a ☰ drawer below 1024 px, always open on desktop). Adding a
+ * tab is one entry here; `tiles.ui` validates the remembered tab against these ids. 🌾 Farm exists at every
+ * width; the label is "<icon> <name>", split at the first space by App.
  */
 export const PANEL_TABS = [
   { id: 'farm', label: '🌾 Farm', Panel: Farm },

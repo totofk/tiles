@@ -25,7 +25,8 @@ body {
   color: #222;
 }
 
-/* ---- layout shell: mobile first, one view at a time (< 768 px) ---- */
+/* ---- layout shell (batch 38): top bar, one main view, side menu. Mobile first (< 768 px): the main tabs
+   are the fixed bottom bar, the menu is a ☰ drawer from the right over a dimmed scrim ---- */
 .app {
   min-height: 100vh;
   padding: 0 var(--s2) calc(var(--tabbar-h) + var(--s4));
@@ -49,6 +50,13 @@ body {
 .top .banner {
   flex-basis: 100%;
 }
+/* ☰ at the right end of the top bar: opens the drawer below 1024 px (desktop keeps the menu open) */
+.menu-btn {
+  position: relative; /* the news dot (task 264) anchors to its top-right corner */
+  min-width: 44px;
+  font-size: 20px;
+  padding: 0 var(--s2);
+}
 .farm {
   min-width: 0;
   display: flex;
@@ -59,27 +67,55 @@ body {
   margin: 0;
   font-size: 14px;
 }
-.panel {
+/* ---- the side menu: today's panel, renamed; a drawer from the right below 1024 px ---- */
+.menu {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  width: min(85vw, 380px);
   min-width: 0;
   padding: var(--s3);
-  border-radius: 8px;
+  border-radius: 8px 0 0 8px;
   background: #fff;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
+  transform: translateX(100%);
+  visibility: hidden;
+  transition:
+    transform 0.2s,
+    visibility 0.2s;
 }
-.panel-head {
+.menu-open > .menu {
+  transform: none;
+  visibility: visible;
+}
+/* a tap on the scrim closes the drawer */
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  background: rgba(0, 0, 0, 0.4);
+}
+.menu-head {
   display: flex;
   align-items: center;
   gap: var(--s2);
 }
-.panel-tabs {
+.menu-close {
+  min-width: 44px;
+}
+.menu-tabs {
   flex: 1;
   min-width: 0;
   display: flex;
   gap: var(--s2);
 }
-/* one line per tab, so the icon stays beside its label and all tabs fit next to the › toggle (300 px panel at 1024) */
-.panel-tabs button {
+/* one line per tab, so the icon stays beside its label and all five fit the drawer's width */
+.menu-tabs button {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0 var(--s1);
@@ -88,21 +124,12 @@ body {
   white-space: nowrap;
   font-size: 14px;
 }
-.panel-tabs [aria-selected='true'] {
+.menu-tabs [aria-selected='true'] {
   background: #c8e6c9;
   border-color: #2e7d32;
   font-weight: 600;
 }
-.panel-toggle {
-  min-width: 36px;
-  font-size: 20px;
-}
-/* on mobile the bottom tab bar picks the panel tab */
-.panel-head,
-.panel-open,
-.panel-close {
-  display: none;
-}
+/* phones: the main tabs are the fixed bottom bar (2 or 3 buttons) */
 .tabbar {
   position: fixed;
   left: 0;
@@ -132,13 +159,7 @@ body {
   background: #c8e6c9;
   font-weight: 600;
 }
-/* the hide rules stay inside the mobile query, so a remembered view never hides a column on desktop */
 @media (max-width: 767px) {
-  .app:not([data-view='farm']) > .farm,
-  .app:not([data-view='mine']) > .mine,
-  .app:not([data-view='panel']) > .panel {
-    display: none;
-  }
   /* batch 31.1 (task 165c): the HUD rates do not fit 375 px on one line; the 👷 title carries them */
   .hud-rate {
     display: none;
@@ -149,40 +170,56 @@ body {
   }
 }
 
-/* ---- tablet: Farm + Mine side by side, side panel as a slide-over ---- */
+/* ---- tablet (768–1023): the main tabs become a row on top of the main view; the menu stays the ☰ drawer ---- */
 @media (min-width: 768px) {
   .app {
     display: grid;
-    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-      'top top'
-      'mine farm';
+      'top'
+      'main-tabs'
+      'main';
     align-items: start;
     column-gap: var(--s4);
-    padding: 0 var(--s3) 24px;
+    padding: 0 var(--s3);
   }
   .top {
     grid-area: top;
     padding-top: var(--s3);
   }
-  .mine {
-    grid-area: mine;
+  .tabbar {
+    position: static;
+    grid-area: main-tabs;
+    padding: 0;
+    background: none;
+    border: none;
+    justify-content: center;
+    gap: var(--s2);
   }
+  .tabbar button {
+    flex: none;
+    min-height: 44px;
+    padding: 0 var(--s3);
+    border: 1px solid #8a7a5c;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 14px;
+  }
+  .tabbar [aria-pressed='true'] {
+    border-color: #2e7d32;
+  }
+  .mine,
   .farm {
-    grid-area: farm;
+    grid-area: main;
   }
-  .tabbar,
-  .panel-toggle {
-    display: none;
+  .menu {
+    width: min(380px, 90vw);
   }
-  .panel-head {
-    display: flex;
-  }
-  /* the page never scrolls: each column scrolls on its own and the farm fits the height that is left */
+  /* the page never scrolls: the main view scrolls on its own and the farm fits the height that is left */
   .app {
     height: 100vh;
     height: 100dvh;
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
     padding-bottom: var(--s3);
   }
   .mine,
@@ -199,88 +236,57 @@ body {
     container-type: size;
   }
 }
-@media (min-width: 768px) and (max-width: 1023px) {
-  .panel-open,
-  .panel-close {
-    display: block;
-  }
-  .panel-open {
-    padding: 0 var(--s3);
-  }
-  .panel-close {
-    align-self: flex-end;
-    min-width: 44px;
-  }
-  .panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 3;
-    width: min(380px, 90vw);
-    border-radius: 8px 0 0 8px;
-    overflow-y: auto;
-    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.2);
-    transform: translateX(100%);
-    visibility: hidden;
-    transition:
-      transform 0.2s,
-      visibility 0.2s;
-  }
-  .slide-open > .panel {
-    transform: none;
-    visibility: visible;
-  }
-}
 
-/* ---- desktop: Mine | Farm | side panel across the full width ---- */
+/* ---- desktop (≥ 1024): main view | menu across the width, the menu always open, no ☰ ---- */
 @media (min-width: 1024px) {
   .app {
-    /* side columns scale with the viewport so the farm stays the widest column (~420 px at 1024, ~670 at 1440);
-       the caps widen at 2560/3440 (batch 24); the panel's 300 px floor fits its three tabs and the › toggle at 1024 */
-    grid-template-columns: clamp(220px, 22vw, 440px) minmax(0, 1fr) clamp(300px, 26vw, 480px);
+    /* the menu column scales with the viewport so the main view stays the widest column; the menu's 300 px
+       floor fits its five tabs (only the open tab shows its name) at 1024 */
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 26vw, 480px);
     grid-template-areas:
-      'top top top'
-      'mine farm panel';
+      'top top'
+      'main-tabs menu'
+      'main menu';
     column-gap: 20px;
     padding: 0 20px 24px;
   }
-  .panel {
-    grid-area: panel;
+  .menu {
+    grid-area: menu;
+    position: static;
+    width: auto;
     max-height: 100%;
-    overflow-y: auto;
+    border-radius: 8px;
+    box-shadow: none;
+    transform: none;
+    visibility: visible;
+    transition: none;
   }
-  .panel-toggle {
-    display: block;
-  }
-  /* collapsed: the panel shrinks to its expand button and the farm column takes the width */
-  .panel-collapsed {
-    grid-template-columns: clamp(220px, 22vw, 440px) minmax(0, 1fr) auto;
-  }
-  .panel-collapsed > .panel > :not(.panel-head),
-  .panel-collapsed .panel-head > :not(.panel-toggle) {
+  .menu-btn,
+  .menu-close,
+  .menu-scrim {
     display: none;
+  }
+  /* C10: the Mine's cards do not stretch to a 1000 px column; the farm grid and the Estate keep their own
+     sizing (.farm-fit, container queries) */
+  .mine {
+    max-width: 760px;
+    margin-inline: auto;
   }
   /* five tabs do not fit 244 px with names (≈ 335 px), so only the open tab shows its name; the others are
      icon-only (≈ 28 px) and keep the name for screen readers and the hover title */
-  .panel-tabs button:not([aria-selected='true']) .tab-name {
+  .menu-tabs button:not([aria-selected='true']) .tab-name {
     position: absolute;
     width: 1px;
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
   }
-  /* 🌾 Farm tab: the stacked tool rows (column from the ≥ 768 .tools rule) across the panel's content width */
-  .panel .tools {
-    align-self: stretch;
-    margin: var(--s2) 0 0;
-  }
   .farm-tab h2 {
     font-size: 15px;
     margin: var(--s2) 0 var(--s1);
   }
   /* batch 36.7: card-to-card space — sibling cards in the Farm tab sit 16 px apart (the chip→tab-bar gap
-     and Orders→Tools come from their own margins) */
+     and Orders→Cards come from their own margins) */
   .farm-tab > details + details,
   .farm-tab > details + div,
   .farm-tab > section + details {
@@ -652,31 +658,6 @@ button:disabled::after {
   align-items: center;
   gap: var(--s2);
 }
-.stop-switch {
-  display: flex;
-  gap: var(--s2);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.stop-switch button {
-  flex: 1;
-  min-height: 44px;
-  white-space: nowrap;
-}
-.stop-switch button[aria-pressed='true'] {
-  background: #c8e6c9;
-  border-color: #2e7d32;
-  font-weight: 600;
-}
-/* the Home stop's one fold strip: the fields at a glance, one tap from the lot to the Estate */
-.fold-strip {
-  flex: 2 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
 /* the home lot in both sizes: the FLIP block that animates between the full grid and the MiniLot */
 .home-block {
   min-width: 0;
@@ -973,11 +954,8 @@ button:disabled::after {
   font-size: 13px;
   text-align: center;
 }
-/* the phone 📋 sheet opener (task 144): a full-width card-height button */
-.sheet-open {
-  width: 100%;
-  min-height: 44px;
-}
+/* the phone Estate stop's bar sits like the .tools bar (task 144); the Reap hint just above it (batch 38:
+   the 📋 sheet opener is gone — the cards live in the menu's 🌾 Farm tab) */
 @media (min-width: 768px) {
   /* the surface takes over the farm column's grid: content left, the tool bar's vertical column right */
   .farm:has(> .surface) {
@@ -1015,21 +993,6 @@ button:disabled::after {
   .home-block > .farm-fit {
     flex: 1;
     min-height: 0;
-  }
-  /* both stops at once on a wide farm column: Estate left, the full grid right */
-  .surface-both {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    gap: var(--s3);
-    height: 100%;
-    min-height: 0;
-    align-items: stretch;
-  }
-  .surface-both > .home-block {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
   }
 }
 .cell-emoji {
@@ -1883,9 +1846,8 @@ details > summary:focus-visible {
   }
 }
 /* out of the text flow, so a dot never pushes a tab label into its ellipsis */
-.panel-tabs button,
-.tabbar button,
-.panel-open {
+.menu-tabs button,
+.tabbar button {
   position: relative;
 }
 .badge-dot {

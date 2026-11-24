@@ -154,3 +154,50 @@ describe('app.css Estate map (batch 30)', () => {
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*{\s*\.map-bar\s*{\s*transition: none;\s*}\s*\.map-marker\s*{\s*animation: none;\s*}/s)
   })
 })
+
+describe('app.css three-section layout (batch 38)', () => {
+  it('the panel became the menu: a right drawer below 1024 px over a scrim, ☰ in the top bar', () => {
+    expect(css).not.toContain('.panel')
+    expect(css).not.toContain('panel-toggle')
+    expect(css).not.toContain('panel-collapsed')
+    expect(css).not.toContain('.slide-open')
+    expect(css).toMatch(/\.menu\s*{[^}]*position: fixed;[^}]*width: min\(85vw, 380px\);[^}]*transform: translateX\(100%\);[^}]*visibility: hidden;/s)
+    expect(css).toMatch(/\.menu-open > \.menu\s*{[^}]*transform: none;[^}]*visibility: visible;/s)
+    expect(css).toMatch(/\.menu-scrim\s*{[^}]*position: fixed;[^}]*inset: 0;[^}]*background: rgba\(0, 0, 0, 0\.4\);/s)
+    expect(css).toMatch(/\.menu-btn\s*{[^}]*min-width: 44px;/s)
+    expect(css).toMatch(/\.menu-close\s*{[^}]*min-width: 44px;/s)
+  })
+
+  it('phones keep the fixed bottom bar and the tabbar-h bottom padding (task 265c)', () => {
+    expect(css).toMatch(/\.tabbar\s*{[^}]*position: fixed;[^}]*bottom: 0;/s)
+    expect(css).toMatch(/\.app\s*{[^}]*padding: 0 var\(--s2\) calc\(var\(--tabbar-h\) \+ var\(--s4\)\);/s)
+  })
+
+  it('tablet: the main tabs become a static row on top of the main view; the menu stays a drawer', () => {
+    expect(css).toMatch(
+      /@media \(min-width: 768px\)\s*{[\s\S]*?\.tabbar\s*{[^}]*position: static;[^}]*grid-area: main-tabs;[\s\S]*?}/,
+    )
+    expect(css).toMatch(
+      /@media \(min-width: 768px\)\s*{[\s\S]*?\.mine,\s*\.farm\s*{[^}]*grid-area: main;/,
+    )
+    expect(css).toMatch(/\.menu\s*{[^}]*width: min\(380px, 90vw\);/s)
+  })
+
+  it('desktop: main | menu columns, the menu always open, no ☰ / ✕ / scrim, the Mine capped at 760 px', () => {
+    expect(css).toMatch(
+      /@media \(min-width: 1024px\)\s*{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) clamp\(300px, 26vw, 480px\);/,
+    )
+    expect(css).toMatch(
+      /@media \(min-width: 1024px\)\s*{[\s\S]*?\.menu\s*{[^}]*grid-area: menu;[^}]*position: static;[\s\S]*?visibility: visible;[\s\S]*?transition: none;/,
+    )
+    expect(css).toMatch(/\.menu-btn,\s*\.menu-close,\s*\.menu-scrim\s*{[^}]*display: none;/s)
+    expect(css).toMatch(/@media \(min-width: 1024px\)\s*{[\s\S]*?\.mine\s*{[^}]*max-width: 760px;[^}]*margin-inline: auto;/)
+  })
+
+  it('the dead surface and sheet rules are gone (the stops are main views, the 📋 sheet is the menu)', () => {
+    expect(css).not.toContain('.stop-switch')
+    expect(css).not.toContain('.fold-strip')
+    expect(css).not.toContain('.sheet-open')
+    expect(css).not.toContain('.surface-both')
+  })
+})
