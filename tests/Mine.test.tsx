@@ -118,7 +118,11 @@ describe('Mine panel', () => {
   it('shows the target rock and its hits: a copper rock takes 3, a half-hit one is cracked', () => {
     setup({ floor: floorOf(1, kinds16('copperOre')), pickaxe: wooden() })
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`${ORE} 0/3`)
-    expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${ORE} 0/3`)
+    // batch 37.1: the emoji and the hit counter are separate spans (the counter sits under the emoji)
+    const cell = document.querySelectorAll('.floor-grid button')[0]!
+    expect(cell.textContent).toBe(`${ORE}0/3`)
+    expect(cell.querySelector('.rock-emoji')!.textContent).toBe(`${ORE}`)
+    expect(cell.querySelector('.rock-hits')!.textContent).toBe('0/3')
     cleanup()
     const g = floorOf(1, 'stone')
     setup({ floor: { ...g, rocks: g.rocks.map((r, i) => (i === 0 ? { ...r, hits: 1 } : r)) }, pickaxe: wooden() })
@@ -402,7 +406,7 @@ describe('Mine panel', () => {
   it('an iron rock shows "as stone" with stone hits below a copper pickaxe, its own 4 hits with one', () => {
     setup({ vein: { level: 3, progress: 0, rock: 'ironOre' }, floor: floorOf(16, kinds16('ironOre')), pickaxe: wooden() })
     expect(screen.getByRole('button', { name: /Mine next/ }).textContent).toContain(`· ${IRON_ORE} as ${STONE} 0/2`)
-    expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${IRON_ORE} as ${STONE} 0/2`)
+    expect(document.querySelectorAll('.floor-grid button')[0]!.textContent).toBe(`${IRON_ORE} as ${STONE}0/2`)
     expect(screen.getByText(/needs a copper pickaxe/)).toBeTruthy()
     cleanup()
     const g = floorOf(16, kinds16('ironOre'))
@@ -801,12 +805,19 @@ describe('batch 37: floors', () => {
     expect(document.querySelector('.mine-miners span')!.textContent).toContain(`⚫ Coal zone (floor 6)`)
   })
 
-  it('appCss pin: the floor classes exist with 44 px cells (four 44 px columns + gaps fit the 375 px column)', () => {
+  it('appCss pin: the floor classes exist — 44 px cells at 375, ≥1024 grows them to 96 px with the counter under the emoji', () => {
     // jsdom turns import.meta.url into http://…, so read by cwd path (vitest runs from the repo root)
     const css = readFileSync('src/app/app.css', 'utf8')
     expect(css).toContain('.floor-status')
     expect(css).toContain('.floor-grid')
     expect(css).toContain('.upgrade-vein-info')
+    expect(css).toContain('repeat(4, 44px)')
     expect(css).toContain('min-height: 44px')
+    expect(css).toContain('.rock-emoji')
+    expect(css).toContain('.rock-hits')
+    expect(css).toContain('.rock-off')
+    expect(css).toContain('@media (min-width: 1024px)')
+    expect(css).toContain('repeat(4, 96px)')
+    expect(css).toContain('min-height: 96px')
   })
 })

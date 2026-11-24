@@ -568,7 +568,12 @@ export function Mine({ state, act, minerActed = false, smeltActed = false }: { s
           const as = minedRock(r.kind, active)
           return (
             <button key={i} className={off ? 'rock-off' : undefined} aria-disabled={off || undefined} onClick={() => act((s) => mineRock(s, i))}>
-              {r.broken ? '' : `${ITEMS[r.kind].emoji}${as === r.kind ? '' : ` as ${ITEMS[as].emoji}`} ${r.hits}/${rockHits(as)}`}
+              {r.broken ? '' : (
+                <>
+                  <span className="rock-emoji">{ITEMS[r.kind].emoji}{as === r.kind ? '' : ` as ${ITEMS[as].emoji}`}</span>
+                  <span className="rock-hits">{r.hits}/{rockHits(as)}</span>
+                </>
+              )}
             </button>
           )
         })}
