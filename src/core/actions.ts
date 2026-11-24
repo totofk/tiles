@@ -91,6 +91,10 @@ export type ActionError =
   | 'BAD_CHOICE'
   | 'NOT_SOLD_HERE'
   | 'BED_BUSY'
+  | 'NO_LADDER'
+  | 'SEALED'
+  | 'NOT_AT_SEAL'
+  | 'MINE_BOTTOM'
 
 export type ActionResult = { ok: true; state: GameState } | { ok: false; error: ActionError }
 

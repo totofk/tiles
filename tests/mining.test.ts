@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { nextRandom, type ActionResult } from '../src/core/actions'
 import {
   BAG_CAPACITY_START,
+  FLOOR_COLS,
+  FLOOR_ROWS,
   MINE_DROP_IDS,
   itemSellPrice,
   keepNCost,
@@ -29,26 +31,35 @@ import {
 import {
   activePickaxe,
   bestPickaxeTier,
+  breakSeal,
   buyKeepN,
   buyMineLicense,
   buyStorage,
   upgradeVein,
   buyWood,
   craftPickaxe,
+  descend,
   dig,
   dropText,
   expectedUses,
   heldPickaxe,
+  mineRock,
   minedRock,
+  minerZone,
+  openRow,
   pickaxePreserve,
   repairPickaxe,
+  rideElevator,
   selectPickaxe,
   sellItem,
+  setMinerZone,
   setOreKeep,
   setOreSort,
   unlockOreSort,
+  rollFloor,
 } from '../src/core/mining'
 import { sellFarm } from '../src/core/prestige'
+import { orderPool } from '../src/core/orders'
 import { createFurnace, createInitialState, type GameState, type Pickaxe } from '../src/core/state'
 import { ITEMS } from '../src/core/data/items'
 
@@ -728,5 +739,170 @@ describe('🧺 ore sorting (batch 28.2)', () => {
       },
     }
     expect(okState(sellFarm(gate)).run.oreSort).toEqual({})
+  })
+})
+
+describe('batch 37: floors', () => {
+  const stones = () => Array.from({ length: FLOOR_COLS * FLOOR_ROWS }, () => ({ kind: 'stone' as const, hits: 0, broken: false }))
+  const grid = (n: number, ladder: number, found = false, rng = 7) => ({ n, deepest: n, rocks: stones(), ladder, found, rng })
+
+  it('rollFloor is deterministic from its seed: the same grid and ladder, 12 fresh rocks, the stream advances', () => {
+    const a = rollFloor(1, 0, null, 42)
+    expect(rollFloor(1, 0, null, 42)).toEqual(a)
+    expect(a.rocks).toHaveLength(12)
+    expect(a.rocks.every((r) => r.hits === 0 && !r.broken)).toBe(true)
+    expect(a.ladder).toBeGreaterThanOrEqual(0)
+    expect(a.ladder).toBeLessThan(12)
+    expect(a.rng).not.toBe(42)
+  })
+
+  it('over 2,000 seeds the mean rocks broken to find the ladder mining in order is 6.5 ± 0.3', () => {
+    let sum = 0
+    for (let seed = 1; seed <= 2000; seed++) sum += rollFloor(1, 0, null, seed).ladder + 1
+    expect(Math.abs(sum / 2000 - 6.5)).toBeLessThanOrEqual(0.3)
+  })
+
+  it('rows open in order: a row-1 rock is BAD_TILE while row 0 stands; clearing row 0 opens row 1 and closes row 0', () => {
+    const s = miner({ energy: 1000, bagCapacity: 100, floor: grid(1, 11) })
+    expect(mineRock(s, 4)).toEqual({ ok: false, error: 'BAD_TILE' })
+    expect(openRow(s.run.floor.rocks)).toBe(0)
+    const cleared = { ...grid(1, 11), rocks: s.run.floor.rocks.map((r, k) => (k < 4 ? { ...r, broken: true } : r)) }
+    expect(openRow(cleared.rocks)).toBe(1)
+    const s2 = miner({ energy: 1000, bagCapacity: 100, floor: cleared })
+    expect(mineRock(s2, 4).ok).toBe(true)
+    expect(mineRock(s2, 0)).toEqual({ ok: false, error: 'BAD_TILE' })
+  })
+
+  it('carry-over: one press breaks several rocks of the open row and the leftover hits sit in the next rock', () => {
+    // copper = 3 hits, stone = 2: press 1 breaks rock 0 and leaves 1 hit in rock 1
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: { tier: 'copper', durability: 200 }, floor: grid(1, 11) })
+    const next = okState(mineRock(s))
+    expect([next.run.floor.rocks[0].broken, next.run.floor.rocks[1].hits]).toEqual([true, 1])
+    expect(next.run.inventory.stone).toBe(1)
+  })
+
+  it('carry-over crosses into the row that opens mid-press', () => {
+    // rows 0 and 1 each stand on one stone; iron = 4 hits breaks both, 0 left over
+    const rocks = stones()
+    rocks[1].broken = rocks[2].broken = rocks[3].broken = rocks[5].broken = rocks[6].broken = rocks[7].broken = true
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: { tier: 'iron', durability: 200 }, floor: { ...grid(1, 11), rocks } })
+    const next = okState(mineRock(s))
+    expect([next.run.floor.rocks[0].broken, next.run.floor.rocks[4].broken]).toEqual([true, true])
+    expect(next.run.inventory.stone).toBe(2)
+  })
+
+  it('an emptied floor re-rolls in place (same n, found stays found — R4) and the leftover hits keep going', () => {
+    // gold = 8 hits: breaks the last two stones (2 + 2), the emptied grid re-rolls, 4 hits break 2 fresh rocks
+    const rocks = stones()
+    for (let k = 0; k < 10; k++) rocks[k].broken = true
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: { tier: 'gold', durability: 600 }, floor: { ...grid(1, 10), rocks } })
+    const next = okState(mineRock(s))
+    expect(next.run.floor.n).toBe(1)
+    expect(next.run.floor.found).toBe(true)
+    expect(next.run.floor.rocks.filter((r) => r.broken)).toHaveLength(2)
+    expect(next.run.floor.rocks.every((r) => r.hits === 0)).toBe(true)
+    // floor 1 rolls only stone/coal, both 2 hits: 4 broken stones in total, and the floor stream moved
+    expect((next.run.inventory.stone ?? 0) + (next.run.inventory.coal ?? 0)).toBe(4)
+    expect(next.run.floor.rng).not.toBe(7)
+  })
+
+  it('by hand the grid re-rolls without touching run.rngState (the floor keeps its own stream, R2)', () => {
+    const rocks = stones()
+    for (let k = 0; k < 11; k++) rocks[k].broken = true
+    rocks[11].hits = 1
+    const s = miner({ energy: 1000, bagCapacity: 100, pickaxe: null, floor: { ...grid(1, 11), rocks } })
+    const next = okState(mineRock(s))
+    expect(next.run.rngState).toBe(s.run.rngState)
+    expect(next.run.floor.rocks.every((r) => !r.broken)).toBe(true)
+    expect(next.run.floor.found).toBe(true)
+    expect(next.run.floor.rng).not.toBe(7)
+  })
+
+  it('a drop that hits full storage stops at full progress and the remaining hits are lost', () => {
+    // room for exactly one stone: press 1 stores rock 0's drop, rock 1 reaches need with a full bag
+    const s = miner({ energy: 1000, inventory: { stone: 9 }, bagCapacity: 10, pickaxe: { tier: 'iron', durability: 200 }, floor: grid(1, 11) })
+    const next = okState(mineRock(s))
+    expect(next.run.floor.rocks[0].broken).toBe(true)
+    expect(next.run.floor.rocks[1].broken).toBe(false)
+    expect(next.run.floor.rocks[1].hits).toBe(rockHits('stone'))
+    expect(next.run.inventory.stone).toBe(10)
+  })
+
+  it('error order: NO_MINE_LICENSE, then BAD_TILE, then BAG_FULL, then NO_ENERGY', () => {
+    const full = miner({ energy: 0, inventory: { stone: 10 }, bagCapacity: 10, floor: grid(1, 11) })
+    expect(mineRock(withRun({ floor: grid(1, 11) }))).toEqual({ ok: false, error: 'NO_MINE_LICENSE' })
+    expect(mineRock(full, 4)).toEqual({ ok: false, error: 'BAD_TILE' })
+    expect(mineRock(full)).toEqual({ ok: false, error: 'BAG_FULL' })
+    expect(mineRock(miner({ energy: 0, bagCapacity: 100, floor: grid(1, 11) }))).toEqual({ ok: false, error: 'NO_ENERGY' })
+  })
+
+  it('descend: NO_LADDER unfound, MINE_BOTTOM at 25, SEALED into an unbroken zone — and the floor stays playable', () => {
+    const vein0 = { level: 0, progress: 0, rock: 'stone' as const }
+    expect(descend(miner({ floor: grid(1, 11), vein: vein0 }))).toEqual({ ok: false, error: 'NO_LADDER' })
+    expect(descend(miner({ floor: grid(25, 24, true), vein: vein0 }))).toEqual({ ok: false, error: 'MINE_BOTTOM' })
+    const sealed = miner({ floor: grid(5, 3, true), vein: vein0 })
+    expect(descend(sealed)).toEqual({ ok: false, error: 'SEALED' })
+    expect(mineRock(sealed).ok).toBe(true)
+    const next = okState(descend(miner({ floor: grid(2, 3, true), vein: vein0 })))
+    expect([next.run.floor.n, next.run.floor.deepest, next.run.floor.found]).toEqual([3, 3, false])
+    expect(next.run.floor.rocks).toHaveLength(12)
+    expect(next.run.rngState).toBe(sealed.run.rngState)
+  })
+
+  it('breakSeal only at floor 5/10/15/20 with the ladder found, pays upgradeVein’s price and moves to the new zone', () => {
+    const vein0 = { level: 0, progress: 0, rock: 'stone' as const }
+    expect(breakSeal(miner({ floor: grid(5, 3), vein: vein0 }))).toEqual({ ok: false, error: 'NOT_AT_SEAL' })
+    expect(breakSeal(miner({ floor: grid(4, 3, true), vein: vein0 }))).toEqual({ ok: false, error: 'NOT_AT_SEAL' })
+    expect(breakSeal(miner({ floor: grid(1, 3, true), vein: vein0 }))).toEqual({ ok: false, error: 'NOT_AT_SEAL' })
+    expect(breakSeal(miner({ floor: grid(5, 3, true), cash: 0, inventory: { stone: 25 }, vein: vein0 }))).toEqual({ ok: false, error: 'NO_CASH' })
+    const s = miner({ floor: grid(5, 3, true), cash: 100, inventory: { stone: 25 }, bagCapacity: 100, vein: vein0 })
+    const next = okState(breakSeal(s))
+    expect([next.run.vein.level, next.run.cash, next.run.inventory.stone]).toEqual([1, 0, 0])
+    expect([next.run.floor.n, next.run.floor.found]).toEqual([6, false])
+    expect(next.run.floor.deepest).toBe(6)
+    // Lv2 needs the furnace, exactly as upgradeVein
+    const vein1 = { level: 1, progress: 0, rock: 'stone' as const }
+    expect(breakSeal(miner({ floor: grid(10, 3, true), cash: 200, inventory: { stone: 30, coal: 10 }, bagCapacity: 100, vein: vein1 }))).toEqual({ ok: false, error: 'NO_FURNACE' })
+    const furnace = { ...createInitialState().run.furnace, built: true }
+    const next2 = okState(breakSeal(miner({ floor: grid(10, 3, true), cash: 200, inventory: { stone: 30, coal: 10 }, bagCapacity: 100, furnace, vein: vein1 })))
+    expect([next2.run.vein.level, next2.run.floor.n]).toEqual([2, 11])
+    // past the last zone the seal is MAX_LEVEL (sealFloor(5) = 25, the bottom)
+    const vein4 = { level: 4, progress: 0, rock: 'goldOre' as const }
+    expect(breakSeal(miner({ floor: grid(25, 3, true), cash: 1e6, inventory: { stone: 1e3, ironBar: 1e3 }, bagCapacity: 100, furnace, pickaxe: { tier: 'iron', durability: 1000 }, vein: vein4 }))).toEqual({ ok: false, error: 'MAX_LEVEL' })
+  })
+
+  it('the elevator rides to a built checkpoint free; LOCKED past the seals, BAD_SLOT on an untouched checkpoint', () => {
+    const vein1 = { level: 1, progress: 0, rock: 'stone' as const }
+    expect(rideElevator(miner({ floor: grid(9, 3), vein: vein1 }), 2)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(rideElevator(miner({ floor: grid(9, 3), vein: vein1 }), -1)).toEqual({ ok: false, error: 'LOCKED' })
+    expect(rideElevator(miner({ floor: grid(1, 3), vein: vein1 }), 0)).toEqual({ ok: false, error: 'BAD_SLOT' })
+    const s = miner({ floor: grid(9, 3, true), bagCapacity: 100, vein: vein1 })
+    const next = okState(rideElevator(s, 0))
+    expect([next.run.floor.n, next.run.floor.deepest, next.run.floor.found]).toEqual([1, 9, false])
+    expect(next.run.floor.rocks).toHaveLength(12)
+    expect([next.run.energy, next.run.rngState]).toEqual([s.run.energy, s.run.rngState])
+  })
+
+  it('minerZone defaults to the deepest zone and can be pointed at any built zone; orders follow it', () => {
+    const vein4 = { level: 4, progress: 0, rock: 'stone' as const }
+    const s = miner({ bagCapacity: 100, vein: vein4, pickaxe: { tier: 'iron', durability: 1000 } })
+    expect(minerZone(s.run)).toBe(4)
+    expect(setMinerZone(s, 5)).toEqual({ ok: false, error: 'LOCKED' })
+    const coal = okState(setMinerZone(s, 0))
+    expect([coal.run.minerZone, minerZone(coal.run)]).toEqual([0, 0])
+    expect(okState(setMinerZone(coal, null)).run.minerZone).toBe(null)
+    // the order pool reads the miners' zone: zone 0 offers stone/coal work, deepest offers the gold zone's
+    expect(orderPool(coal.run).includes('goldOre')).toBe(false)
+    expect(orderPool(s.run).includes('goldOre')).toBe(true)
+  })
+
+  it('dig rolls the miners’ zone: vein Lv4 pointed at zone 0 only ever rolls stone and coal', () => {
+    let s = miner({ energy: 1000, bagCapacity: 1000, pickaxe: { tier: 'copper', durability: 400 }, vein: { level: 4, progress: 0, rock: 'stone' }, minerZone: 0 })
+    const kinds = new Set<string>()
+    for (let i = 0; i < 30; i++) {
+      s = okState(dig(s))
+      kinds.add(s.run.vein.rock)
+    }
+    expect([...kinds].every((k) => k === 'stone' || k === 'coal')).toBe(true)
   })
 })

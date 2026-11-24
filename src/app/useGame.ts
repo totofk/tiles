@@ -67,6 +67,10 @@ export const ERROR_TEXT: Record<ActionError, string> = {
   NO_PIVOT: 'This field has no pivot — build one to sow it',
   NO_CROP: 'Pick a crop for this field first',
   PUMP_FULL: 'The pump feeds no more fields — build the next pump',
+  NO_LADDER: 'Find the ⬇️ ladder first',
+  SEALED: 'A 🔒 seal blocks the way down',
+  NOT_AT_SEAL: 'That floor holds no seal — descend to it first',
+  MINE_BOTTOM: 'The bottom of the mine — deeper zones come later',
 }
 
 export const FIRE_EMOJI = '🔥'

@@ -4,11 +4,13 @@ import {
   FLOOR_COLS,
   FLOOR_ROWS,
   floorWeights,
+  floorZone,
   isSellable,
   itemSellPrice,
   keepNCost,
   masteryLevel,
   masteryMaxLevel,
+  MINE_BOTTOM_FLOOR,
   mineHits,
   mineLicenseCost,
   oreSortUnlockCost,
@@ -19,6 +21,7 @@ import {
   preserveChance,
   rockHits,
   rockPickaxe,
+  sealFloor,
   storageCost,
   storageMaxLevel,
   storageSlotsPerLevel,
@@ -27,6 +30,7 @@ import {
   veinUpgradeCost,
   veinWeights,
   woodCost,
+  zoneFirstFloor,
   type MineDropId,
   type Price,
 } from './balance'
@@ -171,6 +175,26 @@ function breakDrop(run: RunState, rock: ItemId): 'store' | 'sell' | 'full' {
   return room ? 'store' : 'full'
 }
 
+/** batch 37: the per-press bookkeeping dig and mineRock share — energy spend, the preserve roll on run.rngState,
+ * durability, counters.mines, lifetime and mastery. Nothing floor-specific happens here. */
+function pressSetup(state: GameState, energy: number): ActionResult {
+  const { run } = state
+  const pickaxe = activePickaxe(run)
+  const spent = spendEnergy(run, energy)
+  if (!spent) return fail('NO_ENERGY')
+  const [keep, rngState] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
+  const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
+  return withRun(state, {
+    energy: spent.energy,
+    energyReserve: spent.energyReserve,
+    rngState,
+    rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
+    counters: { ...run.counters, mines: run.counters.mines + 1 },
+    lifetime: addLifetime(run, energy, 0),
+    ...(pickaxe && gainMastery(run, pickaxe.tier)),
+  })
+}
+
 // The mine action (still called dig). Validates in this order: NO_MINE_LICENSE, BAG_FULL (the current rock's drop
 // has no room), NO_ENERGY. A pickaxe action rolls preserve first (mastery level before this action's xp), else loses
 // 1 durability; at 0 it goes blunt (kept, mines by hand until repaired). Only pickaxe actions earn mastery xp; one
@@ -186,22 +210,10 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
   const pickaxe = activePickaxe(run)
   const tier = pickaxe?.tier ?? null
   if (breakDrop(run, minedRock(run.vein.rock, tier)) === 'full') return fail('BAG_FULL')
-  const spent = spendEnergy(run, energy)
-  if (!spent) return fail('NO_ENERGY')
-  const [keep, rngState] = pickaxe ? nextRandom(run.rngState) : [1, run.rngState]
-  const used = pickaxe && keep >= pickaxePreserve(pickaxe.tier, run)
-  let s = okState(
-    withRun(state, {
-      energy: spent.energy,
-      energyReserve: spent.energyReserve,
-      rngState,
-      rack: pickaxe && used ? { ...run.rack, [pickaxe.tier]: pickaxe.durability - 1 } : run.rack,
-      counters: { ...run.counters, mines: run.counters.mines + 1 },
-      lifetime: addLifetime(run, energy, 0),
-      ...(pickaxe && gainMastery(run, pickaxe.tier)),
-    }),
-  )
-  const weights = veinWeights(run.vein.level, run.masteredTiers.length, run.favours.aim)
+  const pressed = pressSetup(state, energy)
+  if (!pressed.ok) return pressed
+  let s = okState(pressed)
+  const weights = veinWeights(minerZone(run), run.masteredTiers.length, run.favours.aim)
   let hits = run.vein.progress + mineHits(tier)
   for (;;) {
     const { vein } = s.run
@@ -214,6 +226,121 @@ export function dig(state: GameState, energy = ACTION_ENERGY_COST): ActionResult
     if (drop === 'sell') s = okState(sellItem(s, rock, 1))
     hits -= need
   }
+}
+
+/** batch 37: the zone the mine workers dig — the picked zone, else the deepest (vein.level, today's behaviour) */
+export function minerZone(run: RunState): number {
+  return run.minerZone ?? run.vein.level
+}
+
+/** batch 37: the open row of a floor grid — the first row that still has an unbroken rock (rows open in order);
+ * FLOOR_ROWS when every rock is broken (the breaking press re-rolls the floor before anyone looks) */
+export function openRow(rocks: FloorRock[]): number {
+  for (let row = 0; row < FLOOR_ROWS; row++) {
+    for (let col = 0; col < FLOOR_COLS; col++) if (!rocks[row * FLOOR_COLS + col].broken) return row
+  }
+  return FLOOR_ROWS
+}
+
+// The player's floor press (batch 37). Validates in this order: NO_MINE_LICENSE, BAD_TILE (`i` not an unbroken rock
+// of the open row; default = the open row's first unbroken rock), BAG_FULL (that rock's drop), NO_ENERGY. Then the
+// shared pressSetup bookkeeping. The target rock takes mineHits(tier); a rock the pickaxe is too weak for is mined
+// as stone (minedRock), as in dig. Carry-over: leftover hits go to the next unbroken rock of the open row left to
+// right, then into the next row once it opens — one press can clear a row. Breaking the ladder rock sets found (its
+// item still drops). A drop that hits full storage leaves its rock unbroken at full progress and the remaining hits
+// are lost. When all 12 rocks break, the floor re-rolls in place from floor.rng (same n; found stays found, R4) and
+// the leftover hits continue on the fresh grid.
+export function mineRock(state: GameState, i?: number): ActionResult {
+  const { run } = state
+  if (!run.mineLicense) return fail('NO_MINE_LICENSE')
+  const row = openRow(run.floor.rocks)
+  const open = run.floor.rocks.flatMap((rock, k) => (k >= row * FLOOR_COLS && k < (row + 1) * FLOOR_COLS && !rock.broken ? [k] : []))
+  const target = i === undefined ? open[0] : open.includes(i) ? i : -1
+  if (target < 0) return fail('BAD_TILE')
+  const tier = activePickaxe(run)?.tier ?? null
+  if (breakDrop(run, minedRock(run.floor.rocks[target].kind, tier)) === 'full') return fail('BAG_FULL')
+  const pressed = pressSetup(state, ACTION_ENERGY_COST)
+  if (!pressed.ok) return pressed
+  let s = okState(pressed)
+  let hits = run.floor.rocks[target].hits + mineHits(tier)
+  let next = target
+  for (;;) {
+    const { floor } = s.run
+    const rock = floor.rocks[next]
+    const kind = minedRock(rock.kind, tier)
+    const need = rockHits(kind)
+    const drop = hits >= need ? breakDrop(s.run, kind) : null
+    if (!drop || drop === 'full') {
+      const progress = drop ? need : hits
+      return withRun(s, { floor: { ...floor, rocks: floor.rocks.map((r, k) => (k === next ? { ...r, hits: progress } : r)) } })
+    }
+    const found = floor.found || next === floor.ladder
+    let rocks = floor.rocks.map((r, k) => (k === next ? { ...r, broken: true, hits: 0 } : r))
+    let { rng, ladder } = floor
+    if (rocks.every((r) => r.broken)) {
+      // R4: the emptied floor re-rolls in place; a found ladder stays found
+      const rolled = rollFloor(floor.n, s.run.masteredTiers.length, s.run.favours.aim, rng)
+      rocks = rolled.rocks
+      ladder = rolled.ladder
+      rng = rolled.rng
+    }
+    s = okState(withRun(s, { floor: { ...floor, rocks, ladder, rng, found }, inventory: addItems(s.run, kind, 1) }))
+    if (drop === 'sell') s = okState(sellItem(s, kind, 1))
+    hits -= need
+    const nextRow = openRow(s.run.floor.rocks)
+    const open2 = s.run.floor.rocks.flatMap((rock2, k) => (k >= nextRow * FLOOR_COLS && k < (nextRow + 1) * FLOOR_COLS && !rock2.broken ? [k] : []))
+    next = open2[0]
+  }
+}
+
+// Batch 37: down the found ladder. NO_LADDER, MINE_BOTTOM (floor 25), SEALED (the floor below is a zone's first
+// floor past the seals broken). Else one floor down, deepest = max, a fresh grid, found false. No energy.
+export function descend(state: GameState): ActionResult {
+  const { run } = state
+  const { floor } = run
+  if (!floor.found) return fail('NO_LADDER')
+  if (floor.n >= MINE_BOTTOM_FLOOR) return fail('MINE_BOTTOM')
+  if (floorZone(floor.n + 1) > run.vein.level) return fail('SEALED')
+  const rolled = rollFloor(floor.n + 1, run.masteredTiers.length, run.favours.aim, floor.rng)
+  return withRun(state, { floor: { n: floor.n + 1, deepest: Math.max(floor.deepest, floor.n + 1), rocks: rolled.rocks, ladder: rolled.ladder, found: false, rng: rolled.rng } })
+}
+
+// Batch 37: break the 🔒 seal into the next zone (replaces the player's use of upgradeVein). NOT_AT_SEAL unless the
+// ladder is found and n = sealFloor(vein.level + 1); then upgradeVein's checks and price unchanged (MAX_LEVEL,
+// NO_FURNACE, NO_IRON_PICKAXE, NOT_ENOUGH_ITEMS, NO_CASH). Success = vein.level + 1 AND the player moves to the new
+// zone's first floor on a fresh grid. upgradeVein itself stays exported for the tests.
+export function breakSeal(state: GameState): ActionResult {
+  const { run } = state
+  const { floor, vein, furnace } = run
+  const next = vein.level + 1
+  if (!floor.found || floor.n !== sealFloor(next)) return fail('NOT_AT_SEAL')
+  const best = bestPickaxeTier(run)
+  const blocked = veinNeedsFurnace(next) && !furnace.built ? 'NO_FURNACE' : veinNeedsPickaxe(next) && best !== 'iron' && best !== 'gold' ? 'NO_IRON_PICKAXE' : null
+  const bought = buyMineUpgrade(state, veinUpgradeCost(vein.level, state.meta), { vein: { ...vein, level: next } }, blocked)
+  if (!bought.ok) return bought
+  const s = okState(bought)
+  const n = zoneFirstFloor(next)
+  const rolled = rollFloor(n, s.run.masteredTiers.length, s.run.favours.aim, s.run.floor.rng)
+  return withRun(s, { floor: { n, deepest: Math.max(s.run.floor.deepest, n), rocks: rolled.rocks, ladder: rolled.ladder, found: false, rng: rolled.rng } })
+}
+
+// Batch 37: the free elevator to a built checkpoint (a broken seal's zone first floor). LOCKED past the seals
+// broken; BAD_SLOT as the free no-op guard when already standing there on an untouched grid; else a fresh grid at
+// zoneFirstFloor(zone), found false. No energy.
+export function rideElevator(state: GameState, zone: number): ActionResult {
+  const { run } = state
+  const { floor } = run
+  if (!Number.isInteger(zone) || zone < 0 || zone > run.vein.level) return fail('LOCKED')
+  const n = zoneFirstFloor(zone)
+  if (floor.n === n && floor.rocks.every((r) => !r.broken)) return fail('BAD_SLOT')
+  const rolled = rollFloor(n, run.masteredTiers.length, run.favours.aim, floor.rng)
+  return withRun(state, { floor: { n, deepest: Math.max(floor.deepest, n), rocks: rolled.rocks, ladder: rolled.ladder, found: false, rng: rolled.rng } })
+}
+
+/** batch 37: point the mine workers at a built zone (null = Deepest); free */
+export function setMinerZone(state: GameState, zone: number | null): ActionResult {
+  if (zone !== null && !(Number.isInteger(zone) && zone >= 0 && zone <= state.run.vein.level)) return fail('LOCKED')
+  return withRun(state, { minerZone: zone })
 }
 
 // 🧺 Ore sorting: unlock pays the kind's price. Order: NO_MINE_LICENSE, LOCKED (vein below Lv3), ALREADY_OWNED,

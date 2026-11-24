@@ -35,7 +35,7 @@ import { FORGE_GOOD_IDS, ITEM_IDS, ORE_IDS, isForgeGood, type ItemId } from './d
 // orders ↔ fields is a cycle of function bindings only (used at call time), so module order does not matter
 import { fieldsPlantable, plantedTiles, pressuredCycle, wetTiles } from './fields'
 import { PLAIN_SALE, cropRenownGrow, cropSale, type SaleSoil } from './market'
-import { bestPickaxeTier, minedRock, pay } from './mining'
+import { bestPickaxeTier, minedRock, minerZone, pay } from './mining'
 import type { GameState, Offer, OrderGood, OrderSlot, RunState } from './state'
 
 export const isOffer = (slot: OrderSlot): slot is Offer => 'good' in slot
@@ -52,7 +52,7 @@ const barOre = (good: OrderGood) => ORE_IDS.find((ore) => oreBar(ore) === good)
  * whose mold is owned.
  */
 export function orderPool(run: RunState): OrderGood[] {
-  const drops = veinDrops(run.vein.level)
+  const drops = veinDrops(minerZone(run))
   const items = run.mineLicense ? ITEM_IDS.filter((id) => (drops[id] ?? 0) > 0 && minedRock(id, bestPickaxeTier(run)) === id) : []
   // batch 33: a bar only once its mold is owned
   const bars = run.furnace.built ? ITEM_IDS.filter((id) => { const ore = barOre(id); return ore !== undefined && items.includes(ore) && run.furnace.molds[ore] !== undefined }) : []
@@ -75,7 +75,7 @@ export function orderPerMinute(state: GameState, good: OrderGood): number {
   if (isForgeGood(good)) return 60 / FORGE_CYCLE_TICKS
   const ore = barOre(good)
   if (ore) return (batchBars(run.furnace.levels.batch) * 60 * furnaceSpeedRate(run.furnace.levels.speed)) / barTicks(ore)
-  const drops = veinDrops(run.vein.level)
+  const drops = veinDrops(minerZone(run))
   const total = ITEM_IDS.reduce((sum, id) => sum + (drops[id] ?? 0), 0)
   return (orderRocksPerMin() * (drops[good] ?? 0)) / total
 }
