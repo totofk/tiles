@@ -1,7 +1,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import type { GameState } from '../core/state'
 import { feedbackSummary } from '../core/stats'
-import { encodeSave } from '../save/codec'
+import { encodeSaveCompact } from '../save/codec'
 import { SAVE_VERSION } from '../save/serialize'
 import {
   DETAILS_MAX,
@@ -18,7 +18,7 @@ import {
 
 export type FeedbackProps = { state: GameState; feedback: FeedbackState; setFeedback: Dispatch<SetStateAction<FeedbackState>> }
 
-function context(state: GameState): FeedbackContext {
+async function context(state: GameState): Promise<FeedbackContext> {
   return {
     build: __BUILD__,
     saveVersion: SAVE_VERSION,
@@ -26,8 +26,9 @@ function context(state: GameState): FeedbackContext {
     ua: navigator.userAgent,
     time: new Date().toISOString(),
     summary: feedbackSummary(state),
-    // the LIVE run at send time, like 💾 Data export (wall clock stays in src/app)
-    saveCode: encodeSave({ version: SAVE_VERSION, savedAtMs: Date.now(), state }),
+    // the LIVE run at send time as TILES2, like 💾 Data export (wall clock stays in src/app); a report's code
+    // opens with #replay=<code> (batch 39)
+    saveCode: await encodeSaveCompact({ version: SAVE_VERSION, savedAtMs: Date.now(), state }),
   }
 }
 
@@ -49,7 +50,7 @@ export function FeedbackCard({ state, feedback, setFeedback }: FeedbackProps) {
   }
   const send = async () => {
     setStatus('sending')
-    const result = await sendFeedback(draft, context(state))
+    const result = await sendFeedback(draft, await context(state))
     if (result === 'sent') {
       const at = Date.now()
       setFeedback({ ...EMPTY_FEEDBACK, sentAt: at })

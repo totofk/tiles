@@ -408,6 +408,13 @@ button:disabled::after {
 .banner-freeze {
   background: #ffe0b2;
 }
+/* replay mode (batch 39): violet, so a replayed run never passes for the player's own */
+.banner-replay {
+  background: #e1d5f5;
+}
+.replay-boot {
+  padding: var(--s3);
+}
 
 /* ---- home lot: fixed beds of 3×2 (batch 25) — bed k = tiles 6k…6k+5 ---- */
 /* the wrapper gives phones a container too (.farm-fit's container-type is ≥ 768 px only) */

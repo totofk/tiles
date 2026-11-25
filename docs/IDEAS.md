@@ -10,6 +10,10 @@ research first (recipe: `docs/research/*.md` style offload), then a DECISIONS en
 
 ## 1. Save hash for cross-device import + attach to feedback
 
+**Status: shipped.** Batch 23 shipped export/import, batch 23.1 attached the save to feedback, and batch 39 added TILES2
+compression plus the `#replay=` loader. See DECISIONS "Batch 39 refined". The notes below are the
+original 2026-11-09 parking notes, kept for history.
+
 Idea: export the save as a code, import it on another device; attach it to a bug report so a reported
 problem can be loaded and reproduced directly, cutting debug time.
 
