@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '39', date: '2026-11-25', line: '📎 Feedback reports now attach a save code about 4× shorter, and 💾 Data can open any save as a replay in a new tab without touching yours.' },
   { batch: '38', date: '2026-11-25', line: '🖥️ New screen: one main view with 🌱 Farm, 🚜 Estate and ⛏️ Mine tabs; Shop, Upgrades, Bank and Stats moved to the side menu (☰ on phones).' },
   { batch: '37.1', date: '2026-11-24', line: '⛏️ Mine floors are now 4×4: 16 rocks per floor, and bigger rocks on wide screens.' },
   { batch: '37', date: '2026-11-24', line: '⛏️ The mine has floors: find the hidden ⬇️ ladder in each 4×3 grid, break a 🔒 seal to enter each new zone. Your vein level became that zone\'s first floor.' },

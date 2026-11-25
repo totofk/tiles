@@ -77,25 +77,52 @@ Anchors: measured on `be21283` (origin/main after batch 38). Worker: Claude (pro
 
 ## Tasks (268–272)
 
-- [ ] 268. **Codec: TILES2** (`src/save/codec.ts`). `encodeSaveCompact` (async, :152) = deflate-raw through
+- [x] 268. **Codec: TILES2** (`src/save/codec.ts`). `encodeSaveCompact` (async, :152) = deflate-raw through
   CompressionStream, base64url, CRC32 over the text, falls back to TILES1 without CompressionStream. `decodeImport`
   (:226) becomes async and accepts TILES2 / TILES1 / legacy. New tag `unsupported`. Inflate capped at
   `MAX_INFLATED_BYTES` (:101) → `corrupt`. `encodeSave` (TILES1, sync) stays for the fallback and the frozen
   fixtures. New fixture `tests/fixtures/code-v38.txt`.
-- [ ] 269. **Writers use TILES2.** 💬 FeedbackCard's context is async and attaches `encodeSaveCompact`. 💾 Data
+- [x] 269. **Writers use TILES2.** 💬 FeedbackCard's context is async and attaches `encodeSaveCompact`. 💾 Data
   `exportCode` returns `Promise<string>` (useGame, panelTabs, DataModal). DataModal "Check save" awaits the decode and
   has an `unsupported` message.
-- [ ] 270. **Replay mode.** `src/app/replay.ts` (hash parse without URLSearchParams, because legacy codes carry `+`;
+- [x] 270. **Replay mode.** `src/app/replay.ts` (hash parse without URLSearchParams, because legacy codes carry `+`;
   `replayUrl`, `withoutHash`). `src/app/Root.tsx` is the boot switch (loading / failed / App) and `main.tsx` renders it.
   `useGame(replay)` (:201) uses `memoryStore` (`storage.ts:25`) for every write, `replayBoot` (:191) skips the catch-up,
   the storage listener and the hidden-tab catch-up are off, and a Data import replaces the run in memory. App shows the
   violet `.banner-replay` with Exit replay and never writes `tiles.ui`. DataModal adds **Open as replay** (new tab,
   `noopener`) under the confirm card.
-- [ ] 271. **Tests.** codec (+7: TILES2 round-trip of every fixture, ≥3× shorter on v37, frozen code-v38 decode, a
+- [x] 271. **Tests.** codec (+7: TILES2 round-trip of every fixture, ≥3× shorter on v37, frozen code-v38 decode, a
   Node-zlib code decodes, prefixes/damage/non-deflate, newer-version, inflate bomb, no-Compression fallback);
   tests/replay.test.tsx (new, 6: hash parse, URL helpers, Root replay / old-version / damaged / off); useGame (+2:
   sandbox never writes localStorage, no catch-up or freeze, import in memory); DataModal (+1: TILES2 check + Open as
   replay). The existing async callers were re-aimed: codec, feedback, FeedbackCard, DataModal, App, BankTab, StatsPanel.
-- [ ] 272. **Docs + CHANGELOG.** DECISIONS entry, IDEAS #1 marked shipped, 🗺 Roadmap drops idea 1 (and "Save-attach
+- [x] 272. **Docs + CHANGELOG.** DECISIONS entry, IDEAS #1 marked shipped, 🗺 Roadmap drops idea 1 (and "Save-attach
   first" from the order note), CHANGELOG line (137 code points):
   `📎 Feedback reports now attach a save code about 4× shorter, and 💾 Data can open any save as a replay in a new tab without touching yours.`
+
+## Batch 39 results
+
+- Codes: save-v37.json (11,072 B) → TILES1 14.8 kB, TILES2 3,451 B (`code-v38.txt`). Node's `zlib.inflateRawSync`
+  independently inflates code-v38 to the v38 JSON.
+- Full suite (`pnpm test`, unit + sim) on the final tree: 74 files, 1429 passed + 6 expected fail (1435). Batch 38 ended
+  at 1419, so +16: codec +7, replay +6, useGame +2, DataModal +1. The run took 745 s. No sim number moved.
+- Unit suite before each task commit: fd231e3 1180 → 9ada2f7 1187 → ec3a41f 1196, all green. Lint and `tsc -b` were
+  clean at every commit. Build clean (454.7 kB JS / 145.1 kB gzip), and dist was deleted after.
+- No `src/core`, `balance.ts` or save-shape change. SAVE_VERSION stays 38, and every past code fixture decodes unchanged.
+- Commits: fd231e3 plan (archive batch 38, DECISIONS, tasks) · 9ada2f7 268+269 codec + writers · ec3a41f 270 replay ·
+  this one 272 (CHANGELOG, Roadmap, IDEAS, results). 271's tests landed with each task.
+- Shipped as a PR from `claude/project-thread-gtw22f`, merged to main on Toon's go ("เปิด pr มาแล้วกด merge ไป main
+  เองมั้ย"). Cloud threads cannot push to main directly.
+
+### Deviations
+
+- **The full suite ran once, on the final tree, not before every commit.** It takes about 12 min in this container. The
+  unit project, lint and `tsc -b` ran on every intermediate tree. The sim inputs (src/core, balance.ts) are untouched.
+- **268 and 269 share one commit (9ada2f7).** The async `decodeImport` does not compile without its callers. This
+  follows the batch-37.1 259/260 and batch-38 262/263 precedent.
+- **Replay is on the live build too.** This is a guess, not yet confirmed by Toon. DECISIONS says how to make it dev-only.
+- **The Data modal inside a replay** still reads the device's stored `savedAtMs` for its "This device → Saved" cell.
+  Display only, and nothing is written, so it was left as is.
+- **Encode is not byte-pinned for TILES2** (only decode). TILES1 still is. Reason: deflate output can differ by engine.
+- **No browser this session.** The banner colour, the new-tab open and a real Google Form send of a TILES2 report are
+  unverified. Hermes: send one 💬 report from the live build, then open its `Save code:` with `#replay=`.
