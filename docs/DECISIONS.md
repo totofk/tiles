@@ -1578,3 +1578,129 @@ Hermes's calls below ship as written. Worker: GLM glm-5.3 via z.ai.
 - C10. Mine content centred at max 760 px on desktop.
 - C11. Locked-row style: grayscale + 0.7 opacity (est.), tuned in Hermes's live check.
 - C12. Worker GLM (z.ai), --max-turns 300, resume leg expected; UI batches ran fine on GLM (36.7).
+
+## Mine M2 refined: ⛏️ monsters, HP, flee and death (2026-11-25, design only, Toon go; save bump when built)
+Status: accepted design, no code yet (Toon's calls below). Every number marked (est.) is a guess to be
+pinned by the sim; unmarked numbers are computed from `src/core/balance.ts` at be21283 (method under "Grounding"). Monster numbers
+are original: the Stardew wiki pages read had no per-monster HP/damage, so nothing is copied.
+Scope: M2 of the mine revise (DECISIONS "Batch 37 refined": M2 monsters/HP/flee/death; M3 gear/food/attributes, so
+M2 adds NO weapons, armour, food or stats). Not seen: the mine-revise design's numbered decisions 1–35 live in Discord
+thread 1573749154092679272, not in the repo; this design only uses what DECISIONS / PLAN-history quote from it.
+
+### Grounding (what the numbers are measured against)
+- Energy: `ENERGY_MAX_BASE` 10 (+5/level), regen 1/3 per tick = 20 presses/min at steady state, 1 press = 1 energy.
+- Floor: 4 × 4, rows open top-down, ladder uniform → 8.5 rocks to the ladder (batch 37.1 pin).
+- Presses to the ladder per floor (8.5 × mean rock hits ÷ pickaxe hits; too-hard rocks mined as stone, computed):
+  | zone | hand | wooden (2) | copper (3) | iron (4) | gold (8) |
+  |---|---|---|---|---|---|
+  | 0 ⛰️ Stone (1–5) | 17 | 8.5 | 5.7 | 4.2 | 2.1 |
+  | 1 ⚫ Coal (6–10) | 17 | 8.5 | 5.7 | 4.2 | 2.1 |
+  | 2 🔶 Copper (11–15) | 18 | 9.1–9.3 | 6.1–6.2 | 4.6 | 2.3 |
+  | 3 🔷 Iron (16–20) | 18 | 9.1–9.3 | 6.7–6.9 | 5.0–5.1 | 2.5–2.6 |
+  | 4 🌟 Gold (21–25) | 18 | 9.0–9.1 | 6.6–6.8 | 5.4–5.7 | 2.7–2.8 |
+- Expected pickaxe on arrival in each zone (from the gates): Z0–Z1 wooden; Z2 wooden → copper (copper ore is IN Z2);
+  Z3 copper (iron ore is in Z3); Z4 iron (VEIN_PICKAXE_LEVEL 4 requires it), gold later.
+- Guards that already exist and must stay green: PIN37a Fields unlock ±20 % of the parent, PIN37b seal hours, PIN37c /
+  mineStall (never stuck > 10 game-min with ⚡ full), cash-per-energy hierarchy (max mining < 0.9 × farming),
+  worker/offline income byte-identical with minerZone at its default.
+- Reference (Stardew wiki, read 2026-11-25): start 100 HP; passing out loses up to 3 items + gold (10 %, cap 15 000 g)
+  and forgets recent elevator floors; "infested" floors need every monster killed for the ladder; elevator every
+  5 floors. Wiki pages had no per-monster HP/damage, so no number below is copied from Stardew.
+
+### Design (D1–D12)
+- D1. **Monsters are cells on the grid, visible from arrival.** A monster replaces one rock (so a floor = 15 rocks +
+  1 monster, or 14 + 2). It never hides the ladder. Why: telegraphed, one-thumb friendly, no hidden punishment.
+- D2. **Monsters act only on the player's floor presses (turn-based), never on ticks.** A monster is awake while its
+  row is the open row. After each player press on that floor, every awake living monster strikes once for its damage.
+  Why: an idle game must not kill a player who switched to the Farm tab; offline catch-up and workers stay untouched
+  by construction; deterministic tests. (T1.)
+- D3. **A press on a monster cell damages it by the pickaxe's hits** (same `mineHits(tier)`, hand = 1). Carry-over
+  flows through monster cells like rocks (one rule). A live monster counts as unbroken, so its row does not open past
+  it: in the open row you fight it, or leave by a ladder you already found, or flee. A press on a rock while a monster
+  is awake still lets it strike (ignoring it costs HP).
+- D4. **Where monsters spawn:** only on a floor's FRESH arrival roll via `descend` / `breakSeal` (floors 5z+2 … 5z+5).
+  Never on a checkpoint floor (zone first floors incl. floor 1), never on the R4 in-place re-roll of a mined-out
+  floor. Why: floor 1 and every checkpoint stay safe (no soft lock, dig/mine early game unchanged); the bot grinding
+  a seal floor for the seal price is not taxed (keeps PIN37b near its value); danger lives in the descent.
+- D5. **Monsters per fresh floor:** Z0–Z1 exactly 1; Z2–Z4 1, plus a 2nd at 25 % (est.). Rolled from the floor's own
+  stream after the rocks and ladder (R2: no other random sequence moves).
+- D6. **One monster per zone (names original, emoji only):**
+  | zone | monster | HP (hits) | damage per strike | kill drop (est.) |
+  |---|---|---|---|---|
+  | 0 | 🐛 Grit grub | 4 | 1 | 1 stone |
+  | 1 | 🦇 Soot bat | 6 | 2 | 1 coal |
+  | 2 | 🦀 Ore crab | 9 | 2 | 1 copper ore |
+  | 3 | 🪲 Rust beetle | 12 | 2 | 1 iron ore |
+  | 4 | 🐉 Gilded drake | 16 | 3 | 1 gold ore |
+  All (est.). Kill drop = the zone's top ore so a kill press is worth about a rock press (no new item ids in M2; a
+  drop into full storage is lost, the monster still dies, toast says so).
+- D7. **Player HP:** max = 20 + 12 × seals broken (`vein.level`) → 20 / 32 / 44 / 56 / 68 (est.). Why seals: M3 owns
+  attributes/gear, so M2 scales HP by the one depth stat that exists. HP regen 1 per 20 ticks (3/min, est.) always,
+  offline too (capped at max). A ride the player CHOOSES heals in full (R6 kept, T3); being carried out does not.
+  `run.dazed` (boolean) is set on death and cleared when regen brings HP back to max; while dazed the elevator
+  moves you but does not heal (else riding checkpoint → checkpoint right after death skips the D penalty).
+- D8. **Flee = the elevator.** A `🏃 Flee` button on a monster floor = ride the free elevator to the current zone's
+  checkpoint, full heal (not while dazed, D7). Flee keeps everything. Cost = re-descending up to 4 floors, so fleeing
+  early is always better than dying (death = no heal + 25 % of the haul).
+- D9. **Death (HP 0 after a strike) = A + D (T2): "You were carried out."** Back to the current zone's
+  checkpoint (safe, D4) with 1 HP, energy unchanged, and lose ⌊25 % (est.)⌋ of each item in the dive haul. Dive haul = items the player's floor presses and kills added since the
+  last checkpoint arrival (a per-item ledger in `run.floor`), capped by what is still in storage. Never cash, pickaxes,
+  pre-dive items or seal progress. Sets `run.dazed` (D7). The groggy part is the HP regen back up: ~7 min in Z0 (20 HP) to ~23 min in Z4
+  (68 HP) at 1 HP / 20 ticks; during it the player still mines the checkpoint floor (no monsters), and the farm,
+  Estate, orders and miners run as normal. No separate timer and no countdown beyond the HP bar (`run.dazed` is the only new flag).
+- D10. **Death fires on the strike that takes HP to 0**, so no press ever starts at 0 HP (no new ActionError).
+- D11. **Miners / workers never meet monsters** (they mine `run.vein`, R1). Orders, offline, Estate untouched.
+- D12. **Save (next SAVE_VERSION at build time):** `run.hp` (= max), `run.floor.cells` gains a monster variant (discriminated union
+  `{ type: 'rock', kind, hits, broken } | { type: 'monster', id, hp, dead }`), `run.floor.haul` (empty), `run.dazed` (false). Migration keeps
+  the saved grid exactly (no monsters added to a floor in progress), the latest past fixture frozen, chain tested from v1.
+
+### Damage budget (computed from D6/D7; a "dive" = the 4 monster floors between a checkpoint and the next seal floor)
+Encounter damage = (presses to kill − 1) × damage (the killing press is not answered). Monsters per floor 1 / 1 / 1.25.
+| zone | pickaxe | presses/kill | HP lost/monster | HP lost per dive | presses added/dive |
+|---|---|---|---|---|---|
+| Z0 | hand | 4 | 3 | 12 / 20 = 60 % | +16 |
+| Z0 | wooden | 2 | 1 | 4 / 20 = 20 % | +8 |
+| Z1 | hand | 6 | 10 | 40 / 32 = 125 % | +24 |
+| Z1 | wooden | 3 | 4 | 16 / 32 = 50 % | +12 |
+| Z2 | wooden | 5 | 8 | 40 / 44 = 91 % | +25 |
+| Z2 | copper | 3 | 4 | 20 / 44 = 45 % | +15 |
+| Z3 | copper | 4 | 6 | 30 / 56 = 54 % | +20 |
+| Z3 | iron | 3 | 4 | 20 / 56 = 36 % | +15 |
+| Z4 | iron | 4 | 9 | 45 / 68 = 66 % | +20 |
+| Z4 | gold | 2 | 3 | 15 / 68 = 22 % | +10 |
+Target read: the expected pickaxe spends 45–66 % of HP per dive before regen (survives, feels it); one tier under
+reaches 90–125 % (must flee or fight smart); one tier over is 20–36 % (the upgrade is felt). Strikes from ignored
+monsters and regen (~1 HP per 7 presses at full energy pace) are not in the table; the sim measures both.
+Pacing cost: +8 … +25 presses per dive ≈ 0.4–1.3 min of energy at 20/min, against PIN37b's 0.23 … 4.44 h seal hours.
+
+### Toon's calls (2026-11-25, project thread "Design mine monsters and combat")
+- T1. Monsters act per player press (D2), not per tick: accepted with the draft (no objection).
+- T2. Death = A + D: "lose part of the dive haul" + "groggy". Hermes-style refine: the groggy part is the HP regen
+  itself plus `run.dazed`, not a separate timer; the haul loss drops 50 % → 25 % (est.) because the time cost bites too.
+- T3. Toon: "a ride the player chooses should heal; being carried out because they pushed on should not". So R6's
+  elevator full heal stays for voluntary rides / 🏃 Flee, and `run.dazed` blocks it after a death until HP is full
+  (closes the "die, mine one rock, ride back, full HP" loop).
+- T4. Go: "โอเคนะ เอาตามนี้ละกัน" (2026-11-25). Design only; the build batch gets its own number and plan
+  (batch 39 is the feedback-save work).
+- Rejected: real-time strikes (punish tab switching, need view state in core), cash loss on death (touches the farm
+  loop and the hierarchy pins), death = checkpoint only (flee and death become the same button).
+
+### Implementation guards (for the batch that builds it)
+- PIN37a ±20 %, PIN37b reported old → new, PIN37c / mineStall green. The ladder bot learns: kill an awake monster
+  first, flee when HP < next strike × 2 (est.), never dies at its expected tier (new pin: 0 deaths over the run).
+- New pins: same seed → same monsters; checkpoint floors and R4 re-rolls never spawn; no strike without a press;
+  offline N ticks only regens HP; death keeps pre-dive items (property test); damage table above as a balance pin.
+- All numbers in `balance.ts` (`MONSTERS`, `HP_BASE`, `HP_PER_SEAL`, `HP_REGEN_TICKS`, `MONSTER_EXTRA_CHANCE`,
+  `DEATH_HAUL_LOSS`).
+
+### Reference: how idle / auto-battle games treat defeat (read 2026-11-25, behind T2)
+- Melvor Idle (test wiki "Death"): lose ONE random equipped item (nothing if the slot is empty, food never), no gold or
+  XP loss, no respawn timer; Auto Eat (shop upgrade) makes idling safe if its threshold ≥ the monster's max hit.
+- Core Keeper wiki: inventory drops in a tombstone you can walk back to, armour −15 % durability, respawn after a few s.
+- Stardew 1.07 (Destructoid): mine death money loss capped at 5000g, item loss reduced, rings can't be lost.
+- Wikipedia "Incremental game": the genre is defined by "the absence of failure states" and a "low-pressure
+  experience". Read: in a side system, defeat should cost a slice of the side system's own loot and some time, never the
+  main loop (the farm). That is why D9 touches only the dive haul and only the mine.
+  Sources: testwiki.melvoridle.com/w/Death, core-keeper.fandom.com/wiki/Death,
+  destructoid.com/death-in-stardew-valleys-mines-isnt-quite-so-punishing-now, en.wikipedia.org/wiki/Incremental_game,
+  stardewvalleywiki.com/Health, stardewvalleywiki.com/The_Mines.
