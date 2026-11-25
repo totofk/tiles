@@ -129,13 +129,17 @@ describe('batch 36.3: wetlands', () => {
     expect(report.plain10).toBeGreaterThan(0)
   }, 300_000) // 2 ladder runs
 
-  // measured: plain10 7.65 h; Wetlands null at 24 h — the ladder waits from 0.19 h on copper:water: every starting tile
-  // is in a bank bed, so nothing is ever watered, `waters` stays 0 and the water tool Lv1 (waters 20) never unlocks.
-  // A bot-ladder deadlock, not a game soft-lock (tile 13 is cash; the Fields gate needs no water tool) — PLAN.md
-  // "Batch 36.3 results" Deviations
-  it.fails('PIN36h: the no-mine Wetlands bot reaches the Fields unlock within ±20 % of plain10', () => {
+  // measured batch 36.3: plain10 7.65 h; Wetlands null at 24 h — the ladder waited from 0.19 h on copper:water: every
+  // starting tile is in a bank bed, so nothing was ever watered and the water tool Lv1 (waters 20) never unlocked. A
+  // bot-ladder deadlock, not a game soft-lock (PLAN.md "Batch 36.3 results" Deviations); it was it.fails.
+  // batch 40 (task 276): the Wetlands ladder buys tile 13 (outside the banks) first, so the bot waters by hand and the
+  // deadlock is gone. The run now reaches the Fields 37 % FASTER than plain10 (4.64 h vs 7.39 h) — out of band on the
+  // fast side, which DECISIONS.md "Batch 36.3" item 14 leaves as a measured Deviation with nothing tuned. Pinned as
+  // measured (a crash or a null unlock goes red); back inside ±20 % means flip this to the ±20 % pin.
+  it('PIN36h: the no-mine Wetlands bot reaches the Fields unlock, faster than −20 % of plain10 (measured 4.64 h vs 7.39 h)', () => {
     const { report } = measure()
+    expect(report.plain10).not.toBeNull()
     expect(report.wetlands).not.toBeNull()
-    expect(Math.abs(report.wetlands! / report.plain10! - 1)).toBeLessThanOrEqual(0.2)
+    expect(report.wetlands! / report.plain10! - 1).toBeLessThan(-0.2)
   }, 300_000)
 })

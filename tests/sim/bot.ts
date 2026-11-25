@@ -594,9 +594,19 @@ const FIELDS_ON_GOALS = FIELDS_LADDER.slice(WORKSHOP_LADDER.length)
  * the planter certificate, the tiles and the Fields; every vein, furnace, pickaxe, mold, smart, loader / mine
  * certificate, workshop and sprinkler goal is dropped. Their bars, stone and coal come from the barge.
  */
-const WETLANDS_LADDER: Goal[] = FIELDS_LADDER.filter(
+const WETLANDS_GOALS: Goal[] = FIELDS_LADDER.filter(
   (g) => /^(storageLv|copper:|iron:|gold:)/.test(g.name) || ['plantCertificate', 'tiles13', 'tiles19', 'fields'].includes(g.name),
 )
+/**
+ * batch 40 (task 276): tiles13 goes first. Tiles 0–11 sit in the river's bank beds (BANK_BEDS), so a Wetlands run
+ * never dries a tile and never waters; the water tool's Lv1 waits on 20 waters, so `copper:water` (the first goal
+ * after storage) waited forever — PIN36h's "Wetlands null at 24 h" bot deadlock. Tile 13 (index 12) is outside the
+ * banks and costs cash only, so buying it first gives the bot a tile to water by hand.
+ */
+const WETLANDS_LADDER: Goal[] = [
+  ...WETLANDS_GOALS.filter((g) => g.name === 'tiles13'),
+  ...WETLANDS_GOALS.filter((g) => g.name !== 'tiles13'),
+]
 
 /** the sum of two keeps, except coal: the bigger phase budget covers both (batch 19: the sum topped the bag and wedged the miner on a full coal bag; kept as is with molds, batch 33) */
 const plusKeep = (a: (s: GameState) => Price, b: (s: GameState) => Price) => (s: GameState): Price => {
