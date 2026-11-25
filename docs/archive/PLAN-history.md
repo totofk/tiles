@@ -10896,3 +10896,37 @@ Reachability, every action that existed before the batch, per width:
   bottom bar at 375 are unverified here; Hermes sweeps those widths live.
 - The 44×44 `.info-btn` makes every `h-with-info` heading row 44 px tall — no design answer existed for that row
   height, so it follows the tap-target rule (ux-behaviour-default-simplest: none + awaiting design).
+
+### Hermes live check (2026-11-25, local `pnpm preview` of be21283, fresh save + `tests/fixtures/save-v37.json` migrated to v38, 375/768/1024/1440)
+How: headless Chromium (Playwright; 375 as isMobile + touch, 768 touch). Each width × save × main tab: screenshots,
+`documentElement.scrollWidth`, every element past the viewport edge, every visible control under 44 px; the drawer
+opened, each menu tab measured, then closed by Esc / scrim tap / ✕; the Mine scrolled to the bottom and the elevator
+row scrolled to just above the fixed bar. Every measure ran before the edit and again on the rebuilt preview.
+- Fixed (CSS only, src/app/app.css):
+  1. Mine at 375 scrolled sideways (hard guard): on the floor-21 gold zone `scrollWidth` was 381. `.vein-drops`
+     `repeat(auto-fill, minmax(84px, max-content))` made 3 equal ~109 px tracks; "🔶 Copper ore 17 %" is 131 px
+     and `nowrap`, so it spilled 22 px past the card (a real phone then zooms the whole page out). Now
+     `display: flex; flex-wrap: wrap` — whole drops wrap; the batch-36.7 grid-template pin in appCss (task 243
+     case) is re-aimed at the flex row, since that template was the bug.
+  2. HUD wrapped 👷 to a second row at 375 with the v37 save (≈ 294 px of spans in 291 px), stretching the ☰ to
+     44×66. Below 768 the HUD gets `column-gap: var(--s1); font-size: 14px`: one row, ☰ 44×44.
+  3. Drawer menu tabs read "🌾 …" / "S…" / "Upgr…" at 375 and 768: the icon-only rule for unselected tabs lived
+     only in the ≥1024 block. Moved to every width; below 768 the open tab is icon-only too (5 × 44 px + ✕ fill
+     the 319 px drawer, so its name could only ellipsize) and reads by its green fill. 768 shows "🌾 Farm" whole.
+  4. Under 44 px: ⭐ Seam aim buttons 26–30 px wide (`.seam-row button { min-width: 44px }`), the Miner zone
+     `<select>` 19 px tall and the auto-buy `<label>` 34 px tall (`min-height: 44px` each).
+  After: no width / save / main tab / menu tab has sideways scroll or a visible control under 44 px. Tests 1419 →
+  1423 (+4 appCss pins, "live-check fixes after batch 38"); 73 files, 1417 passed + 6 expected fail; lint and
+  build clean; dist deleted; SAVE_VERSION stays 38.
+- Measured OK, no change: drawer `min(85vw, 380px)` = 319 px at 375 / 380 px at 768, scrim rgba(0,0,0,.4), ✕ 44×44,
+  Esc / scrim / ✕ all close it and it sits off-screen `visibility: hidden`; ☰ news dot shows; 2 main tabs before the
+  Tractor, 3 after; ≥1024 the menu column is always open with no ☰ / ✕ / scrim; Mine caps at 760 px with ~95 px
+  rocks at 1440; at 375 the 5 elevator buttons (109×44) sit fully above the bar and the last Mine control clears
+  it (the `.app` bottom padding works); no page errors.
+- Not seen by eye: 🌊 River (no Wetlands run in either save), 2560 / 3440 and 390 / 414 / 430 widths, a real
+  device's safe-area inset, the drawer slide animation mid-flight. Left as a nit: on phones an ~8 px strip of the
+  grid shows between the fixed 🧰 Tools / EstateBar and the tab bar (bar is 56 + 1 px border, Tools sits `--s2`
+  above it).
+- After merging main (batch 39, 6828bd3) into the fix branch: batch 38 had been archived, so this section moved from
+  docs/PLAN.md to here, under Batch 38. Merged tree: 74 files, 1433 passed + 6 expected fail (1435 → 1439, the same
+  +4 appCss pins); lint and build clean; the same browser sweep re-ran clean at all 4 widths with both saves.
