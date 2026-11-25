@@ -125,6 +125,16 @@ body {
   white-space: nowrap;
   font-size: 14px;
 }
+/* five named tabs (≈ 335 px) fit neither the desktop column (244 px) nor the drawer (319 px at 375, 380 at 768),
+   so only the open tab shows its name at every width; the others are icon-only and keep the name for screen
+   readers and the hover title (live check after batch 38: below 1024 the names ellipsized to "🌾 …") */
+.menu-tabs button:not([aria-selected='true']) .tab-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
 .menu-tabs [aria-selected='true'] {
   background: #c8e6c9;
   border-color: #2e7d32;
@@ -168,6 +178,21 @@ body {
   /* batch 36.7: the ⏱ clock goes too — the ⚡ bar already shows the day's pace on a phone */
   .hud > .hud-clock {
     display: none;
+  }
+  /* live check after batch 38: a late save (💰 643.859M ⭐ 82 ⚡ 60 / 60 👷 10) needed ≈ 294 px of the 291 px
+     the HUD gets beside the ☰ and wrapped 👷 to a second row; a 4 px column gap and 14 px text keep one row */
+  .hud {
+    column-gap: var(--s1);
+    font-size: 14px;
+  }
+  /* the 319 px drawer has room for 5 × 44 px tabs + ✕ and nothing more: even the open tab's name ellipsized to
+     "🌾 …", so all five are icon-only on phones and the open one reads by its green fill */
+  .menu-tabs [aria-selected='true'] .tab-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
 }
 
@@ -272,15 +297,6 @@ body {
   .mine {
     max-width: 760px;
     margin-inline: auto;
-  }
-  /* five tabs do not fit 244 px with names (≈ 335 px), so only the open tab shows its name; the others are
-     icon-only (≈ 28 px) and keep the name for screen readers and the hover title */
-  .menu-tabs button:not([aria-selected='true']) .tab-name {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
   }
   .farm-tab h2 {
     font-size: 15px;
@@ -1257,6 +1273,10 @@ button:disabled::after {
   font-size: 14px;
 }
 /* smaller and tighter to the corner than on a tile, so the ⛏️ pop ends above the line's text (≥ 19 px down) */
+/* the Miner zone picker was 19 px tall (live check after batch 38) */
+.mine-miners select {
+  min-height: 44px;
+}
 .mine-miners > .cell-pop {
   top: 2px;
   right: 2px;
@@ -1292,9 +1312,12 @@ button:disabled::after {
   font-size: 14px;
 }
 /* batch 36.7: the drop line is a grid of its own cells — one drop per cell, so a narrow column wraps between drops */
+/* whole drops wrap, never "14 / %" (batch 36.7). Flex, not an auto-fill grid: auto-fill sized equal ~109 px
+   tracks from the 84 px minimum at 375, so "🔶 Copper ore 17 %" (131 px, nowrap) spilled 22 px past the card
+   and the page scrolled sideways (live check after batch 38) */
 .vein-drops {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, max-content));
+  display: flex;
+  flex-wrap: wrap;
   gap: 2px var(--s2);
 }
 .vein-drop {
@@ -1649,6 +1672,10 @@ details > summary:focus-visible {
 }
 .seam-row > span {
   font-size: 14px;
+}
+/* the Off / ore-emoji aim buttons were 26–30 px wide (live check after batch 38) */
+.seam-row button {
+  min-width: 44px;
 }
 .mine-furnace-actions button[aria-pressed='true'] {
   background: #c8e6c9;
@@ -2153,6 +2180,8 @@ details > summary:focus-visible {
 }
 .pouch-auto > label {
   flex: 1;
+  /* the whole label is the checkbox's tap area: it was 34 px tall (live check after batch 38) */
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: var(--s2);

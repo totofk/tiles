@@ -202,3 +202,53 @@ Reachability, every action that existed before the batch, per width:
   bottom bar at 375 are unverified here; Hermes sweeps those widths live.
 - The 44×44 `.info-btn` makes every `h-with-info` heading row 44 px tall — no design answer existed for that row
   height, so it follows the tap-target rule (ux-behaviour-default-simplest: none + awaiting design).
+
+## Batch 38 live check (2026-11-25, browser sweep, no code change)
+
+How: `pnpm build` + `pnpm preview` (be21283), headless Chromium via Playwright at 375×812 (isMobile + touch), 768×1024
+(touch), 1024×768, 1440×900. Two saves: fresh (empty storage) and late (`tests/fixtures/save-v37.json`, migrated on
+load, `savedAtMs` set to now; Tractor + Mine floor 21, 5 elevator stops). Each width × each main tab: viewport +
+full-page screenshot; per screen `documentElement.scrollWidth`, every element past the viewport edge, every visible
+button / input / select / tab under 44 px; drawer open → each menu tab measured, then Esc / scrim tap / ✕ each
+closes it; Mine scrolled to the bottom and the elevator row scrolled to sit just above the fixed bar. The sweep
+script + screenshots + report.json live outside the repo (project files `batch38-live-check/`).
+
+Passed: drawer is `min(85vw, 380px)` (319 px at 375, 380 at 768), scrim rgba(0,0,0,.4), ✕ 44×44, Esc / scrim /
+✕ all close it and it goes `visibility: hidden` off-screen; ☰ dot shows; 3 main tabs after the Tractor, 2 before;
+no sideways scroll on Farm / Estate / every menu tab at any width; Mine caps at 760 px at 1440 with ~95 px rock
+slots; the elevator row (5 × 109×44 buttons) and the last Mine control both clear the bottom bar at 375 (the
+`.app` bottom padding works); no page errors.
+
+Found (items 1–4 fixed below on the owner's go-ahead; 5 left as a nit):
+1. **Sideways scroll at 375 on the Mine (hard-guard miss).** On a gold-zone floor `scrollWidth` is 381. Root cause:
+   `.vein-drops` is `grid-template-columns: repeat(auto-fill, minmax(84px, max-content))`; auto-fill sizes the
+   repeat from the 84 px minimum, so 3 equal ~109 px tracks, but "🔶 Copper ore 17 %" is 131 px max-content and
+   `.vein-drop` is `nowrap`, so its text spills 22 px past the card. Batch 36.7's pin is CSS-text only (jsdom has
+   no layout). On a real phone (isMobile) Chromium widens the layout viewport to 381 and zooms the whole page out.
+2. **HUD wraps to two rows at 375 in a late save** (💰 643.859M ⭐ 82 ⚡ bar, 👷 10 on row 2): the top bar is ~74 px
+   and the ☰ stretches to 44×66. The plan said the top bar stays one row.
+3. **Drawer menu tabs show "🌾 …" / "S…" / "Upgr…"** at 375 and 768: the icon-only rule for unselected tabs sits in
+   the ≥1024 block only, so below it the names ellipsize instead of hiding.
+4. **Under 44 px:** ⭐ Seam aim buttons (`.seam-row` "Off" + ore emoji) 26–30 px wide; the "Miner zone" `<select>`
+   19 px tall; the seed-pouch auto-buy `<label>` 34 px tall (its row is 44).
+5. Nit: on phones the fixed 🧰 Tools / EstateBar sits `--s2` above the tab bar, and the bar is 57 px (56 + 1 px
+   border) — an ~8 px strip of grid scrolls visibly between them.
+
+### Fixes (CSS only, src/app/app.css; no src/core / src/save change, SAVE_VERSION stays 38)
+
+1. `.vein-drops`: `display: flex; flex-wrap: wrap` instead of the auto-fill grid — whole drops still wrap, none can
+   spill. The batch-36.7 pin in tests/appCss.test.ts (task 243 case) is re-aimed from the grid template to the flex
+   row (that template is the bug).
+2. `@media (max-width: 767px) .hud { column-gap: var(--s1); font-size: 14px }` — the late save fits one row and the
+   ☰ is 44×44 again.
+3. The icon-only rule for unselected menu tabs moved out of the ≥1024 block to every width; below 768 the open tab
+   is icon-only too (5 × 44 + ✕ fill the 319 px drawer, so even its name showed as "🌾 …"); it reads by its green
+   fill, the name stays for screen readers and the title. 768 shows "🌾 Farm" in full.
+4. `.seam-row button { min-width: 44px }`, `.mine-miners select { min-height: 44px }`,
+   `.pouch-auto > label { min-height: 44px }`.
+
+Tests: +4 appCss pins in a new "live-check fixes after batch 38" describe (1419 → 1423). Re-sweep with the same
+script on the rebuilt preview: no width / save / main view / menu tab has `scrollWidth` past the viewport or a
+visible control under 44 px; drawer and elevator results unchanged.
+Final gates: 73 files, 1417 passed + 6 expected fail (1423); lint clean; build clean; dist deleted.
+
