@@ -1578,3 +1578,37 @@ Hermes's calls below ship as written. Worker: GLM glm-5.3 via z.ai.
 - C10. Mine content centred at max 760 px on desktop.
 - C11. Locked-row style: grayscale + 0.7 opacity (est.), tuned in Hermes's live check.
 - C12. Worker GLM (z.ai), --max-turns 300, resume leg expected; UI batches ran fine on GLM (36.7).
+
+## Batch 39 refined (2026-11-25, Save-attach finished: TILES2 codes + `#replay=`; Toon picked option A; save stays v38)
+Source: IDEAS.md #1, re-checked against `be21283` (save v38). Batch 23.1 already attaches a checksummed `TILES1` code to
+every 💬 Feedback report and 💾 Data import already runs the migration chain, so what was left was two gaps:
+- **Size.** A TILES1 code is base64 of the raw JSON: save-v37.json (11 kB) → a 14.8 kB code. The Google Form's
+  details cell (Sheets, ~50k chars) has headroom today, but every new system shrinks it.
+- **A report did not reproduce.** Importing a report code overwrote the developer's own save, and the reload ran the
+  offline catch-up from the report's `savedAtMs` (`storage.ts` loadGame), so a report opened a day later showed the
+  state after up to the offline cap, not the state the player sent.
+
+Options put to Toon (thread "Attach saves to feedback reports"): A = TILES2 via the browser's CompressionStream + a
+replay mode; B = replay only, no compression; C = A with the `fflate` dependency so the codec stays sync. **Toon: A.**
+
+- **TILES2** := `"TILES2." base64url(deflate-raw(json)) "." crc32-8hex`, CRC over the base64url text exactly like
+  TILES1, so a cut paste still fails before any inflate. save-v37 → a 3.4 kB code (about 4× shorter). 💾 Data export and
+  💬 Feedback write TILES2; a browser without CompressionStream falls back to TILES1 (an export never fails for it).
+  `decodeImport` accepts TILES2, TILES1 and the legacy plain base64, and is now async. A TILES2 paste on a browser
+  without DecompressionStream is the new `unsupported` tag. Inflated output is capped at `MAX_INFLATED_BYTES` (4 MiB,
+  in `src/save/codec.ts`: a codec limit, not a game number, so not in balance.ts); past it the code is `corrupt`.
+- **No save bump.** Only the code envelope changed, not the save shape: SAVE_VERSION stays 38. `tests/fixtures/code-v38.txt`
+  freezes the first TILES2 export (save-v37.json migrated to v38). Only its decode is pinned: deflate bytes may differ
+  between engines (zlib, Safari), so encode is not byte-stable the way TILES1 is. A test decodes a Node-zlib-made code to
+  prove the format is plain deflate-raw.
+- **Replay mode** = `#replay=<code>` (hash, not query: the code stays out of server logs and the Pages cache key).
+  `src/app/Root.tsx` decodes it through the same `decodeImport` → `deserialize` chain, then App runs with
+  `useGame(replay)`: the run lives in a `memoryStore`, so no autosave, backup, reset or sale writes localStorage. It has no
+  offline catch-up (boots at the saved state), no hidden-tab catch-up, no cross-tab freeze, and `tiles.ui` is read but
+  never written. A violet banner reads "🔁 Replay of a save from vN — nothing is saved" with **Exit replay** (drops
+  the hash). A 💾 Data import inside a replay replaces the replayed run in memory, because a reload would reopen the
+  hash. The developer flow: copy the report's `Save code:` line, then either open `<site>#replay=<code>` or use 💾 Data
+  → Check save → **Open as replay** (a new tab).
+- **Replay is on the live Pages build, not dev-only.** Toon confirmed it after the merge (2026-11-25, "งั้นก็รับตามคุณว่าแหละ"). Reasons: Hermes
+  checks on the live build, and a player can try a save without losing their own. To make it dev-only, gate
+  `replayCodeFromHash` on `import.meta.env.DEV` and hide the button.

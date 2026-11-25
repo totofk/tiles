@@ -485,7 +485,7 @@ describe('layout content', () => {
     expect(confirm).not.toHaveBeenCalled()
   })
 
-  it('💾 Data Import: the confirm card compares both saves, then backs the live run up and loads the pasted one', () => {
+  it('💾 Data Import: the confirm card compares both saves, then backs the live run up and loads the pasted one', async () => {
     const s = createInitialState()
     localStorage.setItem(SAVE_KEY, serialize({ ...s, run: { ...s.run, cash: 4321 } }, Date.now()))
     const incoming = JSON.parse(serialize({ ...s, run: { ...s.run, cash: 999 } }, Date.now())) as ReturnType<typeof deserialize>
@@ -497,7 +497,7 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: code } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    const card = screen.getByRole('table')
+    const card = await screen.findByRole('table') // the decode is async since batch 39
     expect(card.textContent).toContain('This device')
     expect(card.textContent).toContain(String(s.run.tiles.length))
     expect(screen.queryByText(/Will migrate/)).toBeNull()
@@ -506,7 +506,7 @@ describe('layout content', () => {
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.state.run.cash).toBe(999)
   })
 
-  it('💾 Data Import: an older code shows the migrate note and still imports', () => {
+  it('💾 Data Import: an older code shows the migrate note and still imports', async () => {
     const s = createInitialState()
     localStorage.setItem(SAVE_KEY, serialize(s, Date.now()))
     render(<App />)
@@ -515,7 +515,7 @@ describe('layout content', () => {
     fireEvent.click(screen.getByRole('button', { name: '💾 Data' }))
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: codeV15 } })
     fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
-    expect(screen.getByText(/Will migrate v15 → v38/)).toBeTruthy()
+    expect(await screen.findByText(/Will migrate v15 → v38/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(deserialize(localStorage.getItem(SAVE_KEY)!)!.version).toBe(SAVE_VERSION)
     expect(deserialize(localStorage.getItem(IMPORT_BACKUP_KEY)!)!.state.run.cash).toBe(s.run.cash)

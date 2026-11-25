@@ -40,11 +40,11 @@ describe('buildFeedbackBody', () => {
     )
   })
 
-  it('the last line is the live save as a TILES1 code that decodeImport round-trips; no Timeline lines (task 123)', () => {
+  it('the last line is the live save code that decodeImport round-trips; no Timeline lines (task 123)', async () => {
     const details = buildFeedbackBody(draft, ctx).get('entry.1552861218')!
     expect(details).not.toContain('Timeline:')
     const code = details.split('Save code: ')[1]!
-    const decoded = decodeSave(code)
+    const decoded = await decodeSave(code)
     expect(decoded.version).toBe(SAVE_VERSION)
     expect(decoded.state.run.cash).toBe(state.run.cash)
     expect(decoded.state.run.tiles).toHaveLength(state.run.tiles.length)

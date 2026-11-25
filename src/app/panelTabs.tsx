@@ -34,8 +34,8 @@ export type PanelProps = {
   worked: WorkTouch[]
   reset: () => void
   sell: (choice: Listing) => void
-  /** 💾 Data modal hooks: serialise the live run, and commit a decoded import (backup + write + reload) */
-  exportCode: () => string
+  /** 💾 Data modal hooks: serialise the live run (TILES2, async), and commit a decoded import (backup + write + reload) */
+  exportCode: () => Promise<string>
   applyImport: (save: Save) => ImportResult
 } & Omit<FeedbackProps, 'state'>
 

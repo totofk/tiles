@@ -66,7 +66,7 @@ describe('🗺 Roadmap modal (batch 23, task 119)', () => {
     openBank: () => {},
     reset: () => {},
     sell: () => {},
-    exportCode: () => '',
+    exportCode: async () => '',
     applyImport: () => ({ ok: true } as const),
     feedback: EMPTY_FEEDBACK,
     setFeedback: () => {},

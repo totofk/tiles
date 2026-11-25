@@ -81,7 +81,7 @@ describe('prestige group in the Bank tab (batch 21)', () => {
       sell={noop}
       feedback={EMPTY_FEEDBACK}
       setFeedback={noop}
-      exportCode={() => ''}
+      exportCode={async () => ''}
       applyImport={() => ({ ok: false, error: 'STORAGE' })}
     />
   )

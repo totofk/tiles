@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GameState } from '../core/state'
-import { SaveCodeError, decodeImport, type DecodeTag, type DecodedImport } from '../save/codec'
+import { SaveCodeError, decodeImport, normalizeCode, type DecodeTag, type DecodedImport } from '../save/codec'
 import { SAVE_KEY, type ImportResult } from '../save/storage'
 import { SAVE_VERSION, type Save } from '../save/serialize'
 import { DangerZone } from './DangerZone'
 import { copyText } from './Modal'
+import { replayUrl } from './replay'
 
 export type DataModalProps = {
   state: GameState
-  /** serialises the LIVE run as a TILES1 code (Date.now lives here, in src/app — the codec stays pure) */
-  exportCode: () => string
+  /** serialises the LIVE run as a TILES2 code (Date.now lives here, in src/app — the codec keeps no clock) */
+  exportCode: () => Promise<string>
   /** backs the live run up, writes the migrated save and reloads */
   applyImport: (save: Save) => ImportResult
   reset: () => void
@@ -20,6 +21,7 @@ const DECODE_ERROR: Record<DecodeTag, string> = {
   truncated: 'The code looks cut off — copy the whole thing again',
   corrupt: 'The code is damaged (checksum failed) — nothing changed',
   'newer-version': 'From a newer game version — update the game, then try again',
+  unsupported: 'This browser cannot open compressed saves — update it, then try again',
 }
 
 /** "saved 3 days ago" for the confirm card; Date.now is fine here, this is src/app */
@@ -45,7 +47,7 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
   }, [exported])
 
   const doExport = async () => {
-    const code = exportCode()
+    const code = await exportCode()
     setExported({ code, copied: await copyText(code) })
   }
   const copy = async () => {
@@ -62,14 +64,19 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
     URL.revokeObjectURL(url)
   }
 
-  const check = () => {
+  const check = async () => {
     try {
-      setIncoming(decodeImport(paste))
+      const decoded = await decodeImport(paste)
+      setIncoming(decoded)
       setError(null)
     } catch (e) {
       setIncoming(null)
       setError(e instanceof SaveCodeError ? e.tag : 'corrupt')
     }
+  }
+  // batch 39: the checked code in a new tab as a replay — the same migrated save, but nothing is written here
+  const openReplay = () => {
+    window.open(replayUrl(window.location.href, normalizeCode(paste)), '_blank', 'noopener')
   }
   const confirm = () => {
     if (!incoming) return
@@ -172,6 +179,10 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
               Replace this save
             </button>
             <p className="import-note">The current save is kept as a backup slot, then the game reloads.</p>
+            <button className="import-replay" onClick={openReplay}>
+              Open as replay
+            </button>
+            <p className="import-note">Plays it in a new tab without saving — this save stays as it is.</p>
           </div>
         )}
       </section>

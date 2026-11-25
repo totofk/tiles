@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FeedbackCard } from '../src/app/FeedbackCard'
@@ -30,8 +30,10 @@ const fill = () => {
   type(/Title/, 'Hi')
   type(/Details/, 'More please')
 }
+/** the send awaits the async TILES2 encode (batch 39), so wait until the button leaves "Sending…" */
 const press = async () => {
   await act(async () => fireEvent.click(sendButton()))
+  await waitFor(() => expect(sendButton().textContent).not.toBe('Sending…'))
 }
 const sentDetails = () => new URLSearchParams(String(post.mock.calls[0][1]!.body)).get('entry.1552861218')!
 
@@ -69,8 +71,8 @@ describe('💬 Feedback card', () => {
     const details = sentDetails()
     expect(details).not.toContain('Timeline:')
     const code = details.split('Save code: ')[1]!
-    expect(code).toMatch(/^TILES1\./)
-    const decoded = decodeSave(code)
+    expect(code).toMatch(/^TILES2\.[A-Za-z0-9-_]+\.[0-9a-f]{8}$/) // batch 39: compressed
+    const decoded = await decodeSave(code)
     expect(decoded.state.run.cash).toBe(20)
     expect(decoded.state.run.tiles).toHaveLength(createInitialState().run.tiles.length)
     expect(screen.getByText('Your save and game stats are attached.')).toBeTruthy()

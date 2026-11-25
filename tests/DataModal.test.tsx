@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataModal, savedAgo } from '../src/app/DataModal'
 import { Modal, copyText } from '../src/app/Modal'
-import { decodeSave, encodeSave } from '../src/save/codec'
+import { decodeSave, encodeSave, encodeSaveCompact } from '../src/save/codec'
 import type { ImportResult } from '../src/save/storage'
 import { SAVE_VERSION, serialize, type Save } from '../src/save/serialize'
 import { createInitialState } from '../src/core/state'
@@ -15,6 +15,11 @@ afterEach(() => {
 })
 
 const state = () => createInitialState()
+/** Check save decodes async (TILES2 inflates through DecompressionStream), so the click is awaited inside act */
+const checkSave = async () => {
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Check save' })))
+  await waitFor(() => expect(screen.queryByRole('alert') ?? screen.queryByRole('table')).not.toBeNull())
+}
 const save = (cash: number): Save => JSON.parse(serialize({ ...state(), run: { ...state().run, cash } }, 0))
 
 describe('💾 Data modal', () => {
@@ -29,7 +34,7 @@ describe('💾 Data modal', () => {
     vi.stubGlobal('navigator', { clipboard: { writeText: () => Promise.resolve() } })
     const code = encodeSave(save(5))
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:x', revokeObjectURL: vi.fn() })
-    render(<DataModal state={state()} exportCode={() => code} applyImport={() => ({ ok: true })} reset={() => {}} />)
+    render(<DataModal state={state()} exportCode={async () => code} applyImport={() => ({ ok: true })} reset={() => {}} />)
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Export this save' })))
     const box = screen.getByRole('textbox', { name: 'Exported save' }) as HTMLTextAreaElement
     expect(box.value).toBe(code)
@@ -43,9 +48,9 @@ describe('💾 Data modal', () => {
     expect(anchorClick).toHaveBeenCalledTimes(1)
   })
 
-  it('Import shows one message per decode failure and calls applyImport only on confirm', () => {
+  it('Import shows one message per decode failure and calls applyImport only on confirm', async () => {
     const applyImport = vi.fn((): ImportResult => ({ ok: true }))
-    render(<DataModal state={state()} exportCode={() => ''} applyImport={applyImport} reset={() => {}} />)
+    render(<DataModal state={state()} exportCode={async () => ''} applyImport={applyImport} reset={() => {}} />)
     const paste = () => screen.getByPlaceholderText('Paste an exported save')
     expect((screen.getByRole('button', { name: 'Check save' }) as HTMLButtonElement).disabled).toBe(true)
     for (const [junk, message] of [
@@ -54,24 +59,39 @@ describe('💾 Data modal', () => {
       ['TILES1.Abc.00000000', 'The code is damaged (checksum failed) — nothing changed'],
     ] as const) {
       fireEvent.change(paste(), { target: { value: junk } })
-      fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
+      await checkSave()
       expect(screen.getByRole('alert').textContent).toBe(message)
     }
     expect(applyImport).not.toHaveBeenCalled()
     const good = encodeSave(save(9))
     fireEvent.change(paste(), { target: { value: good } })
-    fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
+    await checkSave()
     expect(screen.getByRole('table').textContent).toContain('Incoming')
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
-    expect(applyImport).toHaveBeenCalledWith(decodeSave(good))
+    expect(applyImport).toHaveBeenCalledWith(await decodeSave(good))
   })
 
-  it('a newer-version code is rejected with its own message', () => {
-    render(<DataModal state={state()} exportCode={() => ''} applyImport={() => ({ ok: true })} reset={() => {}} />)
+  it('a TILES2 code checks like a TILES1 one; Open as replay opens #replay=<code> in a new tab (batch 39)', async () => {
+    const applyImport = vi.fn((): ImportResult => ({ ok: true }))
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    render(<DataModal state={state()} exportCode={async () => ''} applyImport={applyImport} reset={() => {}} />)
+    const code = await encodeSaveCompact(save(77))
+    expect(code).toMatch(/^TILES2\./)
+    fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: `  ${code}\n` } })
+    await checkSave()
+    expect(screen.getByRole('table').textContent).toContain('Incoming')
+    fireEvent.click(screen.getByRole('button', { name: 'Open as replay' }))
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`#replay=${code.replace(/\./g, '\\.')}$`)), '_blank', 'noopener')
+    expect(applyImport).not.toHaveBeenCalled()
+  })
+
+  it('a newer-version code is rejected with its own message', async () => {
+    render(<DataModal state={state()} exportCode={async () => ''} applyImport={() => ({ ok: true })} reset={() => {}} />)
     fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), {
       target: { value: encodeSave({ ...save(1), version: SAVE_VERSION + 1 } as Save) },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Check save' }))
+    await checkSave()
     expect(screen.getByRole('alert').textContent).toBe('From a newer game version — update the game, then try again')
   })
 

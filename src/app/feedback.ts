@@ -19,7 +19,7 @@ export const EMPTY_DRAFT: FeedbackDraft = { kind: 'Feedback', title: '', details
 export type FeedbackState = { draft: FeedbackDraft; sentAt: number | null }
 export const EMPTY_FEEDBACK: FeedbackState = { draft: EMPTY_DRAFT, sentAt: null }
 
-/** saveCode: `encodeSave` of the live run at send time (the save carries `milestones`, so no timeline lines) */
+/** saveCode: `encodeSaveCompact` (TILES2) of the live run at send time (the save carries `milestones`, so no timeline lines) */
 export type FeedbackContext = {
   build: string
   saveVersion: number
