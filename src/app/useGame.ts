@@ -11,12 +11,25 @@ import { sellFarm } from '../core/prestige'
 import type { Listing } from '../core/listings'
 import { step } from '../core/step'
 import { certificateUnlocked, ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
-import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
+import {
+  SAVE_KEY,
+  PRESTIGE_BACKUP_KEY,
+  RESET_BACKUP_KEY,
+  commitImport,
+  loadGame,
+  memoryStore,
+  saveGame,
+  wallClock,
+  type ImportResult,
+  type KeyValueStore,
+  type Loaded,
+} from '../save/storage'
 import { encodeSaveCompact } from '../save/codec'
 import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { onForeignSaveEvent } from './crossTab'
 import { gain } from './fmt'
 import { marketMoves } from './marketText'
+import type { Replay } from './replay'
 
 export const ERROR_TEXT: Record<ActionError, string> = {
   NO_ENERGY: 'Not enough energy',
@@ -174,8 +187,20 @@ export function ratesPerHour(win: RateSample[]): Rates | null {
 /** okToast: text to show when the action succeeds (null = no toast) */
 export type Act = (fn: (s: GameState) => ActionResult, okToast?: (prev: GameState, next: GameState) => string | null) => void
 
-export function useGame() {
-  const [boot] = useState(() => loadGame(localStorage))
+/** replay mode boots the report's state as saved: no offline catch-up from its savedAtMs (batch 39) */
+function replayBoot(replay: Replay): Loaded {
+  const { state } = replay.save
+  return { state, awayMs: 0, ticks: 0, before: state }
+}
+
+/**
+ * replay (batch 39): a decoded `#replay=` save. The run then lives in a memoryStore — every save, backup and
+ * import below writes there, never to localStorage — and neither the cross-tab freeze nor the hidden-time
+ * catch-up applies, so the replayed state only moves by played seconds.
+ */
+export function useGame(replay: Replay | null = null) {
+  const [store] = useState<KeyValueStore>(() => (replay ? memoryStore() : localStorage))
+  const [boot] = useState(() => (replay ? replayBoot(replay) : loadGame(store)))
   const [state, setState] = useState<GameState>(boot.state)
   // single source of truth for ticks, taps and saves, so a tap never overwrites a queued tick
   const stateRef = useRef(state)
@@ -241,58 +266,66 @@ export function useGame() {
 
   const reset = useCallback(() => {
     try {
-      localStorage.setItem(RESET_BACKUP_KEY, serialize(stateRef.current, wallClock()))
+      store.setItem(RESET_BACKUP_KEY, serialize(stateRef.current, wallClock()))
     } catch {
       // storage blocked: the reset still goes ahead, as it did before the backup existed
     }
     const fresh = createInitialState()
     commit(fresh)
-    saveGame(localStorage, fresh)
+    saveGame(store, fresh)
     setBanner(null)
-  }, [commit])
+  }, [commit, store])
 
   // "Sell the farm": the pre-sale run is backed up like a reset, then the sale's fresh run goes in
   const sell = useCallback((choice: Listing) => {
     const r = sellFarm(stateRef.current, choice)
     if (!r.ok) return showToast(ERROR_TEXT[r.error])
     try {
-      localStorage.setItem(PRESTIGE_BACKUP_KEY, serialize(stateRef.current, wallClock()))
+      store.setItem(PRESTIGE_BACKUP_KEY, serialize(stateRef.current, wallClock()))
     } catch {
       // storage blocked: the sale still goes ahead, as with the reset backup
     }
     commit(r.state)
-    saveGame(localStorage, r.state)
+    saveGame(store, r.state)
     setBanner(null)
-  }, [commit, showToast])
+  }, [commit, showToast, store])
 
   // 💾 Data export: the LIVE run as a TILES2 code (the stored save lags by up to a second, so it is written too)
   const exportCode = useCallback(async () => {
     const save: Save = { version: SAVE_VERSION, savedAtMs: wallClock(), state: stateRef.current }
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(save))
+      store.setItem(SAVE_KEY, JSON.stringify(save))
     } catch {
       // storage blocked: the code still carries the live run
     }
     return encodeSaveCompact(save)
-  }, [])
+  }, [store])
 
   // 💾 Data import: the codec already migrated the pasted save in memory; back the live run up, freeze every
   // autosave of this tab (pagehide, hidden visibilitychange, debounce — not freeze(), which shows the other-tab
   // banner), write, reload — boot then applies the same offline catch-up (and its cap) as any restart
   const applyImport = useCallback(
     (save: Save): ImportResult => {
-      saveGame(localStorage, stateRef.current)
+      if (replay) {
+        // a reload would re-open the #replay code, so another save replaces the replayed run in memory instead
+        rateWin.current = []
+        setRates(null)
+        commit(save.state)
+        setBanner(null)
+        return { ok: true }
+      }
+      saveGame(store, stateRef.current)
       frozenRef.current = true
       rateWin.current = []
       setRates(null)
       window.clearTimeout(saveTimer.current)
       saveTimer.current = undefined
-      const r = commitImport(localStorage, save)
+      const r = commitImport(store, save)
       if (r.ok) window.location.reload()
       else frozenRef.current = false // nothing was written: the game keeps running and saving
       return r
     },
-    [],
+    [replay, store, commit],
   )
 
   // one step() per whole elapsed second; the fractional rest carries over. Paused while hidden or frozen.
@@ -334,16 +367,17 @@ export function useGame() {
     if (saveTimer.current !== undefined) return
     saveTimer.current = window.setTimeout(() => {
       saveTimer.current = undefined
-      if (!frozenRef.current) saveGame(localStorage, stateRef.current)
+      if (!frozenRef.current) saveGame(store, stateRef.current)
     }, SAVE_DEBOUNCE_MS)
-  }, [state])
+  }, [state, store])
 
   // another tab rewrote the save: stop everything and let App show the reload banner (task 117)
   useEffect(() => {
+    if (replay) return // the replayed run is not in localStorage, so another tab's write cannot clobber it
     const onStorage = (e: StorageEvent) => onForeignSaveEvent(e, freeze)
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
-  }, [freeze])
+  }, [freeze, replay])
 
   // save on hide/close; on return, catch up the hidden time by wall clock (same path and cap as a reload)
   useEffect(() => {
@@ -351,11 +385,11 @@ export function useGame() {
     const onVisibility = () => {
       if (frozenRef.current) return
       if (document.hidden) {
-        saveGame(localStorage, stateRef.current)
+        saveGame(store, stateRef.current)
         hiddenAt = wallClock()
         return
       }
-      if (hiddenAt === null) return
+      if (hiddenAt === null || replay) return
       const awayMs = wallClock() - hiddenAt
       hiddenAt = null
       loop.current = { last: performance.now(), acc: 0 }
@@ -371,7 +405,7 @@ export function useGame() {
       setBanner(bannerText(awayMs, before, caught))
     }
     const onPageHide = () => {
-      if (!frozenRef.current) saveGame(localStorage, stateRef.current)
+      if (!frozenRef.current) saveGame(store, stateRef.current)
     }
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('pagehide', onPageHide)
@@ -381,7 +415,7 @@ export function useGame() {
       window.clearTimeout(saveTimer.current)
       saveTimer.current = undefined
     }
-  }, [commit])
+  }, [commit, replay, store])
 
   return { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner: () => setBanner(null), acted, worked, minerActed, frozen, rates }
 }

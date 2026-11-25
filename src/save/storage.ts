@@ -20,6 +20,15 @@ function rawVersion(raw: string): unknown {
 }
 
 export type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>
+
+/** an in-memory KeyValueStore: the replay mode's storage (batch 39), so a replayed save never touches localStorage */
+export function memoryStore(): KeyValueStore {
+  const data = new Map<string, string>()
+  return {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => void data.set(key, value),
+  }
+}
 export type Clock = () => number
 
 /** the only wall clock in the game; core sees time only as ticks */

@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DataModal, savedAgo } from '../src/app/DataModal'
 import { Modal, copyText } from '../src/app/Modal'
-import { decodeSave, encodeSave } from '../src/save/codec'
+import { decodeSave, encodeSave, encodeSaveCompact } from '../src/save/codec'
 import type { ImportResult } from '../src/save/storage'
 import { SAVE_VERSION, serialize, type Save } from '../src/save/serialize'
 import { createInitialState } from '../src/core/state'
@@ -69,6 +69,21 @@ describe('💾 Data modal', () => {
     expect(screen.getByRole('table').textContent).toContain('Incoming')
     fireEvent.click(screen.getByRole('button', { name: 'Replace this save' }))
     expect(applyImport).toHaveBeenCalledWith(await decodeSave(good))
+  })
+
+  it('a TILES2 code checks like a TILES1 one; Open as replay opens #replay=<code> in a new tab (batch 39)', async () => {
+    const applyImport = vi.fn((): ImportResult => ({ ok: true }))
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    render(<DataModal state={state()} exportCode={async () => ''} applyImport={applyImport} reset={() => {}} />)
+    const code = await encodeSaveCompact(save(77))
+    expect(code).toMatch(/^TILES2\./)
+    fireEvent.change(screen.getByPlaceholderText('Paste an exported save'), { target: { value: `  ${code}\n` } })
+    await checkSave()
+    expect(screen.getByRole('table').textContent).toContain('Incoming')
+    fireEvent.click(screen.getByRole('button', { name: 'Open as replay' }))
+    expect(open).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`#replay=${code.replace(/\./g, '\\.')}$`)), '_blank', 'noopener')
+    expect(applyImport).not.toHaveBeenCalled()
   })
 
   it('a newer-version code is rejected with its own message', async () => {

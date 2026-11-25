@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { GameState } from '../core/state'
-import { SaveCodeError, decodeImport, type DecodeTag, type DecodedImport } from '../save/codec'
+import { SaveCodeError, decodeImport, normalizeCode, type DecodeTag, type DecodedImport } from '../save/codec'
 import { SAVE_KEY, type ImportResult } from '../save/storage'
 import { SAVE_VERSION, type Save } from '../save/serialize'
 import { DangerZone } from './DangerZone'
 import { copyText } from './Modal'
+import { replayUrl } from './replay'
 
 export type DataModalProps = {
   state: GameState
@@ -72,6 +73,10 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
       setIncoming(null)
       setError(e instanceof SaveCodeError ? e.tag : 'corrupt')
     }
+  }
+  // batch 39: the checked code in a new tab as a replay — the same migrated save, but nothing is written here
+  const openReplay = () => {
+    window.open(replayUrl(window.location.href, normalizeCode(paste)), '_blank', 'noopener')
   }
   const confirm = () => {
     if (!incoming) return
@@ -174,6 +179,10 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
               Replace this save
             </button>
             <p className="import-note">The current save is kept as a backup slot, then the game reloads.</p>
+            <button className="import-replay" onClick={openReplay}>
+              Open as replay
+            </button>
+            <p className="import-note">Plays it in a new tab without saving — this save stays as it is.</p>
           </div>
         )}
       </section>

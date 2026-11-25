@@ -14,18 +14,27 @@ import { PANEL_TABS, type PanelTabId } from './panelTabs'
 import { Surface } from './Surface'
 import { Tools } from './Tools'
 import { loadUi, saveUi, type View } from './uiState'
+import { withoutHash, type Replay } from './replay'
 import { useGame } from './useGame'
 
 /** display-only: ignore taps on a tile for this long after harvesting it */
 const TAP_GUARD_MS = 400
 
-export default function App() {
-  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, minerActed, frozen, rates } = useGame()
+export type AppProps = {
+  /** batch 39: a decoded `#replay=` save — the run is sandboxed in memory (see useGame); null = the player's own save */
+  replay?: Replay | null
+}
+
+export default function App({ replay = null }: AppProps) {
+  const { state, act, reset, sell, exportCode, applyImport, toast, banner, dismissBanner, acted, worked, minerActed, frozen, rates } = useGame(replay)
   // saved in the run: the plant worker plants it offline too
   const cropId = state.run.plantCrop
   const setCropId = (id: CropId) => act((s) => selectCrop(s, id))
   const [ui, setUi] = useState(() => loadUi(localStorage))
-  useEffect(() => saveUi(localStorage, ui), [ui])
+  // a replay reads the device's tiles.ui but never writes it back (batch 39)
+  useEffect(() => {
+    if (!replay) saveUi(localStorage, ui)
+  }, [ui, replay])
   // batch 27: after the Tractor the Estate is its own main view (batch 38). A first Tractor starts on the
   // Farm for the pull-back, a welcome-back banner forces the Estate: both override the saved view once
   const estate = state.run.fields.unlocked
@@ -167,6 +176,14 @@ export default function App() {
             <button aria-label="Dismiss" onClick={dismissBanner}>
               ✕
             </button>
+          </div>
+        )}
+        {replay && (
+          <div className="banner banner-replay" role="status">
+            <span>
+              🔁 Replay of a save from v{replay.fromVersion} — nothing is saved, your own save is untouched.
+            </span>
+            <button onClick={() => window.location.assign(withoutHash(window.location.href))}>Exit replay</button>
           </div>
         )}
         {frozen && (
