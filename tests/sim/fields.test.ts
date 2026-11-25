@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { cpuMs } from './cpuTime'
 import { CROP_IDS, type CropId, type ListingSoil } from '../../src/core/data/crops'
 import {
   certificateCost,
@@ -157,13 +158,11 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
     [100, 3, ['pumpkin', 'eggplant', 'corn', 'radish'] as CropId[]],
     [192, 3, CROP_IDS],
     [300, 3, CROP_IDS],
-  ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms, step(s, n) identity', (plots, pump, split) => {
+  ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms of CPU, step(s, n) identity', (plots, pump, split) => {
     const forged = forgePlots(base, plots * plotTiles(), pump, split, 1_000_000)
     const big = { ...forged, run: { ...forged.run, fields: { ...forged.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] } } } }
     expect(big.run.fields.list.filter((f) => f.pivot)).toHaveLength(Math.min(20, Math.ceil(plots / 5)))
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN28perf', { plots, ms })
     expect(ms).toBeLessThan(2000)
     let one: GameState = big
@@ -418,12 +417,10 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     expect(ladder.miningCashPerEnergy).toBeLessThan(0.9 * ladder.farmingCashPerEnergy)
   })
 
-  it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms, step(s, n) identity', () => {
+  it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms of CPU, step(s, n) identity', () => {
     const forged = forge(end, 1000, 3, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN18g', { ms })
     expect(ms).toBeLessThan(2000)
     let one = big
@@ -900,12 +897,10 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(pipeDraw).toBeLessThan(r.coalMinedPerHour)
   })
 
-  it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms, step(s, n) identity', () => {
+  it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms of CPU, step(s, n) identity', () => {
     const forged = forge(3000, FLEETS.full, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN19e', { ms })
     expect(ms).toBeLessThan(2000)
     let one = big
