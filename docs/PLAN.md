@@ -202,3 +202,23 @@ Reachability, every action that existed before the batch, per width:
   bottom bar at 375 are unverified here; Hermes sweeps those widths live.
 - The 44×44 `.info-btn` makes every `h-with-info` heading row 44 px tall — no design answer existed for that row
   height, so it follows the tap-target rule (ux-behaviour-default-simplest: none + awaiting design).
+
+## Mine M2 design log (2026-11-25, docs only: no code, no tests run, save stays v38)
+What: the M2 design (monsters, HP, flee, death) for the mine revise, written into `docs/DECISIONS.md` "Mine M2
+refined" (D1–D12, Toon's calls T1–T4). No batch number: the build batch gets its own plan later (39 is the
+feedback-save work).
+How it was made (so Hermes can re-check it):
+- Read: DECISIONS "Mining", "Round-2 research outcome", "Batch 37 refined", "Batch 37.1 refined"; PLAN-history
+  "Batch 37" / "Batch 37.1 results" (PIN37a/b/c, ladder pin 8.5); `src/core/balance.ts` (energy, PICKAXES, ROCK_HITS,
+  ROCK_PICKAXE, VEIN_DROPS, FLOOR_*, floorWeights); `src/core/mining.ts` (mineRock carry-over, descend, breakSeal,
+  rideElevator, rollFloor).
+- Computed (Python, not committed): presses to the ladder per zone × pickaxe = 8.5 × mean rock hits (floorWeights,
+  too-hard rocks as stone) ÷ pickaxe hits; damage per dive = (⌈monster HP ÷ hits⌉ − 1) × damage × monsters per floor
+  × 4 floors. Both tables are in the DECISIONS section; re-run them when any of those balance numbers move.
+- Researched: Stardew wiki (Health, The Mines, Monsters: no per-monster numbers found, so none copied), Melvor test
+  wiki "Death", Core Keeper wiki "Death", Destructoid on Stardew 1.07, Wikipedia "Incremental game".
+- Toon's thread (2026-11-25): draft → Toon asked A+D for death and asked how idle auto-battlers do it → research →
+  25 % haul + regen-as-groggy → Toon split voluntary ride (heals) vs carried out (no heal) → `run.dazed` added to
+  close the ride-back loop → Toon "โอเคนะ เอาตามนี้ละกัน".
+Open for the build batch: every (est.) number, the bot's flee threshold, the UI (HP bar, 🏃 Flee button, monster
+cell look, "carried out" toast), and the mine-revise decisions 1–35 that live only in Discord (not checked here).
