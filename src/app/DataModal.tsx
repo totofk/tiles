@@ -8,8 +8,8 @@ import { copyText } from './Modal'
 
 export type DataModalProps = {
   state: GameState
-  /** serialises the LIVE run as a TILES1 code (Date.now lives here, in src/app — the codec stays pure) */
-  exportCode: () => string
+  /** serialises the LIVE run as a TILES2 code (Date.now lives here, in src/app — the codec keeps no clock) */
+  exportCode: () => Promise<string>
   /** backs the live run up, writes the migrated save and reloads */
   applyImport: (save: Save) => ImportResult
   reset: () => void
@@ -20,6 +20,7 @@ const DECODE_ERROR: Record<DecodeTag, string> = {
   truncated: 'The code looks cut off — copy the whole thing again',
   corrupt: 'The code is damaged (checksum failed) — nothing changed',
   'newer-version': 'From a newer game version — update the game, then try again',
+  unsupported: 'This browser cannot open compressed saves — update it, then try again',
 }
 
 /** "saved 3 days ago" for the confirm card; Date.now is fine here, this is src/app */
@@ -45,7 +46,7 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
   }, [exported])
 
   const doExport = async () => {
-    const code = exportCode()
+    const code = await exportCode()
     setExported({ code, copied: await copyText(code) })
   }
   const copy = async () => {
@@ -62,9 +63,10 @@ export function DataModal({ state, exportCode, applyImport, reset }: DataModalPr
     URL.revokeObjectURL(url)
   }
 
-  const check = () => {
+  const check = async () => {
     try {
-      setIncoming(decodeImport(paste))
+      const decoded = await decodeImport(paste)
+      setIncoming(decoded)
       setError(null)
     } catch (e) {
       setIncoming(null)

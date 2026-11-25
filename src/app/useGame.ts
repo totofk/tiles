@@ -12,7 +12,7 @@ import type { Listing } from '../core/listings'
 import { step } from '../core/step'
 import { certificateUnlocked, ticksUntilWorkers, workerActivity, type WorkerTarget, type WorkTouch } from '../core/workers'
 import { SAVE_KEY, PRESTIGE_BACKUP_KEY, RESET_BACKUP_KEY, commitImport, loadGame, saveGame, wallClock, type ImportResult } from '../save/storage'
-import { encodeSave } from '../save/codec'
+import { encodeSaveCompact } from '../save/codec'
 import { SAVE_VERSION, type Save, awayText, catchUp, offlineTicks, serialize } from '../save/serialize'
 import { onForeignSaveEvent } from './crossTab'
 import { gain } from './fmt'
@@ -265,15 +265,15 @@ export function useGame() {
     setBanner(null)
   }, [commit, showToast])
 
-  // 💾 Data export: the LIVE run as a TILES1 code (the stored save lags by up to a second, so it is written too)
-  const exportCode = useCallback(() => {
+  // 💾 Data export: the LIVE run as a TILES2 code (the stored save lags by up to a second, so it is written too)
+  const exportCode = useCallback(async () => {
     const save: Save = { version: SAVE_VERSION, savedAtMs: wallClock(), state: stateRef.current }
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify(save))
     } catch {
       // storage blocked: the code still carries the live run
     }
-    return encodeSave(save)
+    return encodeSaveCompact(save)
   }, [])
 
   // 💾 Data import: the codec already migrated the pasted save in memory; back the live run up, freeze every
