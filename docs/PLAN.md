@@ -144,4 +144,8 @@ targeted tests green under 12 busy processes. No `src/**` file touched except th
 - The CHANGELOG line is a "Behind the scenes" one (batch 35.1 precedent): nothing a player sees changed, but
   tests/changelog.test.ts requires an entry for every `## Batch N results`. It was missed on the first full run on the
   rebased tree (1 failed: changelog) and added in 277.
+- Merged main again after PR #1 (the batch 38 live check, fd9cd8f) landed: one conflict in docs/archive/PLAN-history.md
+  — its "### Hermes live check" section and this batch's archived Batch 39 both appended after Batch 38's Deviations;
+  resolved by keeping the live check under Batch 38, then Batch 39. The merge adds its 4 appCss pins: merged tree
+  1439 passed + 0 expected fail, 74 files, 592 s; lint and build clean.
 - The thread brief said "~11 it.fails"; the tree had 6 (batch 37 / 37.1 had already deleted the rest).

@@ -121,7 +121,7 @@ describe('app.css Farm panel rhythm (batch 36.7)', () => {
     expect(css).toMatch(/\.expand-h\s*{[^}]*font-size: 15px;[^}]*margin: 0;/s)
     expect(css).toMatch(/\.recipe-row-boxed\s*{[^}]*border: 1px solid #eee;[^}]*background: #faf8f4;/s)
     expect(css).toMatch(/\.estate-machines\s*{[^}]*margin-top: var\(--s4\);/s)
-    expect(css).toMatch(/\.vein-drops\s*{[^}]*grid-template-columns: repeat\(auto-fill, minmax\(84px, max-content\)\);/s)
+    expect(css).toMatch(/\.vein-drops\s*{[^}]*display: flex;[^}]*flex-wrap: wrap;/s)
     expect(css).toMatch(/\.vein-drop\s*{[^}]*white-space: nowrap/s)
     expect(css).toMatch(/\.seam-row\s*{[^}]*display: flex;[^}]*gap: var\(--s1\) var\(--s2\);/s)
     expect(css).toMatch(/\.mine-furnace-actions button\[aria-pressed='true'\]\s*{[^}]*background: #c8e6c9;/s)
@@ -205,5 +205,29 @@ describe('app.css three-section layout (batch 38)', () => {
     expect(css).toMatch(/\.rock-off\s*{[^}]*filter: grayscale\(0\.6\);[^}]*opacity: 0\.7;/s)
     expect(css).toMatch(/\.info-btn\s*{[^}]*min-height: 44px;[^}]*min-width: 44px;/s)
     expect(css).toMatch(/\.order-x\s*{[^}]*min-width: 44px;[^}]*min-height: 44px;/s)
+  })
+})
+
+describe('app.css live-check fixes after batch 38 (Chromium at 375 / 768 / 1024 / 1440)', () => {
+  it('the vein drop line is a wrapping flex row, not an auto-fill grid that spilled 22 px at 375', () => {
+    expect(css).not.toMatch(/\.vein-drops\s*{[^}]*display: grid/s)
+    expect(css).toMatch(/\.vein-drops\s*{[^}]*display: flex;[^}]*flex-wrap: wrap;/s)
+  })
+
+  it('phones keep the HUD on one row: 4 px column gap and 14 px text below 768', () => {
+    expect(css).toMatch(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.hud\s*\{[^}]*column-gap: var\(--s1\);[^}]*font-size: 14px;/s)
+  })
+
+  it('unselected menu tabs are icon-only at every width, not only inside the >=1024 block', () => {
+    const outside = css.replace(/@media \(min-width: 1024px\)\s*\{(?:[^{}]*\{[^}]*\})*[^{}]*\}/g, '')
+    expect(outside).toMatch(/\.menu-tabs button:not\(\[aria-selected='true'\]\) \.tab-name\s*\{[^}]*clip-path: inset\(50%\);/s)
+    // phones: the open tab goes icon-only too (its name only ever showed as "🌾 …" in the 319 px drawer)
+    expect(css).toMatch(/@media \(max-width: 767px\)\s*\{[\s\S]*?\.menu-tabs \[aria-selected='true'\] \.tab-name\s*\{[^}]*clip-path: inset\(50%\);/s)
+  })
+
+  it('seam aim buttons, the miner zone picker and the auto-buy label meet the 44 px touch floor', () => {
+    expect(css).toMatch(/\.seam-row button\s*\{[^}]*min-width: 44px;/s)
+    expect(css).toMatch(/\.mine-miners select\s*\{[^}]*min-height: 44px;/s)
+    expect(css).toMatch(/\.pouch-auto > label\s*\{[^}]*min-height: 44px;/s)
   })
 })
