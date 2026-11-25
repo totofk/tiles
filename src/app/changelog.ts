@@ -4,6 +4,7 @@
 export type ChangelogEntry = { batch: string; date: string; line: string }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  { batch: '40', date: '2026-11-25', line: "Behind the scenes: the game's automated checks got steadier and stricter, so updates ship with fewer false alarms. Nothing changes in play." },
   { batch: '39', date: '2026-11-25', line: '📎 Feedback reports now attach a save code about 4× shorter, and 💾 Data can open any save as a replay in a new tab without touching yours.' },
   { batch: '38', date: '2026-11-25', line: '🖥️ New screen: one main view with 🌱 Farm, 🚜 Estate and ⛏️ Mine tabs; Shop, Upgrades, Bank and Stats moved to the side menu (☰ on phones).' },
   { batch: '37.1', date: '2026-11-24', line: '⛏️ Mine floors are now 4×4: 16 rocks per floor, and bigger rocks on wide screens.' },

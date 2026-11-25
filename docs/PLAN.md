@@ -52,7 +52,7 @@ no branch ceremony yet).
 
 ## Archive
 Finished batches live in `docs/archive/PLAN-history.md`: every batch plan, `## Batch N results` and `### Deviations`
-for batches 1–37.1, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
+for batches 1–39, plus the big-farm roadmap. Lines 1–7436 of that file are the old `docs/PLAN.md` line for line, so a
 `PLAN.md:N` citation from before 2026-11-14 points at the same line there. References like PLAN.md "Batch 24 results"
 in tests and `docs/DECISIONS.md` resolve there too.
 
@@ -63,67 +63,89 @@ cites, or `grep -n '^## Batch N'` and read that range.
 New batch plans are appended below, and workers write `## Batch N results` + `### Deviations` at the end of this file.
 After a batch is pushed, Hermes moves its plan and results to the end of the archive.
 
-## Batch 39 — 📎 Save-attach finished: TILES2 codes + `#replay=` (tasks 268–272, save stays v38)
+## Batch 40 — 🧪 Flaky timing tests + the it.fails review (tasks 273–277, tests only, save stays v38)
 
-Why: IDEAS.md #1. Batch 23.1 already attaches a TILES1 code to every 💬 Feedback report, but the code is uncompressed,
-and importing it to debug overwrote the developer's save and ran the offline catch-up from the report's `savedAtMs`,
-so the report state was not the state on screen. Toon picked option A (2026-11-25, thread "Attach saves to feedback
-reports"). Context: `docs/DECISIONS.md:1582-1614` "Batch 39 refined".
+Why: Toon (2026-11-25): tests time out (~5 s) or fail the PIN28perf timing check under the full parallel run and pass
+on rerun (batches 30, 36.x, 37, 37.1 each recorded one in Deviations); review the `it.fails` tests. Decisions:
+`docs/DECISIONS.md` "Batch 40 refined" D1–D5.
 
-Hard guards: no `src/core` or `balance.ts` change; SAVE_VERSION stays 38 (envelope only, no shape change); every past
-code fixture (code-v13…v19) and the legacy plain base64 still decode; the player's own save is never written by a replay.
+Hard guards: no `src/**` change but the CHANGELOG line (no game rule, balance number or save change; SAVE_VERSION
+stays 38); no sim number re-pinned except the ones the it.fails conversions name; no test skipped or deleted to get
+green.
 
-Anchors: measured on `be21283` (origin/main after batch 38). Worker: Claude (project thread), no browser.
+Anchors: measured on be21283 (origin/main after batch 38); rebased onto 6828bd3 (main after batch 39, tasks 268–272,
+the feedback save) before commit. Batch 39 is archived in this batch's first commit.
 
-## Tasks (268–272)
+## Tasks (273–277)
 
-- [x] 268. **Codec: TILES2** (`src/save/codec.ts`). `encodeSaveCompact` (async, :152) = deflate-raw through
-  CompressionStream, base64url, CRC32 over the text, falls back to TILES1 without CompressionStream. `decodeImport`
-  (:226) becomes async and accepts TILES2 / TILES1 / legacy. New tag `unsupported`. Inflate capped at
-  `MAX_INFLATED_BYTES` (:101) → `corrupt`. `encodeSave` (TILES1, sync) stays for the fallback and the frozen
-  fixtures. New fixture `tests/fixtures/code-v38.txt`.
-- [x] 269. **Writers use TILES2.** 💬 FeedbackCard's context is async and attaches `encodeSaveCompact`. 💾 Data
-  `exportCode` returns `Promise<string>` (useGame, panelTabs, DataModal). DataModal "Check save" awaits the decode and
-  has an `unsupported` message.
-- [x] 270. **Replay mode.** `src/app/replay.ts` (hash parse without URLSearchParams, because legacy codes carry `+`;
-  `replayUrl`, `withoutHash`). `src/app/Root.tsx` is the boot switch (loading / failed / App) and `main.tsx` renders it.
-  `useGame(replay)` (:201) uses `memoryStore` (`storage.ts:25`) for every write, `replayBoot` (:191) skips the catch-up,
-  the storage listener and the hidden-tab catch-up are off, and a Data import replaces the run in memory. App shows the
-  violet `.banner-replay` with Exit replay and never writes `tiles.ui`. DataModal adds **Open as replay** (new tab,
-  `noopener`) under the confirm card.
-- [x] 271. **Tests.** codec (+7: TILES2 round-trip of every fixture, ≥3× shorter on v37, frozen code-v38 decode, a
-  Node-zlib code decodes, prefixes/damage/non-deflate, newer-version, inflate bomb, no-Compression fallback);
-  tests/replay.test.tsx (new, 6: hash parse, URL helpers, Root replay / old-version / damaged / off); useGame (+2:
-  sandbox never writes localStorage, no catch-up or freeze, import in memory); DataModal (+1: TILES2 check + Open as
-  replay). The existing async callers were re-aimed: codec, feedback, FeedbackCard, DataModal, App, BankTab, StatsPanel.
-- [x] 272. **Docs + CHANGELOG.** DECISIONS entry, IDEAS #1 marked shipped, 🗺 Roadmap drops idea 1 (and "Save-attach
-  first" from the order note), CHANGELOG line (137 code points):
-  `📎 Feedback reports now attach a save code about 4× shorter, and 💾 Data can open any save as a replay in a new tab without touching yours.`
+- [x] 273. **Perf pins on CPU time.** New `tests/sim/cpuTime.ts` `cpuMs(run)` (process.cpuUsage user + system).
+  The six `Date.now()` timings become `cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))`: fields.test.ts PIN28perf
+  (×3, it.each), PIN18g (1,000 tiles), PIN19e (3,000 tiles); prestige-crops.test.ts PIN22d (1,920 tiles). Bar stays
+  2,000 ms; titles say "ms of CPU".
+- [x] 274. **Suite timeout.** vite.config.ts top-level `testTimeout: 20_000` (both projects inherit it); manager.test.ts's
+  own 20 s override goes (now the default).
+- [x] 275. **Price it.fails → waived-target pins** (fields.test.ts): FIELDS_CASH < 0.35 h (measured 0.12 h, income
+  > 0); a gap > 60 game-min remains Tractor → Pump 2 (measured 347 min, pump2 > tractor); exactly one of the five
+  machine rows < 0.35 h (seeder1, measured 0.19 h).
+- [x] 276. **Wetlands bot + open shortfalls.** bot.ts WETLANDS_LADDER puts `tiles13` first (tile index 12 is outside
+  the bank beds, so the bot can water by hand and unlock the water tool). districts.test.ts PIN36h becomes a measured
+  pin of the new result; market-orders.test.ts's two ⭐/h ≥ 80 `it.fails` become "known shortfall" pins.
+- [x] 277. The CHANGELOG line (src/app/changelog.ts, the batch-35.1 "Behind the scenes" precedent), this section's
+  results + Deviations; DECISIONS "Batch 40 refined".
 
-## Batch 39 results
+## Batch 40 results
 
-- Codes: save-v37.json (11,072 B) → TILES1 14.8 kB, TILES2 3,451 B (`code-v38.txt`). Node's `zlib.inflateRawSync`
-  independently inflates code-v38 to the v38 JSON.
-- Full suite (`pnpm test`, unit + sim) on the final tree: 74 files, 1429 passed + 6 expected fail (1435). Batch 38 ended
-  at 1419, so +16: codec +7, replay +6, useGame +2, DataModal +1. The run took 745 s. No sim number moved.
-- Unit suite before each task commit: fd231e3 1180 → 9ada2f7 1187 → ec3a41f 1196, all green. Lint and `tsc -b` were
-  clean at every commit. Build clean (454.7 kB JS / 145.1 kB gzip), and dist was deleted after.
-- No `src/core`, `balance.ts` or save-shape change. SAVE_VERSION stays 38, and every past code fixture decodes unchanged.
-- Commits: fd231e3 plan (archive batch 38, DECISIONS, tasks) · 9ada2f7 268+269 codec + writers · ec3a41f 270 replay ·
-  this one 272 (CHANGELOG, Roadmap, IDEAS, results). 271's tests landed with each task.
-- Shipped as a PR from `claude/project-thread-gtw22f`, merged to main on Toon's go ("เปิด pr มาแล้วกด merge ไป main
-  เองมั้ย"). Cloud threads cannot push to main directly.
+Root cause (measured on be21283, a 4-core container): every flake is an absolute wall-clock bar. Quiet: two full runs
+1413 passed + 6 expected fail, 528 s, no flake; the six offline perf pins 0.83–1.04 s (bar 2,000 ms, ~2× headroom); the
+heavy unit tests 0.6–1.2 s (Vitest's 5 s default). Load repro (12 busy node processes on 4 cores — the load an agent box
+or a parallel build adds): the perf pins read 4.1–6.2 s and failed (5 of 5 run), the Manager 8 h test 5.3 s, relics
+PIN36l 3.6 s. A probe of the same catch-up read wall 4.1–6.6 s but `process.cpuUsage()` 1.0–1.8 s. Why the suite is
+exposed: `fields.test.ts` collects its ladder runs (~75 s at describe scope) while the 64 unit files fill every core.
+
+- 273 (d88360f): `tests/sim/cpuTime.ts` `cpuMs(run)`; PIN28perf ×3, PIN18g, PIN19e (fields.test.ts) and PIN22d
+  (prestige-crops.test.ts) time `catchUp` in CPU ms. Under the same 12-process load: PIN28perf 952 / 1,154 / 1,262,
+  PIN18g 1,149, PIN19e 1,357, PIN22d 1,119 ms — all under 2,000 ms (were 4.1–6.2 s wall).
+- 274 (1c66714): `testTimeout: 20_000` at the top of vite.config.ts `test` (both projects). Under load the PIN28perf / PIN19e
+  tests' step-identity half took 6.2–6.6 s and hit the 5 s default once the CPU bar was fixed — why it is suite-wide,
+  not unit-only as first planned. manager.test.ts's own 20 s override folded into the default.
+- 275 (4336553): fields.test.ts's three price `it.fails` → "waived target (price(s) LOCKED)" pins: FIELDS_CASH / income < 0.35
+  with income > 0; longest Tractor → Pump 2 gap > 60 game-min with pump2 > tractor; exactly one of the 5 machine rows
+  < 0.35 h (seeder1).
+- 276 (c49741d): bot.ts WETLANDS_LADDER = WETLANDS_GOALS with `tiles13` moved first. PIN36h before: Wetlands null at 24 h
+  (deadlock at copper:water, 0 waters). After: **Wetlands reaches the Fields at 4.64 h vs plain10 7.39 h (−37 %)**,
+  out of band on the fast side → pinned as measured (`< −20 %`, both non-null). market-orders.test.ts's cert ⭐/h ≥ 80
+  and accept-all ⭐/h ≥ 80 `it.fails` → "known shortfall" pins (cert 0 < ⭐/h < 80; all ⭐0/h and 0 contracts).
+- Plan commit 344b997 (archive batch 39 + DECISIONS "Batch 40 refined").
+- 277 (this commit): the CHANGELOG line (139 code points, "Behind the scenes…"); results + Deviations; DECISIONS
+  "Batch 40 refined" D1–D5 landed with the plan commit.
+
+Final gates (rebased tree on 6828bd3, Batch 39 in): 74 files, **1435 tests, 0 expected fail** (main had 1429 + 6).
+Full run: 1434 passed + 1 failed (changelog.test.ts: no Batch 40 entry), 541 s, no timing flake; after 277's CHANGELOG
+line the changelog file re-ran green (only the failing file was re-run). Before the rebase (be21283): 1419 passed + 0
+expected fail (was 1413 + 6), 522 s. Lint clean; build clean (97 modules); dist deleted. Load repro after the fix: 9 / 9
+targeted tests green under 12 busy processes. No `src/**` file touched except the CHANGELOG line; SAVE_VERSION stays
+38; no sim number moved except PIN36h (null → 4.64 h, the deadlock fix).
 
 ### Deviations
 
-- **The full suite ran once, on the final tree, not before every commit.** It takes about 12 min in this container. The
-  unit project, lint and `tsc -b` ran on every intermediate tree. The sim inputs (src/core, balance.ts) are untouched.
-- **268 and 269 share one commit (9ada2f7).** The async `decodeImport` does not compile without its callers. This
-  follows the batch-37.1 259/260 and batch-38 262/263 precedent.
-- **Replay is on the live build too.** This shipped as Claude's guess, and Toon confirmed it after the merge (2026-11-25).
-  DECISIONS says how to make it dev-only.
-- **The Data modal inside a replay** still reads the device's stored `savedAtMs` for its "This device → Saved" cell.
-  Display only, and nothing is written, so it was left as is.
-- **Encode is not byte-pinned for TILES2** (only decode). TILES1 still is. Reason: deflate output can differ by engine.
-- **No browser this session.** The banner colour, the new-tab open and a real Google Form send of a TILES2 report are
-  unverified. Hermes: send one 💬 report from the live build, then open its `Save code:` with `#replay=`.
+- Developed on be21283 in parallel with Batch 39, then rebased onto main after Batch 39 merged (6828bd3): the first
+  commit archives Batch 39. The measurements above are from be21283; Batch 39 touched no sim, balance or core file, and
+  the final full suite was re-run on the rebased tree (Final gates above).
+- The full suite ran on the final tree and on the first tree (before the 274 widening), not before every task commit:
+  each run is ~9 min here and tasks 273–276 touch tests only; each task's own files were run on their own and under the
+  load repro.
+- PIN36h is a real finding, not just a test change: with the bot deadlock gone, the no-mine Wetlands ladder reaches the
+  Fields 37 % faster than plain10. Per DECISIONS "Batch 36.3 refined" item 14 nothing is tuned here; whether the barge
+  prices / bank beds need a balance pass is Toon's call (a future batch).
+- The two market shortfalls stay open (DECISIONS D5): on the live v28 save 3 of 4 slots hold ironBar / coal orders that
+  storage (full 120 / 120) never feeds and a potato order the fields cannot sow; nothing ever discards them.
+- `cpuMs` counts GC helper threads, so a quiet reading can sit a little above the wall time (probe: 1,529 CPU vs 1,152
+  wall on the first, unwarmed iteration). It is only valid under the default `forks` pool (noted in the helper).
+- The CHANGELOG line is a "Behind the scenes" one (batch 35.1 precedent): nothing a player sees changed, but
+  tests/changelog.test.ts requires an entry for every `## Batch N results`. It was missed on the first full run on the
+  rebased tree (1 failed: changelog) and added in 277.
+- Merged main again after PR #1 (the batch 38 live check, fd9cd8f) landed: one conflict in docs/archive/PLAN-history.md
+  — its "### Hermes live check" section and this batch's archived Batch 39 both appended after Batch 38's Deviations;
+  resolved by keeping the live check under Batch 38, then Batch 39. The merge adds its 4 appCss pins: merged tree
+  1439 passed + 0 expected fail, 74 files, 592 s; lint and build clean.
+- The thread brief said "~11 it.fails"; the tree had 6 (batch 37 / 37.1 had already deleted the rest).

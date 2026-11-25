@@ -633,13 +633,19 @@ describe('batch 35.3: scenario B — the v28 fixture, migrated, 2 game-hours acc
   })
 
   // 3 of the 4 slots stay on the save's accepted ironBar / coal orders, which storage (full) never feeds (Deviations)
-  it.fails('cert (certRun policy): ⭐/h ≥ 80 — measured ⭐44/h', () => {
-    expect(r.cert.active.stars).toBeGreaterThanOrEqual(80)
+  // batch 40 (task 276): was it.fails on ⭐/h ≥ 80, which also passed on any crash — pinned as measured (open, see
+  // PLAN.md "Batch 40 results" Deviations: orders the save can never feed are never discarded)
+  it('known shortfall: cert (certRun policy) ⭐/h is above 0 but under the plan\'s 80 — measured ⭐44/h', () => {
+    expect(r.cert.active.stars).toBeGreaterThan(0)
+    expect(r.cert.active.stars).toBeLessThan(80)
   })
 
   // the plan's accept-all on the live save jams: its 4 accepted v28 offers (ironBar / coal with storage full at 120 /
   // 120 and coal going to the tank, a potato order the fields cannot sow) never finish and nothing is discarded (Deviations)
-  it.fails('all (the plan\'s accept-all): ⭐/h ≥ 80 — measured ⭐0/h, 0 new contracts', () => {
-    expect(r.all.active.stars).toBeGreaterThanOrEqual(80)
+  // batch 40 (task 276): was it.fails on ⭐/h ≥ 80, which also passed on any crash — pinned as measured (open, same
+  // Deviation as above)
+  it('known shortfall: all (the plan\'s accept-all) jams — measured ⭐0/h, 0 new contracts', () => {
+    expect(r.all.active.stars).toBe(0)
+    expect(r.all.contracts).toHaveLength(0)
   })
 })

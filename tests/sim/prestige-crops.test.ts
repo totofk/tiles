@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { cpuMs } from './cpuTime'
 import { CROP_IDS, type CropId } from '../../src/core/data/crops'
 import { cropFloor } from '../../src/core/market'
 import {
@@ -425,11 +426,9 @@ describe('batch 22: four new crops — license ladder, price band, 8-crop mixes,
     expect(eight[1000]).toBeGreaterThan(four[1000])
   })
 
-  it('8 h offline with 1,920 tiles across all 8 crops (240 of each), the full fleet and pipes: < 2,000 ms, step identity', () => {
+  it('8 h offline with 1,920 tiles across all 8 crops (240 of each), the full fleet and pipes: < 2,000 ms of CPU, step identity', () => {
     const big = forge(1_920, CROP_IDS)
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN22d', JSON.stringify({ ms }))
     expect(ms).toBeLessThan(2000)
     let one = big

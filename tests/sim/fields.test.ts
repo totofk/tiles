@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { cpuMs } from './cpuTime'
 import { CROP_IDS, type CropId, type ListingSoil } from '../../src/core/data/crops'
 import {
   certificateCost,
@@ -157,13 +158,11 @@ describe('batch 28: 8 h offline on plots — perf and step identity (task 146g)'
     [100, 3, ['pumpkin', 'eggplant', 'corn', 'radish'] as CropId[]],
     [192, 3, CROP_IDS],
     [300, 3, CROP_IDS],
-  ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms, step(s, n) identity', (plots, pump, split) => {
+  ])('%i plots (60 fields max, 20 pivoted at Pump %i), the full fleet: 8 h < 2,000 ms of CPU, step(s, n) identity', (plots, pump, split) => {
     const forged = forgePlots(base, plots * plotTiles(), pump, split, 1_000_000)
     const big = { ...forged, run: { ...forged.run, fields: { ...forged.run.fields, machines: { harvester: [1, 2, 3], seeder: [1, 2], carry: { harvest: 0, plant: 0, maint: 0, rigFee: 0 }, rigs: [] } } } }
     expect(big.run.fields.list.filter((f) => f.pivot)).toHaveLength(Math.min(20, Math.ceil(plots / 5)))
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN28perf', { plots, ms })
     expect(ms).toBeLessThan(2000)
     let one: GameState = big
@@ -394,10 +393,13 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
   // measured batch 28: FIELDS_CASH 💰10,000 ÷ 💰102,773/h (unlock → pivot 2) = 0.10 h — the price is LOCKED (PLAN.md
   // "Batch 28 results" Deviations). Batch 32.2: 💰10,000 ÷ 💰86,394/h = 0.12 h (was 0.10) — workers do one tile per
   // action on the Estate
-  it.fails('pinned: FIELDS_CASH is 0.35–1.5 h of the income at its unlock — measured 0.12 h', () => {
+  // batch 40 (task 275): was it.fails on the 0.35 h bar, which also passed on any crash; the price is LOCKED, so the
+  // waived target is pinned as measured — this goes red if the run breaks, or if the income ever drops into the band
+  it('waived target (price LOCKED): FIELDS_CASH stays under the 0.35 h band of the income at its unlock — measured 0.12 h', () => {
     const price = fieldsCost(end.meta).cash
     console.log('PIN18f', [price, Math.round(fieldsIncome), Math.round((price / fieldsIncome) * 100) / 100])
-    expect(price / fieldsIncome).toBeGreaterThanOrEqual(0.35)
+    expect(fieldsIncome).toBeGreaterThan(0)
+    expect(price / fieldsIncome).toBeLessThan(0.35)
   })
 
   it('pinned: FIELDS_CASH rounds to 💰500; plot, pivot and pump prices follow the batch-28 rule', () => {
@@ -418,12 +420,10 @@ describe('batch 18: fields — the ladder to 100 fields, income vs N, payback, p
     expect(ladder.miningCashPerEnergy).toBeLessThan(0.9 * ladder.farmingCashPerEnergy)
   })
 
-  it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms, step(s, n) identity', () => {
+  it('8 h offline with 1,000 tiles across 4 crops, 2 planters + 2 harvesters + pipes: < 2,000 ms of CPU, step(s, n) identity', () => {
     const forged = forge(end, 1000, 3, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN18g', { ms })
     expect(ms).toBeLessThan(2000)
     let one = big
@@ -729,7 +729,9 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
   // plot, pivot, pump and machine purchase as a mark — the longest gap left is seeder1 (2,388 min) → pump2 (2,621 min),
   // saving for Pump 2; prices LOCKED. Batch 32.2: 347 min from game-minute 4,431 (was 232) — workers do one tile per
   // action on the Estate
-  it.fails('batch 28: no gap over 60 game-minutes from the Tractor to Pump 2 (milestones, ladder rungs, every plot / pivot / pump / machine bought) — measured 347 min', () => {
+  // batch 40 (task 275): was it.fails on the 60-min bar, which also passed on any crash (e.g. pump2 never reached);
+  // prices are LOCKED, so the waived target is pinned as measured
+  it('waived target (prices LOCKED): a gap over 60 game-minutes remains from the Tractor to Pump 2 (milestones, ladder rungs, every plot / pivot / pump / machine bought) — measured 347 min', () => {
     const tractor = end.run.milestones.fieldsUnlocked!
     const pump2 = r.win.pump2!
     const ticks = [
@@ -744,7 +746,8 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     const longest = Math.max(0, ...gaps)
     const from = ticks[gaps.indexOf(longest)]!
     console.log('PIN28a', { tractorMin: Math.round(tractor / 60), pump1Min: Math.round(r.win.pump1! / 60), pump2Min: Math.round(pump2 / 60), marks: ticks.length, longestMin: Math.round(longest / 60), longestFromMin: Math.round(from / 60) })
-    expect(longest).toBeLessThanOrEqual(HOUR_TICKS)
+    expect(pump2).toBeGreaterThan(tractor)
+    expect(longest).toBeGreaterThan(HOUR_TICKS)
   })
 
   it('batch 28: something (plot, pivot, pump or machine) becomes buyable at every pump cap the ladder reaches', () => {
@@ -888,8 +891,12 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
   // pressured plots lift the income at the machine rungs, prices untouched (PLAN.md "Batch 28 results" Deviations)
   // batch 32.2: 0.54 / 0.19 / 0.96 / 0.57 / 0.57 h (was 0.14 / 0.12 / 0.47 / 0.33 / 0.46) — workers do one tile per
   // action on the Estate, so the income at each machine rung is lower; seeder1 still fails the bar
-  it.fails('pinned: every machine cash price is ≥ 0.35 h of the ladder bot income — measured 0.54 / 0.19 / 0.96 / 0.57 / 0.57 h', () => {
-    for (const [price, income] of machineRows()) expect(price / income).toBeGreaterThanOrEqual(0.35)
+  // batch 40 (task 275): was it.fails on "every machine ≥ 0.35 h", which also passed on any crash; prices are LOCKED,
+  // so the waived target is pinned as measured — seeder1 is the one row under the bar
+  it('waived target (prices LOCKED): one machine cash price is under 0.35 h of the ladder bot income — measured 0.54 / 0.19 / 0.96 / 0.57 / 0.57 h', () => {
+    const rows = machineRows()
+    expect(rows).toHaveLength(5)
+    expect(rows.filter(([price, income]) => price / income < 0.35)).toHaveLength(1)
   })
 
   it('the coal budget with machines (re-pinned batch 26): machines and beds are coal-free, the miner covers the pipes', () => {
@@ -900,12 +907,10 @@ describe('batch 19: machines — the ladder to harvester3, income vs workers, pa
     expect(pipeDraw).toBeLessThan(r.coalMinedPerHour)
   })
 
-  it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms, step(s, n) identity', () => {
+  it('8 h offline with 3,000 tiles, the full fleet and pipes: < 2,000 ms of CPU, step(s, n) identity', () => {
     const forged = forge(3000, FLEETS.full, ['pumpkin', 'eggplant', 'corn', 'radish'])
     const big = { ...forged, run: { ...forged.run, workers: { ...forged.run.workers, assigned: { plant: 2, water: 0, harvest: 2, ore: 0, fuel: 1, mine: 1, clerk: 0, manager: 0, stoker: 0 } } } }
-    const t0 = Date.now()
-    catchUp(big, 8 * HOUR_TICKS * 1000)
-    const ms = Date.now() - t0
+    const ms = cpuMs(() => catchUp(big, 8 * HOUR_TICKS * 1000))
     console.log('PIN19e', { ms })
     expect(ms).toBeLessThan(2000)
     let one = big

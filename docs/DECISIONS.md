@@ -1612,3 +1612,30 @@ replay mode; B = replay only, no compression; C = A with the `fflate` dependency
 - **Replay is on the live Pages build, not dev-only.** Toon confirmed it after the merge (2026-11-25, "งั้นก็รับตามคุณว่าแหละ"). Reasons: Hermes
   checks on the live build, and a player can try a save without losing their own. To make it dev-only, gate
   `replayCodeFromHash` on `import.meta.env.DEV` and hide the button.
+
+## Batch 40 refined (2026-11-25, flaky timing tests + the it.fails review; tests only, save stays v38)
+
+Ask (Toon, 2026-11-25, project thread "Fix the flaky tests"): find why tests time out (~5 s) or fail the PIN28perf
+timing check under the full parallel run but pass on rerun, fix it, and review the `it.fails` tests. Toon picked the
+"Pragmatist" option ("เอาตามคุณแนะนำไปก่อนละกัน"). Worker: a Claude Code cloud thread (branch
+`claude/project-thread-xj0wpw`, PR instead of a push to main).
+
+Root cause (measured on a 4-core container, PLAN.md "Batch 40 results"): every flaky assertion is an absolute
+wall-clock bar. Quiet, the 6 offline perf pins take 0.83–1.04 s against a 2,000 ms bar and the heavy unit tests 0.6–1.2 s
+against Vitest's 5 s default; with the CPU oversubscribed (12 busy processes) the perf pins read 4.1–6.2 s and the
+Manager test 5.3 s, while `process.cpuUsage()` of the same catch-up stays at 1.0–1.8 s.
+
+- D1. The perf pins measure CPU time, not wall-clock: `tests/sim/cpuTime.ts` `cpuMs(run)` (process user + system ms,
+  valid under the default `forks` pool). The 2,000 ms bar is unchanged.
+- D2. `testTimeout` is 20 s for both projects (the batch-30 Manager precedent, now suite-wide: the sim perf pins'
+  step-identity half timed out at 5 s under load too); per-test longer timeouts stay where they are.
+- D3. `it.fails` is retired as the way to record a measured shortfall: it also passes when the test throws for any
+  other reason (a TypeError, a run that never reaches its milestone), so a crash hid behind it. A waived or open target
+  is pinned as measured instead (assert the measured side of the bar, plus the inputs being real), named "waived
+  target" (a LOCKED price) or "known shortfall" (open). This replaces the `it.fails` step of item 14 in "Batch 36.3
+  refined" and the "marks it `it.fails`" rule of "Batch 36.6 refined" for new work: a fallback that fails now lands as a
+  measured pin + a Deviation.
+- D4. The Wetlands sim ladder buys tile 13 first (the bot-ladder deadlock PIN36h recorded in batch 36.3 is a bot
+  bug). No game rule, balance number or save change.
+- D5. The two market ⭐/h shortfalls (orders the live save can never feed are never discarded) are noted, not fixed:
+  game-side work for its own batch.
