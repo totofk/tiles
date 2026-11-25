@@ -1609,6 +1609,6 @@ replay mode; B = replay only, no compression; C = A with the `fflate` dependency
   the hash). A 💾 Data import inside a replay replaces the replayed run in memory, because a reload would reopen the
   hash. The developer flow: copy the report's `Save code:` line, then either open `<site>#replay=<code>` or use 💾 Data
   → Check save → **Open as replay** (a new tab).
-- **Replay is on the live Pages build, not dev-only.** This is Claude's guess, waiting on Toon's call. Reasons: Hermes
+- **Replay is on the live Pages build, not dev-only.** Toon confirmed it after the merge (2026-11-25, "งั้นก็รับตามคุณว่าแหละ"). Reasons: Hermes
   checks on the live build, and a player can try a save without losing their own. To make it dev-only, gate
   `replayCodeFromHash` on `import.meta.env.DEV` and hide the button.

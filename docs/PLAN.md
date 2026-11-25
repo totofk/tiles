@@ -120,7 +120,8 @@ Anchors: measured on `be21283` (origin/main after batch 38). Worker: Claude (pro
   unit project, lint and `tsc -b` ran on every intermediate tree. The sim inputs (src/core, balance.ts) are untouched.
 - **268 and 269 share one commit (9ada2f7).** The async `decodeImport` does not compile without its callers. This
   follows the batch-37.1 259/260 and batch-38 262/263 precedent.
-- **Replay is on the live build too.** This is a guess, not yet confirmed by Toon. DECISIONS says how to make it dev-only.
+- **Replay is on the live build too.** This shipped as Claude's guess, and Toon confirmed it after the merge (2026-11-25).
+  DECISIONS says how to make it dev-only.
 - **The Data modal inside a replay** still reads the device's stored `savedAtMs` for its "This device → Saved" cell.
   Display only, and nothing is written, so it was left as is.
 - **Encode is not byte-pinned for TILES2** (only decode). TILES1 still is. Reason: deflate output can differ by engine.
